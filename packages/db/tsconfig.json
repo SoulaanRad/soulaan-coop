@@ -1,5 +1,15 @@
 {
-  "extends": "@acme/tsconfig/internal-package.json",
-  "include": ["src"],
-  "exclude": ["node_modules"]
+  "extends": "@repo/tsconfig/base.json",
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "preserveWatchOutput": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "strict": true
+  },
+  "include": ["index.ts", "prisma/seed.ts"]
 }

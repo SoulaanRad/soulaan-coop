@@ -1,0 +1,27 @@
+{
+  "name": "@repo/trpc",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "exports": {
+    ".": "./src/trpc.ts",
+    "./context": "./src/context.ts",
+    "./router": "./src/routers/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "@trpc/server": "catalog:",
+    "bcrypt": "^5.1.1",
+    "next": "catalog:",
+    "next-auth": "^4.24.11",
+    "superjson": "^2.2.2",
+    "zod": "catalog:"
+  }
+}

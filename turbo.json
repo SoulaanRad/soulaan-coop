@@ -43,6 +43,31 @@
     "ui-add": {
       "cache": false,
       "interactive": true
+    },
+    "db:generate": {
+      "env": ["DATABASE_URL", "DIRECT_URL"],
+      "inputs": ["prisma/schema.prisma"],
+      "cache": false
+    },
+    "db:push": {
+      "inputs": ["prisma/schema.prisma"],
+      "cache": false
+    },
+    "db:migrate-prod": {
+      "env": ["DATABASE_URL", "DIRECT_URL"],
+
+      "inputs": ["prisma/schema.prisma"],
+      "cache": false
+    },
+    "db:migrate": {
+      "env": ["DATABASE_URL", "DIRECT_URL"],
+
+      "inputs": ["prisma/schema.prisma"],
+      "cache": false
+    },
+    "db:studio": {
+      "inputs": ["prisma/schema.prisma"],
+      "cache": false
     }
   },
   "globalEnv": [
