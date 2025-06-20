@@ -8,7 +8,6 @@
     "directory": "dist"
   },
   "scripts": {
-    "build": "echo 'Starting build...' && tsup && echo 'Build completed!'",
     "seed": "ts-node --transpile-only prisma/seed.ts",
     "clean": "rm -rf .turbo node_modules",
     "db:generate": "prisma generate",
