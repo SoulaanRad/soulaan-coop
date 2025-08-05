@@ -15,6 +15,10 @@ Soulaan Co-op is a community-owned economic platform and digital wallet system. 
 - **Merchant POS:** Accept UC and track sales at local businesses.
 - **Community Dashboard:** Transparency into how community money is spent.
 
+### 📜 Important Documents
+
+- **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - Our founding principles, governance structure, and community guidelines
+
 ---
 
 ## 🏗️ Project Structure
@@ -135,7 +139,7 @@ pnpm dev              # Start all applications in development
 pnpm build            # Build all applications
 pnpm lint             # Lint all packages
 pnpm lint:fix         # Fix linting issues
-pnpm format           # Format code with Prettier
+pnpm format:fix       # Format code with Prettier
 pnpm typecheck        # Run TypeScript type checking
 ```
 
