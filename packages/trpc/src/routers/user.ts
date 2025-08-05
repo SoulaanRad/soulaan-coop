@@ -7,7 +7,7 @@ export const userRouter = router({
   // Public procedures
   getAllUsers: publicProcedure.query(({ ctx }) => {
     const context = ctx as Context;
-    return context.prisma.user.findMany();
+    return context.db.user.findMany();
   }),
     
   // Private procedures (require authentication)
@@ -17,7 +17,7 @@ export const userRouter = router({
     // For demo purposes, using a hardcoded ID:
     // const userId = "current-user-id";
     
-    // return ctx.prisma.user.findUnique({
+    // return ctx.db.user.findUnique({
     //   where: { id: userId }
     // });
   }),

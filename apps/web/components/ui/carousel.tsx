@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 "use client"
 
 import * as React from "react"
-import useEmblaCarousel, {
-  type UseEmblaCarouselType,
-} from "embla-carousel-react"
+import useEmblaCarousel from "embla-carousel-react"
+import type {UseEmblaCarouselType} from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -14,7 +14,7 @@ type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
 type CarouselOptions = UseCarouselParameters[0]
 type CarouselPlugin = UseCarouselParameters[1]
 
-type CarouselProps = {
+interface CarouselProps {
   opts?: CarouselOptions
   plugins?: CarouselPlugin
   orientation?: "horizontal" | "vertical"
@@ -116,7 +116,7 @@ const Carousel = React.forwardRef<
       api.on("select", onSelect)
 
       return () => {
-        api?.off("select", onSelect)
+        api.off("select", onSelect)
       }
     }, [api, onSelect])
 

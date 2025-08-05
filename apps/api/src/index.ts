@@ -2,7 +2,7 @@ import { trpcExpress } from "@repo/trpc/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
 import "dotenv/config";
-import type { Application } from "express";
+import type { Application, Request, Response } from "express";
 import express from "express";
 
 
@@ -15,8 +15,8 @@ app.use(cors({
 }));
 
 // Health check endpoint
-app.use("/health", (_, res) => {
-  return res.json({ status: "OK" });
+app.get("/health", (req, res) => {
+  res.json({ status: "OK" });
 });
 
 app.use('/trpc', trpcExpress)

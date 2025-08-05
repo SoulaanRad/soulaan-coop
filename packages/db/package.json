@@ -29,5 +29,8 @@
     "prisma": "^4.13.0",
     "typescript": "^5.0.4",
     "zod-prisma": "^0.5.4"
+  },
+  "exports": {
+    ".": "./dist/index.js"
   }
 }

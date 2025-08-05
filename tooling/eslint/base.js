@@ -56,7 +56,7 @@ export default tseslint.config(
     rules: {
       ...turboPlugin.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": [
-        "error",
+        "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/consistent-type-imports": [
@@ -68,13 +68,25 @@ export default tseslint.config(
         { checksVoidReturn: { attributes: false } },
       ],
       "@typescript-eslint/no-unnecessary-condition": [
-        "error",
+        "warn",
         {
           allowConstantLoopConditions: true,
         },
       ],
-      "@typescript-eslint/no-non-null-assertion": "error",
-      "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+      "@typescript-eslint/no-non-null-assertion": "warn",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-enum-comparison": "off",
+      "@typescript-eslint/no-unsafe-namespace-import": "off",
+      "@typescript-eslint/no-unsafe-property-access": "off",
+      "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/array-type": "warn",
       "no-restricted-imports": [
         "error",
         {

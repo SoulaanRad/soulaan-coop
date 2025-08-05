@@ -28,10 +28,9 @@ export function WaitlistForm({ source, variant = "hero", className = "" }: Waitl
       setResult(response)
 
       if (response.success) {
-        if (e.currentTarget) {
           // Reset form on success
-          e.currentTarget?.reset()
-        }
+          e.currentTarget.reset()
+        
       }
     } catch (error) {
       console.error("Error joining waitlist", error)
