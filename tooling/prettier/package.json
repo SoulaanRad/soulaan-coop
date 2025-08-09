@@ -21,6 +21,7 @@
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
     "@types/node": "^22.15.29",
+    "@types/minimatch": "^5.1.2",
     "typescript": "catalog:"
   }
 }
