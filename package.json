@@ -22,7 +22,7 @@
     "format:fix": "turbo run format --continue ",
     "lint": "turbo run lint --continue",
     "lint:fix": "turbo run lint --continue ",
-    "lint:ws": "pnpm dlx sherif@latest",
+    "lint:ws": "pnpm dlx sherif@latest -r unordered-dependencies",
     "postinstall": "pnpm lint:ws",
     "start": "turbo run start",
     "start:api": "pnpm -F @soulaan-coop/api start",

@@ -16,7 +16,7 @@
   },
   "scripts": {
     "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json}\" --ignore \"**/package.json\" --ignore-path ../../.gitignore",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json}\" --ignore-path ../../.gitignore",
     "lint": "eslint",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false",
     "ui-add": "pnpm dlx shadcn@latest add && prettier src --write --list-different"
