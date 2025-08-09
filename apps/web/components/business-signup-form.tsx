@@ -1,42 +1,44 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { submitBusinessSignup } from "@/actions/waitlist"
+import type React from "react";
+import { useState } from "react";
+import { submitBusinessSignup } from "@/actions/waitlist";
 
 export function BusinessSignupForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setResult(null)
+    e.preventDefault();
+    setIsSubmitting(true);
+    setResult(null);
 
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(e.currentTarget);
 
     try {
-      const response = await submitBusinessSignup(formData)
-      setResult(response)
+      const response = await submitBusinessSignup(formData);
+      setResult(response);
 
       if (response.success) {
         // Reset form on success
-        e.currentTarget?.reset()
+        e.currentTarget?.reset();
       }
     } catch (error) {
       setResult({
         success: false,
         message: "Error submitting business signup. Please try again.",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
-    <div className="bg-slate-700 border border-slate-600 rounded-lg overflow-hidden">
-      <div className="p-6 border-b border-slate-600">
+    <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700">
+      <div className="border-b border-slate-600 p-6">
         <div className="flex items-center gap-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -48,7 +50,7 @@ export function BusinessSignupForm() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="w-6 h-6 text-purple-400"
+            className="h-6 w-6 text-purple-400"
           >
             <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -56,17 +58,20 @@ export function BusinessSignupForm() {
             <path d="M2 7h20" />
             <path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" />
           </svg>
-          <h2 className="text-white text-xl font-semibold">Business Partnership Interest</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Business Partnership Interest
+          </h2>
         </div>
-        <p className="text-slate-300 text-sm mt-2">
-          Ready to accept Unity Coin and earn rewards? Tell us about your business and we'll get you started.
+        <p className="mt-2 text-sm text-slate-300">
+          Ready to accept Unity Coin and earn rewards? Tell us about your
+          business and we'll get you started.
         </p>
       </div>
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="ownerName" className="block text-white text-sm">
+              <label htmlFor="ownerName" className="block text-sm text-white">
                 Your Name *
               </label>
               <input
@@ -76,11 +81,11 @@ export function BusinessSignupForm() {
                 placeholder="John Smith"
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="ownerEmail" className="block text-white text-sm">
+              <label htmlFor="ownerEmail" className="block text-sm text-white">
                 Your Email *
               </label>
               <input
@@ -90,13 +95,13 @@ export function BusinessSignupForm() {
                 placeholder="john@yourbusiness.com"
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="businessName" className="block text-white text-sm">
+            <label htmlFor="businessName" className="block text-sm text-white">
               Business Name *
             </label>
             <input
@@ -106,12 +111,15 @@ export function BusinessSignupForm() {
               placeholder="Smith's Corner Store"
               required
               disabled={isSubmitting}
-              className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="businessAddress" className="block text-white text-sm">
+            <label
+              htmlFor="businessAddress"
+              className="block text-sm text-white"
+            >
               Business Address *
             </label>
             <input
@@ -121,13 +129,16 @@ export function BusinessSignupForm() {
               placeholder="123 Main St, Atlanta, GA 30309"
               required
               disabled={isSubmitting}
-              className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="businessType" className="block text-white text-sm">
+              <label
+                htmlFor="businessType"
+                className="block text-sm text-white"
+              >
                 Business Type *
               </label>
               <select
@@ -135,7 +146,7 @@ export function BusinessSignupForm() {
                 name="businessType"
                 required
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
               >
                 <option value="">Select business type</option>
                 <option value="restaurant">Restaurant/Food Service</option>
@@ -151,14 +162,17 @@ export function BusinessSignupForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <label htmlFor="monthlyRevenue" className="block text-white text-sm">
+              <label
+                htmlFor="monthlyRevenue"
+                className="block text-sm text-white"
+              >
                 Monthly Revenue Range
               </label>
               <select
                 id="monthlyRevenue"
                 name="monthlyRevenue"
                 disabled={isSubmitting}
-                className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
               >
                 <option value="">Select range (optional)</option>
                 <option value="under-5k">Under $5,000</option>
@@ -172,7 +186,7 @@ export function BusinessSignupForm() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="description" className="block text-white text-sm">
+            <label htmlFor="description" className="block text-sm text-white">
               Tell us more about your business (optional)
             </label>
             <textarea
@@ -181,14 +195,14 @@ export function BusinessSignupForm() {
               placeholder="What products/services do you offer? How many customers do you serve? Any questions about Unity Coin integration?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full px-3 py-2 bg-slate-600 border border-slate-500 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+              className="w-full resize-none rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium rounded-md flex items-center justify-center"
+            className="flex w-full items-center justify-center rounded-md bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 font-medium text-white hover:from-purple-700 hover:to-blue-700"
           >
             {isSubmitting ? (
               "Submitting..."
@@ -204,7 +218,7 @@ export function BusinessSignupForm() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="w-4 h-4 mr-2"
+                  className="mr-2 h-4 w-4"
                 >
                   <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
                   <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -219,8 +233,10 @@ export function BusinessSignupForm() {
 
           {result && (
             <div
-              className={`flex items-center gap-2 text-sm p-3 rounded ${
-                result.success ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
+              className={`flex items-center gap-2 rounded p-3 text-sm ${
+                result.success
+                  ? "bg-green-900/30 text-green-400"
+                  : "bg-red-900/30 text-red-400"
               }`}
             >
               {result.success ? (
@@ -234,7 +250,7 @@ export function BusinessSignupForm() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="w-4 h-4"
+                  className="h-4 w-4"
                 >
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
@@ -250,7 +266,7 @@ export function BusinessSignupForm() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="w-4 h-4"
+                  className="h-4 w-4"
                 >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
@@ -262,11 +278,12 @@ export function BusinessSignupForm() {
           )}
 
           <p className="text-xs text-slate-400">
-            * Required fields. We'll contact you within 5 business days to discuss partnership opportunities and help
-            you get set up to accept Unity Coin.
+            * Required fields. We'll contact you within 5 business days to
+            discuss partnership opportunities and help you get set up to accept
+            Unity Coin.
           </p>
         </form>
       </div>
     </div>
-  )
+  );
 }

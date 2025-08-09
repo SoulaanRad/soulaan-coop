@@ -1,12 +1,14 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
+import type { Metadata } from "next";
+import type React from "react";
+import { Inter } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"] })
+import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+  title:
+    "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
   description:
     "Join the Soulaan Co-op and transform everyday spending into community wealth. Use Unity Coin (UC) and SoulaaniCoin (SC) to keep money circulating in Black communities while earning rewards and voting power.",
   keywords: [
@@ -42,7 +44,8 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://soulaan.coop",
     siteName: "Soulaan Co-op",
-    title: "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+    title:
+      "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
     description:
       "Transform everyday spending into community wealth. Join the economic revolution that keeps money circulating in Black communities.",
     images: [
@@ -56,7 +59,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+    title:
+      "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
     description:
       "Transform everyday spending into community wealth. Join the economic revolution that keeps money circulating in Black communities.",
     images: ["/images/soulaan-og-image.png"],
@@ -73,13 +77,13 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-status-bar-style": "black-translucent",
     "theme-color": "#1e293b",
   },
-    generator: 'v0.dev'
-}
+  generator: "v0.dev",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
@@ -89,7 +93,10 @@ export default function RootLayout({
         <meta name="theme-color" content="#1e293b" />
         <meta name="msapplication-TileColor" content="#1e293b" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
 
         {/* Structured Data for Rich Snippets */}
         <script
@@ -104,7 +111,10 @@ export default function RootLayout({
               url: "https://soulaan.coop",
               logo: "https://soulaan.coop/images/soulaan-flag.jpg",
               foundingDate: "2024",
-              sameAs: ["https://github.com/soulaan-coop", "https://twitter.com/SoulaanCoop"],
+              sameAs: [
+                "https://github.com/soulaan-coop",
+                "https://twitter.com/SoulaanCoop",
+              ],
               contactPoint: {
                 "@type": "ContactPoint",
                 contactType: "customer service",
@@ -124,16 +134,34 @@ export default function RootLayout({
 
         {/* Preconnect to external domains for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
 
         {/* Favicon and app icons */}
         <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href="/apple-touch-icon.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href="/favicon-32x32.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="16x16"
+          href="/favicon-16x16.png"
+        />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={inter.className}>{children}</body>
     </html>
-  )
+  );
 }

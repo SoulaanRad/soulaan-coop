@@ -20,7 +20,12 @@ export function UnityIcon({ className = "w-6 h-6" }: { className?: string }) {
       <line x1="12" y1="10" x2="17" y2="12" className="stroke-current" />
 
       {/* Laurel wreath elements (simplified) */}
-      <path d="M5,18 Q12,20 19,18" fill="none" className="stroke-yellow-400" strokeWidth="1.5" />
+      <path
+        d="M5,18 Q12,20 19,18"
+        fill="none"
+        className="stroke-yellow-400"
+        strokeWidth="1.5"
+      />
     </svg>
-  )
+  );
 }

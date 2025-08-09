@@ -1,25 +1,29 @@
-import { trpcExpress } from "@repo/trpc/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
+
+import { trpcExpress } from "@repo/trpc/server";
+
 import "dotenv/config";
+
 import type { Application, Request, Response } from "express";
 import express from "express";
-
 
 const app: Application = express();
 
 // Enable CORS for all routes
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 
-app.use('/trpc', trpcExpress)
+app.use("/trpc", trpcExpress);
 
 const port = process.env.PORT || 3001;
 

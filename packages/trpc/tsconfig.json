@@ -12,4 +12,4 @@
     "strict": true
   },
   "include": ["index.ts", "src/**/*.ts", "prisma/seed.ts"]
-} 
+}

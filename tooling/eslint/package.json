@@ -1,7 +1,7 @@
 {
   "name": "@repo/eslint-config",
-  "private": true,
   "version": "0.3.0",
+  "private": true,
   "type": "module",
   "exports": {
     "./base": "./base.js",
@@ -10,9 +10,10 @@
   },
   "scripts": {
     "clean": "git clean -xdf .cache .turbo node_modules",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json}\" --ignore \"**/package.json\" --ignore-path ../../.gitignore",
     "typecheck": "tsc --noEmit"
   },
+  "prettier": "@repo/prettier-config",
   "dependencies": {
     "@eslint/compat": "^1.2.9",
     "@next/eslint-plugin-next": "^15.3.3",
@@ -29,6 +30,5 @@
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"
-  },
-  "prettier": "@repo/prettier-config"
+  }
 }

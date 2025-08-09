@@ -1,0 +1,11 @@
+# Ignore package.json files that use pnpm catalog syntax
+**/package.json
+
+# Ignore other files that might cause issues
+node_modules/
+.next/
+dist/
+build/
+.turbo/
+.env
+.env.*

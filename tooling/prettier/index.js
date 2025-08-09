@@ -45,6 +45,12 @@ const config = {
         parser: "babel",
       },
     },
+    {
+      files: "package.json",
+      options: {
+        parser: "json-stringify",
+      },
+    },
   ],
 };
 

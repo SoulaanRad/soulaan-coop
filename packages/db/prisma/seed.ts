@@ -25,8 +25,20 @@ async function main() {
   // Seed Waitlist Entries
   await prisma.waitlistEntry.createMany({
     data: [
-      { email: "waitlist1@example.com", type: "user", name: "Wait User", city: "Boston", source: "hero" },
-      { email: "waitlist2@example.com", type: "business", name: "Wait Biz", city: "Chicago", source: "contact" },
+      {
+        email: "waitlist1@example.com",
+        type: "user",
+        name: "Wait User",
+        city: "Boston",
+        source: "hero",
+      },
+      {
+        email: "waitlist2@example.com",
+        type: "business",
+        name: "Wait Biz",
+        city: "Chicago",
+        source: "contact",
+      },
     ],
     skipDuplicates: true,
   });
