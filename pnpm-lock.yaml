@@ -208,6 +208,9 @@ importers:
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db/dist
+      '@repo/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
       '@t3-oss/env-nextjs':
         specifier: ^0.13.8
         version: 0.13.8(typescript@5.8.3)(zod@3.25.49)
