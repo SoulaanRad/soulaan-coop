@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Dimensions 
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -104,136 +106,157 @@ export default function OnboardingScreen({ navigation }) {
     const screen = splashScreens[index];
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.splashContainer}>
-          <View style={[styles.splashCard, { backgroundColor: screen.gradient }]}>
-            <Text style={styles.splashIcon}>{screen.icon}</Text>
-            <Text style={styles.splashTitle}>{screen.title}</Text>
-            <Text style={styles.splashSubtitle}>{screen.subtitle}</Text>
-            <Text style={styles.splashDescription}>{screen.description}</Text>
-          </View>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView 
+            contentContainerStyle={styles.splashScrollContainer}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={[styles.splashCard, { backgroundColor: screen.gradient }]}>
+              <Text style={styles.splashIcon}>{screen.icon}</Text>
+              <Text style={styles.splashTitle}>{screen.title}</Text>
+              <Text style={styles.splashSubtitle}>{screen.subtitle}</Text>
+              <Text style={styles.splashDescription}>{screen.description}</Text>
+            </View>
 
-          {/* Progress Dots */}
-          <View style={styles.progressDots}>
-            {splashScreens.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  i === index ? styles.activeDot : styles.inactiveDot
-                ]}
-              />
-            ))}
-          </View>
+            {/* Progress Dots */}
+            <View style={styles.progressDots}>
+              {splashScreens.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    i === index ? styles.activeDot : styles.inactiveDot
+                  ]}
+                />
+              ))}
+            </View>
 
-          {/* Navigation */}
-          <View style={styles.navigationContainer}>
-            <Button
-              variant="ghost"
-              onPress={prevStep}
-              style={[styles.navButton, index === 0 && styles.invisible]}
-            >
-              ← Back
-            </Button>
+            {/* Navigation */}
+            <View style={styles.navigationContainer}>
+              <Button
+                variant="ghost"
+                onPress={prevStep}
+                style={[styles.navButton, index === 0 && styles.invisible]}
+              >
+                ← Back
+              </Button>
 
-            <Button
-              onPress={index === splashScreens.length - 1 ? () => setCurrentStep(splashScreens.length) : nextStep}
-              style={styles.primaryButton}
-            >
-              {index === splashScreens.length - 1 ? 'Choose Co-op' : 'Next'} →
-            </Button>
-          </View>
+              <Button
+                onPress={index === splashScreens.length - 1 ? () => setCurrentStep(splashScreens.length) : nextStep}
+                style={styles.primaryButton}
+              >
+                {index === splashScreens.length - 1 ? 'Choose Co-op' : 'Next'} →
+              </Button>
+            </View>
 
-          {index < splashScreens.length - 1 && (
-            <TouchableOpacity 
-              onPress={() => navigation.replace('MainApp')}
-              style={styles.skipButton}
-            >
-              <Text style={styles.skipText}>Already have an account? Sign In</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            {index < splashScreens.length - 1 && (
+              <TouchableOpacity 
+                onPress={() => navigation.replace('MainApp')}
+                style={styles.skipButton}
+              >
+                <Text style={styles.skipText}>Already have an account? Sign In</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   };
 
   const renderCoopSelection = () => (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.headerIcon}>🌍</Text>
-          <Text style={styles.headerTitle}>Choose Your Co-op</Text>
-          <Text style={styles.headerSubtitle}>Select the cooperative community you'd like to join</Text>
-        </View>
-
-        <Card style={styles.benefitsCard}>
-          <CardContent>
-            <Text style={styles.benefitsTitle}>🎯 How Co-ops Help You</Text>
-            {[
-              'Keep money circulating in your community',
-              'Democratic control over economic decisions',
-              'Shared ownership and collective benefits',
-              'Support for local businesses and entrepreneurs',
-              'Building generational wealth together',
-            ].map((benefit, index) => (
-              <View key={index} style={styles.benefitItem}>
-                <Text style={styles.benefitCheck}>✅</Text>
-                <Text style={styles.benefitText}>{benefit}</Text>
-              </View>
-            ))}
-          </CardContent>
-        </Card>
-
-        {availableCoops.map((coop) => (
-          <TouchableOpacity
-            key={coop.id}
-            onPress={() => setSelectedCoop(coop.id)}
-            style={[
-              styles.coopCard,
-              selectedCoop === coop.id && styles.selectedCoopCard
-            ]}
-          >
-            <View style={styles.coopHeader}>
-              <Text style={styles.coopIcon}>{coop.icon}</Text>
-              <View style={styles.coopInfo}>
-                <View style={styles.coopTitleRow}>
-                  <Text style={styles.coopName}>{coop.name}</Text>
-                  {coop.featured && (
-                    <Badge style={styles.featuredBadge}>Featured</Badge>
-                  )}
-                </View>
-                <Text style={styles.coopDescription}>{coop.description}</Text>
-              </View>
-              {selectedCoop === coop.id && (
-                <Text style={styles.checkmark}>✅</Text>
-              )}
-            </View>
-            <Text style={styles.coopDetails}>📍 {coop.location} • 👥 {coop.members}</Text>
-          </TouchableOpacity>
-        ))}
-
-        <Button
-          onPress={nextStep}
-          disabled={!selectedCoop}
-          style={[styles.continueButton, !selectedCoop && styles.disabledButton]}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
         >
-          Continue with {selectedCoop ? availableCoops.find(c => c.id === selectedCoop)?.name : 'Selected Co-op'}
-        </Button>
+          <View style={styles.header}>
+            <Text style={styles.headerIcon}>🌍</Text>
+            <Text style={styles.headerTitle}>Choose Your Co-op</Text>
+            <Text style={styles.headerSubtitle}>Select the cooperative community you'd like to join</Text>
+          </View>
 
-        <TouchableOpacity onPress={prevStep} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back to Introduction</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <Card style={styles.benefitsCard}>
+            <CardContent>
+              <Text style={styles.benefitsTitle}>🎯 How Co-ops Help You</Text>
+              {[
+                'Keep money circulating in your community',
+                'Democratic control over economic decisions',
+                'Shared ownership and collective benefits',
+                'Support for local businesses and entrepreneurs',
+                'Building generational wealth together',
+              ].map((benefit, index) => (
+                <View key={index} style={styles.benefitItem}>
+                  <Text style={styles.benefitCheck}>✅</Text>
+                  <Text style={styles.benefitText}>{benefit}</Text>
+                </View>
+              ))}
+            </CardContent>
+          </Card>
+
+          {availableCoops.map((coop) => (
+            <TouchableOpacity
+              key={coop.id}
+              onPress={() => setSelectedCoop(coop.id)}
+              style={[
+                styles.coopCard,
+                selectedCoop === coop.id && styles.selectedCoopCard
+              ]}
+            >
+              <View style={styles.coopHeader}>
+                <Text style={styles.coopIcon}>{coop.icon}</Text>
+                <View style={styles.coopInfo}>
+                  <View style={styles.coopTitleRow}>
+                    <Text style={styles.coopName}>{coop.name}</Text>
+                    {coop.featured && (
+                      <Badge style={styles.featuredBadge}>Featured</Badge>
+                    )}
+                  </View>
+                  <Text style={styles.coopDescription}>{coop.description}</Text>
+                </View>
+                {selectedCoop === coop.id && (
+                  <Text style={styles.checkmark}>✅</Text>
+                )}
+              </View>
+              <Text style={styles.coopDetails}>📍 {coop.location} • 👥 {coop.members}</Text>
+            </TouchableOpacity>
+          ))}
+
+          <Button
+            onPress={nextStep}
+            disabled={!selectedCoop}
+            style={[styles.continueButton, !selectedCoop && styles.disabledButton]}
+          >
+            Continue with {selectedCoop ? availableCoops.find(c => c.id === selectedCoop)?.name : 'Selected Co-op'}
+          </Button>
+
+          <TouchableOpacity onPress={prevStep} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back to Introduction</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 
   const renderSignup = () => (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.signupScrollContainer}
-        showsVerticalScrollIndicator={true}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
       >
+        <ScrollView 
+          contentContainerStyle={styles.signupScrollContainer}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.header}>
           <Text style={styles.headerIcon}>🏗️</Text>
           <Text style={styles.headerTitle}>Join Soulaan Co-op</Text>
@@ -261,10 +284,7 @@ export default function OnboardingScreen({ navigation }) {
                   styles.accountTypeButton,
                   formData.businessAccount && styles.accountTypeSelected
                 ]}
-                onPress={() => {
-                  console.log('Business tab pressed!');
-                  setFormData(prev => ({ ...prev, businessAccount: true }));
-                }}
+                onPress={() => setFormData(prev => ({ ...prev, businessAccount: true }))}
               >
                 <Text style={styles.accountTypeIcon}>🏪</Text>
                 <Text style={styles.accountTypeText}>Business</Text>
@@ -350,10 +370,7 @@ export default function OnboardingScreen({ navigation }) {
             </View>
 
             <TouchableOpacity
-              onPress={() => {
-                console.log('Button pressed!', formData);
-                nextStep();
-              }}
+              onPress={nextStep}
               disabled={!formData.agreeToTerms || !formData.email || !formData.firstName}
               style={[
                 styles.continueButtonFixed,
@@ -363,11 +380,6 @@ export default function OnboardingScreen({ navigation }) {
             >
               <Text style={styles.continueButtonText}>Continue to Wallet Setup</Text>
             </TouchableOpacity>
-            
-            {/* Debug indicator - remove this after testing */}
-            <View style={styles.debugIndicator}>
-              <Text style={styles.debugText}>Button should be visible here</Text>
-            </View>
           </CardContent>
         </Card>
 
@@ -375,16 +387,22 @@ export default function OnboardingScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.replace('MainApp')} style={styles.backButton}>
           <Text style={styles.backButtonText}>Already have an account? Sign In</Text>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 
   const renderWalletSetup = () => (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.walletScrollContainer}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
       >
+        <ScrollView 
+          contentContainerStyle={styles.walletScrollContainer}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.header}>
           <Text style={styles.headerIcon}>💰</Text>
           <Text style={styles.headerTitle}>Connect Your Wallet</Text>
@@ -459,7 +477,8 @@ export default function OnboardingScreen({ navigation }) {
         <TouchableOpacity onPress={prevStep} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back to Account Setup</Text>
         </TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 
@@ -480,28 +499,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   scrollContainer: {
     padding: 24,
-    minHeight: height - 100,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
+  splashScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    minHeight: height - 120,
   },
   signupScrollContainer: {
-    padding: 24,
-    paddingBottom: 100, // Increased padding to ensure button is visible
+    padding: 20,
+    paddingBottom: 100,
     flexGrow: 1,
   },
   walletScrollContainer: {
     padding: 24,
-    paddingBottom: 40, // Extra padding at bottom
+    paddingBottom: 40,
     flexGrow: 1,
   },
   
   // Splash Screen Styles
-  splashContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
   splashCard: {
     width: width - 48,
     padding: 32,
@@ -580,20 +604,20 @@ const styles = StyleSheet.create({
   // Header Styles
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 16, // Reduced from 32
   },
   headerIcon: {
-    fontSize: 48,
-    marginBottom: 16,
+    fontSize: 32, // Reduced from 48
+    marginBottom: 8, // Reduced from 16
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22, // Reduced from 28
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 4, // Reduced from 8
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     color: '#6B7280',
     textAlign: 'center',
   },
@@ -695,8 +719,8 @@ const styles = StyleSheet.create({
   },
   accountTypeContainer: {
     flexDirection: 'row',
-    marginBottom: 24,
-    gap: 12,
+    marginBottom: 16, // Reduced from 24
+    gap: 8, // Reduced from 12
   },
   accountTypeButton: {
     flex: 1,
@@ -722,7 +746,7 @@ const styles = StyleSheet.create({
   },
   
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 12, // Reduced from 16
   },
   inputLabel: {
     fontSize: 14,
@@ -755,8 +779,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#FEF3C7',
     borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
+    padding: 12, // Reduced from 16
+    marginBottom: 16, // Reduced from 20
     borderWidth: 1,
     borderColor: '#F59E0B',
   },
@@ -899,14 +923,14 @@ const styles = StyleSheet.create({
   },
   continueButtonFixed: {
     backgroundColor: '#DC2626',
-    paddingVertical: 16,
+    paddingVertical: 14, // Slightly reduced
     paddingHorizontal: 24,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 20,
-    minHeight: 56, // Ensure minimum touch target size
+    marginTop: 16, // Reduced from 20
+    marginBottom: 16, // Reduced from 20
+    minHeight: 50, // Reduced from 56
   },
   continueButtonText: {
     color: '#FFFFFF',
@@ -929,18 +953,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   cardContent: {
-    paddingBottom: 20, // Extra padding inside card
-  },
-  debugIndicator: {
-    backgroundColor: '#FEF3C7',
-    padding: 8,
-    borderRadius: 4,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  debugText: {
-    fontSize: 12,
-    color: '#DC2626',
-    fontWeight: 'bold',
+    padding: 16, // Compact padding inside card
   },
 });

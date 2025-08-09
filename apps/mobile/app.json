@@ -21,7 +21,8 @@
       }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "template": "./web/index.html"
     },
     "platforms": ["ios", "android", "web"]
   }
