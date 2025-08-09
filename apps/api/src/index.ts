@@ -13,7 +13,7 @@ const app: Application = express();
 // Enable CORS for all routes
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "http://localhost:8082"],
     credentials: true,
   }),
 );
@@ -25,7 +25,7 @@ app.get("/health", (req, res) => {
 
 app.use("/trpc", trpcExpress);
 
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 5001;
 
 app.listen(port, () => {
   console.log(`✅ Server running on port ${port}`);

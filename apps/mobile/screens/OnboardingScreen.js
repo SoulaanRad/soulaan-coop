@@ -12,25 +12,42 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { usePrivy } from '@privy-io/react-auth';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
+import { trpc } from '../utils/trpc';
 
 const { width, height } = Dimensions.get('window');
 
 export default function OnboardingScreen({ navigation }) {
+  const { login, user, authenticated, logout } = usePrivy();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedCoop, setSelectedCoop] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    password: '',
     businessAccount: false,
     agreeToTerms: false,
+  });
+
+  const signupMutation = trpc.auth.signup.useMutation({
+    onSuccess: (data) => {
+      Alert.alert(
+        "Account Created!", 
+        "Your account has been created and is pending verification by our admin team. You'll be notified once approved.",
+        [{ text: "OK", onPress: () => navigation.replace('MainApp') }]
+      );
+    },
+    onError: (error) => {
+      Alert.alert("Signup Error", error.message);
+      setIsSigningUp(false);
+    },
   });
 
   const splashScreens = [
@@ -92,6 +109,34 @@ export default function OnboardingScreen({ navigation }) {
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!formData.agreeToTerms || !formData.email || !formData.firstName) {
+      Alert.alert("Missing Information", "Please fill out all required fields and agree to the terms.");
+      return;
+    }
+
+    setIsSigningUp(true);
+
+    try {
+      // First, authenticate with Privy using email
+      await login();
+      
+      // After Privy authentication, create user in our database
+      await signupMutation.mutateAsync({
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        businessAccount: formData.businessAccount,
+        privyId: user?.id,
+      });
+    } catch (error) {
+      console.error('Signup error:', error);
+      Alert.alert("Signup Error", "Failed to create account. Please try again.");
+      setIsSigningUp(false);
     }
   };
 
@@ -370,15 +415,17 @@ export default function OnboardingScreen({ navigation }) {
             </View>
 
             <TouchableOpacity
-              onPress={nextStep}
-              disabled={!formData.agreeToTerms || !formData.email || !formData.firstName}
+              onPress={handleSignup}
+              disabled={isSigningUp || !formData.agreeToTerms || !formData.email || !formData.firstName}
               style={[
                 styles.continueButtonFixed,
-                (!formData.agreeToTerms || !formData.email || !formData.firstName) && styles.disabledButton
+                (isSigningUp || !formData.agreeToTerms || !formData.email || !formData.firstName) && styles.disabledButton
               ]}
               activeOpacity={0.7}
             >
-              <Text style={styles.continueButtonText}>Continue to Wallet Setup</Text>
+              <Text style={styles.continueButtonText}>
+                {isSigningUp ? 'Creating Account...' : 'Create Account'}
+              </Text>
             </TouchableOpacity>
           </CardContent>
         </Card>
