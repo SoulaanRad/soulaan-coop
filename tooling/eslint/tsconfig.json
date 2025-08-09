@@ -1,5 +1,10 @@
 {
   "extends": "@repo/tsconfig/base.json",
   "include": ["."],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "*.js", "base.js", "nextjs.js", "react.js"],
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  }
 }
