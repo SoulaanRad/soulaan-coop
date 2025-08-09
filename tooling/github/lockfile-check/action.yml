@@ -1,0 +1,80 @@
+name: "Lockfile Check"
+description: "Check pnpm lockfile for consistency and security"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: ".nvmrc"
+        cache: "pnpm"
+
+    - name: Check lockfile consistency
+      shell: bash
+      run: |
+        echo "🔍 Checking pnpm lockfile consistency..."
+        
+        # Check if pnpm-lock.yaml exists
+        if [ ! -f "pnpm-lock.yaml" ]; then
+          echo "❌ pnpm-lock.yaml not found!"
+          exit 1
+        fi
+        
+        # Check if lockfile is up to date with package.json
+        echo "📦 Checking if lockfile is up to date..."
+        pnpm install --frozen-lockfile --prefer-offline
+        
+        if [ $? -ne 0 ]; then
+          echo "❌ Lockfile is out of sync with package.json!"
+          echo "Please run 'pnpm install' locally and commit the updated lockfile."
+          exit 1
+        fi
+        
+        echo "✅ Lockfile is consistent and up to date!"
+
+    - name: Check for security vulnerabilities
+      shell: bash
+      run: |
+        echo "🔒 Checking for security vulnerabilities..."
+        
+        # Check for known vulnerabilities
+        pnpm audit --audit-level moderate
+        
+        if [ $? -ne 0 ]; then
+          echo "⚠️  Security vulnerabilities found!"
+          echo "Please review and fix the vulnerabilities before proceeding."
+          exit 1
+        fi
+        
+        echo "✅ No security vulnerabilities found!"
+
+    - name: Validate lockfile format
+      shell: bash
+      run: |
+        echo "🔧 Validating lockfile format..."
+        
+        # Basic validation of lockfile structure
+        if ! grep -q "lockfileVersion:" pnpm-lock.yaml; then
+          echo "❌ Invalid lockfile format: missing lockfileVersion"
+          exit 1
+        fi
+        
+        if ! grep -q "dependencies:" pnpm-lock.yaml; then
+          echo "❌ Invalid lockfile format: missing dependencies section"
+          exit 1
+        fi
+        
+        echo "✅ Lockfile format is valid!"
+
+    - name: Success message
+      shell: bash
+      run: |
+        echo "🎉 All lockfile checks passed!"
+        echo "✅ Lockfile is consistent, secure, and ready for deployment."
