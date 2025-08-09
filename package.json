@@ -27,6 +27,8 @@
     "start": "turbo run start",
     "start:api": "pnpm -F @soulaan-coop/api start",
     "start:web": "pnpm -F @soulaan-coop/web start",
+    "start:mobile": "pnpm -F @soulaan-coop/mobile start",
+    "dev:mobile": "pnpm -F @soulaan-coop/mobile dev",
     "typecheck": "turbo run typecheck",
     "ui-add": "turbo run ui-add",
     "android": "expo run:android",
