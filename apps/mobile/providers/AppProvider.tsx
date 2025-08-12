@@ -1,6 +1,8 @@
+'use client';
+
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PrivyProvider } from '@privy-io/react-auth';
+import {PrivyProvider} from '@privy-io/react-auth';
 
 import { trpc, trpcClient } from '../utils/trpc';
 
@@ -20,12 +22,11 @@ export function AppProvider({ children }: AppProviderProps) {
       config={{
         appearance: {
           theme: 'light',
-          accentColor: '#F59E0B',
+          accentColor: '#DC2626',
         },
-        loginMethods: ['email', 'sms'],
-        // Disable embedded wallets for now - just focus on auth
+        loginMethods: ['email'],
         embeddedWallets: {
-          createOnLogin: 'off',
+          createOnLogin: 'off', // Disable embedded wallets for now
         },
       }}
     >

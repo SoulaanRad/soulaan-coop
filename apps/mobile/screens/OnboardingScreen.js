@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,21 +12,33 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-import { usePrivy } from '@privy-io/react-auth';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { trpc } from '../utils/trpc';
+import {usePrivy} from '@privy-io/react-auth';
+import {useLoginWithEmail} from '@privy-io/react-auth';
+
 
 const { width, height } = Dimensions.get('window');
 
 export default function OnboardingScreen({ navigation }) {
-  const { login, user, authenticated, logout } = usePrivy();
+
+
+  const context = usePrivy();
+  const { user, authenticated } = context;
+
+  console.log("context checks: ", context);
+
+  const { sendCode, loginWithCode } = useLoginWithEmail();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedCoop, setSelectedCoop] = useState('');
   const [walletConnected, setWalletConnected] = useState(false);
-  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authStep, setAuthStep] = useState('form'); // 'form', 'code', 'success'
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -36,19 +48,84 @@ export default function OnboardingScreen({ navigation }) {
     agreeToTerms: false,
   });
 
-  const signupMutation = trpc.auth.signup.useMutation({
+  const loginOrSignupMutation = trpc.auth.loginOrSignup.useMutation({
     onSuccess: (data) => {
-      Alert.alert(
-        "Account Created!", 
-        "Your account has been created and is pending verification by our admin team. You'll be notified once approved.",
-        [{ text: "OK", onPress: () => navigation.replace('MainApp') }]
-      );
+      setIsCheckingAuth(false); // Stop checking auth state
+      
+      if (data.isNewUser) {
+        Alert.alert(
+          "Welcome to Soulaan Co-op!", 
+          "Your account has been created and is pending verification by our admin team. You'll be notified once approved.",
+          [{ text: "OK", onPress: () => navigation.replace('MainApp') }]
+        );
+      } else {
+        if (data.user.isVerified) {
+          // Skip alert for returning users who are just being auto-logged in
+          if (isCheckingAuth) {
+            navigation.replace('MainApp');
+          } else {
+            Alert.alert(
+              "Welcome back!", 
+              `Good to see you again, ${data.user.firstName || data.user.name}!`,
+              [{ text: "Continue", onPress: () => navigation.replace('MainApp') }]
+            );
+          }
+        } else {
+          Alert.alert(
+            "Account Pending Verification", 
+            "Your account is still pending verification by our admin team. You'll be notified once approved.",
+            [{ text: "OK", onPress: () => navigation.replace('MainApp') }]
+          );
+        }
+      }
     },
     onError: (error) => {
-      Alert.alert("Signup Error", error.message);
-      setIsSigningUp(false);
+      setIsCheckingAuth(false); // Stop checking auth state
+      Alert.alert("Authentication Error", error.message);
+      setIsAuthenticating(false);
+      setAuthStep('form');
     },
   });
+
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    // Give Privy time to initialize
+    const timer = setTimeout(() => {
+      if (authenticated && user) {
+        console.log('User already authenticated, checking database status...');
+        // User is already authenticated with Privy, check if they exist in our database
+        loginOrSignupMutation.mutate({
+          email: user.email?.address || '',
+          privyId: user.id,
+          firstName: user.name || '',
+          lastName: '',
+          phone: user.phone?.number || '',
+          businessAccount: false,
+        });
+      } else {
+        // User is not authenticated, show onboarding
+        setIsCheckingAuth(false);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [authenticated, user]);
+
+  // Handle user authentication and database creation when Privy auth is complete during signup
+  useEffect(() => {
+    if (authenticated && user && authStep === 'success' && !loginOrSignupMutation.isLoading) {
+      console.log('Privy user authenticated during signup:', user);
+      // Create or login user in our database when Privy authentication is complete
+      loginOrSignupMutation.mutate({
+        email: formData.email,
+        privyId: user.id,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        businessAccount: formData.businessAccount,
+      });
+    }
+  }, [authenticated, user, authStep]);
 
   const splashScreens = [
     {
@@ -112,32 +189,71 @@ export default function OnboardingScreen({ navigation }) {
     }
   };
 
-  const handleSignup = async () => {
-    if (!formData.agreeToTerms || !formData.email || !formData.firstName) {
-      Alert.alert("Missing Information", "Please fill out all required fields and agree to the terms.");
+  const handleSendCode = async () => {
+    if (!formData.agreeToTerms || !formData.email) {
+      Alert.alert("Missing Information", "Please enter your email and agree to the terms.");
       return;
     }
 
-    setIsSigningUp(true);
+    setIsAuthenticating(true);
 
     try {
-      // First, authenticate with Privy using email
-      await login();
-      
-      // After Privy authentication, create user in our database
-      await signupMutation.mutateAsync({
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        businessAccount: formData.businessAccount,
-        privyId: user?.id,
-      });
+      // Send verification code to user's email via Privy
+      await sendCode({ email: formData.email });
+      setAuthStep('code');
     } catch (error) {
-      console.error('Signup error:', error);
-      Alert.alert("Signup Error", "Failed to create account. Please try again.");
-      setIsSigningUp(false);
+      console.error('Send code error:', error);
+      Alert.alert("Error", "Failed to send verification code. Please try again.");
+      setIsAuthenticating(false);
     }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode || verificationCode.length < 4) {
+      Alert.alert("Invalid Code", "Please enter the verification code sent to your email.");
+      return;
+    }
+
+    try {
+      setIsAuthenticating(true);
+      
+      // Verify code and authenticate with Privy
+      await loginWithCode({ 
+        email: formData.email, 
+        code: verificationCode 
+      });
+      
+      // Note: Privy will authenticate the user and context.user will be available
+      // We'll handle the database creation in a useEffect when context.user changes
+      setAuthStep('success');
+      
+    } catch (error) {
+      console.error('Verify code error:', error);
+      Alert.alert("Invalid Code", "The verification code is incorrect or expired. Please try again.");
+      setVerificationCode('');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleBackToForm = () => {
+    setAuthStep('form');
+    setVerificationCode('');
+    setIsAuthenticating(false);
+  };
+
+  const handleSignIn = () => {
+    // Jump to the signup step but with minimal required fields
+    setCurrentStep(splashScreens.length + 1);
+    // Clear form but keep minimal structure for sign-in
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      businessAccount: false,
+      agreeToTerms: false,
+    });
   };
 
   const connectWallet = () => {
@@ -200,7 +316,7 @@ export default function OnboardingScreen({ navigation }) {
 
             {index < splashScreens.length - 1 && (
               <TouchableOpacity 
-                onPress={() => navigation.replace('MainApp')}
+                onPress={handleSignIn}
                 style={styles.skipButton}
               >
                 <Text style={styles.skipText}>Already have an account? Sign In</Text>
@@ -414,24 +530,67 @@ export default function OnboardingScreen({ navigation }) {
               </View>
             </View>
 
-            <TouchableOpacity
-              onPress={handleSignup}
-              disabled={isSigningUp || !formData.agreeToTerms || !formData.email || !formData.firstName}
-              style={[
-                styles.continueButtonFixed,
-                (isSigningUp || !formData.agreeToTerms || !formData.email || !formData.firstName) && styles.disabledButton
-              ]}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.continueButtonText}>
-                {isSigningUp ? 'Creating Account...' : 'Create Account'}
-              </Text>
-            </TouchableOpacity>
+            {authStep === 'form' ? (
+              <TouchableOpacity
+                onPress={handleSendCode}
+                disabled={isAuthenticating || !formData.agreeToTerms || !formData.email}
+                style={[
+                  styles.continueButtonFixed,
+                  (isAuthenticating || !formData.agreeToTerms || !formData.email) && styles.disabledButton
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.continueButtonText}>
+                  {isAuthenticating ? 'Sending Code...' : 'Continue with Email'}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.codeVerificationContainer}>
+                <Text style={styles.codeVerificationTitle}>
+                  Check your email
+                </Text>
+                <Text style={styles.codeVerificationSubtitle}>
+                  We sent a verification code to {formData.email}
+                </Text>
+                
+                <Input
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  placeholder="Enter verification code"
+                  keyboardType="numeric"
+                  maxLength={6}
+                  style={styles.codeInput}
+                />
+                
+                <TouchableOpacity
+                  onPress={handleVerifyCode}
+                  disabled={!verificationCode || verificationCode.length < 4}
+                  style={[
+                    styles.continueButtonFixed,
+                    (!verificationCode || verificationCode.length < 4) && styles.disabledButton
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.continueButtonText}>
+                    Verify & Continue
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={handleBackToForm}
+                  style={styles.backToFormButton}
+                >
+                  <Text style={styles.backToFormButtonText}>
+                    ← Change email
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </CardContent>
         </Card>
 
         {/* Login Link */}
-        <TouchableOpacity onPress={() => navigation.replace('MainApp')} style={styles.backButton}>
+        <TouchableOpacity onPress={handleSignIn} style={styles.backButton}>
           <Text style={styles.backButtonText}>Already have an account? Sign In</Text>
         </TouchableOpacity>
         </ScrollView>
@@ -530,7 +689,15 @@ export default function OnboardingScreen({ navigation }) {
   );
 
   // Render based on current step
-  if (currentStep < splashScreens.length) {
+  if (!context.ready || isCheckingAuth) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>🔄 Checking authentication...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  } else if (currentStep < splashScreens.length) {
     return renderSplashScreen(currentStep);
   } else if (currentStep === splashScreens.length) {
     return renderCoopSelection();
@@ -1001,5 +1168,55 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 16, // Compact padding inside card
+  },
+  
+  // Loading styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+
+  // Code Verification Styles
+  codeVerificationContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  codeVerificationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  codeVerificationSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  codeInput: {
+    width: '100%',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 4,
+  },
+  backToFormButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  backToFormButtonText: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
