@@ -348,6 +348,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.49
+    devDependencies:
+      typescript:
+        specifier: ^5.0.4
+        version: 5.8.3
 
   packages/ui:
     dependencies:
