@@ -18,6 +18,8 @@ Soulaan Co-op is a community-owned economic platform and digital wallet system. 
 ### 📜 Important Documents
 
 - **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - Our founding principles, governance structure, and community guidelines
+- **[Tech Roadmap](documents/tech_roadmap.md)** - Phased plan for the tech implementation
+- **[Organizational Roadmap](documents/org_roadmap.md)** - Stages for building the co-op institution and community network
 
 ---
 
