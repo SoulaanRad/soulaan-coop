@@ -1,0 +1,176 @@
+name: Charter Compliance Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  charter-validation:
+    name: Validate Charter Compliance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch more history for better diff analysis
+          fetch-depth: 2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.1'
+          run_install: false
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Make charter validator executable
+        run: chmod +x scripts/validate-charter-compliance.js
+      
+      - name: Run Charter Compliance Validation
+        run: |
+          echo "🏛️  Running Soulaan Co-op Charter Compliance Check"
+          node scripts/validate-charter-compliance.js
+        env:
+          # OpenAI API key for LLM analysis
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Ensure we have git history for file comparisons
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload Charter Compliance Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: charter-compliance-report
+          path: charter_compliance_report.json
+
+      - name: Comment PR with Charter Compliance Results
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            // Read saved report if present
+            let report = null;
+            try {
+              const raw = fs.readFileSync('charter_compliance_report.json', 'utf8');
+              report = JSON.parse(raw);
+            } catch {}
+
+            const score = report?.score ?? 'N/A';
+            const violations = (report?.violations ?? []).map(v => `- ${v}`).join('\n') || '- None provided';
+            const suggestions = (report?.suggestions ?? []).map(s => `- ${s}`).join('\n') || '- None provided';
+            const analysis = report?.analysis ?? 'No analysis provided';
+
+            const comment = `## 🤖 AI Charter Compliance Check Failed
+            
+            Score: ${score}/100 (minimum required: 65)
+            
+            ### 🚨 Violations
+            ${violations}
+            
+            ### 💡 Suggestions
+            ${suggestions}
+            
+            ### 📋 Analysis
+            ${analysis}
+            
+            ---
+            **Charter Principles to Review**
+            1. ✊ Support Black economic sovereignty
+            2. 🪙 Implement UC/SC token rules correctly  
+            3. 🗳️ Follow governance requirements (15% quorum, 51% approval, 2% cap)
+            4. 🏢 Respect business sector eligibility rules
+            5. 🔒 Maintain transparency and security standards
+            
+            **Next Steps**
+            - Review the full charter: [documents/soulaan-coop-charter.md](./documents/soulaan-coop-charter.md)
+            - Run \`pnpm charter:validate\` locally with \`OPENAI_API_KEY\` set to get detailed AI analysis
+            - Address specific violations and suggestions from the AI analysis
+            - Ensure your changes align with our mission of building Black economic sovereignty
+            
+            ---
+            *This AI-powered check ensures all code changes support our mission of transforming everyday spending into lasting community wealth. 💪🏾*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Set Charter Compliance Status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Charter compliance check PASSED"
+            echo "CHARTER_STATUS=passed" >> $GITHUB_ENV
+          else
+            echo "❌ Charter compliance check FAILED"
+            echo "CHARTER_STATUS=failed" >> $GITHUB_ENV
+          fi
+
+  # Additional job to run on successful charter validation
+  charter-success-notification:
+    name: Charter Compliance Success
+    runs-on: ubuntu-latest
+    needs: charter-validation
+    if: success()
+    
+    steps:
+      - name: Charter Compliance Passed
+        run: |
+          echo "🎉 Charter compliance check passed!"
+          echo "This code change supports our mission of Black economic sovereignty."
+          
+      - name: Comment PR with Success
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `## ✅ AI Charter Compliance Check Passed
+            
+            Excellent work! Our AI-powered charter compliance validator confirms this pull request meets our standards.
+            
+            Your changes support the Soulaan Co-op mission of building Black economic sovereignty through:
+            - Economic cooperation and community wealth building
+            - Proper implementation of UC/SC token systems
+            - Adherence to governance and transparency principles
+            
+            The AI analysis found your code aligns well with our charter principles. Ready for code review! 🚀
+            
+            ---
+            *Building the future of community economics, one transaction at a time.* 💪🏾`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
