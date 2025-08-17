@@ -39,10 +39,9 @@
     "@turbo/gen": "^2.5.5",
     "prettier": "catalog:",
     "turbo": "^2.5.5",
-    "typescript": "catalog:"
-  },
-  "prettier": "@repo/prettier-config",
-  "dependencies": {
+    "typescript": "catalog:",
     "openai": "^5.12.2"
-  }
+  },
+  "prettier": "@repo/prettier-config"
+  
 }
