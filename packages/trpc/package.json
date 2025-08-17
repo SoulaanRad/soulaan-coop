@@ -43,6 +43,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
     "typescript": "^5.0.4"
   }
 }
