@@ -17,6 +17,7 @@ class CharterValidator {
     this.suggestions = [];
     this.analysis = '';
     this.charter = '';
+    this.reportPath = process.env.CHARTER_REPORT_PATH || 'charter_compliance_report.json';
   }
 
   async validateChanges() {
@@ -47,6 +48,10 @@ class CharterValidator {
       // Use LLM to analyze charter compliance
       await this.analyzeLLMCompliance(changes);
       
+      // Persist a machine-readable report for CI to consume
+      this.saveJsonReport();
+      
+      // Print a human-readable report to logs
       this.generateLLMReport();
       
       // Exit with error if score is below threshold
@@ -174,7 +179,7 @@ class CharterValidator {
       console.log('🤖 Analyzing changes with AI...');
       
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -185,7 +190,7 @@ class CharterValidator {
             content: prompt
           }
         ],
-        max_tokens: 1500,
+        max_tokens: 200,
         temperature: 0.3
       });
 
@@ -199,6 +204,21 @@ class CharterValidator {
     } catch (error) {
       console.error('LLM Analysis failed:', error.message);
       throw error;
+    }
+  }
+
+  saveJsonReport() {
+    try {
+      const payload = {
+        score: this.overallScore,
+        violations: this.violations,
+        suggestions: this.suggestions,
+        analysis: this.analysis
+      };
+      fs.writeFileSync(this.reportPath, JSON.stringify(payload, null, 2), 'utf8');
+      console.log(`📝 Saved charter compliance report to ${this.reportPath}`);
+    } catch (error) {
+      console.warn('Could not write charter compliance report file:', error.message);
     }
   }
 

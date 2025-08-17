@@ -64,35 +64,57 @@ jobs:
           # Ensure we have git history for file comparisons
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Upload Charter Compliance Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: charter-compliance-report
+          path: charter_compliance_report.json
+
       - name: Comment PR with Charter Compliance Results
         if: github.event_name == 'pull_request' && failure()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            
-            // Create a comment about charter compliance failure
+            // Read saved report if present
+            let report = null;
+            try {
+              const raw = fs.readFileSync('charter_compliance_report.json', 'utf8');
+              report = JSON.parse(raw);
+            } catch {}
+
+            const score = report?.score ?? 'N/A';
+            const violations = (report?.violations ?? []).map(v => `- ${v}`).join('\n') || '- None provided';
+            const suggestions = (report?.suggestions ?? []).map(s => `- ${s}`).join('\n') || '- None provided';
+            const analysis = report?.analysis ?? 'No analysis provided';
+
             const comment = `## 🤖 AI Charter Compliance Check Failed
             
-            Our AI-powered charter compliance validator found that this pull request does not meet the minimum charter compliance score of 65/100.
+            Score: ${score}/100 (minimum required: 65)
             
-            **Charter Principles to Review:**
+            ### 🚨 Violations
+            ${violations}
+            
+            ### 💡 Suggestions
+            ${suggestions}
+            
+            ### 📋 Analysis
+            ${analysis}
+            
+            ---
+            **Charter Principles to Review**
             1. ✊ Support Black economic sovereignty
             2. 🪙 Implement UC/SC token rules correctly  
             3. 🗳️ Follow governance requirements (15% quorum, 51% approval, 2% cap)
             4. 🏢 Respect business sector eligibility rules
             5. 🔒 Maintain transparency and security standards
             
-            **Next Steps:**
+            **Next Steps**
             - Review the full charter: [documents/soulaan-coop-charter.md](./documents/soulaan-coop-charter.md)
             - Run \`pnpm charter:validate\` locally with \`OPENAI_API_KEY\` set to get detailed AI analysis
             - Address specific violations and suggestions from the AI analysis
             - Ensure your changes align with our mission of building Black economic sovereignty
-            
-            **Need Help?**
-            - Check the [tech roadmap](./documents/tech_roadmap.md) for implementation guidance
-            - Review existing charter-compliant code in the codebase
-            - Ask for help in your PR description
             
             ---
             *This AI-powered check ensures all code changes support our mission of transforming everyday spending into lasting community wealth. 💪🏾*`;
