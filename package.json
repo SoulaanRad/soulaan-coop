@@ -30,7 +30,9 @@
     "typecheck": "turbo run typecheck",
     "ui-add": "turbo run ui-add",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "charter:validate": "node scripts/validate-charter-compliance.js",
+    "setup:dev": "bash scripts/setup-dev.sh"
   },
   "devDependencies": {
     "@repo/prettier-config": "workspace:*",
@@ -39,5 +41,8 @@
     "turbo": "^2.5.5",
     "typescript": "catalog:"
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@repo/prettier-config",
+  "dependencies": {
+    "openai": "^5.12.2"
+  }
 }
