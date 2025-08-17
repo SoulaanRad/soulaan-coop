@@ -190,11 +190,21 @@ class CharterValidator {
             content: prompt
           }
         ],
-        max_tokens: 200,
+        max_tokens: 800,
         temperature: 0.3
       });
 
-      const result = JSON.parse(response.choices[0].message.content);
+      let content = response.choices[0].message.content;
+      
+      // Strip markdown code blocks if present
+      if (content.includes('```json')) {
+        content = content.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      }
+      if (content.includes('```')) {
+        content = content.replace(/```/g, '');
+      }
+      
+      const result = JSON.parse(content.trim());
       
       this.overallScore = result.score || 0;
       this.violations = result.violations || [];
