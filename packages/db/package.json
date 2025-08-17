@@ -8,6 +8,7 @@
     "directory": "dist"
   },
   "scripts": {
+    "build": "tsup",
     "seed": "ts-node --transpile-only prisma/seed.ts",
     "clean": "rm -rf .turbo node_modules",
     "db:generate": "prisma generate",
@@ -24,9 +25,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "dotenv-cli": "catalog:",
     "prisma": "^6.13.0",
+    "ts-node": "^10.9.1",
+    "tsup": "^8.0.0",
     "typescript": "^5.0.4"
   },
   "exports": {

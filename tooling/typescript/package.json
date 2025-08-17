@@ -4,5 +4,9 @@
   "version": "0.1.0",
   "files": [
     "*.json"
-  ]
+  ],
+  "exports": {
+    "./base.json": "./base.json",
+    "./internal-package.json": "./internal-package.json"
+  }
 }
