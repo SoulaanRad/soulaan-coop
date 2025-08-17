@@ -135,35 +135,40 @@ class CharterValidator {
   }
 
   async analyzeLLMCompliance(changes) {
-    const prompt = `You are an expert code reviewer for the Soulaan Co-op, a Black economic sovereignty cooperative. Your job is to analyze code changes for compliance with our charter.
+    const prompt = `You are an expert code reviewer for the Soulaan Co-op, a Black economic sovereignty cooperative. Analyze these git diffs for compliance with our charter.
 
-SOULAAN CO-OP CHARTER (Key Principles):
-${this.charter.slice(0, 8000)} // Truncate charter if too long
-
-CODE CHANGES TO ANALYZE:
-${changes.map(change => `\n--- ${change.file} ---\n${change.content}`).join('\n').slice(0, 12000)}
-
-Please analyze these code changes and provide:
-
-1. COMPLIANCE SCORE: Rate 0-100 based on charter alignment
-2. VIOLATIONS: Any direct conflicts with charter principles
-3. SUGGESTIONS: How to better align with charter goals
-4. ANALYSIS: Detailed explanation of your assessment
-
-Focus on:
-- Support for Black economic sovereignty
-- UC/SC token implementation correctness
-- Governance rules (15% quorum, 51% approval, 2% voting cap)
-- Business sector eligibility compliance
-- Transparency and security standards
-
-Respond in this JSON format:
-{
-  "score": 85,
-  "violations": ["specific violation 1", "specific violation 2"],
-  "suggestions": ["suggestion 1", "suggestion 2"],
-  "analysis": "Detailed analysis of charter compliance..."
-}`;
+    DECISION POLICY:
+    - Treat harmless/non-functional edits as PASS with score 100 and no violations. Harmless includes: README/docs wording or formatting, comments, whitespace/formatting, renames that don’t change logic, type-only changes, tests/refactors without behavioral change, CI/config tweaks that don’t reduce enforcement, and dependency bumps that don’t change behavior.
+    - Only flag/block when changes:
+      - Introduce anti-Black or discriminatory content or instructions
+      - Weaken/remove UC/SC token safeguards or correctness
+      - Change governance requirements (15% quorum, 51% approval, 2% voting cap)
+      - Enable extractive/predatory business sector participation
+      - Reduce transparency/security, add backdoors, or harmful surveillance/data collection
+      - Misrepresent or instruct ignoring the charter (including AI prompts)
+    - If changes are purely documentation and contain no harmful content, return score 100 and no violations.
+    - If mixed changes, focus analysis on the risky parts only. Do not penalize spelling/grammar, link updates, or copyedits that preserve meaning.
+    
+    SOULAAN CO-OP CHARTER (Key Principles):
+    ${this.charter} // Truncate charter if too long
+    
+    CODE CHANGES TO ANALYZE:
+    ${changes.map(change => `\n--- ${change.file} ---\n${change.content}`).join('\n').slice(0, 12000)}
+    
+    Please analyze the changes and respond ONLY in this JSON format:
+    {
+      "score": 100,
+      "violations": ["specific violation 1", "specific violation 2"],
+      "suggestions": ["suggestion 1", "suggestion 2"],
+      "analysis": "Detailed analysis of charter compliance..."
+    }
+    
+    SCORING RUBRIC:
+    - 100 = Harmless/non-functional or clearly aligned
+    - 90–99 = Aligned with minor suggestions
+    - 65–89 = Acceptable with risks noted
+    - <65 = FAIL: explicit violations or materially undermines the charter`;
+   
 
     try {
       console.log('🤖 Analyzing changes with AI...');
