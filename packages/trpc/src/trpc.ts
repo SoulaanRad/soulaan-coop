@@ -1,7 +1,7 @@
 import { initTRPC } from "@trpc/server";
 
-// Dynamic import for superjson to avoid ESM/CJS issues
-const SuperJson = await import("superjson").then((m) => m.default);
+// Use require for superjson to avoid ESM/CJS issues
+const SuperJson = require("superjson");
 
 export const t = initTRPC.context<{}>().create({
   transformer: SuperJson,
