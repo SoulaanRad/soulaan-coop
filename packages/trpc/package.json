@@ -1,15 +1,33 @@
 {
   "name": "@repo/trpc",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/trpc.js",
+  "types": "dist/trpc.d.ts",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "exports": {
-    ".": "./src/trpc.ts",
-    "./context": "./src/context.ts",
-    "./router": "./src/routers/index.ts",
-    "./server": "./src/server/index.ts"
+    ".": {
+      "import": "./dist/trpc.js",
+      "require": "./dist/trpc.js",
+      "types": "./dist/trpc.d.ts"
+    },
+    "./context": {
+      "import": "./dist/context.js",
+      "require": "./dist/context.js",
+      "types": "./dist/context.d.ts"
+    },
+    "./router": {
+      "import": "./dist/routers/index.js",
+      "require": "./dist/routers/index.js",
+      "types": "./dist/routers/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/index.js",
+      "require": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    }
   },
   "keywords": [],
   "author": "",
@@ -23,5 +41,8 @@
     "next-auth": "^4.24.11",
     "superjson": "^2.2.2",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.4"
   }
 }
