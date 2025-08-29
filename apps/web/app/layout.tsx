@@ -5,7 +5,6 @@ import { Suspense } from "react";
 
 import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
-import { PostHogPageView } from "@/components/posthog-page-view";
 
 const inter = Inter({ subsets: ["latin"] });
 
