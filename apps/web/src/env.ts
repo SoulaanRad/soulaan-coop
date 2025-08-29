@@ -23,6 +23,7 @@ export const env = createEnv({
    */
   client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string(),    
   },
   /**
    * Destructure all variables from `process.env` to make sure they aren't tree-shaken away.
@@ -30,6 +31,7 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
   },
   skipValidation:
     !!process.env.CI || process.env.npm_lifecycle_event === "lint",

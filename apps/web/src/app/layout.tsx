@@ -10,6 +10,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import "~/app/globals.css";
 
 import { env } from "~/env";
+import { PostHogProvider } from "~/components/posthog-provider";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -58,13 +59,15 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           geistMono.variable,
         )}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TRPCReactProvider>{props.children}</TRPCReactProvider>
-          <div className="absolute bottom-4 right-4">
-            <ThemeToggle />
-          </div>
-          <Toaster />
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <TRPCReactProvider>{props.children}</TRPCReactProvider>
+            <div className="absolute bottom-4 right-4">
+              <ThemeToggle />
+            </div>
+            <Toaster />
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

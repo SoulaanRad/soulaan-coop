@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import type React from "react";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 
 import "./globals.css";
+import { PostHogProvider } from "@/components/posthog-provider";
+import { PostHogPageView } from "@/components/posthog-page-view";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -161,7 +164,14 @@ export default function RootLayout({
         />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <PostHogProvider>
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
+          {children}
+        </PostHogProvider>
+      </body>
     </html>
   );
 }

@@ -52,6 +52,8 @@
     "lucide-react": "^0.454.0",
     "next": "catalog:",
     "next-themes": "^0.4.6",
+    "posthog-js": "^1.261.0",
+    "posthog-node": "^5.8.1",
     "react": "catalog:react19",
     "react-day-picker": "8.10.1",
     "react-dom": "catalog:react19",
