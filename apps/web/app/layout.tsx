@@ -165,9 +165,6 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <PostHogProvider>
-          <Suspense fallback={null}>
-            <PostHogPageView />
-          </Suspense>
           {children}
         </PostHogProvider>
       </body>
