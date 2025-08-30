@@ -84,27 +84,15 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Comment with Sub-item Suggestions
-        if: steps.roadmap-check.outputs.found == 'true' && steps.completion.outputs.comment_created == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            
-            try {
-              const comment = fs.readFileSync('roadmap-completion-comment.md', 'utf8');
-              
-              await github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-              
-              console.log('✅ Posted completion suggestions comment to PR');
-            } catch (error) {
-              console.error('❌ Failed to post completion comment:', error.message);
-            }
+      - name: Handle Suggestions PR Creation
+        if: steps.roadmap-check.outputs.found == 'true'
+        run: |
+          echo "✅ Roadmap bot completion handling finished"
+          if [ "${{ steps.completion.outputs.comment_created }}" = "true" ]; then
+            echo "📝 Fallback comment was created (PR creation likely failed)"
+          else
+            echo "🚀 Suggestions PR should have been created by the bot"
+          fi
       
       - name: Upload Completion Results
         if: steps.roadmap-check.outputs.found == 'true'
