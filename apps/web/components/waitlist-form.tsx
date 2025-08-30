@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
-import { joinWaitlist } from "@/actions/waitlist";
+// Using API endpoint instead of server actions
 
 interface WaitlistFormProps {
   source: "hero" | "contact";
@@ -27,15 +27,30 @@ export function WaitlistForm({
     setResult(null);
 
     const formData = new FormData(e.currentTarget);
-    formData.append("source", source);
+    const email = formData.get("email") as string;
+    const name = formData.get("name") as string;
 
     try {
-      const response = await joinWaitlist(formData);
-      setResult(response);
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          name,
+          source,
+        }),
+      });
 
-      if (response.success) {
+      const data = await response.json();
+      console.log("waitlist-form response", data);
+      setResult(data);
+
+      if (data.success) {
         // Reset form on success
-        e.currentTarget.reset();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        e?.currentTarget?.reset();
       }
     } catch (error) {
       console.error("Error joining waitlist", error);
