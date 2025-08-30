@@ -12,6 +12,9 @@
 - Enable peer-to-peer transfers between members.  
 - Implement transaction fee capture (5–10%) for the Co-op treasury.  
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Implement error handling for fee calculation failures. 🟡
+  - [ ] Document the fee structure and its implications for users. 🟡
 ---
 
 ## Step 3 — Membership & Identity
@@ -19,6 +22,11 @@
 - Issue membership badges/tokens tied to wallets.  
 - Build onboarding flow for individuals and businesses.  
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Implement logic for issuing and managing membership badges/tokens. 🟡
+  - [ ] Add security measures to prevent unauthorized badge issuance. 🟡
+  - [ ] Create tests for badge issuance and management functionalities. 🟡
+  - [ ] Document the badge/token issuance process and its integration with wallets. 🟡
 ---
 
 ## Step 4 — Business Integration
@@ -43,6 +51,30 @@
   - For governance participation.  
 - AI safeguards prevent “whale capture” (equity concentration caps).  
 
+
+
+---
+
+## Build UC stablecoin wallet integration. 🔴
+*AI-suggested based on recent work: The wallet integration is essential for enabling transactions and requires robust error handling and testing to ensure reliability.*
+
+- [ ] Add error handling for wallet connection failures.
+
+
+
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Design and implement onboarding UI components. 🟡
+  - [ ] Create user acceptance tests for the onboarding process. 🟡
+  - [ ] Document the onboarding flow and user journey. 🟡
+---
+
+## Enable peer-to-peer transfers between members. 🔴
+*AI-suggested based on recent work: Peer-to-peer transfers are a core feature that relies on secure and reliable transaction processing, necessitating thorough testing and monitoring.*
+
+- [ ] Develop transaction processing logic for peer-to-peer transfers.
+- [ ] Implement security measures for transaction validation.
+- [ ] Add monitoring and logging for transaction success and failure events.
+
 ---
 
 ## Step 7 — Expansion & Network Effects
@@ -50,3 +82,6 @@
   - In-app discussions (structured, not noisy).  
   - Business reviews and trust signals.  
 - Build APIs for anchor institutions (schools, hospitals, suppliers) to source from Co-op businesses.  
+
+---
+*🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
