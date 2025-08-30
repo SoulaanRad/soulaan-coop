@@ -12,6 +12,9 @@
 - Enable peer-to-peer transfers between members.  
 - Implement transaction fee capture (5–10%) for the Co-op treasury.  
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Add logic to calculate and deduct transaction fees during transfers. 🟡
+  - [ ] Document the fee structure and its implications for users. 🟡
 ---
 
 ## Step 3 — Membership & Identity
@@ -19,6 +22,9 @@
 - Issue membership badges/tokens tied to wallets.  
 - Build onboarding flow for individuals and businesses.  
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Develop the logic for issuing and managing badges/tokens. 🟡
+  - [ ] Implement security measures to prevent unauthorized badge/token issuance. 🟡
 ---
 
 ## Step 4 — Business Integration
@@ -27,6 +33,8 @@
   - Simple UC → SC conversion payouts.  
 - Add an in-app directory of Soulaan businesses.  
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Implement API endpoints for creating and updating member profiles. 🟡
 ---
 
 ## Step 5 — Governance & Proposals
@@ -43,6 +51,30 @@
   - For governance participation.  
 - AI safeguards prevent “whale capture” (equity concentration caps).  
 
+
+
+---
+
+## Build UC stablecoin wallet integration. 🔴
+*AI-suggested based on recent work: The wallet integration is essential for enabling transactions and requires robust error handling and testing due to its critical nature.*
+
+- [ ] Implement wallet connection logic to interact with the chosen chain.
+- [ ] Add error handling for wallet connection failures.
+
+
+
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Create user interface components for the onboarding flow. 🟡
+  - [ ] Implement backend logic to handle onboarding data submission. 🟡
+  - [ ] Add error handling for onboarding process failures. 🟡
+  - [ ] Document the onboarding flow and user experience. 🟡
+---
+
+## Enable peer-to-peer transfers between members. 🔴
+*AI-suggested based on recent work: Peer-to-peer transfers are a core feature that directly relies on the authentication and wallet setup, necessitating thorough testing and documentation.*
+
+- [ ] Develop transaction validation logic to ensure compliance with membership rules.
+
 ---
 
 ## Step 7 — Expansion & Network Effects
@@ -50,3 +82,6 @@
   - In-app discussions (structured, not noisy).  
   - Business reviews and trust signals.  
 - Build APIs for anchor institutions (schools, hospitals, suppliers) to source from Co-op businesses.  
+
+---
+*🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
