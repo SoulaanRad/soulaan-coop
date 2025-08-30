@@ -11,8 +11,6 @@
 - Build UC stablecoin wallet integration.  
 - Enable peer-to-peer transfers between members.  
 - Implement transaction fee capture (5–10%) for the Co-op treasury.  
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Add logic to calculate and deduct transaction fees during transfers. 🟡
   - [ ] Document the fee structure and its implications for users. 🟡
 ---
