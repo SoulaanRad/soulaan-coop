@@ -16,7 +16,7 @@ catalog:
   "dotenv-cli": "8.0.0"
   "@types/node": "^22.15.29"
   "superjson": "^2.2.2"
-  "next": "^15.3.3"
+  "next": "^15.4.7"
 catalogs:
   react19:
     react: 19.0.0
