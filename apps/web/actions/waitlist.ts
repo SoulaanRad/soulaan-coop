@@ -25,12 +25,7 @@ export async function joinWaitlist(formData: FormData) {
   const name = formData.get("name") as string;
   const source = formData.get("source") as string;
 
-  if (!email || !email.includes("@")) {
-    return {
-      success: false,
-      message: "Please enter a valid email address",
-    };
-  }
+ 
 
   const waitlistData: WaitlistData = {
     email,
@@ -39,23 +34,33 @@ export async function joinWaitlist(formData: FormData) {
   };
 
   try {
-    // Save to database
-    await db.waitlistEntry.upsert({
-      where: { email },
-      update: {
-        name: waitlistData.name,
-        source: waitlistData.source,
-      },
-      create: {
-        email: waitlistData.email,
-        name: waitlistData.name,
-        type: "user",
-        source: waitlistData.source,
-      },
-    });
 
+    try {
     // Send to Slack
     await sendWaitlistToSlack(waitlistData);
+    } catch (error) {
+      console.error("SLACK Waitlist signup error:", error);
+    }
+
+    try {
+      // Save to database
+      await db.waitlistEntry.upsert({
+        where: { email },
+        update: {
+          name: waitlistData.name,
+          source: waitlistData.source,
+        },
+        create: {
+          email: waitlistData.email,
+          name: waitlistData.name,
+          type: "user",
+          source: waitlistData.source,
+        },
+      });
+    } catch (error) {
+      console.error("DB Waitlist signup error:", error);
+    }
+
 
     return {
       success: true,
