@@ -34,7 +34,7 @@ jobs:
           run_install: false
       
       - name: Install OpenAI dependency
-        run: pnpm install openai
+        run: pnpm install -w openai
       
       - name: Check for roadmap file
         id: roadmap-check
