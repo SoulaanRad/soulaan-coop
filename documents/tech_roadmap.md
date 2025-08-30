@@ -71,17 +71,8 @@
 
 ---
 
-
----
-
 ## Implement simple voting for treasury allocation. 🟡
-*AI-suggested based on recent work: With voting functionality planned, it's important to ensure that the voting process is robust and well-documented to facilitate user participation.*
-
 - [ ] Develop logic for tallying votes and determining outcomes.
 - [ ] Implement monitoring for voting activity and anomalies.
 
-*🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
-
-
----
 *🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
