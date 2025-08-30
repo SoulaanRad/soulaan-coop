@@ -500,12 +500,18 @@ rm /tmp/pr_comment.md
   }
 
   /**
-   * Add suggestions directly to the existing roadmap sections
+   * Add suggestions directly to the existing roadmap sections with formatting and cleanup
    */
   addSuggestionsToRoadmap(currentRoadmap, suggestions, timestamp) {
-    let updatedRoadmap = currentRoadmap;
+    // First, clean up the roadmap from previous AI additions
+    let cleanedRoadmap = this.cleanupPreviousAIAdditions(currentRoadmap);
     
-    for (const suggestion of suggestions.suggestions) {
+    // Organize suggestions by GTM priority and logical flow
+    const organizedSuggestions = this.organizeSuggestionsByGTM(suggestions.suggestions);
+    
+    let updatedRoadmap = cleanedRoadmap;
+    
+    for (const suggestion of organizedSuggestions) {
       // Find the best matching section for this suggestion
       const targetSection = this.findBestMatchingSection(updatedRoadmap, suggestion.parentItem);
       
@@ -518,7 +524,10 @@ rm /tmp/pr_comment.md
       }
     }
     
-    // Add a small note at the end indicating AI additions
+    // Format and organize the entire roadmap
+    updatedRoadmap = this.formatAndOrganizeRoadmap(updatedRoadmap);
+    
+    // Add a single clean note at the end
     const aiNote = `
 
 ---
@@ -655,6 +664,205 @@ rm /tmp/pr_comment.md
     lines.splice(insertIndex, 0, ...subItemsContent.split('\n'));
     
     return lines.join('\n');
+  }
+
+  /**
+   * Clean up previous AI additions to avoid accumulation
+   */
+  cleanupPreviousAIAdditions(roadmap) {
+    const lines = roadmap.split('\n');
+    const cleanedLines = [];
+    let skipAISection = false;
+    let inDuplicateSection = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Skip duplicate sections created by previous runs
+      if (line.includes('Build UC stablecoin wallet integration') && line.includes('🔴')) {
+        inDuplicateSection = true;
+        continue;
+      }
+      
+      if (line.includes('Enable peer-to-peer transfers') && line.includes('🔴')) {
+        inDuplicateSection = true;
+        continue;
+      }
+      
+      // End duplicate section on next main section or end
+      if (inDuplicateSection && (line.startsWith('## ') || line.startsWith('---'))) {
+        if (line.includes('Step ') || line === '---') {
+          inDuplicateSection = false;
+          cleanedLines.push(line);
+        }
+        continue;
+      }
+      
+      // Skip AI comments and notes
+      if (line.includes('🤖 Roadmap updated') || 
+          line.includes('AI-generated sub-items') ||
+          line.includes('<!-- 🤖 AI-generated')) {
+        skipAISection = true;
+        continue;
+      }
+      
+      // Reset skip when we hit a real content line
+      if (skipAISection && line.trim() !== '' && !line.startsWith('*') && !line.includes('🤖')) {
+        skipAISection = false;
+      }
+      
+      // Add line if not in skip mode or duplicate section
+      if (!skipAISection && !inDuplicateSection) {
+        cleanedLines.push(line);
+      }
+    }
+    
+    return cleanedLines.join('\n').replace(/\n{3,}/g, '\n\n'); // Remove excessive newlines
+  }
+
+  /**
+   * Organize suggestions by Go-To-Market priority and logical flow
+   */
+  organizeSuggestionsByGTM(suggestions) {
+    // Define GTM priority order
+    const gtmOrder = {
+      // Foundation first (infrastructure, auth, basic functionality)
+      'foundation': 1,
+      'authentication': 1,
+      'database': 1,
+      'setup': 1,
+      'configuration': 1,
+      
+      // Core product features (what users directly interact with)
+      'wallet': 2,
+      'transaction': 2,
+      'payment': 2,
+      'transfer': 2,
+      'member': 3,
+      'profile': 3,
+      'onboarding': 3,
+      
+      // Business features (revenue generation)
+      'merchant': 4,
+      'business': 4,
+      'directory': 4,
+      
+      // Governance and community (engagement features)
+      'governance': 5,
+      'proposal': 5,
+      'voting': 5,
+      'reward': 6,
+      'incentive': 6,
+      
+      // Growth and scaling features
+      'community': 7,
+      'discussion': 7,
+      'review': 7,
+      'expansion': 8,
+      'api': 8,
+      'network': 8
+    };
+    
+    // Score each suggestion based on GTM priority
+    const scoredSuggestions = suggestions.map(suggestion => {
+      const text = (suggestion.parentItem + ' ' + suggestion.subItems.join(' ')).toLowerCase();
+      let gtmScore = 10; // Default low priority
+      
+      // Find the highest priority keyword match
+      for (const [keyword, priority] of Object.entries(gtmOrder)) {
+        if (text.includes(keyword)) {
+          gtmScore = Math.min(gtmScore, priority);
+        }
+      }
+      
+      // Boost priority for high-priority suggestions
+      if (suggestion.priority === 'high') {
+        gtmScore -= 0.5;
+      }
+      
+      return {
+        ...suggestion,
+        gtmScore
+      };
+    });
+    
+    // Sort by GTM priority (lower score = higher priority)
+    return scoredSuggestions.sort((a, b) => a.gtmScore - b.gtmScore);
+  }
+
+  /**
+   * Format and organize the entire roadmap for consistency
+   */
+  formatAndOrganizeRoadmap(roadmap) {
+    const lines = roadmap.split('\n');
+    const formattedLines = [];
+    let currentSection = null;
+    let inSubItems = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      
+      // Track current section
+      if (trimmed.startsWith('## Step ')) {
+        currentSection = trimmed;
+        inSubItems = false;
+        formattedLines.push(line);
+        continue;
+      }
+      
+      // Main section content
+      if (trimmed.startsWith('- ') && !trimmed.includes('[ ]')) {
+        inSubItems = false;
+        formattedLines.push(line);
+        continue;
+      }
+      
+      // Sub-items (checkboxes)
+      if (trimmed.startsWith('- [ ]')) {
+        if (!inSubItems) {
+          // First sub-item, add a small gap
+          inSubItems = true;
+        }
+        
+        // Ensure proper indentation for sub-items
+        const cleanSubItem = trimmed.replace(/^\s*-\s*\[\s*\]\s*/, '');
+        formattedLines.push(`  - [ ] ${cleanSubItem}`);
+        continue;
+      }
+      
+      // Section separators
+      if (trimmed === '---') {
+        inSubItems = false;
+        formattedLines.push('');
+        formattedLines.push(line);
+        formattedLines.push('');
+        continue;
+      }
+      
+      // Other lines (titles, empty lines, etc.)
+      formattedLines.push(line);
+    }
+    
+    // Clean up multiple consecutive empty lines
+    const cleanedLines = [];
+    let lastWasEmpty = false;
+    
+    for (const line of formattedLines) {
+      const isEmpty = line.trim() === '';
+      
+      if (isEmpty) {
+        if (!lastWasEmpty) {
+          cleanedLines.push(line);
+        }
+        lastWasEmpty = true;
+      } else {
+        cleanedLines.push(line);
+        lastWasEmpty = false;
+      }
+    }
+    
+    return cleanedLines.join('\n');
   }
 
   /**

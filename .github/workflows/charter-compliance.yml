@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   charter-validation:
-    name: Validate Charter Compliance
+    name: Charter Compliance Check
     runs-on: ubuntu-latest
     
     steps:
@@ -54,9 +54,17 @@ jobs:
         run: chmod +x scripts/validate-charter-compliance.js
       
       - name: Run Charter Compliance Validation
+        id: charter-check
         run: |
           echo "🏛️  Running Soulaan Co-op Charter Compliance Check"
-          node scripts/validate-charter-compliance.js
+          if node scripts/validate-charter-compliance.js; then
+            echo "charter_result=passed" >> $GITHUB_OUTPUT
+            echo "✅ Charter compliance check PASSED"
+          else
+            echo "charter_result=failed" >> $GITHUB_OUTPUT
+            echo "❌ Charter compliance check FAILED"
+            exit 1
+          fi
         env:
           # OpenAI API key for LLM analysis
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -125,15 +133,15 @@ jobs:
               body: comment
             });
       
-      - name: Set Charter Compliance Status
+      - name: Final Status Report
         if: always()
         run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ Charter compliance check PASSED"
-            echo "CHARTER_STATUS=passed" >> $GITHUB_ENV
+          if [ "${{ steps.charter-check.outputs.charter_result }}" == "passed" ]; then
+            echo "🎉 Charter Compliance Status Check: PASSED"
+            echo "This PR meets all charter compliance requirements."
           else
-            echo "❌ Charter compliance check FAILED"
-            echo "CHARTER_STATUS=failed" >> $GITHUB_ENV
+            echo "🚫 Charter Compliance Status Check: FAILED"
+            echo "This PR does not meet charter compliance requirements and cannot be merged."
           fi
 
   # Additional job to run on successful charter validation
