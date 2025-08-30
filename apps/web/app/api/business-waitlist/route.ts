@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
 
@@ -11,7 +12,7 @@ const db = globalForPrisma.prisma ?? new PrismaClient({
   log: ["query", "error", "warn"],
 });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+if (env.NODE_ENV !== "production") globalForPrisma.prisma = db;
 
 interface BusinessData {
   ownerName: string;
