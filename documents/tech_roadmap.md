@@ -13,6 +13,7 @@
 - Implement transaction fee capture (5–10%) for the Co-op treasury.  
   - [ ] Add logic to calculate and deduct transaction fees during transfers. 🟡
   - [ ] Document the fee structure and its implications for users. 🟡
+
 ---
 
 ## Step 3 — Membership & Identity
@@ -21,6 +22,7 @@
 - Build onboarding flow for individuals and businesses.  
   - [ ] Develop the logic for issuing and managing badges/tokens. 🟡
   - [ ] Implement security measures to prevent unauthorized badge/token issuance. 🟡
+
 ---
 
 ## Step 4 — Business Integration
@@ -29,6 +31,7 @@
   - Simple UC → SC conversion payouts.  
 - Add an in-app directory of Soulaan businesses.  
   - [ ] Implement API endpoints for creating and updating member profiles. 🟡
+
 ---
 
 ## Step 5 — Governance & Proposals
@@ -45,22 +48,6 @@
   - For governance participation.  
 - AI safeguards prevent “whale capture” (equity concentration caps).  
 
-
-
----
-
-## Build UC stablecoin wallet integration. 🔴
-- [ ] Implement wallet connection logic to interact with the chosen chain.
-- [ ] Add error handling for wallet connection failures.
-  - [ ] Create user interface components for the onboarding flow. 🟡
-  - [ ] Implement backend logic to handle onboarding data submission. 🟡
-  - [ ] Add error handling for onboarding process failures. 🟡
-  - [ ] Document the onboarding flow and user experience. 🟡
----
-
-## Enable peer-to-peer transfers between members. 🔴
-- [ ] Develop transaction validation logic to ensure compliance with membership rules.
-
 ---
 
 ## Step 7 — Expansion & Network Effects
@@ -72,7 +59,9 @@
 ---
 
 ## Implement simple voting for treasury allocation. 🟡
-- [ ] Develop logic for tallying votes and determining outcomes.
-- [ ] Implement monitoring for voting activity and anomalies.
+  - [ ] Develop logic for tallying votes and determining outcomes.
+  - [ ] Implement monitoring for voting activity and anomalies.
+  - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. 🔴
 
+---
 *🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
