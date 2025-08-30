@@ -1,5 +1,7 @@
 # 📱 Soulaan Co-op App Roadmap
 
+---
+
 ## Step 1 — Foundation
 - Define the Co-op’s mission, membership rules, and governance basics (from the charter).  
 - Choose the chain + wallet system (smart wallet or custodial) for SC and UC.  
@@ -11,8 +13,8 @@
 - Build UC stablecoin wallet integration.  
 - Enable peer-to-peer transfers between members.  
 - Implement transaction fee capture (5–10%) for the Co-op treasury.  
-  - [ ] Add logic to calculate and deduct transaction fees during transfers. 🟡
-  - [ ] Document the fee structure and its implications for users. 🟡
+  - [ ] Add logic to calculate and deduct transaction fees during transfers. � �
+  - [ ] Document the fee structure and its implications for users. � �
 
 ---
 
@@ -20,8 +22,8 @@
 - Add member profiles (basic info, business affiliation, region).  
 - Issue membership badges/tokens tied to wallets.  
 - Build onboarding flow for individuals and businesses.  
-  - [ ] Develop the logic for issuing and managing badges/tokens. 🟡
-  - [ ] Implement security measures to prevent unauthorized badge/token issuance. 🟡
+  - [ ] Develop the logic for issuing and managing badges/tokens. � �
+  - [ ] Implement security measures to prevent unauthorized badge/token issuance. � �
 
 ---
 
@@ -30,7 +32,7 @@
   - Accept UC for payments.  
   - Simple UC → SC conversion payouts.  
 - Add an in-app directory of Soulaan businesses.  
-  - [ ] Implement API endpoints for creating and updating member profiles. 🟡
+  - [ ] Implement API endpoints for creating and updating member profiles. � �
 
 ---
 
@@ -61,7 +63,18 @@
 ## Implement simple voting for treasury allocation. 🟡
   - [ ] Develop logic for tallying votes and determining outcomes.
   - [ ] Implement monitoring for voting activity and anomalies.
-  - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. 🔴
+  - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. � �
+
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Create error handling for edge cases in vote counting (e.g., ties, invalid votes). � �
+
+---
+
+## Enable peer-to-peer transfers between members. 🟡
+*AI-suggested based on recent work: As member profiles are now integrated, it's essential to ensure that peer-to-peer transfers are well-documented and monitored for performance and security.*
+
+  - [ ] Create performance benchmarks for transfer processing times to optimize user experience.
+  - [ ] Develop tests for various transfer scenarios, including edge cases.
 
 ---
 *🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
