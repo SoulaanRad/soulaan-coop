@@ -14,7 +14,7 @@ jobs:
   roadmap-completion:
     name: Handle PR Completion
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true && !startsWith(github.head_ref, 'roadmap-bot/')
     
     steps:
       - name: Checkout code
