@@ -70,4 +70,9 @@
 - Build APIs for anchor institutions (schools, hospitals, suppliers) to source from Co-op businesses.  
 
 ---
+
+## Implement simple voting for treasury allocation. 🟡
+- [ ] Develop logic for tallying votes and determining outcomes.
+- [ ] Implement monitoring for voting activity and anomalies.
+
 *🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
