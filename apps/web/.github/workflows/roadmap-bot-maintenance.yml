@@ -1,0 +1,98 @@
+name: Roadmap Bot - Maintenance
+
+on:
+  schedule:
+    # Run twice daily at 9 AM and 5 PM UTC
+    - cron: '0 9,17 * * 1-5'  # Weekdays only
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  roadmap-maintenance:
+    name: Roadmap Maintenance Tasks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.1'
+          run_install: false
+      
+      - name: Install dependencies
+        run: |
+          npm install openai
+          # Install gh CLI for PR creation
+          if ! command -v gh &> /dev/null; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh
+          fi
+      
+      - name: Configure git
+        run: |
+          git config --local user.email "roadmap-bot@github.actions"
+          git config --local user.name "Roadmap Bot"
+      
+      - name: Check for roadmap file
+        id: roadmap-check
+        run: |
+          if [ -f "tech_roadmap.md" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✅ Found tech_roadmap.md"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No tech_roadmap.md found - skipping maintenance"
+          fi
+      
+      - name: Make roadmap bot executable
+        if: steps.roadmap-check.outputs.found == 'true'
+        run: chmod +x scripts/roadmap-bot/roadmap-bot-main.js
+      
+      - name: Run Maintenance Tasks
+        if: steps.roadmap-check.outputs.found == 'true'
+        id: maintenance
+        run: |
+          echo "🤖 Running Roadmap Bot Maintenance Tasks"
+          node scripts/roadmap-bot/roadmap-bot-main.js maintenance
+          
+          # The maintenance command will create PRs if auto-fixes are possible
+          echo "✅ Maintenance tasks completed"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload Maintenance Results
+        if: steps.roadmap-check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: roadmap-maintenance-results-${{ github.run_number }}
+          path: scripts/roadmap-bot/results/
+          retention-days: 7
+      
+      - name: Maintenance Summary
+        if: always()
+        run: |
+          if [ "${{ steps.roadmap-check.outputs.found }}" = "false" ]; then
+            echo "ℹ️ Skipped: No roadmap file found"
+          else
+            echo "✅ Maintenance tasks completed"
+            echo "   - Checked for auto-fix opportunities"
+            echo "   - Created PRs for any simple fixes found"
+          fi

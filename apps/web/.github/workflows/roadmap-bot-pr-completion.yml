@@ -1,0 +1,128 @@
+name: Roadmap Bot - PR Completion
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ main, develop ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  roadmap-completion:
+    name: Handle PR Completion
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Need history for analysis and potential auto-fix
+          fetch-depth: 10
+          # Use a token with write permissions for creating PRs
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.1'
+          run_install: false
+      
+      - name: Install dependencies
+        run: |
+          npm install openai
+          # Install gh CLI for PR creation
+          if ! command -v gh &> /dev/null; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh
+          fi
+      
+      - name: Configure git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+      
+      - name: Check for roadmap file
+        id: roadmap-check
+        run: |
+          if [ -f "tech_roadmap.md" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✅ Found tech_roadmap.md"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No tech_roadmap.md found - skipping completion handling"
+          fi
+      
+      - name: Make roadmap bot executable
+        if: steps.roadmap-check.outputs.found == 'true'
+        run: chmod +x scripts/roadmap-bot/roadmap-bot-main.js
+      
+      - name: Handle PR Completion
+        if: steps.roadmap-check.outputs.found == 'true'
+        id: completion
+        run: |
+          echo "🤖 Running Roadmap Bot PR Completion Handler"
+          node scripts/roadmap-bot/roadmap-bot-main.js handle-completion
+          
+          # Check if files were created
+          if [ -f "roadmap-completion-comment.md" ]; then
+            echo "comment_created=true" >> $GITHUB_OUTPUT
+          else
+            echo "comment_created=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Comment with Sub-item Suggestions
+        if: steps.roadmap-check.outputs.found == 'true' && steps.completion.outputs.comment_created == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const comment = fs.readFileSync('roadmap-completion-comment.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+              
+              console.log('✅ Posted completion suggestions comment to PR');
+            } catch (error) {
+              console.error('❌ Failed to post completion comment:', error.message);
+            }
+      
+      - name: Upload Completion Results
+        if: steps.roadmap-check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: roadmap-completion-results
+          path: |
+            scripts/roadmap-bot/results/
+            roadmap-completion-comment.md
+          retention-days: 30
+      
+      - name: Completion Summary
+        if: always()
+        run: |
+          if [ "${{ steps.roadmap-check.outputs.found }}" = "false" ]; then
+            echo "ℹ️ Skipped: No roadmap file found"
+          elif [ "${{ steps.completion.outputs.comment_created }}" = "true" ]; then
+            echo "✅ Posted completion suggestions and checked for auto-fixes"
+          else
+            echo "✅ Completion handling complete - no suggestions generated"
+          fi
