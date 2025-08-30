@@ -50,10 +50,6 @@
 
 ---
 
----
-
----
-
 ## Step 7 — Expansion & Network Effects
 - Add community features:  
   - In-app discussions (structured, not noisy).  
@@ -65,8 +61,6 @@
 ## Implement simple voting for treasury allocation. 🟡
   - [ ] Develop logic for tallying votes and determining outcomes.
   - [ ] Implement monitoring for voting activity and anomalies.
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. 🔴
 
 ---
