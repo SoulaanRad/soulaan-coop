@@ -1,0 +1,125 @@
+name: Roadmap Bot - PR Analysis
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited]
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  roadmap-analysis:
+    name: Analyze PR for Roadmap Matches
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Need history for diff analysis
+          fetch-depth: 2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.14.0'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.1'
+          run_install: false
+      
+      - name: Install OpenAI dependency
+        run: npm install openai
+      
+      - name: Check for roadmap file
+        id: roadmap-check
+        run: |
+          if [ -f "tech_roadmap.md" ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✅ Found tech_roadmap.md"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No tech_roadmap.md found - skipping roadmap analysis"
+          fi
+      
+      - name: Make roadmap bot executable
+        if: steps.roadmap-check.outputs.found == 'true'
+        run: chmod +x scripts/roadmap-bot/roadmap-bot-main.js
+      
+      - name: Run Roadmap Analysis
+        if: steps.roadmap-check.outputs.found == 'true'
+        id: analysis
+        continue-on-error: true
+        run: |
+          echo "🤖 Running Roadmap Bot PR Analysis"
+          node scripts/roadmap-bot/roadmap-bot-main.js analyze-pr
+          echo "analysis_exit_code=$?" >> $GITHUB_OUTPUT
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Comment PR with Roadmap Matches
+        if: steps.roadmap-check.outputs.found == 'true' && steps.analysis.outputs.analysis_exit_code == '0' && hashFiles('roadmap-bot-comment.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const comment = fs.readFileSync('roadmap-bot-comment.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+              
+              console.log('✅ Posted roadmap analysis comment to PR');
+            } catch (error) {
+              console.error('❌ Failed to post comment:', error.message);
+            }
+      
+      - name: Add roadmap match label
+        if: steps.roadmap-check.outputs.found == 'true' && steps.analysis.outputs.analysis_exit_code == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.addLabels({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: ['roadmap-match']
+              });
+              
+              console.log('✅ Added roadmap-match label to PR');
+            } catch (error) {
+              console.error('❌ Failed to add label:', error.message);
+            }
+      
+      - name: Upload Analysis Results
+        if: steps.roadmap-check.outputs.found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: roadmap-analysis-results
+          path: |
+            scripts/roadmap-bot/results/
+            roadmap-bot-comment.md
+          retention-days: 30
+      
+      - name: Analysis Summary
+        if: always()
+        run: |
+          if [ "${{ steps.roadmap-check.outputs.found }}" = "false" ]; then
+            echo "ℹ️ Skipped: No roadmap file found"
+          elif [ "${{ steps.analysis.outputs.analysis_exit_code }}" = "0" ]; then
+            echo "✅ Roadmap matches found and commented"
+          else
+            echo "✅ Analysis complete - no high-confidence matches"
+          fi

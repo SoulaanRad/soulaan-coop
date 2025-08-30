@@ -10,7 +10,11 @@
     "start": "next start",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "roadmap-bot:test": "jest scripts/roadmap-bot/tests/",
+    "roadmap-bot:analyze": "node scripts/roadmap-bot/roadmap-bot-main.js analyze-pr",
+    "roadmap-bot:complete": "node scripts/roadmap-bot/roadmap-bot-main.js handle-completion",
+    "roadmap-bot:maintenance": "node scripts/roadmap-bot/roadmap-bot-main.js maintenance"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
