@@ -798,16 +798,26 @@ rm /tmp/pr_comment.md
     const formattedLines = [];
     let currentSection = null;
     let inSubItems = false;
+    let lastWasDivider = false;
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
       
       // Track current section
-      if (trimmed.startsWith('## Step ')) {
+      if (trimmed.startsWith('## Step ') || (trimmed.startsWith('## ') && !trimmed.includes('🤖'))) {
         currentSection = trimmed;
         inSubItems = false;
+        
+        // Ensure proper spacing before sections
+        if (formattedLines.length > 0 && !lastWasDivider) {
+          formattedLines.push('');
+          formattedLines.push('---');
+          formattedLines.push('');
+        }
+        
         formattedLines.push(line);
+        lastWasDivider = false;
         continue;
       }
       
@@ -815,54 +825,97 @@ rm /tmp/pr_comment.md
       if (trimmed.startsWith('- ') && !trimmed.includes('[ ]')) {
         inSubItems = false;
         formattedLines.push(line);
+        lastWasDivider = false;
         continue;
       }
       
       // Sub-items (checkboxes)
-      if (trimmed.startsWith('- [ ]')) {
+      if (trimmed.startsWith('- [ ]') || (trimmed.includes('[ ]') && trimmed.includes('🔴🟡🟢'))) {
         if (!inSubItems) {
           // First sub-item, add a small gap
           inSubItems = true;
         }
         
         // Ensure proper indentation for sub-items
-        const cleanSubItem = trimmed.replace(/^\s*-\s*\[\s*\]\s*/, '');
-        formattedLines.push(`  - [ ] ${cleanSubItem}`);
+        const cleanSubItem = trimmed.replace(/^\s*-\s*\[\s*\]\s*/, '').replace(/\s*[🔴🟡🟢]\s*$/, '');
+        const priorityIcon = trimmed.match(/[🔴🟡🟢]/)?.[0] || '';
+        formattedLines.push(`  - [ ] ${cleanSubItem}${priorityIcon ? ' ' + priorityIcon : ''}`);
+        lastWasDivider = false;
         continue;
       }
       
-      // Section separators
+      // Section separators - clean up and normalize
       if (trimmed === '---') {
+        // Only add divider if we haven't just added one
+        if (!lastWasDivider) {
+          // Add proper spacing around dividers
+          if (formattedLines.length > 0 && formattedLines[formattedLines.length - 1].trim() !== '') {
+            formattedLines.push('');
+          }
+          formattedLines.push('---');
+          formattedLines.push('');
+          lastWasDivider = true;
+        }
         inSubItems = false;
-        formattedLines.push('');
-        formattedLines.push(line);
-        formattedLines.push('');
         continue;
       }
       
-      // Other lines (titles, empty lines, etc.)
-      formattedLines.push(line);
-    }
-    
-    // Clean up multiple consecutive empty lines
-    const cleanedLines = [];
-    let lastWasEmpty = false;
-    
-    for (const line of formattedLines) {
-      const isEmpty = line.trim() === '';
-      
-      if (isEmpty) {
-        if (!lastWasEmpty) {
-          cleanedLines.push(line);
+      // Skip empty lines that would create excessive spacing
+      if (trimmed === '') {
+        if (formattedLines.length > 0 && formattedLines[formattedLines.length - 1].trim() !== '') {
+          formattedLines.push(line);
         }
-        lastWasEmpty = true;
-      } else {
-        cleanedLines.push(line);
-        lastWasEmpty = false;
+        continue;
       }
+      
+      // Other lines (titles, content, etc.)
+      formattedLines.push(line);
+      lastWasDivider = false;
     }
     
-    return cleanedLines.join('\n');
+    // Final cleanup pass - remove duplicate dividers and excessive empty lines
+    const finalLines = [];
+    let consecutiveEmpty = 0;
+    let lastLineTrimmed = '';
+    
+    for (let i = 0; i < formattedLines.length; i++) {
+      const line = formattedLines[i];
+      const trimmed = line.trim();
+      
+      // Handle empty lines
+      if (trimmed === '') {
+        consecutiveEmpty++;
+        if (consecutiveEmpty <= 1) { // Allow max 1 consecutive empty line
+          finalLines.push(line);
+        }
+        continue;
+      }
+      
+      // Reset empty line counter
+      consecutiveEmpty = 0;
+      
+      // Skip duplicate dividers
+      if (trimmed === '---' && lastLineTrimmed === '---') {
+        continue;
+      }
+      
+      // Skip dividers at the very beginning
+      if (trimmed === '---' && finalLines.length === 0) {
+        continue;
+      }
+      
+      finalLines.push(line);
+      lastLineTrimmed = trimmed;
+    }
+    
+    // Remove trailing dividers and empty lines
+    while (finalLines.length > 0 && 
+           (finalLines[finalLines.length - 1].trim() === '---' || 
+            finalLines[finalLines.length - 1].trim() === '')) {
+      finalLines.pop();
+    }
+    
+    return finalLines.join('\n');
   }
 
   /**
