@@ -1,6 +1,6 @@
-import { publicProcedure } from "../procedures";
-import { router } from "../trpc";
-import { userRouter } from "./user";
+import { publicProcedure } from "../procedures/index.js";
+import { router } from "../trpc.js";
+import { userRouter } from "./user.js";
 
 export const appRouter = router({
   user: userRouter,

@@ -9,7 +9,10 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "noEmit": false,
-    "declaration": false
+    "declaration": false,
+    "moduleDetection": "auto",
+    "skipLibCheck": true,
+    "strict": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

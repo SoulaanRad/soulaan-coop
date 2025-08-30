@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 
-import type { Context } from "../context";
-import { t } from "../trpc";
+import type { Context } from "../context.js";
+import { t } from "../trpc.js";
 
 const isAuthed = t.middleware(({ ctx, next }) => {
   // Explicitly type the context
