@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { Context } from "../context";
-import { privateProcedure, publicProcedure } from "../procedures";
-import { router } from "../trpc";
+import { Context } from "../context.js";
+import { privateProcedure, publicProcedure } from "../procedures/index.js";
+import { router } from "../trpc.js";
 
 export const userRouter = router({
   // Public procedures
