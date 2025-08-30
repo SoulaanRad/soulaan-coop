@@ -8,7 +8,7 @@
 
 const config = {
   // Core settings
-  roadmapFile: 'tech_roadmap.md',
+  roadmapFile: 'documents/tech_roadmap.md',
   confidenceThreshold: 85,
   
   // OpenAI settings

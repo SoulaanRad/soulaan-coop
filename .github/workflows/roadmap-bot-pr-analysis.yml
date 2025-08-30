@@ -34,17 +34,17 @@ jobs:
           run_install: false
       
       - name: Install OpenAI dependency
-        run: npm install openai
+        run: pnpm install -w openai
       
       - name: Check for roadmap file
         id: roadmap-check
         run: |
-          if [ -f "tech_roadmap.md" ]; then
+          if [ -f "documents/tech_roadmap.md" ]; then
             echo "found=true" >> $GITHUB_OUTPUT
-            echo "✅ Found tech_roadmap.md"
+            echo "✅ Found documents/tech_roadmap.md"
           else
             echo "found=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No tech_roadmap.md found - skipping roadmap analysis"
+            echo "ℹ️ No documents/tech_roadmap.md found - skipping roadmap analysis"
           fi
       
       - name: Make roadmap bot executable

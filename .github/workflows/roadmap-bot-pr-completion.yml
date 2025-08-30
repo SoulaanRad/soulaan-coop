@@ -38,7 +38,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          npm install openai
+          pnpm install -w openai
           # Install gh CLI for PR creation
           if ! command -v gh &> /dev/null; then
             curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -55,12 +55,12 @@ jobs:
       - name: Check for roadmap file
         id: roadmap-check
         run: |
-          if [ -f "tech_roadmap.md" ]; then
+          if [ -f "documents/tech_roadmap.md" ]; then
             echo "found=true" >> $GITHUB_OUTPUT
-            echo "✅ Found tech_roadmap.md"
+            echo "✅ Found documents/tech_roadmap.md"
           else
             echo "found=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No tech_roadmap.md found - skipping completion handling"
+            echo "ℹ️ No documents/tech_roadmap.md found - skipping completion handling"
           fi
       
       - name: Make roadmap bot executable
