@@ -74,10 +74,6 @@
 ## Implement simple voting for treasury allocation. 🟡
 - [ ] Develop logic for tallying votes and determining outcomes.
 - [ ] Implement monitoring for voting activity and anomalies.
-
-*🤖 Roadmap updated 2025-08-30 - AI-generated sub-items added based on completed work analysis*
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Develop tests for security vulnerabilities related to badge/token issuance. 🔴
 
 ---
