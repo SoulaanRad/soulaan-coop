@@ -21,8 +21,6 @@
 - Add member profiles (basic info, business affiliation, region).  
 - Issue membership badges/tokens tied to wallets.  
 - Build onboarding flow for individuals and businesses.  
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Develop the logic for issuing and managing badges/tokens. 🟡
   - [ ] Implement security measures to prevent unauthorized badge/token issuance. 🟡
 ---
@@ -32,8 +30,6 @@
   - Accept UC for payments.  
   - Simple UC → SC conversion payouts.  
 - Add an in-app directory of Soulaan businesses.  
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Implement API endpoints for creating and updating member profiles. 🟡
 ---
 
@@ -56,14 +52,8 @@
 ---
 
 ## Build UC stablecoin wallet integration. 🔴
-*AI-suggested based on recent work: The wallet integration is essential for enabling transactions and requires robust error handling and testing due to its critical nature.*
-
 - [ ] Implement wallet connection logic to interact with the chosen chain.
 - [ ] Add error handling for wallet connection failures.
-
-
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Create user interface components for the onboarding flow. 🟡
   - [ ] Implement backend logic to handle onboarding data submission. 🟡
   - [ ] Add error handling for onboarding process failures. 🟡
@@ -71,8 +61,6 @@
 ---
 
 ## Enable peer-to-peer transfers between members. 🔴
-*AI-suggested based on recent work: Peer-to-peer transfers are a core feature that directly relies on the authentication and wallet setup, necessitating thorough testing and documentation.*
-
 - [ ] Develop transaction validation logic to ensure compliance with membership rules.
 
 ---
