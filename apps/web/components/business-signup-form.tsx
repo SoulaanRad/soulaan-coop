@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
-import { submitBusinessSignup } from "@/actions/waitlist";
+// Using API endpoint instead of server actions
 
 export function BusinessSignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,12 +17,31 @@ export function BusinessSignupForm() {
     setResult(null);
 
     const formData = new FormData(e.currentTarget);
+    
+    const businessData = {
+      ownerName: formData.get("ownerName") as string,
+      ownerEmail: formData.get("ownerEmail") as string,
+      businessName: formData.get("businessName") as string,
+      businessAddress: formData.get("businessAddress") as string,
+      businessType: formData.get("businessType") as string,
+      monthlyRevenue: formData.get("monthlyRevenue") as string,
+      description: formData.get("description") as string,
+    };
 
     try {
-      const response = await submitBusinessSignup(formData);
-      setResult(response);
+      const response = await fetch("/api/business-waitlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(businessData),
+      });
 
-      if (response.success) {
+      const data = await response.json();
+      console.log("business-form response", data);
+      setResult(data);
+
+      if (data.success) {
         // Reset form on success
         e.currentTarget?.reset();
       }

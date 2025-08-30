@@ -2,6 +2,7 @@
   "name": "@repo/db",
   "version": "0.1.0",
   "main": "dist/index.js",
+  "module": "dist/index.mjs", 
   "types": "dist/index.d.ts",
   "license": "MIT",
   "publishConfig": {
@@ -9,6 +10,7 @@
   },
   "scripts": {
     "build": "pnpm run db:generate && tsup",
+    "dev": "pnpm run db:generate && tsup --watch",
     "seed": "ts-node --transpile-only prisma/seed.ts",
     "clean": "rm -rf .turbo node_modules",
     "db:generate": "prisma generate",
@@ -34,6 +36,11 @@
     "typescript": "^5.0.4"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   }
 }

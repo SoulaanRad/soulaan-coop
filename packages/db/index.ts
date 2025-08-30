@@ -7,11 +7,12 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const prisma =
-  globalForPrisma.prisma ??
+  globalForPrisma?.prisma ??
   new PrismaClient({
     log: ["query", "error", "warn"],
     // Optimize for Neon database connections
   });
+
 
 // Graceful shutdown
 process.on("beforeExit", async () => {
@@ -31,5 +32,6 @@ process.on("SIGTERM", async () => {
 export { PrismaClient as PrismaClientSingleton };
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
 
 export { prisma as db };

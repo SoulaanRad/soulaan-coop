@@ -1,4 +1,4 @@
-import { env } from "@/src/env"
+import { env } from "@/env"
 import { PostHog } from "posthog-node"
 
 // NOTE: This is a Node.js client, so you can use it for sending events from the server
