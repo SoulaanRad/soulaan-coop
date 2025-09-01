@@ -333,6 +333,42 @@ export class ProposalEngine {
     }
     return result;
   }
+
+  // ── Mock methods for testing (no API calls) ──────────────────────────
+
+  private async mockImpactAgent(input: ProposalInputV0) {
+    const budget = input.budget.amountRequested;
+    const catBonus =
+      input.category === "infrastructure" || input.category === "procurement" ? 0.05 : 0;
+    const alignment = this.clamp01(0.65 + catBonus);
+    const feasibility = this.clamp01(budget <= 100_000 ? 0.8 : budget <= 1_000_000 ? 0.7 : 0.6);
+    const composite = this.clamp01((alignment + feasibility) / 2);
+    return { alignment, feasibility, composite };
+  }
+
+  private async mockGovernanceAgent(input: ProposalInputV0) {
+    const budget = input.budget.amountRequested;
+    const quorumPercent = budget > 1_000_000 ? 25 : 20;
+    const approvalThresholdPercent = budget > 1_000_000 ? 65 : 60;
+    const votingWindowDays = 7;
+    return { quorumPercent, approvalThresholdPercent, votingWindowDays };
+  }
+
+  private async mockKPIAgent(_input: ProposalInputV0) {
+    return [
+      { name: "export_revenue", target: 100_000, unit: "USD" as const },
+      { name: "jobs_created", target: 5, unit: "jobs" as const },
+    ];
+  }
+
+  private mockDecisionAgent(
+    _input: ProposalInputV0,
+    _scores: { alignment: number; feasibility: number; composite: number },
+    checks: { name: string; passed: boolean; note?: string }[],
+  ): z.infer<typeof ProposalStatusZ> {
+    const failing = checks.some((c) => c.passed === false);
+    return failing ? "rejected" : "draft";
+  }
 }
 
 
