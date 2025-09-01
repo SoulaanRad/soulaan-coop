@@ -336,7 +336,7 @@ export class ProposalEngine {
 
   // ── Mock methods for testing (no API calls) ──────────────────────────
 
-  private async mockImpactAgent(input: ProposalInputV0) {
+  private mockImpactAgent(input: ProposalInputV0) {
     const budget = input.budget.amountRequested;
     const catBonus =
       input.category === "infrastructure" || input.category === "procurement" ? 0.05 : 0;
@@ -346,7 +346,7 @@ export class ProposalEngine {
     return { alignment, feasibility, composite };
   }
 
-  private async mockGovernanceAgent(input: ProposalInputV0) {
+  private mockGovernanceAgent(input: ProposalInputV0) {
     const budget = input.budget.amountRequested;
     const quorumPercent = budget > 1_000_000 ? 25 : 20;
     const approvalThresholdPercent = budget > 1_000_000 ? 65 : 60;
@@ -354,7 +354,7 @@ export class ProposalEngine {
     return { quorumPercent, approvalThresholdPercent, votingWindowDays };
   }
 
-  private async mockKPIAgent(_input: ProposalInputV0) {
+  private mockKPIAgent(_input: ProposalInputV0) {
     return [
       { name: "export_revenue", target: 100_000, unit: "USD" as const },
       { name: "jobs_created", target: 5, unit: "jobs" as const },

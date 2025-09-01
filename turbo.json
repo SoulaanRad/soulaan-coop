@@ -79,7 +79,8 @@
     "POSTGRES_URL",
     "AUTH_REDIRECT_PROXY_URL",
     "AUTH_SECRET",
-    "PORT"
+    "PORT",
+    "OPENAI_API_KEY"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",
