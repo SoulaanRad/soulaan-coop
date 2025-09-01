@@ -42,5 +42,10 @@
     "turbo": "^2.5.5",
     "typescript": "catalog:"
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@repo/prettier-config",
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.25.0"
+    }
+  }
 }
