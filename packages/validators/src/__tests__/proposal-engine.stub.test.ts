@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProposalEngineV0, proposalEngine } from '../proposal-engine.js';
+import { ProposalEngine, proposalEngine } from '../proposal-engine.js';
 import type { ProposalInputV0 } from '../proposal.js';
 
-describe('ProposalEngineV0 (STUB)', () => {
-  let engine: ProposalEngineV0;
+describe('ProposalEngine (Agents)', () => {
+  let engine: ProposalEngine;
 
   beforeEach(() => {
-    engine = new ProposalEngineV0();
+    engine = new ProposalEngine();
   });
 
   const createValidInput = (): ProposalInputV0 => ({
@@ -48,9 +48,10 @@ describe('ProposalEngineV0 (STUB)', () => {
       const result = await engine.processProposal(input);
 
       expect(result).toMatchObject({
-        id: expect.stringMatching(/^prop_[a-zA-Z0-9]{4}$/),
+        id: expect.stringMatching(/^prop_[a-zA-Z0-9]{6}$/),
         createdAt: expect.any(String),
-        status: "draft", // STUB always returns draft
+        // status decided by Decision Agent, allow any valid enum
+        status: expect.stringMatching(/^(draft|votable|approved|funded|rejected)$/),
         title: input.title,
         summary: input.summary,
         category: input.category,
@@ -102,21 +103,10 @@ describe('ProposalEngineV0 (STUB)', () => {
       const result = await proposalEngine.processProposal(input);
       
       expect(result.id).toBeDefined();
-      expect(result.status).toBe("draft");
+      expect(result.status).toMatch(/^(draft|votable|approved|funded|rejected)$/);
       expect(result.scores.alignment).toBe(0.75);
     });
   });
 
-  describe('TODO: Replace with OpenAI Agent SDK', () => {
-    it('should be replaced with AI-powered scoring', () => {
-      // This test documents what needs to be implemented
-      expect(true).toBe(true); // Placeholder
-      
-      // TODO: Implement with OpenAI Agent SDK:
-      // - Dynamic scoring based on proposal content
-      // - Intelligent audit checks  
-      // - Context-aware governance recommendations
-      // - Impact assessment analysis
-    });
-  });
+
 });
