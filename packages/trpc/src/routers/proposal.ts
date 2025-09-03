@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router } from "../trpc.js";
 import { privateProcedure, publicProcedure } from "../procedures/index.js";
-import { ProposalInputZ, ProposalOutputZ, proposalEngine, type ProposalOutput } from "@repo/validators";
+import { ProposalInputZ, ProposalOutputZ, proposalEngine, type ProposalOutput} from "@repo/validators";
 
 export const proposalRouter = router({
   /**
@@ -296,6 +296,13 @@ function mapDbToOutput(dbRecord: any): ProposalOutput {
         passed: check.passed,
         note: check.note
       }))
-    }
+    },
+    // Enhanced fields with defaults (since they may not be in DB yet)
+    goalScores: undefined, // Will be computed by engine
+    alternatives: [],
+    bestAlternative: undefined,
+    decision: "advance",
+    decisionReasons: [],
+    missing_data: [],
   };
 }

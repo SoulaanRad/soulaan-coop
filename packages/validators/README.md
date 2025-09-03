@@ -1,10 +1,10 @@
 # Proposal Engine - AI Agent Architecture
 
-The Proposal Engine uses a multi-agent system powered by OpenAI's Agent SDK to process cooperative proposals from simple text input into structured, analyzed outputs.
+The Proposal Engine uses a multi-agent system powered by OpenAI's Agent SDK to process cooperative proposals from simple text input into structured, analyzed outputs with charter goal optimization and alternative generation.
 
 ## 🤖 Agent Architecture Overview
 
-The system employs 5 specialized AI agents that work together to analyze, score, and process proposals:
+The system employs 7 specialized AI agents that work together to analyze, score, and process proposals:
 
 ```mermaid
 graph TD
@@ -194,3 +194,4 @@ const result = await proposalEngine.processProposal({
 ```
 
 The engine handles everything else automatically through intelligent AI agent collaboration! 🤖✨
+

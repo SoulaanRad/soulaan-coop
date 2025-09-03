@@ -1,11 +1,13 @@
 import { Agent, run, webSearchTool } from "@openai/agents";
 import { z } from "zod";
-import type { ProposalInput, ProposalOutput } from "./proposal.js";
+import type { ProposalInput, ProposalOutput, Goals, Alternative, MissingData, Decision } from "./proposal.js";
 import {
   ProposalInputZ,
   ProposalOutputZ,
   buildOutput,
   ProposalStatusZ,
+  AlternativeZ,
+  MissingDataZ,
 } from "./proposal.js";
 import type { KPIz } from "./proposal.js";
 import fs from "node:fs/promises";
@@ -14,10 +16,14 @@ import path from "node:path";
 /**
  * ProposalEngine: Multi-agent orchestration using @openai/agents
  *
- * Agents (always-on):
+ * Agents:
+ * - Text Extraction Agent → structured fields from raw text
  * - Impact Agent → scores {alignment, feasibility, composite}
  * - Governance Agent → governance params with guardrail re-validation
  * - KPI Agent → up to 3 KPIs (name, target, unit)
+ * - Alternative Agent → generates counterfactual proposals with charter goal scoring
+ * - Missing Data Agent → identifies blocking vs non-blocking data needs
+ * - Decision Agent → advance/revise/block based on dominance and missing data
  * - Compliance checks → local rules + charter read
  */
 export class ProposalEngine {
@@ -37,9 +43,18 @@ export class ProposalEngine {
       this.runComplianceChecks(validated, extractedFields),
     ]);
 
-    const status = await this.runDecisionAgent(validated, extractedFields, scores, checks);
+    // V0.2: Compute charter goal scores and run new agents
+    const goalScores = this.estimateGoals(extractedFields);
+    const [alternatives, missing_data] = await Promise.all([
+      this.runAlternativeAgent(extractedFields),
+      this.runMissingDataAgent(extractedFields),
+    ]);
+    
+    const { decision, reasons, bestAlt } = this.decideWithAlternatives(goalScores, alternatives, missing_data);
+    const status = this.statusFromDecision(decision);
 
-    const output = buildOutput({
+    // Build base output using existing function
+    const baseOut = buildOutput({
       id: this.generateProposalId(),
       createdAt: new Date().toISOString(),
       status,
@@ -56,7 +71,95 @@ export class ProposalEngine {
         ...checks,
       ],
     });
-    return ProposalOutputZ.parse(output);
+
+    // Extend with enhanced features
+    const enhancedOutput = {
+      ...baseOut,
+      goalScores,
+      alternatives,
+      bestAlternative: bestAlt,
+      decision,
+      decisionReasons: reasons,
+      missing_data,
+    };
+    
+    return ProposalOutputZ.parse(enhancedOutput);
+  }
+
+  // ── Helper Functions ──────────────────────────────────────────────────────
+
+  private estimateGoals(extracted: any): Goals {
+    // Estimate charter goal scores based on extracted fields
+    const budget = extracted.budget?.amountRequested || 10000;
+    const category = extracted.category || "other";
+    
+    // Base scores with category-specific adjustments
+    const baseScores = {
+      LeakageReduction: 0.5,
+      MemberBenefit: 0.5,
+      EquityGrowth: 0.4,
+      LocalJobs: 0.4,
+      CommunityVitality: 0.5,
+      Resilience: 0.4,
+    };
+
+    // Category bonuses
+    if (category === "infrastructure") {
+      baseScores.Resilience += 0.2;
+      baseScores.CommunityVitality += 0.1;
+    } else if (category === "business_funding") {
+      baseScores.LeakageReduction += 0.2;
+      baseScores.LocalJobs += 0.2;
+      baseScores.MemberBenefit += 0.1;
+    } else if (category === "transport") {
+      baseScores.CommunityVitality += 0.2;
+      baseScores.MemberBenefit += 0.1;
+    }
+
+    // Budget impact (larger budgets can have more impact but also more risk)
+    const budgetFactor = Math.min(budget / 100000, 2); // Cap at 2x for $100k+
+    (Object.keys(baseScores) as (keyof typeof baseScores)[]).forEach(key => {
+      baseScores[key] = Math.min(
+        baseScores[key] * (0.8 + budgetFactor * 0.2), 
+        1.0
+      );
+    });
+
+    // Calculate composite as weighted average
+    const weights = {
+      LeakageReduction: 0.25,
+      MemberBenefit: 0.20,
+      EquityGrowth: 0.15,
+      LocalJobs: 0.15,
+      CommunityVitality: 0.15,
+      Resilience: 0.10,
+    };
+
+    const composite = (Object.entries(weights) as [keyof typeof baseScores, number][]).reduce((sum, [key, weight]) => {
+      return sum + baseScores[key] * weight;
+    }, 0);
+
+    return {
+      ...baseScores,
+      composite: Math.min(Math.max(composite, 0), 1)
+    };
+  }
+
+  private applyChangesShallow(original: any, changes: {field: string, from?: any, to: any}[]): any {
+    const result = { ...original };
+    
+    changes.forEach(change => {
+      const parts = change.field.split('.');
+      if (parts.length === 1 && parts[0]) {
+        result[parts[0]] = change.to;
+      } else if (parts.length === 2 && parts[0] && parts[1]) {
+        if (!result[parts[0]]) result[parts[0]] = {};
+        result[parts[0]] = { ...result[parts[0]], [parts[1]]: change.to };
+      }
+      // Could extend for deeper nesting if needed
+    });
+    
+    return result;
   }
 
   // ── Agents ────────────────────────────────────────────────────────────
@@ -317,6 +420,78 @@ export class ProposalEngine {
     ];
   }
 
+
+  private async runAlternativeAgent(extracted: any): Promise<Alternative[]> {
+    const AltWrapperSchema = z.object({
+      alternatives: z.array(AlternativeZ).max(3)
+    });
+    
+    const agent = new Agent({
+      name: "Alternative Generator",
+      instructions: [
+        "Generate 1–3 concrete counterfactual designs that may better satisfy Soulaan charter goals.",
+        "- Provide CHANGES as [{field, from?, to}] with minimal edits that materially improve goals.",
+        "- Focus on charter goals: LeakageReduction, MemberBenefit, EquityGrowth, LocalJobs, CommunityVitality, Resilience.",
+        "- Prefer a low-cost improvement first; optionally include a high-impact, higher-cost option.",
+        "- Rationale must reference only charter goals, avoid UC-density terminology.",
+        "Return ONLY a JSON object with 'alternatives' array matching the schema."
+      ].join("\n"),
+      model: "gpt-4.1-mini",
+      outputType: AltWrapperSchema,
+      tools: [webSearchTool()],
+      modelSettings: { toolChoice: "auto" },
+    });
+
+    const result = await run(agent, [
+      `Category: ${extracted.category}`,
+      `Region: ${extracted.region?.code}`,
+      `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
+      `Summary: ${extracted.summary}`,
+      `Title: ${extracted.title}`
+    ].join("\n"));
+
+    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    const altsRaw: any[] = output.alternatives ?? [];
+    const scored = altsRaw.slice(0,3).map((alt) => {
+      const applied = this.applyChangesShallow(extracted, alt.changes);
+      const goals = this.estimateGoals(applied);
+      return { ...alt, scores: goals };
+    });
+    return scored;
+  }
+
+  private async runMissingDataAgent(extracted: any): Promise<MissingData[]> {
+    const MDWrapperSchema = z.object({
+      missing_data: z.array(MissingDataZ).max(10)
+    });
+    
+    const agent = new Agent({
+      name: "Data Needs Agent",
+      instructions: [
+        "List specific missing data items that affect feasibility, legality, or goal scoring.",
+        "Mark blocking=true if absence prevents reliable feasibility or legality (e.g., zoning, site control, permits).",
+        "Non-blocking for estimates that refine scoring (e.g., LOIs, surveys, market research).",
+        "Focus on practical implementation needs for the specific proposal type and location.",
+        "Return ONLY a JSON object with 'missing_data' array matching schema."
+      ].join("\n"),
+      model: "gpt-4.1-mini",
+      outputType: MDWrapperSchema,
+      tools: [webSearchTool()],
+      modelSettings: { toolChoice: "auto" },
+    });
+
+    const result = await run(agent, [
+      `Title: ${extracted.title}`,
+      `Category: ${extracted.category}`,
+      `Region: ${extracted.region?.code}`,
+      `Summary: ${extracted.summary}`,
+      `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
+    ].join("\n"));
+
+    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    return output.missing_data ?? [];
+  }
+
   private async runComplianceChecks(
     input: ProposalInput,
     extractedFields: any,
@@ -396,6 +571,44 @@ export class ProposalEngine {
     }
 
     return checks;
+  }
+
+  // ── V0.2 DECISION LOGIC ───────────────────────────────────────────────────
+
+  private readonly DEFAULT_DOMINANCE_DELTA = 0.08; // tune by category if desired
+
+  private decideWithAlternatives(
+    originalGoals: Goals,
+    alts: Alternative[],
+    missing: MissingData[],
+  ): { decision: Decision, reasons: string[], bestAlt?: Alternative } {
+
+    // Blocking data forces 'block' (maps to legacy status 'draft' → no vote)
+    const hasBlocking = missing.some(m => m.blocking);
+    const best = alts.slice().sort((a,b)=> b.scores.composite - a.scores.composite)[0];
+
+    if (hasBlocking) {
+      return {
+        decision: "block",
+        reasons: ["Blocking missing data (feasibility/legal) — supply before voting."],
+        bestAlt: best
+      };
+    }
+
+    if (!best || best.scores.composite <= originalGoals.composite) {
+      return { decision: "advance", reasons: ["No superior alternative over charter goals."] };
+    }
+
+    const diff = Number((best.scores.composite - originalGoals.composite).toFixed(3));
+    if (diff >= this.DEFAULT_DOMINANCE_DELTA) {
+      return { decision: "block", reasons: [`Dominated by '${best.label}' (+${diff} composite).`], bestAlt: best };
+    }
+    return { decision: "revise", reasons: [`Improvement available: '${best.label}' (+${diff}).`], bestAlt: best };
+  }
+
+  // Map decision → legacy status
+  private statusFromDecision(d: Decision): z.infer<typeof ProposalStatusZ> {
+    return d === "advance" ? "votable" : (d === "revise" ? "votable" : "draft");
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────

@@ -97,6 +97,41 @@ export const AuditZ = z.object({
   ),
 });
 
+// ── V0.2 SCHEMAS ──────────────────────────────────────────────────────────
+
+// Charter goal vector
+export const GoalsZ = z.object({
+  LeakageReduction: z.number().min(0).max(1),
+  MemberBenefit: z.number().min(0).max(1),
+  EquityGrowth: z.number().min(0).max(1),
+  LocalJobs: z.number().min(0).max(1),
+  CommunityVitality: z.number().min(0).max(1),
+  Resilience: z.number().min(0).max(1),
+  composite: z.number().min(0).max(1),
+});
+
+// Engine-generated alternative
+export const AlternativeZ = z.object({
+  label: z.string().min(3),
+  changes: z.array(z.object({
+    field: z.string(),     // dot-path e.g., "budget.amountRequested"
+    from: z.any().optional(),
+    to: z.any()
+  })).max(10),
+  scores: GoalsZ,          // charter goals for this alt
+  rationale: z.string().min(10),
+  dataNeeds: z.array(z.string()).optional()
+});
+
+export const DecisionZ = z.enum(["advance","revise","block"]);
+
+export const MissingDataZ = z.object({
+  field: z.string(),
+  question: z.string(),
+  why_needed: z.string(),
+  blocking: z.boolean().default(false)
+});
+
 export const ProposalOutputZ = z.object({
   id: z.string().min(1),
   createdAt: z.string().datetime(),
@@ -118,8 +153,13 @@ export const ProposalOutputZ = z.object({
   scores: ScoresZ,
   governance: GovernanceZ,
   audit: AuditZ,
+  goalScores: GoalsZ.optional(),                     // original proposal in goal-space
+  alternatives: z.array(AlternativeZ).default([]),   // engine-generated
+  bestAlternative: AlternativeZ.optional(),          // top-scoring viable alt
+  decision: DecisionZ.default("advance"),            // advance|revise|block
+  decisionReasons: z.array(z.string()).default([]),  // human-readable rationale
+  missing_data: z.array(MissingDataZ).default([]), 
 });
-
 
 
 // ── tiny helper: build output from input + computed values ────────────────────
@@ -170,3 +210,7 @@ export type ProposalCategory = z.infer<typeof ProposalCategoryZ>;
 export type Scores = z.infer<typeof ScoresZ>;
 export type Governance = z.infer<typeof GovernanceZ>;
 export type Audit = z.infer<typeof AuditZ>;
+export type Goals = z.infer<typeof GoalsZ>;
+export type Alternative = z.infer<typeof AlternativeZ>;
+export type Decision = z.infer<typeof DecisionZ>;
+export type MissingData = z.infer<typeof MissingDataZ>;
