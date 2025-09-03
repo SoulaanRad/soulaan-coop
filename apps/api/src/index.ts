@@ -2,6 +2,8 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
 
 import { trpcExpress } from "@repo/trpc/server";
+import { createMiddleware } from "@sashimo/lib"
+
 
 import "dotenv/config";
 
@@ -24,6 +26,10 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/trpc", trpcExpress);
+
+app.use("/sashi", createMiddleware({
+  openAIKey: process.env.OPENAI_API_KEY || ""
+}));
 
 const port = process.env.PORT || 3001;
 

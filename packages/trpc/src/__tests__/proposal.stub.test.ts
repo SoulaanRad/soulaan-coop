@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { proposalEngine, type ProposalInputV0 } from '@repo/validators';
+import { proposalEngine, type ProposalInput } from '@repo/validators';
 
 describe('Proposal API Integration Tests (STUB)', () => {
 
@@ -7,9 +7,8 @@ describe('Proposal API Integration Tests (STUB)', () => {
     // Setup for each test
   });
 
-  const createValidInput = (): ProposalInputV0 => ({
-    title: "Hampton Grocery Anchor",
-    summary: "Fund a small-format grocery to reduce external food spend and increase UC usage.",
+  const createValidInput = (): ProposalInput => ({
+    text: "Hampton Grocery Anchor: Fund a small-format grocery to reduce external food spend and increase UC usage. Budget needed: $150,000 USD. Located in Hampton Roads, VA. Expected to reduce economic leakage by $1,000,000 annually and create 12 jobs over 12 months. Target 750,000 USD in local spend retained and 200,000 UC in transactions.",
     proposer: { 
       wallet: "0xabc123", 
       role: "bot", 
@@ -19,25 +18,6 @@ describe('Proposal API Integration Tests (STUB)', () => {
       code: "VA-HAMPTON", 
       name: "Hampton Roads, VA" 
     },
-    category: "business_funding",
-    budget: { 
-      currency: "USD", 
-      amountRequested: 150_000 
-    },
-    treasuryPlan: { 
-      localPercent: 85, 
-      nationalPercent: 15, 
-      acceptUC: true 
-    },
-    impact: { 
-      leakageReductionUSD: 1_000_000, 
-      jobsCreated: 12, 
-      timeHorizonMonths: 12 
-    },
-    kpis: [
-      { name: "Local spend retained", target: 750_000, unit: "USD" },
-      { name: "UC transactions", target: 200_000, unit: "UC" }
-    ]
   });
 
   describe('proposal.create (STUB)', () => {
@@ -46,16 +26,16 @@ describe('Proposal API Integration Tests (STUB)', () => {
       const result = await proposalEngine.processProposal(input);
       
       expect(result).toMatchObject({
-        id: expect.stringMatching(/^prop_[a-zA-Z0-9]{4}$/),
-        status: "draft", // STUB always returns draft
-        title: input.title,
-        summary: input.summary,
-        category: input.category,
+        id: expect.stringMatching(/^prop_[a-zA-Z0-9]{6}$/),
+        status: "draft",
+        title: expect.any(String), // AI-extracted title
+        summary: expect.any(String), // AI-extracted summary
+        category: expect.any(String), // AI-determined category
         proposer: input.proposer,
         region: input.region,
-        budget: input.budget,
-        treasuryPlan: input.treasuryPlan,
-        impact: input.impact,
+        budget: expect.any(Object), // AI-extracted budget
+        treasuryPlan: expect.any(Object), // AI-suggested treasury plan
+        impact: expect.any(Object), // AI-estimated impact,
         scores: {
           alignment: 0.75,  // STUB values
           feasibility: 0.8,
@@ -68,18 +48,19 @@ describe('Proposal API Integration Tests (STUB)', () => {
         },
         audit: {
           engineVersion: expect.stringMatching(/^proposal-engine@/),
-          checks: [{
-            name: "basic_validation",
-            passed: true,
-            note: "STUB: Replace with AI-powered audit checks"
-          }]
+          checks: expect.arrayContaining([
+            expect.objectContaining({
+              name: "basic_validation",
+              passed: true,
+            })
+          ])
         }
       });
     });
 
     it('should still validate input schema', async () => {
       const invalidInput = createValidInput();
-      invalidInput.title = "Hi"; // Too short
+      invalidInput.text = "Hi"; // Too short
 
       await expect(proposalEngine.processProposal(invalidInput)).rejects.toThrow();
     });
@@ -92,76 +73,68 @@ describe('Proposal API Integration Tests (STUB)', () => {
       expect(result1.id).not.toBe(result2.id);
     });
 
-    it('should handle different categories with same output', async () => {
+    it('should handle different proposal types', async () => {
       const businessInput = createValidInput();
-      businessInput.category = "business_funding";
+      businessInput.text = "Business funding: Open a local bakery to serve the community with fresh bread and pastries. Budget: $50,000.";
       
       const infrastructureInput = createValidInput();
-      infrastructureInput.category = "infrastructure";
+      infrastructureInput.text = "Infrastructure project: Build a community solar panel installation to reduce energy costs. Budget: $200,000.";
       
       const businessResult = await proposalEngine.processProposal(businessInput);
       const infrastructureResult = await proposalEngine.processProposal(infrastructureInput);
       
-      // STUB returns same scores regardless of category
-      expect(businessResult.scores.alignment).toBe(0.75);
-      expect(infrastructureResult.scores.alignment).toBe(0.75);
-      expect(businessResult.scores.composite).toBe(0.775);
-      expect(infrastructureResult.scores.composite).toBe(0.775);
+      // AI should determine different categories
+      expect(businessResult.category).toBeDefined();
+      expect(infrastructureResult.category).toBeDefined();
+      expect(businessResult.scores.alignment).toBeGreaterThanOrEqual(0);
+      expect(infrastructureResult.scores.alignment).toBeGreaterThanOrEqual(0);
     });
 
-    it('should handle different budgets with same output', async () => {
+    it('should handle different budget amounts', async () => {
       const smallInput = createValidInput();
-      smallInput.budget.amountRequested = 25_000;
+      smallInput.text = "Small community garden project. Budget needed: $25,000.";
       
       const largeInput = createValidInput();
-      largeInput.budget.amountRequested = 500_000;
+      largeInput.text = "Major infrastructure project: Build a community center. Budget needed: $500,000.";
       
       const smallResult = await proposalEngine.processProposal(smallInput);
       const largeResult = await proposalEngine.processProposal(largeInput);
       
-      // STUB returns same scores and governance regardless of budget
-      expect(smallResult.scores.feasibility).toBe(0.8);
-      expect(largeResult.scores.feasibility).toBe(0.8);
-      expect(smallResult.governance.quorumPercent).toBe(20);
-      expect(largeResult.governance.quorumPercent).toBe(20);
+      // AI should extract different budget amounts
+      expect(smallResult.budget.amountRequested).toBeGreaterThan(0);
+      expect(largeResult.budget.amountRequested).toBeGreaterThan(0);
+      expect(smallResult.scores.feasibility).toBeGreaterThanOrEqual(0);
+      expect(largeResult.scores.feasibility).toBeGreaterThanOrEqual(0);
     });
   });
 
   describe('proposal.testEngine (STUB)', () => {
-    it('should return stubbed response for test endpoint', async () => {
+    it('should return AI-processed response for test endpoint', async () => {
       const result = await proposalEngine.processProposal({
-        title: "Hampton Grocery Anchor",
-        summary: "Fund a small-format grocery to reduce external food spend and increase UC usage.",
+        text: "Hampton Grocery Anchor: Fund a small-format grocery to reduce external food spend and increase UC usage. Budget needed: $150,000 USD. Located in Hampton Roads, VA. Expected to reduce economic leakage by $1,000,000 annually and create 12 jobs over 12 months.",
         proposer: { wallet: "0xabc123", role: "bot", displayName: "SuggestionBot" },
         region: { code: "VA-HAMPTON", name: "Hampton Roads, VA" },
-        category: "business_funding",
-        budget: { currency: "USD", amountRequested: 150_000 },
-        treasuryPlan: { localPercent: 85, nationalPercent: 15, acceptUC: true },
-        impact: { leakageReductionUSD: 1_000_000, jobsCreated: 12, timeHorizonMonths: 12 },
-        kpis: [
-          { name: "Local spend retained", target: 750_000, unit: "USD" },
-          { name: "UC transactions", target: 200_000, unit: "UC" }
-        ]
       });
 
       expect(result).toMatchObject({
-        title: "Hampton Grocery Anchor",
+        title: expect.any(String),
         proposer: {
           wallet: "0xabc123",
           role: "bot",
           displayName: "SuggestionBot"
         },
         scores: {
-          alignment: 0.75,
-          feasibility: 0.8,
-          composite: 0.775
+          alignment: expect.any(Number),
+          feasibility: expect.any(Number),
+          composite: expect.any(Number)
         },
         audit: {
-          checks: [{
-            name: "basic_validation",
-            passed: true,
-            note: "STUB: Replace with AI-powered audit checks"
-          }]
+          checks: expect.arrayContaining([
+            expect.objectContaining({
+              name: "basic_validation",
+              passed: true,
+            })
+          ])
         }
       });
     });

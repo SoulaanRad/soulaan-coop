@@ -1,10 +1,10 @@
 import { Agent, run, webSearchTool } from "@openai/agents";
 import { z } from "zod";
-import type { ProposalInputV0, ProposalOutputV0 } from "./proposal.js";
+import type { ProposalInput, ProposalOutput } from "./proposal.js";
 import {
-  ProposalInputV0Z,
-  ProposalOutputV0Z,
-  buildOutputV0,
+  ProposalInputZ,
+  ProposalOutputZ,
+  buildOutput,
   ProposalStatusZ,
 } from "./proposal.js";
 import type { KPIz } from "./proposal.js";
@@ -23,32 +23,30 @@ import path from "node:path";
 export class ProposalEngine {
   private readonly version = "proposal-engine@agents-1.0.0";
 
-  async processProposal(input: ProposalInputV0): Promise<ProposalOutputV0> {
-    const validated = ProposalInputV0Z.parse(input);
+  async processProposal(input: ProposalInput): Promise<ProposalOutput> {
+    // Validate input
+    const validated = ProposalInputZ.parse(input);
 
-    // Use mock mode in tests when no API key is available
-    const useMocks = !process.env.OPENAI_API_KEY || process.env.NODE_ENV === "test";
+    // Extract all structured fields from the text input using AI agents
+    const extractedFields = await this.runExtractionAgent(validated);
 
-    const [scores, governance, kpis, checks] = await Promise.all([
-      useMocks ? this.mockImpactAgent(validated) : this.runImpactAgent(validated),
-      useMocks ? this.mockGovernanceAgent(validated) : this.runGovernanceAgent(validated),
-      useMocks ? this.mockKPIAgent(validated) : this.runKPIAgent(validated),
-      this.runComplianceChecks(validated),
+    const [scores, governance, _kpis, checks] = await Promise.all([
+      this.runImpactAgent(validated, extractedFields),
+      this.runGovernanceAgent(validated, extractedFields),
+      this.runKPIAgent(validated, extractedFields),
+      this.runComplianceChecks(validated, extractedFields),
     ]);
 
-    const status = useMocks ? this.mockDecisionAgent(validated, scores, checks) : await this.runDecisionAgent(validated, scores, checks);
+    const status = await this.runDecisionAgent(validated, extractedFields, scores, checks);
 
-    const output = buildOutputV0({
+    const output = buildOutput({
       id: this.generateProposalId(),
       createdAt: new Date().toISOString(),
       status,
-      input: {
-        ...validated,
-        kpis: kpis.length
-          ? kpis
-          : Array.isArray(validated.kpis)
-            ? validated.kpis.slice(0, 3)
-            : undefined,
+      input: validated,
+      extractedFields: {
+        ...extractedFields,
+        impact: extractedFields.impact,
       },
       scores,
       governance,
@@ -58,13 +56,105 @@ export class ProposalEngine {
         ...checks,
       ],
     });
-    return ProposalOutputV0Z.parse(output);
+    return ProposalOutputZ.parse(output);
   }
 
   // ── Agents ────────────────────────────────────────────────────────────
 
+  async runExtractionAgent(input: ProposalInput): Promise<{
+    title: string;
+    summary: string;
+    proposer: { wallet: string; role: "member" | "merchant" | "anchor" | "bot"; displayName: string };
+    region: { code: string; name: string };
+    category: "business_funding" | "procurement" | "infrastructure" | "transport" | "wallet_incentive" | "governance" | "other";
+    budget: { currency: "UC" | "USD" | "mixed"; amountRequested: number };
+    treasuryPlan: { localPercent: number; nationalPercent: number; acceptUC: true };
+    impact: { leakageReductionUSD: number; jobsCreated: number; timeHorizonMonths: number };
+  }> {
+    const ExtractionSchema = z.object({
+      title: z.string().min(5).max(140),
+      summary: z.string().min(20).max(1000),
+      proposer: z.object({
+        wallet: z.string(),
+        role: z.enum(["member", "merchant", "anchor", "bot"]),
+        displayName: z.string(),
+      }),
+      region: z.object({
+        code: z.string().min(2),
+        name: z.string().min(2),
+      }),
+      category: z.enum([
+        "business_funding",
+        "procurement", 
+        "infrastructure",
+        "transport",
+        "wallet_incentive",
+        "governance",
+        "other",
+      ]),
+      budget: z.object({
+        currency: z.enum(["UC", "USD", "mixed"]),
+        amountRequested: z.number().nonnegative(),
+      }),
+      treasuryPlan: z.object({
+        localPercent: z.number().min(0).max(100),
+        nationalPercent: z.number().min(0).max(100),
+        acceptUC: z.literal(true),
+      }),
+      impact: z.object({
+        leakageReductionUSD: z.number().nonnegative(),
+        jobsCreated: z.number().int().nonnegative(),
+        timeHorizonMonths: z.number().int().positive(),
+      }),
+    });
+
+    const agent = new Agent({
+      name: "Text Extraction Agent",
+      instructions: [
+        "Extract ALL structured information from raw proposal text.",
+        "ALL FIELDS ARE REQUIRED - provide reasonable defaults if information is missing:",
+        "- title: Extract clear title (5-140 chars) or create one from the proposal",
+        "- summary: Create concise summary (20-1000 chars) of the proposal",
+        "- proposer: If not mentioned, use defaults (wallet: 'unknown', role: 'member', displayName: 'Anonymous')",
+        "- region: Infer from location mentions or default to US/United States",
+        "- category: Determine from proposal type or default to 'other'",
+        "- budget: Extract amount and currency or estimate based on proposal scope",
+        "- treasuryPlan: Suggest local/national split (must sum to 100%), default 70/30",
+        "- impact: Estimate economic impact based on proposal size and type",
+        "Use web_search to research market data, comparable projects, and validate estimates.",
+        "Base all financial estimates on real market research and comparable case studies.",
+        "Return ONLY valid JSON with ALL fields populated.",
+      ].join("\n"),
+      model: "gpt-4.1-mini",
+      outputType: ExtractionSchema,
+      tools: [webSearchTool()],
+      modelSettings: { toolChoice: "auto" },
+    });
+
+    const result = await run(
+      agent,
+      [
+        `Proposal text to analyze: ${input.text}`,
+      ].join("\n"),
+    );
+
+    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+
+    return {
+      title: out.title || "Untitled Proposal",
+      summary: out.summary || input.text.substring(0, 500),
+      proposer: out.proposer || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
+      region: out.region || { code: "US", name: "United States" },
+      category: out.category || "other" as const,
+      budget: out.budget || { currency: "USD" as const, amountRequested: 10000 },
+      treasuryPlan: out.treasuryPlan || { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
+      impact: out.impact || { leakageReductionUSD: 5000, jobsCreated: 2, timeHorizonMonths: 12 },
+    };
+  }
+
   async runDecisionAgent(
-    input: ProposalInputV0,
+    input: ProposalInput,
+    extractedFields: any,
     scores: { alignment: number; feasibility: number; composite: number },
     checks: { name: string; passed: boolean; note?: string }[],
   ): Promise<z.infer<typeof ProposalStatusZ>> {
@@ -96,9 +186,9 @@ export class ProposalEngine {
       [
         `HasFailingChecks: ${failing}`,
         `Scores: alignment=${scores.alignment.toFixed(3)}, feasibility=${scores.feasibility.toFixed(3)}, composite=${scores.composite.toFixed(3)}`,
-        `Category: ${input.category}`,
-        `Budget: ${input.budget.currency} ${input.budget.amountRequested}`,
-        `Summary: ${input.summary}`,
+        `Category: ${extractedFields.category}`,
+        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+        `Summary: ${extractedFields.summary}`,
       ].join("\n"),
     );
 
@@ -106,7 +196,7 @@ export class ProposalEngine {
     return out.status ?? "draft";
   }
 
-  private async runImpactAgent(input: ProposalInputV0): Promise<{
+  private async runImpactAgent(input: ProposalInput, extractedFields: any): Promise<{
     alignment: number;
     feasibility: number;
     composite: number;
@@ -135,11 +225,11 @@ export class ProposalEngine {
     const result = await run(
       agent,
       [
-        `Category: ${input.category}`,
-        `Budget: ${input.budget.currency} ${input.budget.amountRequested}`,
-        `Region: ${input.region.code} - ${input.region.name}`,
-        `Title: ${input.title}`,
-        `Summary: ${input.summary}`,
+        `Category: ${extractedFields.category}`,
+        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+        `Region: ${extractedFields.region?.code} - ${extractedFields.region?.name}`,
+        `Title: ${extractedFields.title}`,
+        `Summary: ${extractedFields.summary}`,
       ].join("\n"),
     );
 
@@ -150,7 +240,7 @@ export class ProposalEngine {
     return { alignment, feasibility, composite };
   }
 
-  private async runGovernanceAgent(input: ProposalInputV0): Promise<{
+  private async runGovernanceAgent(input: ProposalInput, extractedFields: any): Promise<{
     quorumPercent: number;
     approvalThresholdPercent: number;
     votingWindowDays: number;
@@ -178,8 +268,8 @@ export class ProposalEngine {
     const result = await run(
       agent,
       [
-        `Budget: ${input.budget.currency} ${input.budget.amountRequested}`,
-        `Category: ${input.category}`,
+        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+        `Category: ${extractedFields.category}`,
       ].join("\n"),
     );
     const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
@@ -190,7 +280,7 @@ export class ProposalEngine {
     };
   }
 
-  private async runKPIAgent(input: ProposalInputV0): Promise<
+  private async runKPIAgent(input: ProposalInput, extractedFields: any): Promise<
     z.infer<typeof KPIz>[]
   > {
     const agent = new Agent({
@@ -211,11 +301,11 @@ export class ProposalEngine {
     const _result = await run(
       agent,
       [
-        `Title: ${input.title}`,
-        `Summary: ${input.summary}`,
-        `Category: ${input.category}`,
-        `Budget: ${input.budget.currency} ${input.budget.amountRequested}`,
-        `Region: ${input.region.code}`,
+        `Title: ${extractedFields.title}`,
+        `Summary: ${extractedFields.summary}`,
+        `Category: ${extractedFields.category}`,
+        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+        `Region: ${extractedFields.region?.code}`,
       ].join("\n"),
     );
 
@@ -228,23 +318,32 @@ export class ProposalEngine {
   }
 
   private async runComplianceChecks(
-    input: ProposalInputV0,
+    input: ProposalInput,
+    extractedFields: any,
   ): Promise<{ name: string; passed: boolean; note?: string }[]> {
     const checks: { name: string; passed: boolean; note?: string }[] = [];
 
     // Treasury allocation must sum to 100 (Zod enforces; record status)
-    const sum = Math.round(
-      (input.treasuryPlan.localPercent + input.treasuryPlan.nationalPercent) * 100,
-    ) / 100;
-    checks.push({
-      name: "treasury_allocation_sum",
-      passed: sum === 100,
-      note: sum === 100 ? undefined : `local+national=${sum} must equal 100`,
-    });
+    if (extractedFields.treasuryPlan) {
+      const sum = Math.round(
+        (extractedFields.treasuryPlan.localPercent + extractedFields.treasuryPlan.nationalPercent) * 100,
+      ) / 100;
+      checks.push({
+        name: "treasury_allocation_sum",
+        passed: sum === 100,
+        note: sum === 100 ? undefined : `local+national=${sum} must equal 100`,
+      });
+    } else {
+      checks.push({
+        name: "treasury_allocation_sum",
+        passed: false,
+        note: "Treasury plan missing - could not be extracted from text",
+      });
+    }
 
     // Sector exclusions (heuristic)
     const excludedKeywords = ["fashion", "restaurant", "cafe", "food truck"];
-    const lower = `${input.title} ${input.summary}`.toLowerCase();
+    const lower = `${extractedFields.title} ${input.text}`.toLowerCase();
     const excludedHit = excludedKeywords.some((k) => lower.includes(k));
     checks.push({
       name: "sector_exclusion_screen",
@@ -333,44 +432,6 @@ export class ProposalEngine {
     }
     return result;
   }
-
-  // ── Mock methods for testing (no API calls) ──────────────────────────
-
-  private mockImpactAgent(input: ProposalInputV0) {
-    const budget = input.budget.amountRequested;
-    const catBonus =
-      input.category === "infrastructure" || input.category === "procurement" ? 0.05 : 0;
-    const alignment = this.clamp01(0.65 + catBonus);
-    const feasibility = this.clamp01(budget <= 100_000 ? 0.8 : budget <= 1_000_000 ? 0.7 : 0.6);
-    const composite = this.clamp01((alignment + feasibility) / 2);
-    return { alignment, feasibility, composite };
-  }
-
-  private mockGovernanceAgent(input: ProposalInputV0) {
-    const budget = input.budget.amountRequested;
-    const quorumPercent = budget > 1_000_000 ? 25 : 20;
-    const approvalThresholdPercent = budget > 1_000_000 ? 65 : 60;
-    const votingWindowDays = 7;
-    return { quorumPercent, approvalThresholdPercent, votingWindowDays };
-  }
-
-  private mockKPIAgent(_input: ProposalInputV0) {
-    return [
-      { name: "export_revenue", target: 100_000, unit: "USD" as const },
-      { name: "jobs_created", target: 5, unit: "jobs" as const },
-    ];
-  }
-
-  private mockDecisionAgent(
-    _input: ProposalInputV0,
-    _scores: { alignment: number; feasibility: number; composite: number },
-    checks: { name: string; passed: boolean; note?: string }[],
-  ): z.infer<typeof ProposalStatusZ> {
-    const failing = checks.some((c) => c.passed === false);
-    return failing ? "rejected" : "draft";
-  }
 }
-
-
 
 export const proposalEngine = new ProposalEngine();

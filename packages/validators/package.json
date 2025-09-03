@@ -23,16 +23,17 @@
   "prettier": "@repo/prettier-config",
   "dependencies": {
     "@openai/agents": "^0.1.0",
+    "@sashimo/lib": "^8.5.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
+    "@vitest/ui": "^3.2.4",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^3.2.4",
-    "@vitest/ui": "^3.2.4"
+    "vitest": "^3.2.4"
   }
 }
