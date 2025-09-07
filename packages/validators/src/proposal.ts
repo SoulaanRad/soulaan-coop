@@ -67,10 +67,10 @@ export const ProposalInputZ = z.object({
   proposer: z.object({
     wallet: z.string().min(3),
     role: ProposerRoleZ,
-    displayName: z.string().optional(),
-  }).optional(), // Make proposer optional
+    displayName: z.string().optional().nullable(),
+  }).optional().nullable(), // Make proposer optional
   // All other fields are optional and can be inferred by AI
-  region: RegionZ.optional(),
+  region: RegionZ.optional().nullable(),
 });
 
 // ── OUTPUT ────────────────────────────────────────────
@@ -92,7 +92,7 @@ export const AuditZ = z.object({
     z.object({
       name: z.string(),
       passed: z.boolean(),
-      note: z.string().optional(),
+      note: z.string().optional().nullable(),
     }),
   ),
 });
@@ -115,12 +115,12 @@ export const AlternativeZ = z.object({
   label: z.string().min(3),
   changes: z.array(z.object({
     field: z.string(),     // dot-path e.g., "budget.amountRequested"
-    from: z.any().optional(),
-    to: z.any()
+    from: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
+    to: z.union([z.string(), z.number(), z.boolean()])
   })).max(10),
   scores: GoalsZ,          // charter goals for this alt
   rationale: z.string().min(10),
-  dataNeeds: z.array(z.string()).optional()
+  dataNeeds: z.array(z.string()).optional().nullable()
 });
 
 export const DecisionZ = z.enum(["advance","revise","block"]);
@@ -142,7 +142,7 @@ export const ProposalOutputZ = z.object({
   proposer: z.object({
     wallet: z.string(),
     role: ProposerRoleZ,
-    displayName: z.string().optional(),
+    displayName: z.string().optional().nullable(),
   }),
   region: RegionZ,
   category: ProposalCategoryZ,
@@ -153,9 +153,9 @@ export const ProposalOutputZ = z.object({
   scores: ScoresZ,
   governance: GovernanceZ,
   audit: AuditZ,
-  goalScores: GoalsZ.optional(),                     // original proposal in goal-space
+  goalScores: GoalsZ.optional().nullable(),                     // original proposal in goal-space
   alternatives: z.array(AlternativeZ).default([]),   // engine-generated
-  bestAlternative: AlternativeZ.optional(),          // top-scoring viable alt
+  bestAlternative: AlternativeZ.optional().nullable(),          // top-scoring viable alt
   decision: DecisionZ.default("advance"),            // advance|revise|block
   decisionReasons: z.array(z.string()).default([]),  // human-readable rationale
   missing_data: z.array(MissingDataZ).default([]), 

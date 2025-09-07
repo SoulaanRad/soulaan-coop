@@ -430,7 +430,9 @@ export class ProposalEngine {
       name: "Alternative Generator",
       instructions: [
         "Generate 1–3 concrete counterfactual designs that may better satisfy Soulaan charter goals.",
-        "- Provide CHANGES as [{field, from?, to}] with minimal edits that materially improve goals.",
+        "- Provide CHANGES as [{field, from, to}] where 'from' and 'to' are string, number, or boolean values.",
+        "- Set 'from' to null if original value is unknown, 'dataNeeds' to null if no additional data needed.",
+        "- Example change: {field: 'budget.amountRequested', from: 25000, to: 15000}",
         "- Focus on charter goals: LeakageReduction, MemberBenefit, EquityGrowth, LocalJobs, CommunityVitality, Resilience.",
         "- Prefer a low-cost improvement first; optionally include a high-impact, higher-cost option.",
         "- Rationale must reference only charter goals, avoid UC-density terminology.",
