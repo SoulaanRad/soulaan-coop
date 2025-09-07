@@ -33,8 +33,6 @@
   - Simple UC → SC conversion payouts.  
 - Add an in-app directory of Soulaan businesses.  
   - [ ] Implement API endpoints for creating and updating member profiles. � �
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Add logging for proposal submissions and their outcomes to monitor usage and detect issues. � �
   - [ ] Document the proposal submission process and the criteria for approval. � �
 
@@ -43,7 +41,7 @@
 ## Step 5 — Governance & Proposals
 - Launch proposal engine:  
   - Members suggest projects and business funding.  
-  - AI-assisted review ensures alignment with Co-op rules.  
+  - [x] AI-assisted review ensures alignment with Co-op rules.  
 - Implement simple voting for treasury allocation.  
 
 ---
@@ -68,10 +66,7 @@
   - [ ] Develop logic for tallying votes and determining outcomes.
   - [ ] Implement monitoring for voting activity and anomalies.
   - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. � �
-
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Implement error handling for payment processing failures and provide user feedback. � �
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
 ---
