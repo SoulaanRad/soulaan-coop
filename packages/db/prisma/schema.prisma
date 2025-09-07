@@ -65,3 +65,152 @@ model BusinessWaitlist {
   createdAt       DateTime @default(now())
   @@schema("public")
 }
+
+// ── Proposal Engine Models ────────────────────────────
+model Proposal {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  status      ProposalStatus @default(DRAFT)
+  
+  // Core proposal data
+  title       String
+  summary     String
+  category    ProposalCategory
+  
+  // Proposer information
+  proposerWallet     String
+  proposerRole       ProposerRole
+  proposerDisplayName String?
+  
+  // Region and budget
+  regionCode         String
+  regionName         String
+  budgetCurrency     Currency
+  budgetAmount       Float
+  
+  // Treasury plan
+  localPercent       Float
+  nationalPercent    Float
+  acceptUC           Boolean @default(true)
+  
+  // Impact metrics
+  leakageReductionUSD Float @default(0)
+  jobsCreated        Int @default(0)
+  timeHorizonMonths  Int @default(12)
+  
+  // AI scores
+  alignmentScore     Float
+  feasibilityScore   Float
+  compositeScore     Float
+  
+  // Governance settings
+  quorumPercent              Float @default(20)
+  approvalThresholdPercent   Float @default(60)
+  votingWindowDays           Int @default(7)
+  
+  // Audit trail
+  engineVersion      String
+  
+  // Relations
+  kpis               ProposalKPI[]
+  auditChecks        ProposalAuditCheck[]
+  votes              ProposalVote[]
+  
+  @@schema("public")
+}
+
+model ProposalKPI {
+  id         String   @id @default(cuid())
+  proposalId String
+  name       String
+  target     Float
+  unit       KPIUnit
+  
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  
+  @@schema("public")
+}
+
+model ProposalAuditCheck {
+  id         String   @id @default(cuid())
+  proposalId String
+  name       String
+  passed     Boolean
+  note       String?
+  
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  
+  @@schema("public")
+}
+
+model ProposalVote {
+  id         String   @id @default(cuid())
+  proposalId String
+  voterWallet String
+  vote       VoteType
+  timestamp  DateTime @default(now())
+  
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  
+  @@unique([proposalId, voterWallet])
+  @@schema("public")
+}
+
+// ── Enums ──────────────────────────────────────────
+enum ProposalStatus {
+  DRAFT
+  VOTABLE
+  APPROVED
+  FUNDED
+  REJECTED
+  
+  @@schema("public")
+}
+
+enum ProposalCategory {
+  BUSINESS_FUNDING
+  PROCUREMENT
+  INFRASTRUCTURE
+  TRANSPORT
+  WALLET_INCENTIVE
+  GOVERNANCE
+  OTHER
+  
+  @@schema("public")
+}
+
+enum ProposerRole {
+  MEMBER
+  MERCHANT
+  ANCHOR
+  BOT
+  
+  @@schema("public")
+}
+
+enum Currency {
+  UC
+  USD
+  MIXED
+  
+  @@schema("public")
+}
+
+enum KPIUnit {
+  USD
+  UC
+  JOBS
+  PERCENT
+  COUNT
+  
+  @@schema("public")
+}
+
+enum VoteType {
+  FOR
+  AGAINST
+  ABSTAIN
+  
+  @@schema("public")
+}

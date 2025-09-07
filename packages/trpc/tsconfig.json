@@ -8,7 +8,7 @@
     "isolatedModules": true,
     "module": "ESNext",
     "target": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "noEmit": false,
