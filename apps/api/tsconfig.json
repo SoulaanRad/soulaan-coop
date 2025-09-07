@@ -12,7 +12,8 @@
     "declaration": false,
     "moduleDetection": "auto",
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "incremental": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
