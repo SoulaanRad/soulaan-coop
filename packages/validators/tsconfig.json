@@ -1,5 +1,15 @@
 {
   "extends": "@repo/tsconfig/internal-package.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "Bundler"
+  },
   "include": ["src"],
   "exclude": ["node_modules"]
 }
