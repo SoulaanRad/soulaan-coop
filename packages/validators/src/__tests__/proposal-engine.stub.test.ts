@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProposalEngine, proposalEngine } from '../proposal-engine.js';
-import type { ProposalInputV0 } from '../proposal.js';
+import type { ProposalInput } from '../proposal.js';
 
 describe('ProposalEngine (Agents)', () => {
   let engine: ProposalEngine;
@@ -9,9 +9,8 @@ describe('ProposalEngine (Agents)', () => {
     engine = new ProposalEngine();
   });
 
-  const createValidInput = (): ProposalInputV0 => ({
-    title: "Hampton Grocery Anchor",
-    summary: "Fund a small-format grocery to reduce external food spend and increase UC usage.",
+  const createValidInput = (): ProposalInput => ({
+    text: "Hampton Grocery Anchor: Fund a small-format grocery to reduce external food spend and increase UC usage. Budget needed: $150,000 USD. Located in Hampton Roads, VA. Expected to reduce economic leakage by $1,000,000 annually and create 12 jobs over 12 months. Target 750,000 USD in local spend retained and 200,000 UC in transactions.",
     proposer: { 
       wallet: "0xabc123", 
       role: "bot", 
@@ -21,25 +20,6 @@ describe('ProposalEngine (Agents)', () => {
       code: "VA-HAMPTON", 
       name: "Hampton Roads, VA" 
     },
-    category: "business_funding",
-    budget: { 
-      currency: "USD", 
-      amountRequested: 150_000 
-    },
-    treasuryPlan: { 
-      localPercent: 85, 
-      nationalPercent: 15, 
-      acceptUC: true 
-    },
-    impact: { 
-      leakageReductionUSD: 1_000_000, 
-      jobsCreated: 12, 
-      timeHorizonMonths: 12 
-    },
-    kpis: [
-      { name: "Local spend retained", target: 750_000, unit: "USD" },
-      { name: "UC transactions", target: 200_000, unit: "UC" }
-    ]
   });
 
   describe('processProposal (STUB)', () => {
@@ -52,14 +32,14 @@ describe('ProposalEngine (Agents)', () => {
         createdAt: expect.any(String),
         // status decided by Decision Agent, allow any valid enum
         status: expect.stringMatching(/^(draft|votable|approved|funded|rejected)$/),
-        title: input.title,
-        summary: input.summary,
-        category: input.category,
+        title: expect.any(String),
+        summary: expect.any(String),
+        category: expect.any(String),
         proposer: input.proposer,
         region: input.region,
-        budget: input.budget,
-        treasuryPlan: input.treasuryPlan,
-        impact: input.impact,
+        budget: expect.any(Object),
+        treasuryPlan: expect.any(Object),
+        impact: expect.any(Object),
         scores: {
           alignment: expect.any(Number),  // Mock values may vary
           feasibility: expect.any(Number),
@@ -72,13 +52,12 @@ describe('ProposalEngine (Agents)', () => {
         },
         audit: {
           engineVersion: expect.stringMatching(/^proposal-engine@/),
-          checks: [
-            {
+          checks: expect.arrayContaining([
+            expect.objectContaining({
               name: "basic_validation",
               passed: true,
-              note: "STUB: Replace with AI-powered audit checks"
-            }
-          ]
+            })
+          ])
         }
       });
     });
@@ -93,7 +72,7 @@ describe('ProposalEngine (Agents)', () => {
 
     it('should still validate input schema', async () => {
       const invalidInput = createValidInput();
-      invalidInput.title = "Hi"; // Too short
+      invalidInput.text = "Hi"; // Too short
 
       await expect(engine.processProposal(invalidInput)).rejects.toThrow();
     });

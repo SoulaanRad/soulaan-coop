@@ -1,24 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { proposalEngine } from "../proposal-engine.js";
-import { ProposalInputV0Z } from "../proposal.js";
-import type { ProposalInputV0 } from "../proposal.js";
+import { ProposalInputZ } from "../proposal.js";
+import type { ProposalInput } from "../proposal.js";
 
-function makeInput(overrides: Partial<ProposalInputV0> = {}): ProposalInputV0 {
+function makeInput(overrides: Partial<ProposalInput> = {}): ProposalInput {
   const base = {
-    title: "Prefab Microfactory Expansion",
-    summary:
-      "Establish a prefab manufacturing line to increase output and export capacity within 12 months.",
+    text: "Prefab Microfactory Expansion: Establish a prefab manufacturing line to increase output and export capacity within 12 months. Budget needed: $250,000 USD. Located in Atlanta. Expected to create 12 jobs and reduce economic leakage by $150,000 annually.",
     proposer: { wallet: "WALLET_123", role: "member" as const, displayName: "Alice" },
     region: { code: "ATL", name: "Atlanta" },
-    category: "infrastructure" as const,
-    budget: { currency: "USD" as const, amountRequested: 250_000 },
-    treasuryPlan: { localPercent: 60, nationalPercent: 40, acceptUC: true },
-    impact: { leakageReductionUSD: 150_000, jobsCreated: 12, timeHorizonMonths: 18 },
-    kpis: [
-      { name: "units_produced", target: 1_000, unit: "count" as const },
-    ],
-  } satisfies ProposalInputV0;
-  return ProposalInputV0Z.parse({ ...base, ...overrides });
+  } satisfies ProposalInput;
+  return ProposalInputZ.parse({ ...base, ...overrides });
 }
 
 describe("ProposalEngine", () => {
@@ -56,8 +47,7 @@ describe("ProposalEngine", () => {
   it("flags excluded sectors via simple heuristic", async () => {
     const out = await proposalEngine.processProposal(
       makeInput({
-        title: "Downtown Fashion Pop-up",
-        summary: "Launch a fashion retail pop-up and cafe in city center",
+        text: "Downtown Fashion Pop-up: Launch a fashion retail pop-up and cafe in city center",
       }),
     );
     const checks = (out as any).checks ?? (out as any).audit?.checks ?? [];
@@ -68,7 +58,9 @@ describe("ProposalEngine", () => {
 
   it("governance adjusts for large budgets in fallback path", async () => {
     const out = await proposalEngine.processProposal(
-      makeInput({ budget: { currency: "USD", amountRequested: 2_000_000 } }),
+      makeInput({ 
+        text: "Large Infrastructure Project: Build a major transportation hub. Budget needed: $2,000,000 USD." 
+      }),
     );
     expect(out.governance.quorumPercent).toBeGreaterThanOrEqual(25);
     expect(out.governance.approvalThresholdPercent).toBeGreaterThanOrEqual(65);
