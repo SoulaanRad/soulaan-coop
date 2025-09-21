@@ -1,0 +1,58 @@
+{
+  "name": "@soulaan-coop/mobile",
+  "private": true,
+  "main": "App.js",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "expo start",
+    "dev": "expo start --android",
+    "dev:ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint .",
+    "clean": "git clean -xdf .expo .turbo node_modules",
+    "lint:fix": "pnpm lint --fix",
+    "type-check": "tsc --noEmit",
+    "test": "jest --watchAll"
+  },
+  "jest": {
+    "preset": "jest-expo"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@react-native-community/netinfo": "^11.1.0",
+    "@react-navigation/native": "^6.0.2",
+    "@shopify/flash-list": "^1.6.3",
+    "@tanstack/react-query": "^5.17.19",
+    "expo": "~50.0.21",
+    "expo-font": "~11.10.2",
+    "expo-linking": "~6.2.2",
+    "expo-router": "~3.4.10",
+    "expo-splash-screen": "~0.26.3",
+    "expo-status-bar": "~1.11.1",
+    "expo-system-ui": "~2.9.3",
+    "expo-web-browser": "~12.8.1",
+    "nativewind": "^4.0.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.73.6",
+    "react-native-gesture-handler": "^2.14.1",
+    "react-native-is-edge-to-edge": "^1.2.1",
+    "react-native-reanimated": "^3.6.3",
+    "react-native-safe-area-context": "4.8.2",
+    "react-native-screens": "~3.29.0",
+    "react-native-web": "~0.19.6",
+    "superjson": "^2.2.2",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "18.0.11",
+    "jest": "^29.7.0",
+    "jest-expo": "~50.0.1",
+    "react-native-worklets": "^0.5.1",
+    "react-test-renderer": "18.2.0",
+    "typescript": "^5.0.4"
+  }
+}
