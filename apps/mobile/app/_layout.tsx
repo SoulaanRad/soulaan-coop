@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import "../global.css"
+import { PortalHost } from '@rn-primitives/portal';
 
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -19,6 +20,7 @@ export default function RootLayout() {
       <Stack>
       </Stack>
       <StatusBar style="auto" />
+      <PortalHost />
     </ThemeProvider>
   );
 }
