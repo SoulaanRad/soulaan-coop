@@ -5,7 +5,9 @@ import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 
 export default function HomeScreen() {
   return (
@@ -15,18 +17,15 @@ export default function HomeScreen() {
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
+        <ThemedText type="subtitle">Step 1: Test Soulaan Onboarding</ThemedText>
+        <Button 
+          onPress={() => router.push('/onboarding' as any)}
+          className="bg-gold-600 mb-4"
+        >
+          <Text className="text-white font-semibold">Start Onboarding Flow</Text>
+        </Button>
         <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
+          Tap the button above to test the complete Soulaan onboarding experience with splash screens, forms, and navigation.
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>

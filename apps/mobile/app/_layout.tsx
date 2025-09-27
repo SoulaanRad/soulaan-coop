@@ -9,7 +9,7 @@ import { PortalHost } from '@rn-primitives/portal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: 'onboarding',
 };
 
 export default function RootLayout() {
@@ -17,7 +17,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack screenOptions={{ headerShown: false }}>
       </Stack>
       <StatusBar style="auto" />
       <PortalHost />
