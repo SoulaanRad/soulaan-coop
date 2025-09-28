@@ -90,7 +90,7 @@ export default function OnboardingFlow() {
       description:
         'Join our cooperative community to invest together, support local businesses, and build generational wealth.',
       icon: Heart,
-      bgColor: 'bg-gradient-to-br from-gold-600 to-red-700',
+      bgColor: 'bg-gold-600',
     },
     {
       title: 'Community Investment',
@@ -98,7 +98,7 @@ export default function OnboardingFlow() {
       description:
         'Vote on and fund local projects that create jobs, improve infrastructure, and strengthen our community.',
       icon: Vote,
-      bgColor: 'bg-gradient-to-br from-red-700 to-charcoal-800',
+      bgColor: 'bg-red-700',
     },
     {
       title: 'Support Black Businesses',
@@ -106,7 +106,7 @@ export default function OnboardingFlow() {
       description:
         'Pay with Unity Coin at local businesses and earn Soulaan Coins for community participation and voting.',
       icon: Store,
-      bgColor: 'bg-gradient-to-br from-cream-200 to-gold-600',
+      bgColor: 'bg-gold-600',
     },
     {
       title: 'Collective Economic Power',
@@ -114,7 +114,7 @@ export default function OnboardingFlow() {
       description:
         'Track community spending, earnings, and wealth building as we grow our economic sovereignty together.',
       icon: TrendingUp,
-      bgColor: 'bg-gradient-to-br from-gold-600 to-red-700',
+      bgColor: 'bg-red-700',
     },
     {
       title: 'Your Voice Matters',
@@ -122,7 +122,7 @@ export default function OnboardingFlow() {
       description:
         'Use your Soulaan Coins to vote on community decisions and shape the future of our economic sovereignty.',
       icon: Users,
-      bgColor: 'bg-gradient-to-br from-red-700 to-charcoal-800',
+      bgColor: 'bg-charcoal-800',
     },
   ];
 
