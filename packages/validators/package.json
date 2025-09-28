@@ -27,9 +27,11 @@
   },
   "prettier": "@repo/prettier-config",
   "dependencies": {
-    "@openai/agents": "^0.1.0",
     "@sashimo/lib": "^8.5.0",
     "zod": "catalog:"
+  },
+  "optionalDependencies": {
+    "@openai/agents": "^0.1.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

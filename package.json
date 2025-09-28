@@ -45,7 +45,8 @@
   "prettier": "@repo/prettier-config",
   "pnpm": {
     "overrides": {
-      "esbuild": ">=0.25.0"
+      "esbuild": ">=0.25.0",
+      "axios": ">=1.12.0"
     }
   }
 }
