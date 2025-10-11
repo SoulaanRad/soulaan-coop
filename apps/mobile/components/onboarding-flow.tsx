@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, View, Pressable, TextInput } from 'react-native';
+import { ScrollView, View, Pressable, TextInput, Alert } from 'react-native';
+import { useSubmitApplication, useLogin } from '@/hooks/use-api';
+import type { ApplicationData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
+
 
 interface FormData {
   firstName: string;
@@ -55,6 +58,25 @@ export default function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [loginData, setLoginData] = useState({
+    email: '',
+    password: '',
+    rememberMe: false,
+  });
+
+  // API hooks
+  const { submitApplication, isLoading: isSubmitting, error: submitError, clearError: clearSubmitError } = useSubmitApplication();
+  const { login, isLoading: isLoggingIn, error: loginError, clearError: clearLoginError } = useLogin();
+
+  // Display errors if they exist
+  if (submitError) {
+    console.error('Submit error:', submitError);
+  }
+  if (loginError) {
+    console.error('Login error:', loginError);
+  }
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -148,6 +170,204 @@ export default function OnboardingFlow() {
 
   const goToSignup = () => {
     setCurrentStep(splashScreens.length);
+  };
+
+  const handleSubmitApplication = async () => {
+    if (isSubmitting) return;
+    
+    // Clear any previous errors
+    clearSubmitError();
+    
+    try {
+      // Detailed validation with specific error messages
+      const missingFields: string[] = [];
+      
+      if (!formData.firstName) missingFields.push('First Name');
+      if (!formData.lastName) missingFields.push('Last Name');
+      if (!formData.email) missingFields.push('Email');
+      if (!formData.phone) missingFields.push('Phone Number');
+      if (!formData.password) missingFields.push('Password');
+      if (!formData.confirmPassword) missingFields.push('Confirm Password');
+      
+      if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
+        setErrorMessage('Your passwords do not match. Please make sure both password fields are identical.');
+        setSubmissionStatus('error');
+        setTimeout(() => {
+          setErrorMessage('');
+          setSubmissionStatus('idle');
+        }, 5000);
+        return;
+      }
+      
+      if (formData.password && formData.password.length < 8) {
+        setErrorMessage('Your password must be at least 8 characters long.');
+        setSubmissionStatus('error');
+        setTimeout(() => {
+          setErrorMessage('');
+          setSubmissionStatus('idle');
+        }, 5000);
+        return;
+      }
+      
+      if (!formData.identity) missingFields.push('Identity Selection');
+      if (!formData.agreeToMission) missingFields.push('Mission Agreement');
+      if (formData.spendingCategories.length === 0) missingFields.push('Spending Categories');
+      if (!formData.monthlyCommitment) missingFields.push('Monthly Commitment');
+      if (!formData.useUC) missingFields.push('UC Usage Agreement');
+      if (!formData.acceptFees) missingFields.push('Fees Agreement');
+      if (!formData.voteOnInvestments) missingFields.push('Voting Agreement');
+      if (!formData.coopExperience) missingFields.push('Co-op Experience');
+      if (!formData.transparentTransactions) missingFields.push('Transaction Transparency Agreement');
+      
+      if (!formData.agreeToCoopValues) missingFields.push('Co-op Values Agreement');
+      if (!formData.agreeToTerms) missingFields.push('Terms of Service Agreement');
+      if (!formData.agreeToPrivacy) missingFields.push('Privacy Policy Agreement');
+      
+      if (missingFields.length > 0) {
+        setErrorMessage(`Please complete the following fields:\n• ${missingFields.join('\n• ')}`);
+        setSubmissionStatus('error');
+        setTimeout(() => {
+          setErrorMessage('');
+          setSubmissionStatus('idle');
+        }, 5000);
+        return;
+      }
+
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setErrorMessage('Please enter a valid email address.');
+        setSubmissionStatus('error');
+        setTimeout(() => {
+          setErrorMessage('');
+          setSubmissionStatus('idle');
+        }, 5000);
+        return;
+      }
+
+      // Prepare application data
+      const applicationData: ApplicationData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        identity: formData.identity as any,
+        agreeToMission: formData.agreeToMission as any,
+        spendingCategories: formData.spendingCategories,
+        monthlyCommitment: formData.monthlyCommitment as any,
+        useUC: formData.useUC as any,
+        acceptFees: formData.acceptFees as any,
+        voteOnInvestments: formData.voteOnInvestments as any,
+        coopExperience: formData.coopExperience as any,
+        transparentTransactions: formData.transparentTransactions as any,
+        motivation: formData.motivation,
+        desiredService: formData.desiredService,
+        agreeToCoopValues: formData.agreeToCoopValues,
+        agreeToTerms: formData.agreeToTerms,
+        agreeToPrivacy: formData.agreeToPrivacy,
+      };
+
+      // Submit application using hook
+      // Sanitize sensitive fields before logging
+      const sanitizedApplicationData = {
+        ...applicationData,
+        password: '[REDACTED]',
+        confirmPassword: '[REDACTED]'
+      };
+      console.log('📤 Submitting application data:', sanitizedApplicationData);
+      
+      setSubmissionStatus('submitting');
+      
+
+      
+      try {
+        const result = await submitApplication(applicationData);
+        console.log('✅ Application submitted successfully:', result);
+        
+        if (result.success) {
+          setSubmissionStatus('success');
+          // Success! Move to success screen
+          setTimeout(() => {
+            setCurrentStep(currentStep + 1);
+            setSubmissionStatus('idle');
+          }, 1000); // Show success state for 1 second before transitioning
+        } else {
+          setSubmissionStatus('error');
+          setErrorMessage(result.message || 'Submission failed. Please try again.');
+          console.error('❌ Submission failed:', result);
+          setTimeout(() => {
+            setErrorMessage('');
+            setSubmissionStatus('idle');
+          }, 5000);
+        }
+      } catch (submitError) {
+        console.error('❌ Application submission error:', submitError);
+        
+        // Parse the error to show detailed message
+        let errorMessage = 'Failed to submit application. Please try again.';
+        let errorDetails = '';
+        
+        if (submitError instanceof Error) {
+          errorMessage = submitError.message;
+          
+          // Try to parse tRPC error details
+          try {
+            const errorJson = JSON.parse(submitError.message);
+            if (errorJson.error) {
+              errorMessage = errorJson.error.message || errorMessage;
+              errorDetails = JSON.stringify(errorJson.error, null, 2);
+            }
+          } catch {
+            // Not a JSON error, use the error message as is
+          }
+        }
+        
+        console.error('💥 Error details:', errorDetails || errorMessage);
+        
+        setSubmissionStatus('error');
+        setErrorMessage(errorMessage || 'Failed to submit application. Please try again.');
+        setTimeout(() => {
+          setErrorMessage('');
+          setSubmissionStatus('idle');
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('💥 Outer catch - Application submission error:', error);
+      setSubmissionStatus('error');
+      setErrorMessage('Unexpected error occurred. Please try again.');
+      setTimeout(() => {
+        setErrorMessage('');
+        setSubmissionStatus('idle');
+      }, 5000);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (isLoggingIn) return;
+    
+    // Clear any previous errors
+    clearLoginError();
+    
+    try {
+      const result = await login({
+        email: loginData.email,
+        password: loginData.password,
+      });
+      
+      if (result.success && result.user) {
+        Alert.alert('Login Successful', `Welcome back, ${result.user.name || result.user.email}!`);
+        // Here you would typically navigate to the main app or set user state
+        // For now, we'll just show a success message
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert(
+        'Login Failed', 
+        error instanceof Error ? error.message : 'Failed to login. Please try again.'
+      );
+    }
   };
 
   const renderSplashScreen = (index: number) => {
@@ -714,6 +934,21 @@ export default function OnboardingFlow() {
             </CardContent>
           </Card>
 
+          {/* Error Message Display */}
+          {errorMessage && (
+            <Card className="bg-red-50 border-red-300 mt-6">
+              <CardContent className="p-4">
+                <View className="flex flex-row items-start gap-3">
+                  <Text className="text-2xl">⚠️</Text>
+                  <View className="flex-1">
+                    <Text className="font-bold text-red-800 mb-1">Validation Error</Text>
+                    <Text className="text-red-700 text-sm whitespace-pre-line">{errorMessage}</Text>
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Navigation */}
           <View className="flex flex-row justify-between items-center mt-6">
             <Button variant="ghost" onPress={prevStep}>
@@ -721,8 +956,10 @@ export default function OnboardingFlow() {
               <Text className="text-charcoal-600 ml-1">Back</Text>
             </Button>
             <Button
-              onPress={nextStep}
+              onPress={handleSubmitApplication}
               disabled={
+                submissionStatus !== 'idle' ||
+                isSubmitting ||
                 !formData.useUC ||
                 !formData.acceptFees ||
                 !formData.voteOnInvestments ||
@@ -732,10 +969,21 @@ export default function OnboardingFlow() {
                 !formData.agreeToTerms ||
                 !formData.agreeToPrivacy
               }
-              className="bg-red-700"
+              className={
+                submissionStatus === 'success' 
+                  ? 'bg-green-600' 
+                  : submissionStatus === 'error'
+                  ? 'bg-red-800'
+                  : 'bg-red-700'
+              }
             >
-              <Text className="text-white font-semibold">Submit Application</Text>
-              <Icon as={ChevronRight} size={16} className="text-white ml-1" />
+              <Text className="text-white font-semibold">
+                {submissionStatus === 'submitting' && '⏳ Submitting...'}
+                {submissionStatus === 'success' && '✅ Success!'}
+                {submissionStatus === 'error' && '❌ Error - Try Again'}
+                {submissionStatus === 'idle' && 'Submit Application'}
+              </Text>
+              {submissionStatus === 'idle' && <Icon as={ChevronRight} size={16} className="text-white ml-1" />}
             </Button>
           </View>
         </View>
@@ -847,6 +1095,8 @@ export default function OnboardingFlow() {
                 <View>
                   <Label className="text-charcoal-700">Email</Label>
                   <Input
+                    value={loginData.email}
+                    onChangeText={(text) => setLoginData(prev => ({ ...prev, email: text }))}
                     className="mt-1 border-cream-300"
                     placeholder="marcus@example.com"
                     keyboardType="email-address"
@@ -859,6 +1109,8 @@ export default function OnboardingFlow() {
                   <Label className="text-charcoal-700">Password</Label>
                   <View className="relative mt-1">
                     <Input
+                      value={loginData.password}
+                      onChangeText={(text) => setLoginData(prev => ({ ...prev, password: text }))}
                       className="border-cream-300 pr-12"
                       placeholder="Enter your password"
                       secureTextEntry={!showPassword}
@@ -879,9 +1131,10 @@ export default function OnboardingFlow() {
                 {/* Remember Me & Forgot Password */}
                 <View className="flex flex-row items-center justify-between">
                   <View className="flex flex-row items-center gap-2">
-                    <Checkbox checked={false} onCheckedChange={function (checked: boolean): void {
-                                          throw new Error('Function not implemented.');
-                                      } } />
+                    <Checkbox 
+                      checked={loginData.rememberMe} 
+                      onCheckedChange={(checked) => setLoginData(prev => ({ ...prev, rememberMe: !!checked }))} 
+                    />
                     <Label className="text-sm text-charcoal-600">Remember me</Label>
                   </View>
                   <Button variant="ghost" className="p-0">
@@ -890,8 +1143,14 @@ export default function OnboardingFlow() {
                 </View>
 
                 {/* Submit Button */}
-                <Button className="w-full bg-red-700 py-3">
-                  <Text className="text-white font-semibold">Sign In to Soulaan</Text>
+                <Button 
+                  className="w-full bg-red-700 py-3"
+                  onPress={handleLogin}
+                  disabled={isLoggingIn || !loginData.email || !loginData.password}
+                >
+                  <Text className="text-white font-semibold">
+                    {isLoggingIn ? 'Signing In...' : 'Sign In to Soulaan'}
+                  </Text>
                 </Button>
               </View>
 
