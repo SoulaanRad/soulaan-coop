@@ -41,7 +41,7 @@
     "@repo/validators": "workspace:*",
     "@sashimo/lib": "^8.5.0",
     "@trpc/server": "catalog:",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "next": "catalog:",
     "next-auth": "^4.24.11",
     "superjson": "^2.2.2",
@@ -50,6 +50,8 @@
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
     "@trpc/client": "catalog:",
+    "@types/bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^3.0.0",
     "typescript": "^5.0.4",
     "vitest": "^3.2.4"
   }

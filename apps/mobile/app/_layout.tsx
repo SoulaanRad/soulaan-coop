@@ -5,7 +5,6 @@ import 'react-native-reanimated';
 import "../global.css"
 import { PortalHost } from '@rn-primitives/portal';
 
-
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
