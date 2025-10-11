@@ -56,6 +56,7 @@ interface FormData {
 
 export default function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [selectedCoopId, setSelectedCoopId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
@@ -105,46 +106,70 @@ export default function OnboardingFlow() {
     desiredService: '',
   });
 
+  // Generic platform introduction screens
   const splashScreens = [
     {
-      title: 'Welcome to Soulaan',
-      subtitle: 'Building Black Economic Sovereignty',
+      title: 'Welcome to Coop',
+      subtitle: 'Where Communities Build Together',
       description:
-        'Join our cooperative community to invest together, support local businesses, and build generational wealth.',
+        'Join cooperative communities that invest together, support local businesses, and build shared wealth through collective economic power.',
       icon: Heart,
       bgColor: 'bg-gold-600',
     },
     {
-      title: 'Community Investment',
-      subtitle: 'Your Money, Your Neighborhood',
+      title: 'What is a Co-op?',
+      subtitle: 'Democracy Meets Economics',
       description:
-        'Vote on and fund local projects that create jobs, improve infrastructure, and strengthen our community.',
-      icon: Vote,
+        'A cooperative is owned and governed by its members. Your voice matters, your spending builds community wealth, and everyone shares in the success.',
+      icon: Users,
       bgColor: 'bg-red-700',
     },
     {
-      title: 'Support Black Businesses',
-      subtitle: 'Shop Local, Build Wealth',
+      title: 'Pool Your Power',
+      subtitle: 'Collective Buying Strength',
       description:
-        'Pay with Unity Coin at local businesses and earn Soulaan Coins for community participation and voting.',
-      icon: Store,
+        'By combining resources with others in your co-op, you unlock better prices, support local businesses, and create jobs in your community.',
+      icon: TrendingUp,
       bgColor: 'bg-gold-600',
     },
     {
-      title: 'Collective Economic Power',
-      subtitle: 'Stronger Together',
+      title: 'AI-Powered Governance',
+      subtitle: 'Smart Proposals, Better Decisions',
       description:
-        'Track community spending, earnings, and wealth building as we grow our economic sovereignty together.',
-      icon: TrendingUp,
+        'Every co-op has an AI proposal engine that helps members create, evaluate, and vote on projects. Make informed decisions backed by data and community wisdom.',
+      icon: Vote,
       bgColor: 'bg-red-700',
     },
+  ];
+
+  // Co-op specific information (currently only Soulaan, but designed to be extensible)
+  const availableCoops = [
     {
-      title: 'Your Voice Matters',
-      subtitle: 'Democratic Governance',
-      description:
-        'Use your Soulaan Coins to vote on community decisions and shape the future of our economic sovereignty.',
-      icon: Users,
-      bgColor: 'bg-charcoal-800',
+      id: 'soulaan',
+      name: 'Soulaan Co-op',
+      tagline: 'Building Black Economic Sovereignty',
+      description: 'A cooperative focused on circulating and growing Black wealth through collective buying power and community investment.',
+      mission: 'To empower Black communities by building economic sovereignty through cooperative ownership, local investment, and democratic governance.',
+      features: [
+        {
+          title: 'Unity Coin (UC)',
+          description: 'Stable digital currency for rent, retail, and routing co-op fees. Pegged 70% to USD, 30% to community goods.',
+          icon: Store,
+        },
+        {
+          title: 'SoulaaniCoin (SC)',
+          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Vote on proposals and earn yield.',
+          icon: Vote,
+        },
+        {
+          title: 'AI Proposal Engine',
+          description: 'Submit and evaluate funding proposals with AI-powered charter compliance scoring and community feedback.',
+          icon: TrendingUp,
+        },
+      ],
+      eligibility: 'Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)',
+      bgColor: 'bg-red-700',
+      accentColor: 'bg-gold-600',
     },
   ];
 
@@ -153,9 +178,8 @@ export default function OnboardingFlow() {
   };
 
   const nextStep = () => {
-    if (currentStep < splashScreens.length + 4) {
+    // Total steps: splash screens + browse coops + coop details + personal info + questions + commitment + success + login
       setCurrentStep(currentStep + 1);
-    }
   };
 
   const prevStep = () => {
@@ -165,11 +189,21 @@ export default function OnboardingFlow() {
   };
 
   const goToLogin = () => {
-    setCurrentStep(splashScreens.length + 4);
+    // Login is at: splashScreens + 1 (browse) + 1 (details) + 3 (form steps) + 1 (success) = index 9
+    setCurrentStep(splashScreens.length + 6);
   };
 
-  const goToSignup = () => {
+  const goToBrowseCoops = () => {
     setCurrentStep(splashScreens.length);
+  };
+
+  const selectCoop = (coopId: string) => {
+    setSelectedCoopId(coopId);
+    nextStep(); // Go to coop details
+  };
+
+  const startApplication = () => {
+    nextStep(); // Go to personal info form
   };
 
   const handleSubmitApplication = async () => {
@@ -283,17 +317,17 @@ export default function OnboardingFlow() {
 
       
       try {
-        const result = await submitApplication(applicationData);
+      const result = await submitApplication(applicationData);
         console.log('✅ Application submitted successfully:', result);
-        
-        if (result.success) {
+      
+      if (result.success) {
           setSubmissionStatus('success');
           // Success! Move to success screen
           setTimeout(() => {
-            setCurrentStep(currentStep + 1);
+        setCurrentStep(currentStep + 1);
             setSubmissionStatus('idle');
           }, 1000); // Show success state for 1 second before transitioning
-        } else {
+      } else {
           setSubmissionStatus('error');
           setErrorMessage(result.message || 'Submission failed. Please try again.');
           console.error('❌ Submission failed:', result);
@@ -411,11 +445,11 @@ export default function OnboardingFlow() {
             </Button>
 
             <Button
-              onPress={index === splashScreens.length - 1 ? goToSignup : nextStep}
+              onPress={index === splashScreens.length - 1 ? goToBrowseCoops : nextStep}
               className="bg-gold-600"
             >
               <Text className="text-white font-semibold">
-                {index === splashScreens.length - 1 ? 'Join Soulaan' : 'Next'}
+                {index === splashScreens.length - 1 ? 'Browse Co-ops' : 'Next'}
               </Text>
               <Icon as={ChevronRight} size={16} className="text-white ml-1" />
             </Button>
@@ -433,7 +467,145 @@ export default function OnboardingFlow() {
     );
   };
 
-  const renderPersonalInfo = () => (
+  const renderBrowseCoops = () => (
+    <ScrollView className="flex-1 bg-background">
+      <View className="min-h-screen flex-1 justify-center p-6">
+        <View className="w-full max-w-md mx-auto">
+          {/* Header */}
+          <View className="items-center mb-8">
+            <View className="bg-gold-600 p-3 rounded-full mb-4">
+              <Icon as={Store} size={32} className="text-white" />
+            </View>
+            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Choose Your Co-op</Text>
+            <Text className="text-charcoal-600 text-center">
+              Select a cooperative community to join. Each co-op has its own mission and benefits.
+            </Text>
+          </View>
+
+          {/* Co-op Cards */}
+          <View className="gap-4">
+            {availableCoops.map((coop) => (
+              <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
+                <Card className={`${coop.bgColor} border-0 shadow-lg`}>
+                  <CardContent className="p-6">
+                    <Text className="text-xl font-bold text-white mb-1">{coop.name}</Text>
+                    <Text className="text-cream-100 font-semibold mb-3">{coop.tagline}</Text>
+                    <Text className="text-cream-100 text-sm mb-4">{coop.description}</Text>
+                    <View className="flex flex-row items-center justify-between">
+                      <Badge className="bg-white/20">
+                        <Text className="text-white text-xs">Learn More</Text>
+                      </Badge>
+                      <Icon as={ChevronRight} size={20} className="text-white" />
+                    </View>
+                  </CardContent>
+                </Card>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Navigation */}
+          <View className="flex flex-row justify-between items-center mt-6">
+            <Button variant="ghost" onPress={prevStep}>
+              <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
+              <Text className="text-charcoal-600 ml-1">Back</Text>
+            </Button>
+            <Button variant="ghost" onPress={goToLogin}>
+              <Text className="text-charcoal-600">Already a member? </Text>
+              <Text className="text-gold-600 font-semibold">Sign In</Text>
+            </Button>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  const renderCoopDetails = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    if (!selectedCoop) return null;
+
+    return (
+      <ScrollView className="flex-1 bg-background">
+        <View className="min-h-screen flex-1 p-6">
+          <View className="w-full max-w-md mx-auto">
+            {/* Header */}
+            <View className="items-center mb-6">
+              <View className={`${selectedCoop.accentColor} p-3 rounded-full mb-4`}>
+                <Icon as={Heart} size={32} className="text-white" />
+              </View>
+              <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">{selectedCoop.name}</Text>
+              <Text className="text-lg text-charcoal-600 text-center">{selectedCoop.tagline}</Text>
+            </View>
+
+            {/* Mission */}
+            <Card className="bg-white border-cream-200 mb-4">
+              <CardContent className="p-5">
+                <Text className="font-semibold text-charcoal-800 mb-2">Our Mission</Text>
+                <Text className="text-charcoal-600 text-sm leading-relaxed">{selectedCoop.mission}</Text>
+              </CardContent>
+            </Card>
+
+            {/* Features */}
+            <Card className="bg-white border-cream-200 mb-4">
+              <CardContent className="p-5">
+                <Text className="font-semibold text-charcoal-800 mb-4">What You Get</Text>
+                <View className="gap-4">
+                  {selectedCoop.features.map((feature, index) => (
+                    <View key={index} className="flex flex-row gap-3">
+                      <View className={`${selectedCoop.accentColor} p-2 rounded-lg h-10 w-10 items-center justify-center`}>
+                        <Icon as={feature.icon} size={20} className="text-white" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="font-medium text-charcoal-800">{feature.title}</Text>
+                        <Text className="text-sm text-charcoal-600">{feature.description}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Eligibility */}
+            <Card className="bg-gold-50 border-gold-200 mb-6">
+              <CardContent className="p-4">
+                <View className="flex flex-row items-start gap-2">
+                  <Icon as={Shield} size={20} className="text-gold-600 mt-0.5" />
+                  <View className="flex-1">
+                    <Text className="font-medium text-gold-800 mb-1">Eligibility</Text>
+                    <Text className="text-sm text-gold-700">{selectedCoop.eligibility}</Text>
+                  </View>
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Action Buttons */}
+            <View className="gap-3 mb-6">
+              <Button className={selectedCoop.bgColor} onPress={startApplication}>
+                <Text className="text-white font-semibold">Apply to Join {selectedCoop.name}</Text>
+                <Icon as={ChevronRight} size={16} className="text-white ml-2" />
+              </Button>
+              <Button variant="outline" onPress={prevStep}>
+                <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
+                <Text className="text-charcoal-600 ml-1">Back to Co-ops</Text>
+              </Button>
+            </View>
+
+            {/* Login Link */}
+            <View className="items-center">
+              <Button variant="ghost" onPress={goToLogin}>
+                <Text className="text-charcoal-600">Already a member? </Text>
+                <Text className="text-gold-600 font-semibold">Sign In</Text>
+              </Button>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderPersonalInfo = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    
+    return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
         <View className="w-full max-w-md mx-auto">
@@ -442,7 +614,9 @@ export default function OnboardingFlow() {
             <View className="bg-gold-600 p-3 rounded-full mb-4">
               <Icon as={Building} size={32} className="text-white" />
             </View>
-            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Join Soulaan Cooperative</Text>
+            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
+              Join {selectedCoop?.name || 'Co-op'}
+            </Text>
             <Text className="text-charcoal-600 text-center">Step 1 of 3: Personal Information</Text>
           </View>
 
@@ -572,16 +746,20 @@ export default function OnboardingFlow() {
           {/* Login Link */}
           <View className="items-center mt-6">
             <Button variant="ghost" onPress={goToLogin}>
-              <Text className="text-charcoal-600">Already a member? </Text>
+              <Text className="text-charcoal-600">Have an account? </Text>
               <Text className="font-semibold text-gold-700">Sign In</Text>
             </Button>
           </View>
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
-  const renderApplicationQuestions = () => (
+  const renderApplicationQuestions = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    
+    return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
         <View className="w-full max-w-md mx-auto">
@@ -590,7 +768,9 @@ export default function OnboardingFlow() {
             <View className="bg-red-700 p-3 rounded-full mb-4">
               <Icon as={Heart} size={32} className="text-white" />
             </View>
-            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Application Questions</Text>
+            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
+              {selectedCoop?.name} Application
+            </Text>
             <Text className="text-charcoal-600 text-center">Step 2 of 3: Tell us about yourself</Text>
           </View>
 
@@ -732,9 +912,13 @@ export default function OnboardingFlow() {
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
-  const renderCommitmentQuestions = () => (
+  const renderCommitmentQuestions = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    
+    return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
         <View className="w-full max-w-md mx-auto">
@@ -743,8 +927,10 @@ export default function OnboardingFlow() {
             <View className="bg-gold-600 p-3 rounded-full mb-4">
               <Icon as={Shield} size={32} className="text-white" />
             </View>
-            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Commitment & Trust</Text>
-            <Text className="text-charcoal-600 text-center">Step 3 of 3: Final questions</Text>
+            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
+              {selectedCoop?.name} Application
+            </Text>
+            <Text className="text-charcoal-600 text-center">Step 3 of 3: Commitment & Trust</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -989,9 +1175,13 @@ export default function OnboardingFlow() {
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
-  const renderApplicationSubmitted = () => (
+  const renderApplicationSubmitted = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    
+    return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
         <View className="w-full max-w-md mx-auto">
@@ -1001,7 +1191,9 @@ export default function OnboardingFlow() {
               <Icon as={Award} size={40} className="text-white" />
             </View>
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Application Submitted!</Text>
-            <Text className="text-charcoal-600 text-center">Welcome to the Soulaan community review process</Text>
+            <Text className="text-charcoal-600 text-center">
+              Welcome to the {selectedCoop?.name} community review process
+            </Text>
           </View>
 
           <Card className="bg-green-50 border-green-200">
@@ -1015,7 +1207,7 @@ export default function OnboardingFlow() {
                   <View className="flex-1">
                     <Text className="font-medium text-charcoal-800">Community Review</Text>
                     <Text className="text-sm text-charcoal-600">
-                      Current Soulaan members will review your application (1-2 weeks)
+                      Current {selectedCoop?.name} members will review your application (1-2 weeks)
                     </Text>
                   </View>
                 </View>
@@ -1033,7 +1225,7 @@ export default function OnboardingFlow() {
                     <Text className="text-sm font-bold text-white">3</Text>
                   </View>
                   <View className="flex-1">
-                    <Text className="font-medium text-charcoal-800">Welcome to Soulaan</Text>
+                    <Text className="font-medium text-charcoal-800">Welcome to {selectedCoop?.name}</Text>
                     <Text className="text-sm text-charcoal-600">
                       If approved, you&apos;ll receive onboarding materials and access
                     </Text>
@@ -1066,14 +1258,15 @@ export default function OnboardingFlow() {
 
           {/* Community Message */}
           <View className="items-center mt-6">
-            <Badge className="bg-red-700">
-              <Text className="text-white font-medium">Building Black Economic Sovereignty Together</Text>
+            <Badge className={selectedCoop?.bgColor || 'bg-gold-600'}>
+              <Text className="text-white font-medium">{selectedCoop?.tagline || 'Building Community Wealth Together'}</Text>
             </Badge>
           </View>
         </View>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   const renderLogin = () => (
     <ScrollView className="flex-1 bg-background">
@@ -1085,7 +1278,7 @@ export default function OnboardingFlow() {
               <Icon as={Building} size={32} className="text-white" />
             </View>
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Welcome Back</Text>
-            <Text className="text-charcoal-600 text-center">Continue building community wealth with Soulaan</Text>
+            <Text className="text-charcoal-600 text-center">Sign in to access your co-op membership</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -1149,7 +1342,7 @@ export default function OnboardingFlow() {
                   disabled={isLoggingIn || !loginData.email || !loginData.password}
                 >
                   <Text className="text-white font-semibold">
-                    {isLoggingIn ? 'Signing In...' : 'Sign In to Soulaan'}
+                    {isLoggingIn ? 'Signing In...' : 'Sign In'}
                   </Text>
                 </Button>
               </View>
@@ -1178,16 +1371,16 @@ export default function OnboardingFlow() {
 
           {/* Signup Link */}
           <View className="items-center mt-6">
-            <Button variant="ghost" onPress={goToSignup}>
-              <Text className="text-charcoal-600">Not a member yet? </Text>
-              <Text className="font-semibold text-gold-700">Join Soulaan</Text>
+            <Button variant="ghost" onPress={goToBrowseCoops}>
+              <Text className="text-charcoal-600">Don&apos;t have an account? </Text>
+              <Text className="font-semibold text-gold-700">Join a Co-op</Text>
             </Button>
           </View>
 
           {/* Community Notice */}
           <View className="items-center mt-8">
-            <Badge className="bg-red-700">
-              <Text className="text-white font-medium">Building Black Economic Sovereignty</Text>
+            <Badge className="bg-gold-600">
+              <Text className="text-white font-medium">Building Community Wealth Together</Text>
             </Badge>
           </View>
         </View>
@@ -1196,16 +1389,29 @@ export default function OnboardingFlow() {
   );
 
   // Determine which step to render
+  // Flow: Splash Screens → Browse Co-ops → Co-op Details → Personal Info → Questions → Commitment → Success → Login
   const renderCurrentStep = () => {
-    if (currentStep < splashScreens.length) {
+    const splashEnd = splashScreens.length;
+    const browseCoopsStep = splashEnd;
+    const coopDetailsStep = splashEnd + 1;
+    const personalInfoStep = splashEnd + 2;
+    const questionsStep = splashEnd + 3;
+    const commitmentStep = splashEnd + 4;
+    const successStep = splashEnd + 5;
+
+    if (currentStep < splashEnd) {
       return renderSplashScreen(currentStep);
-    } else if (currentStep === splashScreens.length) {
+    } else if (currentStep === browseCoopsStep) {
+      return renderBrowseCoops();
+    } else if (currentStep === coopDetailsStep) {
+      return renderCoopDetails();
+    } else if (currentStep === personalInfoStep) {
       return renderPersonalInfo();
-    } else if (currentStep === splashScreens.length + 1) {
+    } else if (currentStep === questionsStep) {
       return renderApplicationQuestions();
-    } else if (currentStep === splashScreens.length + 2) {
+    } else if (currentStep === commitmentStep) {
       return renderCommitmentQuestions();
-    } else if (currentStep === splashScreens.length + 3) {
+    } else if (currentStep === successStep) {
       return renderApplicationSubmitted();
     } else {
       return renderLogin();
