@@ -270,7 +270,13 @@ export default function OnboardingFlow() {
       };
 
       // Submit application using hook
-      console.log('📤 Submitting application data:', applicationData);
+      // Sanitize sensitive fields before logging
+      const sanitizedApplicationData = {
+        ...applicationData,
+        password: '[REDACTED]',
+        confirmPassword: '[REDACTED]'
+      };
+      console.log('📤 Submitting application data:', sanitizedApplicationData);
       
       setSubmissionStatus('submitting');
       
