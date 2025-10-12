@@ -130,6 +130,9 @@ importers:
       nodemon:
         specifier: ^3.1.9
         version: 3.1.10
+      tsup:
+        specifier: ^8.0.0
+        version: 8.5.0(@swc/core@1.13.5)(jiti@2.6.0)(postcss@8.5.6)(tsx@4.20.3)(typescript@5.8.3)(yaml@2.8.1)
       tsx:
         specifier: ^4.19.3
         version: 4.20.3
@@ -302,7 +305,7 @@ importers:
         specifier: ^0.9.6
         version: 0.9.9(@types/react-dom@19.1.5(@types/react@19.1.6))(@types/react@19.1.6)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       zod:
-        specifier: ^3.24.1
+        specifier: 'catalog:'
         version: 3.25.49
     devDependencies:
       '@swc/jest':
@@ -8587,8 +8590,8 @@ snapshots:
       express-rate-limit: 7.5.1(express@5.1.0)
       pkce-challenge: 5.0.0
       raw-body: 3.0.0
-      zod: 3.25.49
-      zod-to-json-schema: 3.24.6(zod@3.25.49)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.6(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
     optional: true
@@ -12407,8 +12410,8 @@ snapshots:
       '@babel/plugin-transform-private-methods': 7.25.9(@babel/core@7.27.4)
       eslint: 9.28.0(jiti@2.4.2)
       hermes-parser: 0.25.1
-      zod: 3.25.49
-      zod-validation-error: 3.4.0(zod@3.25.49)
+      zod: 3.25.76
+      zod-validation-error: 3.4.0(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -12730,7 +12733,7 @@ snapshots:
 
   fix-dts-default-cjs-exports@1.0.1:
     dependencies:
-      magic-string: 0.30.17
+      magic-string: 0.30.19
       mlly: 1.7.4
       rollup: 4.46.2
 
@@ -13863,7 +13866,11 @@ snapshots:
 
   make-dir@3.1.0:
     dependencies:
+<<<<<<< Updated upstream
       semver: 6.3.1
+=======
+      '@jridgewell/sourcemap-codec': 1.5.5
+>>>>>>> Stashed changes
 
   make-dir@4.0.0:
     dependencies:
@@ -16050,13 +16057,21 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
+<<<<<<< Updated upstream
   zod-to-json-schema@3.24.6(zod@3.25.49):
     dependencies:
       zod: 3.25.49
     optional: true
 
   zod-validation-error@3.4.0(zod@3.25.49):
+=======
+  zod-to-json-schema@3.24.6(zod@3.25.76):
     dependencies:
-      zod: 3.25.49
+      zod: 3.25.76
+
+  zod-validation-error@3.4.0(zod@3.25.76):
+>>>>>>> Stashed changes
+    dependencies:
+      zod: 3.25.76
 
   zod@3.25.49: {}
