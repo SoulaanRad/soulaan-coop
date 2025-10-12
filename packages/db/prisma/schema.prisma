@@ -1,6 +1,5 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -14,8 +13,13 @@ model User {
   email       String   @unique
   name        String?
   role        String   // user, business, admin
+  status      UserStatus @default(PENDING)
+  password    String?
+  phone       String?
   createdAt   DateTime @default(now())
-  // ...other fields
+  updatedAt   DateTime @updatedAt
+  // Relations
+  application Application?
   @@schema("public")
 }
 
@@ -63,6 +67,29 @@ model BusinessWaitlist {
   monthlyRevenue  String
   description     String?
   createdAt       DateTime @default(now())
+  @@schema("public")
+}
+
+// ── Application Models ────────────────────────────────
+model Application {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  status      ApplicationStatus @default(SUBMITTED)
+  
+  // Application data stored as JSON blob for flexibility
+  data        Json
+  
+  // Review Process
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNotes   String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   @@schema("public")
 }
 
@@ -158,6 +185,24 @@ model ProposalVote {
 }
 
 // ── Enums ──────────────────────────────────────────
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+  
+  @@schema("public")
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  
+  @@schema("public")
+}
+
 enum ProposalStatus {
   DRAFT
   VOTABLE

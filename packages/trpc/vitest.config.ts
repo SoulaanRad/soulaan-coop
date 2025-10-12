@@ -10,6 +10,14 @@ export default defineConfig({
       reporter: ['text', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/**/*.spec.ts']
+    },
+    server: {
+      deps: {
+        inline: [
+          '@openai/agents',
+          '@sashimo/lib'
+        ]
+      }
     }
   }
 });
