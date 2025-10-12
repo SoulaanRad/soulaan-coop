@@ -6,5 +6,9 @@ export default [
     ignores: ["dist/**"],
   },
   ...baseConfig,
-  
+  {
+    rules: {
+      "no-restricted-imports": "warn",
+    },
+  },
 ];
