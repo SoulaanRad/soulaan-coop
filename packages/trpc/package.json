@@ -39,7 +39,6 @@
   "dependencies": {
     "@repo/db": "workspace:*",
     "@repo/validators": "workspace:*",
-    "@sashimo/lib": "^8.5.0",
     "@trpc/server": "catalog:",
     "bcryptjs": "^3.0.2",
     "next": "catalog:",
