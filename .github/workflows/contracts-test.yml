@@ -1,0 +1,91 @@
+name: Test Smart Contracts
+
+on:
+  pull_request:
+    paths:
+      - 'packages/contracts/**'
+      - '.github/workflows/contracts-test.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/contracts/**'
+
+jobs:
+  test:
+    name: Run Contract Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile contracts
+        working-directory: packages/contracts
+        run: pnpm compile
+
+      - name: Run tests
+        working-directory: packages/contracts
+        run: pnpm test
+
+      - name: Generate coverage report
+        working-directory: packages/contracts
+        run: pnpm test:coverage
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./packages/contracts/coverage/lcov.info
+          flags: contracts
+          name: contract-coverage
+        continue-on-error: true
+
+      - name: Comment test results on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = `## ✅ Smart Contract Tests Passed!
+            
+            All contract tests completed successfully.
+            
+            **Next steps:**
+            - Review the changes
+            - Merge when ready
+            - Deploy to testnet using the deploy workflow
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+        continue-on-error: true
+
+      - name: Archive test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            packages/contracts/coverage/
+            packages/contracts/artifacts/
+          retention-days: 7
+
