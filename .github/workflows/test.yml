@@ -31,10 +31,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Check lockfile
         uses: ./tooling/github/lockfile-check
 
@@ -48,10 +48,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy env
@@ -72,10 +72,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy env
@@ -93,10 +93,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Format
@@ -111,10 +111,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Typecheck
@@ -132,10 +132,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy environment files
@@ -163,10 +163,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install pnpm 9.6.0+
+      - name: Install pnpm 10.11.1+
         uses: pnpm/action-setup@v4
         with:
-          version: 9.6.0
+          version: 10.11.1
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy environment files

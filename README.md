@@ -67,7 +67,7 @@ soulaancoop/
 ## 📋 Prerequisites
 
 - **Node.js** >= 22.14.0 (see `.nvmrc`)
-- **pnpm** >= 9.6.0
+- **pnpm** >= 10.11.1
 - **PostgreSQL** database
 - **Git**
 
