@@ -16,6 +16,9 @@ on:
 jobs:
   deploy:
     name: Deploy Smart Contracts
+    permissions:
+      contents: read
+      issues: write
     runs-on: ubuntu-latest
     
     # Add environment protection for mainnet
