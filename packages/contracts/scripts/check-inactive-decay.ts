@@ -190,11 +190,11 @@ async function main() {
     console.log(`{`);
     console.log(`  "to": "${SC_ADDRESS}",`);
     console.log(`  "value": "0",`);
-    console.log(`  "data": "${scContract.interface.encodeFunctionData('slash', [`);
-    console.log(`    "${member.address}",`);
-    console.log(`    "${member.decayAmount}",`);
-    console.log(`    "${ethers.id('INACTIVITY_DECAY')}"`);
-    console.log(`  ])},"`);
+    console.log(`  "data": "${scContract.interface.encodeFunctionData('slash', [
+      "${member.address}",
+      "${member.decayAmount}",
+      "${ethers.id('INACTIVITY_DECAY')}"
+    ])},"`);
     console.log("");
   }
   console.log("=" .repeat(60));
