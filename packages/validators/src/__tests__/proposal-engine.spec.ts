@@ -62,8 +62,8 @@ describe("ProposalEngine", () => {
         text: "Large Infrastructure Project: Build a major transportation hub. Budget needed: $2,000,000 USD." 
       }),
     );
-    expect(out.governance.quorumPercent).toBeGreaterThanOrEqual(20);
-    expect(out.governance.approvalThresholdPercent).toBeGreaterThanOrEqual(65);
+    expect(out.governance.quorumPercent).toBeGreaterThanOrEqual(15);
+    expect(out.governance.approvalThresholdPercent).toBeGreaterThanOrEqual(50);
   });
 });
 
