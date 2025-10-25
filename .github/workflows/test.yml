@@ -24,6 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Check lockfile
         uses: ./tooling/github/lockfile-check
 
@@ -33,6 +41,14 @@ jobs:
     needs: lockfile-check
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy env
@@ -49,6 +65,14 @@ jobs:
     needs: lockfile-check
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy env
@@ -62,6 +86,14 @@ jobs:
     needs: lockfile-check
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Format
@@ -72,6 +104,14 @@ jobs:
     needs: lockfile-check
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Typecheck
@@ -85,6 +125,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy environment files
@@ -108,6 +156,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 9.6.0+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
       - name: Setup
         uses: ./tooling/github/setup
       - name: Copy environment files
