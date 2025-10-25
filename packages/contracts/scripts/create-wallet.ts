@@ -4,10 +4,10 @@ import * as path from "path";
 
 /**
  * Create a new Ethereum wallet for deployment
- * 
+ *
  * This script generates a new wallet and saves it to a JSON file.
  * You can use this instead of MetaMask if you prefer.
- * 
+ *
  * ⚠️ KEEP THE GENERATED WALLET FILE SECURE!
  */
 async function main() {
@@ -17,13 +17,13 @@ async function main() {
   const wallet = ethers.Wallet.createRandom();
 
   console.log("✅ Wallet created successfully!\n");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("📋 WALLET DETAILS:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("Address:     ", wallet.address);
   console.log("Private Key: ", wallet.privateKey);
   console.log("Mnemonic:    ", wallet.mnemonic?.phrase);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
 
   // Create wallets directory if it doesn't exist
@@ -66,4 +66,3 @@ main()
     console.error("\n❌ Error:", error);
     process.exit(1);
   });
-

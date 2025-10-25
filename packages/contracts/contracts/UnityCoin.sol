@@ -16,28 +16,28 @@ interface ISoulaaniCoin {
  * @title UnityCoin (UC)
  * @notice Stable digital currency for the Soulaan Co-op economy
  * @dev ERC-20 token with role-based minting, burning, and pausing
- * 
+ *
  * UC is pegged 70% to USD, 30% to essential community goods/services.
  * Used for rent, retail, labor, and routing Co-op fees/capital flows.
- * 
+ *
  * Membership Requirements:
  * - Regular transfers: Only ACTIVE SC members can send or receive UC
  * - Emergency transfers: Any REGISTERED SC member (Active, Suspended, or Banned)
  * - Verified against SoulaaniCoin contract (source of truth)
  * - System contracts (whitelisted) can bypass membership checks
  * - Minting and burning still allowed by authorized roles
- * 
+ *
  * System Contracts:
  * - Whitelisted contracts (e.g., RedemptionVault, DEX) can send/receive UC
  * - Users interacting with system contracts must still be active members
  * - Enables vaults, exchanges, and other co-op infrastructure
- * 
+ *
  * Emergency Transfers:
  * - Admin can transfer UC to/from any registered member (not just Active)
  * - Used for exceptional cases: wrongful suspensions, special exceptions
  * - Still requires recipient to be a registered SC member (not NotMember)
  * - Protects against sending funds to non-co-op addresses
- * 
+ *
  * Roles:
  * - TREASURER_MINT: Can mint unlimited UC tokens (held by Treasury Safe multisig)
  * - ONRAMP_MINTER: Can mint UC up to daily limit (backend for instant onramps)
@@ -54,10 +54,10 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
 
     // Reference to SoulaaniCoin for membership verification
     ISoulaaniCoin public immutable soulaaniCoin;
-    
+
     // Whitelisted system contracts (can send/receive UC without membership check)
     mapping(address => bool) public isSystemContract;
-    
+
     // Emergency transfer flag (bypasses membership checks)
     bool private _inEmergencyTransfer;
 
@@ -85,12 +85,12 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     constructor(address admin, address _soulaaniCoin) ERC20("UnityCoin", "UC") {
         require(admin != address(0), "Admin cannot be zero address");
         require(_soulaaniCoin != address(0), "SoulaaniCoin address cannot be zero");
-        
+
         soulaaniCoin = ISoulaaniCoin(_soulaaniCoin);
-        
+
         // Grant admin role to specified address
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        
+
         // Admin starts with all roles, can transfer them later
         _grantRole(TREASURER_MINT, admin);
         _grantRole(PAUSER, admin);
@@ -108,7 +108,7 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         require(to != address(0), "Cannot mint to zero address");
         require(amount > 0, "Amount must be greater than 0");
         require(soulaaniCoin.isActiveMember(to), "Recipient must be an active SC member");
-        
+
         _mint(to, amount);
         emit Minted(to, amount, msg.sender);
     }
@@ -136,10 +136,7 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         }
 
         // Check daily limit
-        require(
-            dailyMinted[msg.sender] + amount <= dailyMintLimit[msg.sender],
-            "Daily minting limit exceeded"
-        );
+        require(dailyMinted[msg.sender] + amount <= dailyMintLimit[msg.sender], "Daily minting limit exceeded");
 
         dailyMinted[msg.sender] += amount;
         _mint(to, amount);
@@ -152,10 +149,7 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @param limit Daily minting limit in wei (18 decimals)
      * @dev Only callable by DEFAULT_ADMIN (Treasury Safe)
      */
-    function setDailyMintLimit(address minter, uint256 limit) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function setDailyMintLimit(address minter, uint256 limit) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(hasRole(ONRAMP_MINTER, minter), "Address is not an onramp minter");
         dailyMintLimit[minter] = limit;
         emit DailyLimitSet(minter, limit);
@@ -168,17 +162,17 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      */
     function getRemainingDailyMint(address minter) external view returns (uint256) {
         if (dailyMintLimit[minter] == 0) return 0;
-        
+
         // Check if it's a new day
         uint256 currentDay = block.timestamp / 1 days;
         if (currentDay > lastMintDay[minter]) {
             return dailyMintLimit[minter]; // Full limit available
         }
-        
+
         if (dailyMinted[minter] >= dailyMintLimit[minter]) {
             return 0; // Limit exhausted
         }
-        
+
         return dailyMintLimit[minter] - dailyMinted[minter];
     }
 
@@ -245,13 +239,10 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @dev Only callable by SYSTEM_CONTRACT_MANAGER role
      * @dev System contracts can send/receive UC without being SC members
      */
-    function addSystemContract(address contractAddress) 
-        external 
-        onlyRole(SYSTEM_CONTRACT_MANAGER) 
-    {
+    function addSystemContract(address contractAddress) external onlyRole(SYSTEM_CONTRACT_MANAGER) {
         require(contractAddress != address(0), "Cannot whitelist zero address");
         require(!isSystemContract[contractAddress], "Already a system contract");
-        
+
         isSystemContract[contractAddress] = true;
         emit SystemContractAdded(contractAddress, msg.sender);
     }
@@ -261,12 +252,9 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @param contractAddress Address of the system contract
      * @dev Only callable by SYSTEM_CONTRACT_MANAGER role
      */
-    function removeSystemContract(address contractAddress) 
-        external 
-        onlyRole(SYSTEM_CONTRACT_MANAGER) 
-    {
+    function removeSystemContract(address contractAddress) external onlyRole(SYSTEM_CONTRACT_MANAGER) {
         require(isSystemContract[contractAddress], "Not a system contract");
-        
+
         isSystemContract[contractAddress] = false;
         emit SystemContractRemoved(contractAddress, msg.sender);
     }
@@ -281,41 +269,35 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @dev Bypasses Active status requirement but still requires parties to be registered SC members
      * @dev Can transfer to/from: Active, Suspended, or Banned members (not NotMember)
      */
-    function emergencyTransfer(address from, address to, uint256 amount)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        returns (bool)
-    {
+    function emergencyTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (bool) {
         require(from != address(0), "Cannot transfer from zero address");
         require(to != address(0), "Cannot transfer to zero address");
         require(amount > 0, "Amount must be greater than 0");
-        
+
         // Require both parties to be registered members (but not necessarily Active)
         // System contracts bypass this check
         if (!isSystemContract[from]) {
-            require(
-                soulaaniCoin.isMember(from),
-                "Sender must be a registered SC member"
-            );
+            require(soulaaniCoin.isMember(from), "Sender must be a registered SC member");
         }
         if (!isSystemContract[to]) {
-            require(
-                soulaaniCoin.isMember(to),
-                "Recipient must be a registered SC member"
-            );
+            require(soulaaniCoin.isMember(to), "Recipient must be a registered SC member");
         }
-        
+
         // Set emergency flag to bypass Active status checks
         _inEmergencyTransfer = true;
-        
+
         // Perform transfer
         _transfer(from, to, amount);
-        
+
         // Reset emergency flag
         _inEmergencyTransfer = false;
-        
+
         emit Minted(to, amount, msg.sender); // Reuse event for tracking admin actions
-        
+
         return true;
     }
 
@@ -326,13 +308,10 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @param newAdmin Address of new admin (typically a new multisig)
      * @dev New admin is granted role, old admin should call completeOwnershipTransfer after verification
      */
-    function initiateOwnershipTransfer(address newAdmin) 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function initiateOwnershipTransfer(address newAdmin) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newAdmin != address(0), "Cannot transfer to zero address");
         require(!hasRole(DEFAULT_ADMIN_ROLE, newAdmin), "Address already has admin role");
-        
+
         grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
         emit OwnershipTransferInitiated(msg.sender, newAdmin, block.timestamp);
     }
@@ -341,54 +320,35 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @notice Complete ownership transfer by renouncing old admin role
      * @dev Can only be called if there's another admin (prevents locking contract)
      */
-    function completeOwnershipTransfer() 
-        external 
-        onlyRole(DEFAULT_ADMIN_ROLE) 
-    {
+    function completeOwnershipTransfer() external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(getRoleMemberCount(DEFAULT_ADMIN_ROLE) > 1, "Would leave contract without admin");
         renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
         emit OwnershipTransferCompleted(msg.sender, block.timestamp);
     }
 
     // Required overrides for multiple inheritance
-    function _update(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override(ERC20, ERC20Pausable) {
+    function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable) {
         // Allow minting (from == 0) and burning (to == 0)
         // Skip membership checks if in emergency transfer mode
         if (from != address(0) && to != address(0) && !_inEmergencyTransfer) {
             // Check sender membership (unless sender is a whitelisted system contract)
             if (!isSystemContract[from]) {
-                require(
-                    soulaaniCoin.isActiveMember(from),
-                    "Sender must be an active SC member"
-                );
+                require(soulaaniCoin.isActiveMember(from), "Sender must be an active SC member");
             }
-            
+
             // Check recipient membership (unless recipient is a whitelisted system contract)
             if (!isSystemContract[to]) {
-                require(
-                    soulaaniCoin.isActiveMember(to),
-                    "Recipient must be an active SC member"
-                );
+                require(soulaaniCoin.isActiveMember(to), "Recipient must be an active SC member");
             }
         }
-        
+
         super._update(from, to, amount);
     }
 
     /**
      * @dev Override required by Solidity for AccessControlEnumerable
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(AccessControlEnumerable)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControlEnumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
-

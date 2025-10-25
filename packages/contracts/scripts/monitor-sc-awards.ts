@@ -5,16 +5,16 @@ dotenv.config();
 
 /**
  * Monitor SC awards for suspicious activity
- * 
+ *
  * Run this script periodically (e.g., every hour) to detect:
  * - Unusually large SC awards
  * - Too many awards to single address
  * - Awards from unexpected addresses
  * - Unusual patterns
- * 
+ *
  * Usage:
  *   pnpm monitor-sc-awards
- * 
+ *
  * Set up as a cron job:
  *   0 * * * * cd /path/to/contracts && pnpm monitor-sc-awards
  */
@@ -28,7 +28,7 @@ const THRESHOLDS = {
 
 async function main() {
   console.log("\n🔍 SC Award Monitoring Report");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("Time:", new Date().toISOString());
   console.log("");
 
@@ -75,8 +75,8 @@ async function main() {
     if (amount > THRESHOLDS.LARGE_AWARD) {
       alerts.push(
         `⚠️  LARGE AWARD: ${ethers.formatEther(amount)} SC to ${recipient} ` +
-        `(reason: ${ethers.decodeBytes32String(reason)}) ` +
-        `by ${awarder}`
+          `(reason: ${ethers.decodeBytes32String(reason)}) ` +
+          `by ${awarder}`
       );
     }
 
@@ -93,7 +93,7 @@ async function main() {
     if (total > THRESHOLDS.DAILY_LIMIT_PER_ADDRESS) {
       alerts.push(
         `⚠️  HIGH VOLUME TO ADDRESS: ${recipient} received ` +
-        `${ethers.formatEther(total)} SC in last hour`
+          `${ethers.formatEther(total)} SC in last hour`
       );
     }
   }
@@ -102,7 +102,7 @@ async function main() {
   if (hourlyTotal > THRESHOLDS.HOURLY_TOTAL_LIMIT) {
     alerts.push(
       `⚠️  HIGH HOURLY VOLUME: ${ethers.formatEther(hourlyTotal)} SC ` +
-      `awarded in last hour (threshold: ${ethers.formatEther(THRESHOLDS.HOURLY_TOTAL_LIMIT)})`
+        `awarded in last hour (threshold: ${ethers.formatEther(THRESHOLDS.HOURLY_TOTAL_LIMIT)})`
     );
   }
 
@@ -110,16 +110,20 @@ async function main() {
   console.log("📈 HOURLY SUMMARY:");
   console.log("  Total SC Awarded:", ethers.formatEther(hourlyTotal), "SC");
   console.log("  Unique Recipients:", recipientTotals.size);
-  console.log("  Average per Award:", ethers.formatEther(hourlyTotal / BigInt(awardedEvents.length)), "SC");
+  console.log(
+    "  Average per Award:",
+    ethers.formatEther(hourlyTotal / BigInt(awardedEvents.length)),
+    "SC"
+  );
   console.log("");
 
   if (alerts.length > 0) {
     console.log("🚨 ALERTS (" + alerts.length + "):");
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     for (const alert of alerts) {
       console.log(alert);
     }
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
     console.log("");
     console.log("⚠️  ACTION REQUIRED:");
     console.log("1. Review the above alerts");
@@ -131,7 +135,7 @@ async function main() {
     // Optionally send alerts (uncomment and configure)
     // await sendSlackAlert(alerts);
     // await sendEmailAlert(alerts);
-    
+
     process.exit(1); // Exit with error code for alerting systems
   } else {
     console.log("✅ No suspicious activity detected\n");
@@ -139,17 +143,17 @@ async function main() {
 
   // Display recent awards for transparency
   console.log("📋 RECENT AWARDS (last 10):");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   const recentAwards = awardedEvents.slice(-10).reverse();
   for (const event of recentAwards) {
     const { recipient, amount, reason } = event.args;
     console.log(
       `  ${recipient.slice(0, 10)}... ` +
-      `← ${ethers.formatEther(amount)} SC ` +
-      `(${ethers.decodeBytes32String(reason)})`
+        `← ${ethers.formatEther(amount)} SC ` +
+        `(${ethers.decodeBytes32String(reason)})`
     );
   }
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
 }
 
@@ -159,4 +163,3 @@ main()
     console.error("\n❌ Monitoring failed:", error);
     process.exit(1);
   });
-

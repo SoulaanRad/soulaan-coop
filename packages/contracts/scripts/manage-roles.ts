@@ -5,7 +5,7 @@ dotenv.config();
 
 /**
  * Manage roles for UC and SC contracts
- * 
+ *
  * This script helps you:
  * - Grant roles to new addresses
  * - Revoke roles from addresses
@@ -62,9 +62,9 @@ async function main() {
   const vaultContract = await ethers.getContractAt("RedemptionVault", VAULT_ADDRESS);
 
   // Display menu
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("ROLE HASHES (copy these for manual role management):");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("\nUnityCoin (UC):");
   console.log("  DEFAULT_ADMIN:   ", ROLES.UC.DEFAULT_ADMIN);
   console.log("  TREASURER_MINT:  ", ROLES.UC.TREASURER_MINT);
@@ -77,7 +77,7 @@ async function main() {
   console.log("  DEFAULT_ADMIN:        ", ROLES.VAULT.DEFAULT_ADMIN);
   console.log("  REDEMPTION_PROCESSOR: ", ROLES.VAULT.REDEMPTION_PROCESSOR);
   console.log("  TREASURER:            ", ROLES.VAULT.TREASURER);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
 
   // Check current roles
@@ -107,7 +107,10 @@ async function main() {
 
   // Vault roles
   console.log("RedemptionVault - " + VAULT_ADDRESS);
-  const vaultProcessor = await vaultContract.hasRole(ROLES.VAULT.REDEMPTION_PROCESSOR, signer.address);
+  const vaultProcessor = await vaultContract.hasRole(
+    ROLES.VAULT.REDEMPTION_PROCESSOR,
+    signer.address
+  );
   const vaultTreasurer = await vaultContract.hasRole(ROLES.VAULT.TREASURER, signer.address);
   const vaultAdmin = await vaultContract.hasRole(ROLES.VAULT.DEFAULT_ADMIN, signer.address);
   console.log("  Your address has:");
@@ -116,17 +119,17 @@ async function main() {
   console.log("    DEFAULT_ADMIN:        ", vaultAdmin ? "✓ YES" : "✗ NO");
   console.log("");
 
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("📝 TO GRANT A ROLE:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("1. Uncomment the grantRole section below");
   console.log("2. Set the contract, role, and address");
   console.log("3. Run: pnpm manage-roles");
   console.log("");
 
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("📝 TO REVOKE A ROLE:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("1. Uncomment the revokeRole section below");
   console.log("2. Set the contract, role, and address");
   console.log("3. Run: pnpm manage-roles");
@@ -174,4 +177,3 @@ main()
     console.error("\n❌ Error:", error);
     process.exit(1);
   });
-

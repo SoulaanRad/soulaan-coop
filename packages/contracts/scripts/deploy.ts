@@ -7,12 +7,12 @@ dotenv.config();
 
 /**
  * Deploy all Soulaan Co-op contracts to Base Sepolia
- * 
+ *
  * This script deploys:
  * 1. UnityCoin (UC) - ERC-20 stablecoin
  * 2. SoulaaniCoin (SC) - Non-transferable governance token
  * 3. RedemptionVault - Vault for UC redemptions
- * 
+ *
  * It then grants roles to appropriate addresses and saves deployment info.
  */
 async function main() {
@@ -21,12 +21,14 @@ async function main() {
   // Get deployer account
   const [deployer] = await ethers.getSigners();
   console.log("📝 Deploying contracts with account:", deployer.address);
-  
+
   const balance = await ethers.provider.getBalance(deployer.address);
   console.log("💰 Account balance:", ethers.formatEther(balance), "ETH\n");
 
   if (balance === 0n) {
-    throw new Error("❌ Deployer account has no ETH! Get test ETH from: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet");
+    throw new Error(
+      "❌ Deployer account has no ETH! Get test ETH from: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet"
+    );
   }
 
   // Get role addresses from environment
@@ -67,20 +69,20 @@ async function main() {
 
   // ========== SETUP COMPLETE ==========
   console.log("\n\n🎉 DEPLOYMENT COMPLETE!\n");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("📋 DEPLOYED CONTRACT ADDRESSES:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("UnityCoin (UC):      ", ucAddress);
   console.log("SoulaaniCoin (SC):   ", scAddress);
   console.log("RedemptionVault:     ", vaultAddress);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
   console.log("🔑 ROLE ASSIGNMENTS:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("UC Admin/Treasurer/Pauser:", treasurySafe);
   console.log("SC Admin/Governance:      ", governanceBot);
   console.log("Vault Admin/Treasurer:    ", treasurySafe);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
   console.log("📝 NEXT STEPS:");
   console.log("1. Verify contracts on BaseScan:");
@@ -127,10 +129,7 @@ async function main() {
     fs.mkdirSync(deploymentsDir, { recursive: true });
   }
 
-  const deploymentFile = path.join(
-    deploymentsDir,
-    `baseSepolia-${Date.now()}.json`
-  );
+  const deploymentFile = path.join(deploymentsDir, `baseSepolia-${Date.now()}.json`);
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
   console.log(`💾 Deployment info saved to: ${deploymentFile}\n`);
 }
@@ -141,4 +140,3 @@ main()
     console.error("\n❌ Deployment failed:", error);
     process.exit(1);
   });
-

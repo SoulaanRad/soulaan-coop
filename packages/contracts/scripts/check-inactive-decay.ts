@@ -5,15 +5,15 @@ dotenv.config();
 
 /**
  * Check for inactive members and apply SC decay
- * 
+ *
  * Per charter: "SC decays for inactivity: If not active for 12 months,
  * power decays and is redistributed."
- * 
+ *
  * This script:
  * 1. Finds members inactive for 12+ months
  * 2. Calculates decay amount
  * 3. Proposes slashing via Treasury Safe
- * 
+ *
  * Run monthly via cron or manually.
  */
 
@@ -21,14 +21,14 @@ dotenv.config();
 const INACTIVITY_THRESHOLD = 365 * 24 * 60 * 60; // 12 months in seconds
 const DECAY_POLICY = {
   // Choose one:
-  
+
   // Option A: Full decay after 12 months
-  type: 'full',
-  
+  type: "full",
+
   // Option B: Gradual decay (10% per month after 12 months)
   // type: 'gradual',
   // percentPerMonth: 10,
-  
+
   // Option C: Fixed amount per month
   // type: 'fixed',
   // amountPerMonth: ethers.parseEther('10'),
@@ -36,7 +36,7 @@ const DECAY_POLICY = {
 
 async function main() {
   console.log("\n🕐 SC Inactivity Decay Check");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("Time:", new Date().toISOString());
   console.log("Threshold: 12 months (365 days)");
   console.log("Policy:", DECAY_POLICY.type);
@@ -85,7 +85,7 @@ async function main() {
     try {
       // Check time since last activity
       const timeSinceActive = await scContract.getTimeSinceLastActivity(address);
-      
+
       // Skip if active recently or never active
       if (timeSinceActive === 0n || timeSinceActive < INACTIVITY_THRESHOLD) {
         continue;
@@ -93,7 +93,7 @@ async function main() {
 
       // Get SC balance
       const balance = await scContract.balanceOf(address);
-      
+
       // Skip if no SC to decay
       if (balance === 0n) {
         continue;
@@ -103,10 +103,10 @@ async function main() {
       let decayAmount = 0n;
       const daysSinceActive = Number(timeSinceActive) / 86400;
 
-      if (DECAY_POLICY.type === 'full') {
+      if (DECAY_POLICY.type === "full") {
         // Decay all SC after 12 months
         decayAmount = balance;
-      } else if (DECAY_POLICY.type === 'gradual') {
+      } else if (DECAY_POLICY.type === "gradual") {
         // Gradual decay: X% per month after 12 months
         const monthsInactive = Math.floor(Number(timeSinceActive) / (30 * 86400));
         const monthsOverThreshold = monthsInactive - 12;
@@ -117,7 +117,7 @@ async function main() {
           );
           decayAmount = (balance * BigInt(decayPercent)) / 100n;
         }
-      } else if (DECAY_POLICY.type === 'fixed') {
+      } else if (DECAY_POLICY.type === "fixed") {
         // Fixed amount per month
         const monthsInactive = Math.floor(Number(timeSinceActive) / (30 * 86400));
         const monthsOverThreshold = monthsInactive - 12;
@@ -151,7 +151,7 @@ async function main() {
   }
 
   console.log(`⚠️  Found ${inactiveMembers.length} inactive members:\n`);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
 
   let totalDecay = 0n;
   for (const member of inactiveMembers) {
@@ -164,9 +164,9 @@ async function main() {
     totalDecay += member.decayAmount;
   }
 
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log(`Total SC to decay: ${ethers.formatEther(totalDecay)} SC`);
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
 
   console.log("📝 NEXT STEPS:");
@@ -183,21 +183,23 @@ async function main() {
 
   // Generate Safe transaction batch (for convenience)
   console.log("💡 SAFE TRANSACTION DATA:");
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("Copy this to Safe UI for batch execution:\n");
-  
+
   for (const member of inactiveMembers) {
     console.log(`{`);
     console.log(`  "to": "${SC_ADDRESS}",`);
     console.log(`  "value": "0",`);
-    console.log(`  "data": "${scContract.interface.encodeFunctionData('slash', [
-      "${member.address}",
-      "${member.decayAmount}",
-      "${ethers.id('INACTIVITY_DECAY')}"
-    ])},"`);
+    console.log(
+      `  "data": "${scContract.interface.encodeFunctionData("slash", [
+        "${member.address}",
+        "${member.decayAmount}",
+        "${ethers.id('INACTIVITY_DECAY')}",
+      ])},"`
+    );
     console.log("");
   }
-  console.log("=" .repeat(60));
+  console.log("=".repeat(60));
   console.log("");
 }
 
@@ -207,4 +209,3 @@ main()
     console.error("\n❌ Error:", error);
     process.exit(1);
   });
-

@@ -4,7 +4,7 @@ import * as path from "path";
 
 /**
  * Verify contracts on BaseScan after deployment
- * 
+ *
  * This script reads the latest deployment file and verifies all contracts.
  * You need a BaseScan API key in your .env file.
  */
@@ -13,13 +13,14 @@ async function main() {
 
   // Find the latest deployment file
   const deploymentsDir = path.join(__dirname, "../deployments");
-  
+
   if (!fs.existsSync(deploymentsDir)) {
     throw new Error("No deployments directory found. Deploy contracts first!");
   }
 
-  const files = fs.readdirSync(deploymentsDir)
-    .filter(f => f.startsWith("baseSepolia-") && f.endsWith(".json"))
+  const files = fs
+    .readdirSync(deploymentsDir)
+    .filter((f) => f.startsWith("baseSepolia-") && f.endsWith(".json"))
     .sort()
     .reverse();
 
@@ -104,4 +105,3 @@ main()
     console.error("\n❌ Verification failed:", error);
     process.exit(1);
   });
-
