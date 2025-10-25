@@ -5,6 +5,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,ts}'],
+    // Prevent hanging in CI/CD
+    watch: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
