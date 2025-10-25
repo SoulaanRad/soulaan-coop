@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
@@ -15,14 +15,22 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * 2. Vault transfers UC from member to vault
  * 3. Vault emits RedeemRequested event with unique redemptionId
  * 4. Backend monitors events and processes redemption off-chain
- * 5. Backend can mark redemption as fulfilled or cancel it
+ * 5. Backend can:
+ *    - fulfillRedemption(): Mark as completed (fiat sent)
+ *    - cancelRedemption(): Cancel and refund UC (user must still be active member)
+ *    - forfeitRedemption(): Cancel without refund (for fraud/violations)
+ * 
+ * Redemption Outcomes:
+ * - Fulfilled: Fiat sent to user, UC stays in vault
+ * - Cancelled: UC returned to user (user must be active member)
+ * - Forfeited: No refund, UC kept by vault for treasury (used for fraud/violations)
  * 
  * Roles:
- * - REDEMPTION_PROCESSOR: Backend that processes redemptions (fulfills or cancels)
+ * - REDEMPTION_PROCESSOR: Backend that processes redemptions (fulfills, cancels, or forfeits)
  * - TREASURER: Can withdraw UC from vault (Treasury Safe)
  * - DEFAULT_ADMIN: Can grant/revoke roles
  */
-contract RedemptionVault is AccessControl, ReentrancyGuard {
+contract RedemptionVault is AccessControlEnumerable, ReentrancyGuard {
     // Role definitions
     bytes32 public constant REDEMPTION_PROCESSOR = keccak256("REDEMPTION_PROCESSOR");
     bytes32 public constant TREASURER = keccak256("TREASURER");
@@ -34,7 +42,8 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
     enum RedemptionStatus {
         Pending,    // Waiting for processing
         Fulfilled,  // Completed successfully
-        Cancelled   // Cancelled (UC returned to user)
+        Cancelled,  // Cancelled (UC returned to user)
+        Forfeited   // Cancelled and forfeited (UC kept by vault/treasury)
     }
 
     // Redemption request struct
@@ -47,6 +56,13 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
 
     // Mapping from redemptionId to request
     mapping(bytes32 => RedemptionRequest) public redemptions;
+
+    // Redemption limits (0 = unlimited)
+    uint256 public maxRedemptionPerUser = 0; // Maximum redemption per user per request (0 = unlimited)
+    uint256 public maxDailyRedemptions = 0; // Maximum total redemptions per day (0 = unlimited)
+    
+    // Track daily redemption totals
+    mapping(uint256 => uint256) public dailyRedemptionTotal; // day => total amount redeemed
 
     // Events
     event RedeemRequested(
@@ -70,10 +86,41 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
         address indexed processor
     );
 
+    event RedemptionForfeited(
+        bytes32 indexed redemptionId,
+        address indexed user,
+        uint256 amount,
+        address indexed processor,
+        string reason
+    );
+
     event TreasuryWithdrawal(
         address indexed treasurer,
         uint256 amount,
         address indexed destination
+    );
+
+    event MaxRedemptionPerUserChanged(
+        uint256 oldLimit,
+        uint256 newLimit,
+        address indexed changedBy
+    );
+
+    event MaxDailyRedemptionsChanged(
+        uint256 oldLimit,
+        uint256 newLimit,
+        address indexed changedBy
+    );
+
+    event OwnershipTransferInitiated(
+        address indexed from,
+        address indexed to,
+        uint256 timestamp
+    );
+
+    event OwnershipTransferCompleted(
+        address indexed from,
+        uint256 timestamp
     );
 
     /**
@@ -102,6 +149,21 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
      */
     function redeem(uint256 amount) external nonReentrant returns (bytes32) {
         require(amount > 0, "Amount must be greater than 0");
+        
+        // Check per-user redemption limit if set (0 = unlimited)
+        if (maxRedemptionPerUser > 0) {
+            require(amount <= maxRedemptionPerUser, "Amount exceeds max redemption per user");
+        }
+        
+        // Check daily redemption limit if set (0 = unlimited)
+        if (maxDailyRedemptions > 0) {
+            uint256 today = block.timestamp / 1 days;
+            require(
+                dailyRedemptionTotal[today] + amount <= maxDailyRedemptions,
+                "Daily redemption limit exceeded"
+            );
+            dailyRedemptionTotal[today] += amount;
+        }
         
         // Generate unique redemption ID
         bytes32 redemptionId = keccak256(
@@ -168,6 +230,8 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
      * @notice Cancel redemption and return UC to user
      * @param redemptionId ID of the redemption request
      * @dev Only callable by REDEMPTION_PROCESSOR role (backend)
+     * @dev Use this for legitimate cancellations (technical issues, user still in good standing)
+     * @dev User must still be an active member to receive refund
      */
     function cancelRedemption(bytes32 redemptionId) 
         external 
@@ -183,7 +247,7 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
 
         request.status = RedemptionStatus.Cancelled;
 
-        // Return UC to user
+        // Return UC to user (will fail if user is suspended/banned)
         require(
             unityCoin.transfer(request.user, request.amount),
             "UC return failed"
@@ -194,6 +258,79 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
             request.user,
             request.amount,
             msg.sender
+        );
+    }
+
+    /**
+     * @notice Forfeit redemption (no refund, UC kept by vault)
+     * @param redemptionId ID of the redemption request
+     * @param reason Reason for forfeiture (e.g., "Fraud detected", "Terms violation")
+     * @dev Only callable by REDEMPTION_PROCESSOR role (backend)
+     * @dev Use this when user is suspended/banned or violated terms
+     * @dev UC remains in vault and can be withdrawn to treasury
+     */
+    function forfeitRedemption(bytes32 redemptionId, string calldata reason) 
+        external 
+        onlyRole(REDEMPTION_PROCESSOR)
+    {
+        RedemptionRequest storage request = redemptions[redemptionId];
+        require(request.user != address(0), "Redemption not found");
+        require(
+            request.status == RedemptionStatus.Pending,
+            "Redemption not pending"
+        );
+
+        request.status = RedemptionStatus.Forfeited;
+
+        // UC stays in vault, no refund
+        emit RedemptionForfeited(
+            redemptionId,
+            request.user,
+            request.amount,
+            msg.sender,
+            reason
+        );
+    }
+
+    /**
+     * @notice Mark redemption as resolved after emergency transfer
+     * @param redemptionId ID of the redemption request
+     * @param reason Reason for emergency resolution
+     * @dev Only callable by TREASURER role (requires elevated privileges)
+     * @dev Use this after admin manually handles redemption via UnityCoin.emergencyTransfer()
+     * @dev Does NOT move UC - just updates status (UC already moved via emergencyTransfer)
+     */
+    function markEmergencyResolved(
+        bytes32 redemptionId,
+        string calldata reason
+    )
+        external
+        onlyRole(TREASURER)
+    {
+        RedemptionRequest storage request = redemptions[redemptionId];
+        require(request.user != address(0), "Redemption not found");
+        require(
+            request.status == RedemptionStatus.Pending || 
+            request.status == RedemptionStatus.Forfeited,
+            "Cannot resolve this redemption"
+        );
+
+        request.status = RedemptionStatus.Cancelled;
+
+        emit RedemptionCancelled(
+            redemptionId,
+            request.user,
+            request.amount,
+            msg.sender
+        );
+
+        // Track emergency resolution
+        emit RedemptionForfeited(
+            redemptionId,
+            request.user,
+            request.amount,
+            msg.sender,
+            string(abi.encodePacked("EMERGENCY_RESOLVED: ", reason))
         );
     }
 
@@ -242,6 +379,65 @@ contract RedemptionVault is AccessControl, ReentrancyGuard {
         returns (RedemptionRequest memory) 
     {
         return redemptions[redemptionId];
+    }
+
+    // ========== ADMIN FUNCTIONS ==========
+
+    /**
+     * @notice Set the maximum redemption amount per user per request
+     * @param newLimit New maximum redemption limit (0 = unlimited)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE (Treasury Safe)
+     */
+    function setMaxRedemptionPerUser(uint256 newLimit) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        uint256 oldLimit = maxRedemptionPerUser;
+        maxRedemptionPerUser = newLimit;
+        emit MaxRedemptionPerUserChanged(oldLimit, newLimit, msg.sender);
+    }
+
+    /**
+     * @notice Set the maximum total redemptions per day
+     * @param newLimit New maximum daily redemption limit (0 = unlimited)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE (Treasury Safe)
+     */
+    function setMaxDailyRedemptions(uint256 newLimit) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        uint256 oldLimit = maxDailyRedemptions;
+        maxDailyRedemptions = newLimit;
+        emit MaxDailyRedemptionsChanged(oldLimit, newLimit, msg.sender);
+    }
+
+    /**
+     * @notice Initiate transfer of admin role to new address
+     * @param newAdmin Address of new admin (typically a new multisig)
+     * @dev New admin is granted role, old admin should call completeOwnershipTransfer after verification
+     */
+    function initiateOwnershipTransfer(address newAdmin) 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        require(newAdmin != address(0), "Cannot transfer to zero address");
+        require(!hasRole(DEFAULT_ADMIN_ROLE, newAdmin), "Address already has admin role");
+        
+        grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        emit OwnershipTransferInitiated(msg.sender, newAdmin, block.timestamp);
+    }
+
+    /**
+     * @notice Complete ownership transfer by renouncing old admin role
+     * @dev Can only be called if there's another admin (prevents locking contract)
+     */
+    function completeOwnershipTransfer() 
+        external 
+        onlyRole(DEFAULT_ADMIN_ROLE) 
+    {
+        require(getRoleMemberCount(DEFAULT_ADMIN_ROLE) > 1, "Would leave contract without admin");
+        renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        emit OwnershipTransferCompleted(msg.sender, block.timestamp);
     }
 }
 

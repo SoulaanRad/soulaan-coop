@@ -15,10 +15,12 @@ describe("SoulaaniCoin (SC)", function () {
 
   const GOVERNANCE_AWARD = ethers.id("GOVERNANCE_AWARD");
   const GOVERNANCE_SLASH = ethers.id("GOVERNANCE_SLASH");
+  const MEMBER_MANAGER = ethers.id("MEMBER_MANAGER");
   const DEFAULT_ADMIN_ROLE = ethers.ZeroHash;
 
   const REASON_RENT = ethers.id("RENT_PAYMENT");
   const REASON_SPENDING = ethers.id("BUSINESS_SPENDING");
+  const REASON_COMMUNITY_SERVICE = ethers.id("COMMUNITY_SERVICE");
   const REASON_INACTIVITY = ethers.id("INACTIVITY_DECAY");
 
   beforeEach(async function () {
@@ -44,6 +46,7 @@ describe("SoulaaniCoin (SC)", function () {
       expect(await sc.hasRole(DEFAULT_ADMIN_ROLE, governanceBot.address)).to.be.true;
       expect(await sc.hasRole(GOVERNANCE_AWARD, governanceBot.address)).to.be.true;
       expect(await sc.hasRole(GOVERNANCE_SLASH, governanceBot.address)).to.be.true;
+      expect(await sc.hasRole(MEMBER_MANAGER, governanceBot.address)).to.be.true;
     });
 
     it("Should start with zero total supply", async function () {
@@ -82,7 +85,92 @@ describe("SoulaaniCoin (SC)", function () {
     });
   });
 
+  describe("Membership Management", function () {
+    it("Should allow MEMBER_MANAGER to add a member", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      expect(await sc.isActiveMember(member1.address)).to.be.true;
+      expect(await sc.isMember(member1.address)).to.be.true;
+    });
+
+    it("Should emit MemberAdded and MemberStatusChanged events", async function () {
+      const tx = await sc.connect(governanceBot).addMember(member1.address);
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt!.blockNumber);
+      
+      await expect(tx)
+        .to.emit(sc, "MemberAdded")
+        .withArgs(member1.address, block!.timestamp, governanceBot.address);
+    });
+
+    it("Should add members in batch", async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address, member3.address]);
+      
+      expect(await sc.isActiveMember(member1.address)).to.be.true;
+      expect(await sc.isActiveMember(member2.address)).to.be.true;
+      expect(await sc.isActiveMember(member3.address)).to.be.true;
+    });
+
+    it("Should suspend a member", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).suspendMember(member1.address);
+      
+      expect(await sc.isActiveMember(member1.address)).to.be.false;
+      expect(await sc.isMember(member1.address)).to.be.true;
+    });
+
+    it("Should reactivate a suspended member", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).suspendMember(member1.address);
+      await sc.connect(governanceBot).reactivateMember(member1.address);
+      
+      expect(await sc.isActiveMember(member1.address)).to.be.true;
+    });
+
+    it("Should ban a member", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).banMember(member1.address);
+      
+      expect(await sc.isActiveMember(member1.address)).to.be.false;
+      expect(await sc.isMember(member1.address)).to.be.true;
+    });
+
+    it("Should not allow awarding to non-active member", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).suspendMember(member1.address);
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+      ).to.be.revertedWith("Recipient must be an active member");
+    });
+
+    it("Should not allow adding zero address", async function () {
+      await expect(
+        sc.connect(governanceBot).addMember(ethers.ZeroAddress)
+      ).to.be.revertedWith("Cannot add zero address");
+    });
+
+    it("Should not allow adding member twice", async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await expect(
+        sc.connect(governanceBot).addMember(member1.address)
+      ).to.be.revertedWith("Already a member or has status");
+    });
+
+    it("Should not allow non-MEMBER_MANAGER to add members", async function () {
+      await expect(
+        sc.connect(member1).addMember(member2.address)
+      ).to.be.reverted;
+    });
+  });
+
   describe("Awarding SC", function () {
+    beforeEach(async function () {
+      // Add members before awarding
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+      await sc.connect(governanceBot).addMember(member3.address);
+    });
+
     it("Should allow GOVERNANCE_AWARD to award SC", async function () {
       const amount = ethers.parseEther("10");
       await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
@@ -152,7 +240,8 @@ describe("SoulaaniCoin (SC)", function () {
     const initialAmount = ethers.parseEther("100");
 
     beforeEach(async function () {
-      // Award SC to member
+      // Add member and award SC
+      await sc.connect(governanceBot).addMember(member1.address);
       await sc.connect(governanceBot).award(member1.address, initialAmount, REASON_RENT);
     });
 
@@ -212,7 +301,12 @@ describe("SoulaaniCoin (SC)", function () {
     });
   });
 
-  describe("Activity Tracking", function () {
+  describe("Activity Tracking (Legacy)", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+    });
+
     it("Should update activity when awarding SC", async function () {
       const beforeTime = await time.latest();
       
@@ -277,6 +371,8 @@ describe("SoulaaniCoin (SC)", function () {
     const amount = ethers.parseEther("100");
 
     beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
       await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
     });
 
@@ -316,6 +412,10 @@ describe("SoulaaniCoin (SC)", function () {
   });
 
   describe("Inactivity Decay Scenario", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+    });
+
     it("Should simulate decay detection and slashing after 12 months", async function () {
       const amount = ethers.parseEther("100");
       
@@ -359,6 +459,12 @@ describe("SoulaaniCoin (SC)", function () {
   });
 
   describe("Edge Cases & Attack Vectors", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+      await sc.connect(governanceBot).addMember(member3.address);
+    });
+
     it("Should handle awarding to same address multiple times in quick succession", async function () {
       const amount = ethers.parseEther("10");
       
@@ -419,7 +525,126 @@ describe("SoulaaniCoin (SC)", function () {
     });
   });
 
+  describe("Activity Tracking", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+    });
+
+    it("Should track total activities per member", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("3"), REASON_COMMUNITY_SERVICE);
+      
+      expect(await sc.totalActivities(member1.address)).to.equal(3);
+    });
+
+    it("Should track activity type counts", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+      
+      expect(await sc.activityTypeCount(member1.address, REASON_RENT)).to.equal(2);
+      expect(await sc.activityTypeCount(member1.address, REASON_SPENDING)).to.equal(1);
+    });
+
+    it("Should return activity stats", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+      
+      const stats = await sc.getActivityStats(member1.address);
+      expect(stats.total).to.equal(2);
+      expect(stats.lastActive).to.be.gt(0);
+    });
+
+    it("Should get activity type count via function", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      
+      const count = await sc.getActivityTypeCount(member1.address, REASON_RENT);
+      expect(count).to.equal(2);
+    });
+  });
+
+  describe("Voting Power", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+      await sc.connect(governanceBot).addMember(member3.address);
+    });
+
+    it("Should return balance as voting power when below cap", async function () {
+      // Award 100 SC (total supply = 100, 2% = 2, so user gets capped)
+      // Let's award 1 SC instead so user is below cap
+      const amount = ethers.parseEther("1");
+      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      
+      // Since member1 has 1 SC and total supply is 1, 2% cap is 0.02
+      // So member1's balance (1) is above cap and gets capped to 0.02
+      // Actually, we need total supply to be higher to test below cap
+      
+      // Award more to another member to increase total supply
+      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("1000"), REASON_RENT);
+      
+      // Now total supply is 1001, 2% = 20.02
+      // Member1 has 1 which is below 20.02, so they get their full balance
+      expect(await sc.getVotingPower(member1.address)).to.equal(amount);
+    });
+
+    it("Should cap voting power at 2% of total supply", async function () {
+      // Create total supply of 10,000 SC
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("5000"), REASON_RENT);
+      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("5000"), REASON_RENT);
+      
+      const totalSupply = await sc.totalSupply();
+      const maxVotingPower = await sc.getMaxVotingPower();
+      
+      // Max voting power should be 2% of 10,000 = 200 SC
+      expect(maxVotingPower).to.equal(ethers.parseEther("200"));
+      
+      // member1 has 5000 SC but voting power is capped at 200
+      expect(await sc.getVotingPower(member1.address)).to.equal(maxVotingPower);
+    });
+
+    it("Should return correct max voting power", async function () {
+      // Award 10,000 SC total
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10000"), REASON_RENT);
+      
+      // 2% of 10,000 = 200
+      expect(await sc.getMaxVotingPower()).to.equal(ethers.parseEther("200"));
+    });
+
+    it("Should return zero max voting power when supply is zero", async function () {
+      expect(await sc.getMaxVotingPower()).to.equal(0);
+    });
+
+    it("Should correctly identify members at voting power cap", async function () {
+      // Create supply and give member1 more than 2%
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("1000"), REASON_RENT);
+      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("9000"), REASON_RENT);
+      
+      // member2 has 9000/10000 = 90%, definitely at cap
+      expect(await sc.isAtVotingPowerCap(member2.address)).to.be.true;
+      
+      // member1 has 1000/10000 = 10%, also at cap (cap is 2% = 200)
+      expect(await sc.isAtVotingPowerCap(member1.address)).to.be.true;
+    });
+
+    it("Should correctly identify members not at cap", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("9900"), REASON_RENT);
+      
+      // member1 has 100 SC, cap is 200, so not at cap
+      expect(await sc.isAtVotingPowerCap(member1.address)).to.be.false;
+    });
+  });
+
   describe("View Functions", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+    });
+
     it("Should return correct balance", async function () {
       await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
       expect(await sc.balanceOf(member1.address)).to.equal(ethers.parseEther("100"));
@@ -434,6 +659,371 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should return correct name and symbol", async function () {
       expect(await sc.name()).to.equal("SoulaaniCoin");
       expect(await sc.symbol()).to.equal("SC");
+    });
+
+    it("Should return correct membership status", async function () {
+      expect(await sc.isActiveMember(member1.address)).to.be.true;
+      expect(await sc.isMember(member1.address)).to.be.true;
+      
+      await sc.connect(governanceBot).suspendMember(member1.address);
+      expect(await sc.isActiveMember(member1.address)).to.be.false;
+      expect(await sc.isMember(member1.address)).to.be.true;
+    });
+  });
+
+  describe("Admin Functions - Voting Power Cap", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address]);
+    });
+
+    it("Should allow admin to change voting power cap", async function () {
+      await sc.connect(governanceBot).setMaxVotingPowerPercent(5);
+      expect(await sc.maxVotingPowerPercent()).to.equal(5);
+    });
+
+    it("Should emit VotingPowerCapChanged event", async function () {
+      await expect(sc.connect(governanceBot).setMaxVotingPowerPercent(5))
+        .to.emit(sc, "VotingPowerCapChanged")
+        .withArgs(2, 5, governanceBot.address);
+    });
+
+    it("Should enforce new cap on voting power", async function () {
+      // Award 100 tokens (total supply = 100, 2% = 2 tokens)
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      expect(await sc.getVotingPower(member1.address)).to.equal(ethers.parseEther("2"));
+
+      // Change cap to 5%
+      await sc.connect(governanceBot).setMaxVotingPowerPercent(5);
+      expect(await sc.getVotingPower(member1.address)).to.equal(ethers.parseEther("5"));
+    });
+
+    it("Should revert if percent is 0", async function () {
+      await expect(
+        sc.connect(governanceBot).setMaxVotingPowerPercent(0)
+      ).to.be.revertedWith("Percent must be between 1 and 10");
+    });
+
+    it("Should revert if percent is > 10", async function () {
+      await expect(
+        sc.connect(governanceBot).setMaxVotingPowerPercent(11)
+      ).to.be.revertedWith("Percent must be between 1 and 10");
+    });
+
+    it("Should not allow non-admin to change cap", async function () {
+      await expect(
+        sc.connect(member1).setMaxVotingPowerPercent(5)
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Admin Functions - Award and Slash Limits", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address]);
+    });
+
+    it("Should allow unlimited awards by default", async function () {
+      expect(await sc.maxAwardPerTransaction()).to.equal(0);
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("1000000"), REASON_RENT)
+      ).to.not.be.reverted;
+    });
+
+    it("Should allow admin to set award limit", async function () {
+      await sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("100"));
+      expect(await sc.maxAwardPerTransaction()).to.equal(ethers.parseEther("100"));
+    });
+
+    it("Should emit AwardLimitChanged event", async function () {
+      await expect(sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("100")))
+        .to.emit(sc, "AwardLimitChanged")
+        .withArgs(0, ethers.parseEther("100"), governanceBot.address);
+    });
+
+    it("Should enforce award limit", async function () {
+      await sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("100"));
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("101"), REASON_RENT)
+      ).to.be.revertedWith("Amount exceeds max award limit");
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT)
+      ).to.not.be.reverted;
+    });
+
+    it("Should allow admin to set slash limit", async function () {
+      await sc.connect(governanceBot).setMaxSlashPerTransaction(ethers.parseEther("50"));
+      expect(await sc.maxSlashPerTransaction()).to.equal(ethers.parseEther("50"));
+    });
+
+    it("Should emit SlashLimitChanged event", async function () {
+      await expect(sc.connect(governanceBot).setMaxSlashPerTransaction(ethers.parseEther("50")))
+        .to.emit(sc, "SlashLimitChanged")
+        .withArgs(0, ethers.parseEther("50"), governanceBot.address);
+    });
+
+    it("Should enforce slash limit", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).setMaxSlashPerTransaction(ethers.parseEther("50"));
+      
+      await expect(
+        sc.connect(governanceBot).slash(member1.address, ethers.parseEther("51"), REASON_INACTIVITY)
+      ).to.be.revertedWith("Amount exceeds max slash limit");
+      
+      await expect(
+        sc.connect(governanceBot).slash(member1.address, ethers.parseEther("50"), REASON_INACTIVITY)
+      ).to.not.be.reverted;
+    });
+
+    it("Should allow setting limit to 0 (unlimited)", async function () {
+      await sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("100"));
+      await sc.connect(governanceBot).setMaxAwardPerTransaction(0);
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("1000000"), REASON_RENT)
+      ).to.not.be.reverted;
+    });
+
+    it("Should not allow non-admin to set limits", async function () {
+      await expect(
+        sc.connect(member1).setMaxAwardPerTransaction(ethers.parseEther("100"))
+      ).to.be.reverted;
+      
+      await expect(
+        sc.connect(member1).setMaxSlashPerTransaction(ethers.parseEther("50"))
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Admin Functions - Pause/Unpause", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address]);
+    });
+
+    it("Should allow admin to pause contract", async function () {
+      await sc.connect(governanceBot).pause();
+      expect(await sc.paused()).to.be.true;
+    });
+
+    it("Should emit Paused event", async function () {
+      await expect(sc.connect(governanceBot).pause())
+        .to.emit(sc, "Paused")
+        .withArgs(governanceBot.address);
+    });
+
+    it("Should block awards when paused", async function () {
+      await sc.connect(governanceBot).pause();
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+      ).to.be.revertedWithCustomError(sc, "EnforcedPause");
+    });
+
+    it("Should block slashing when paused", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).pause();
+      
+      await expect(
+        sc.connect(governanceBot).slash(member1.address, ethers.parseEther("10"), REASON_INACTIVITY)
+      ).to.be.revertedWithCustomError(sc, "EnforcedPause");
+    });
+
+    it("Should block batch slashing when paused", async function () {
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).pause();
+      
+      await expect(
+        sc.connect(governanceBot).slashBatch(
+          [member1.address],
+          [ethers.parseEther("10")],
+          REASON_INACTIVITY
+        )
+      ).to.be.revertedWithCustomError(sc, "EnforcedPause");
+    });
+
+    it("Should allow admin to unpause contract", async function () {
+      await sc.connect(governanceBot).pause();
+      await sc.connect(governanceBot).unpause();
+      expect(await sc.paused()).to.be.false;
+    });
+
+    it("Should emit Unpaused event", async function () {
+      await sc.connect(governanceBot).pause();
+      await expect(sc.connect(governanceBot).unpause())
+        .to.emit(sc, "Unpaused")
+        .withArgs(governanceBot.address);
+    });
+
+    it("Should allow awards after unpause", async function () {
+      await sc.connect(governanceBot).pause();
+      await sc.connect(governanceBot).unpause();
+      
+      await expect(
+        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+      ).to.not.be.reverted;
+    });
+
+    it("Should not allow non-admin to pause", async function () {
+      await expect(sc.connect(member1).pause()).to.be.reverted;
+    });
+
+    it("Should not allow non-admin to unpause", async function () {
+      await sc.connect(governanceBot).pause();
+      await expect(sc.connect(member1).unpause()).to.be.reverted;
+    });
+  });
+
+  describe("Batch Slashing", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address, member3.address]);
+      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).award(member3.address, ethers.parseEther("150"), REASON_RENT);
+    });
+
+    it("Should slash multiple members in batch", async function () {
+      await sc.connect(governanceBot).slashBatch(
+        [member1.address, member2.address],
+        [ethers.parseEther("10"), ethers.parseEther("20")],
+        REASON_INACTIVITY
+      );
+      
+      expect(await sc.balanceOf(member1.address)).to.equal(ethers.parseEther("90"));
+      expect(await sc.balanceOf(member2.address)).to.equal(ethers.parseEther("180"));
+    });
+
+    it("Should emit Slashed events for each member", async function () {
+      await expect(
+        sc.connect(governanceBot).slashBatch(
+          [member1.address, member2.address],
+          [ethers.parseEther("10"), ethers.parseEther("20")],
+          REASON_INACTIVITY
+        )
+      )
+        .to.emit(sc, "Slashed")
+        .withArgs(member1.address, ethers.parseEther("10"), REASON_INACTIVITY, governanceBot.address)
+        .to.emit(sc, "Slashed")
+        .withArgs(member2.address, ethers.parseEther("20"), REASON_INACTIVITY, governanceBot.address);
+    });
+
+    it("Should revert if arrays length mismatch", async function () {
+      await expect(
+        sc.connect(governanceBot).slashBatch(
+          [member1.address, member2.address],
+          [ethers.parseEther("10")],
+          REASON_INACTIVITY
+        )
+      ).to.be.revertedWith("Array length mismatch");
+    });
+
+    it("Should revert if arrays are empty", async function () {
+      await expect(
+        sc.connect(governanceBot).slashBatch([], [], REASON_INACTIVITY)
+      ).to.be.revertedWith("Empty arrays");
+    });
+
+    it("Should revert if any member has insufficient balance", async function () {
+      await expect(
+        sc.connect(governanceBot).slashBatch(
+          [member1.address, member2.address],
+          [ethers.parseEther("200"), ethers.parseEther("20")],
+          REASON_INACTIVITY
+        )
+      ).to.be.revertedWith("Insufficient balance to slash");
+    });
+
+    it("Should enforce slash limit in batch", async function () {
+      await sc.connect(governanceBot).setMaxSlashPerTransaction(ethers.parseEther("50"));
+      
+      await expect(
+        sc.connect(governanceBot).slashBatch(
+          [member1.address, member2.address],
+          [ethers.parseEther("60"), ethers.parseEther("20")],
+          REASON_INACTIVITY
+        )
+      ).to.be.revertedWith("Amount exceeds max slash limit");
+    });
+
+    it("Should not allow non-governance to batch slash", async function () {
+      await expect(
+        sc.connect(member1).slashBatch(
+          [member2.address],
+          [ethers.parseEther("10")],
+          REASON_INACTIVITY
+        )
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Ownership Transfer", function () {
+    it("Should allow admin to initiate ownership transfer", async function () {
+      await sc.connect(governanceBot).initiateOwnershipTransfer(admin.address);
+      expect(await sc.hasRole(DEFAULT_ADMIN_ROLE, admin.address)).to.be.true;
+      expect(await sc.hasRole(DEFAULT_ADMIN_ROLE, governanceBot.address)).to.be.true;
+    });
+
+    it("Should emit OwnershipTransferInitiated event", async function () {
+      const tx = await sc.connect(governanceBot).initiateOwnershipTransfer(admin.address);
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt!.blockNumber);
+      
+      await expect(tx)
+        .to.emit(sc, "OwnershipTransferInitiated")
+        .withArgs(governanceBot.address, admin.address, block!.timestamp);
+    });
+
+    it("Should allow old admin to complete transfer", async function () {
+      await sc.connect(governanceBot).initiateOwnershipTransfer(admin.address);
+      await sc.connect(governanceBot).completeOwnershipTransfer();
+      
+      expect(await sc.hasRole(DEFAULT_ADMIN_ROLE, governanceBot.address)).to.be.false;
+      expect(await sc.hasRole(DEFAULT_ADMIN_ROLE, admin.address)).to.be.true;
+    });
+
+    it("Should emit OwnershipTransferCompleted event", async function () {
+      await sc.connect(governanceBot).initiateOwnershipTransfer(admin.address);
+      
+      const tx = await sc.connect(governanceBot).completeOwnershipTransfer();
+      const receipt = await tx.wait();
+      const block = await ethers.provider.getBlock(receipt!.blockNumber);
+      
+      await expect(tx)
+        .to.emit(sc, "OwnershipTransferCompleted")
+        .withArgs(governanceBot.address, block!.timestamp);
+    });
+
+    it("Should revert if transferring to zero address", async function () {
+      await expect(
+        sc.connect(governanceBot).initiateOwnershipTransfer(ethers.ZeroAddress)
+      ).to.be.revertedWith("Cannot transfer to zero address");
+    });
+
+    it("Should revert if address already has admin role", async function () {
+      await expect(
+        sc.connect(governanceBot).initiateOwnershipTransfer(governanceBot.address)
+      ).to.be.revertedWith("Address already has admin role");
+    });
+
+    it("Should revert if completing transfer with no other admin", async function () {
+      await expect(
+        sc.connect(governanceBot).completeOwnershipTransfer()
+      ).to.be.revertedWith("Would leave contract without admin");
+    });
+
+    it("Should not allow non-admin to initiate transfer", async function () {
+      await expect(
+        sc.connect(member1).initiateOwnershipTransfer(admin.address)
+      ).to.be.reverted;
+    });
+
+    it("Should allow new admin to manage contract after transfer", async function () {
+      await sc.connect(governanceBot).initiateOwnershipTransfer(admin.address);
+      await sc.connect(governanceBot).completeOwnershipTransfer();
+      
+      // New admin should be able to grant roles
+      await expect(
+        sc.connect(admin).grantRole(GOVERNANCE_AWARD, member1.address)
+      ).to.not.be.reverted;
     });
   });
 });
