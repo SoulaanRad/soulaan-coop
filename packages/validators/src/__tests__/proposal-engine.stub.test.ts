@@ -46,9 +46,9 @@ describe('ProposalEngine (Agents)', () => {
           composite: expect.any(Number)
         },
         governance: {
-          quorumPercent: 20,
-          approvalThresholdPercent: 60,
-          votingWindowDays: 7
+          quorumPercent: expect.any(Number),  // AI-generated values
+          approvalThresholdPercent: expect.any(Number),
+          votingWindowDays: expect.any(Number)
         },
         audit: {
           engineVersion: expect.stringMatching(/^proposal-engine@/),

@@ -3,7 +3,7 @@
   "private": true,
   "engines": {
     "node": ">=22.14.0",
-    "pnpm": ">=9.6.0"
+    "pnpm": ">=10.11.1"
   },
   "packageManager": "pnpm@10.11.1",
   "scripts": {
@@ -28,6 +28,10 @@
     "start:api": "pnpm -F @soulaan-coop/api start",
     "start:web": "pnpm -F @soulaan-coop/web start",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:contracts": "pnpm -F @soulaan/contracts test",
+    "test:coverage": "turbo run test:coverage",
+    "test:watch": "turbo run test:watch",
     "ui-add": "turbo run ui-add",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -46,7 +50,9 @@
   "pnpm": {
     "overrides": {
       "esbuild": ">=0.25.0",
-      "axios": ">=1.12.0"
+      "axios": ">=1.12.0",
+      "chai": "^4.3.10",
+      "@types/chai": "^4.3.11"
     }
   }
 }

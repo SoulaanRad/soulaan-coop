@@ -4,6 +4,9 @@ import '@testing-library/jest-dom'
 process.env.NODE_ENV = 'test'
 process.env.SLACK_WEBHOOK_URL = 'https://hooks.slack.com/test-webhook'
 
+// Mock fetch globally
+global.fetch = jest.fn()
+
 // Mock NextRequest and NextResponse for API route tests
 global.Request = class Request {
   constructor(input, init) {

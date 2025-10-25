@@ -31,6 +31,20 @@
       "dependsOn": ["^topo", "^build"],
       "outputs": [".cache/tsbuildinfo.json"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["test/**/*.ts", "contracts/**/*.sol", "src/**/*.ts", "src/**/*.tsx"]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
     "clean": {
       "cache": false
     },
@@ -80,7 +94,12 @@
     "AUTH_REDIRECT_PROXY_URL",
     "AUTH_SECRET",
     "PORT",
-    "OPENAI_API_KEY"
+    "OPENAI_API_KEY",
+    "SEPOLIA_RPC_URL",
+    "MAINNET_RPC_URL",
+    "DEPLOYER_PRIVATE_KEY",
+    "ETHERSCAN_API_KEY",
+    "REPORT_GAS"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",

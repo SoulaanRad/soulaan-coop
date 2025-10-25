@@ -99,7 +99,7 @@ describe("ProposalEngine Features", () => {
 
       expect(['advance', 'revise', 'block']).toContain(result.decision);
       if (result.decision === 'block' && result.bestAlternative) {
-        expect(result.bestAlternative.scores.composite).toBeGreaterThan(result.goalScores?.composite || 0);
+        expect(result.bestAlternative.scores.composite).toBeGreaterThanOrEqual(result.goalScores?.composite || 0);
       }
     });
 

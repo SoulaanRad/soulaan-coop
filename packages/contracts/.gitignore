@@ -1,0 +1,27 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+typechain-types
+
+# Hardhat files
+cache
+artifacts
+dist
+
+# Wallets (NEVER commit these!)
+wallets/
+*.wallet.json
+
+# Rotation tracking (contains addresses, safe to commit)
+# If you want to keep rotation history private, uncomment:
+# rotations.json
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+

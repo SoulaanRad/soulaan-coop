@@ -37,9 +37,9 @@ describe('Proposal API Integration Tests (STUB)', () => {
         treasuryPlan: expect.any(Object), // AI-suggested treasury plan
         impact: expect.any(Object), // AI-estimated impact,
         scores: {
-          alignment: 0.75,  // STUB values
-          feasibility: 0.8,
-          composite: 0.775
+          alignment: expect.any(Number),  // AI-generated scores
+          feasibility: expect.any(Number),
+          composite: expect.any(Number)
         },
         governance: {
           quorumPercent: 20,

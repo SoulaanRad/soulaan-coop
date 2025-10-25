@@ -1,0 +1,191 @@
+name: Test Suite
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  FORCE_COLOR: 3
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  # OpenAI API Key for AI agent tests
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+jobs:
+  # First: Check lockfile integrity
+  lockfile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Check lockfile
+        uses: ./tooling/github/lockfile-check
+
+  # Second: Build all packages (depends on lockfile-check)
+  build:
+    runs-on: ubuntu-latest
+    needs: lockfile-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Copy env
+        shell: bash
+        run: cp .env.example .env
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
+
+  # Third: Run linting, formatting, and type checking in parallel
+  lint:
+    runs-on: ubuntu-latest
+    needs: lockfile-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Copy env
+        shell: bash
+        run: cp .env.example .env
+      - name: Lint
+        run: pnpm lint && pnpm lint:ws
+
+  format:
+    runs-on: ubuntu-latest
+    needs: lockfile-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Format
+        run: pnpm format
+
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: lockfile-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Typecheck
+        run: pnpm typecheck
+
+  # Fourth: Run all tests (depends on build)
+  test:
+    name: Run All Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Copy environment files
+        shell: bash
+        run: |
+          cp .env.example .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
+      - name: Run all tests
+        run: pnpm test
+        timeout-minutes: 30  # Allow extra time for AI agent tests
+
+  # Fifth: Run test coverage (depends on build)
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pnpm 10.11.1+
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.1
+      - name: Setup
+        uses: ./tooling/github/setup
+      - name: Copy environment files
+        shell: bash
+        run: |
+          cp .env.example .env
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
+      - name: Run test coverage
+        run: pnpm test:coverage
+        timeout-minutes: 30
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            packages/*/coverage/
+            apps/*/coverage/
+          retention-days: 7
