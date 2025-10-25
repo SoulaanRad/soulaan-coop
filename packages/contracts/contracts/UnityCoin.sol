@@ -12,6 +12,11 @@ interface ISoulaaniCoin {
     function isMember(address account) external view returns (bool);
 }
 
+// Interface for future cross-coop clearing functionality
+interface ICoopClearing {
+    function recordCrossCoopTransfer(uint256 fromCoopId, uint256 toCoopId, address from, address to, uint256 amount) external;
+}
+
 /**
  * @title UnityCoin (UC)
  * @notice Stable digital currency for the Soulaan Co-op economy
@@ -48,7 +53,7 @@ interface ISoulaaniCoin {
 contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerable {
     // Role definitions
     bytes32 public constant TREASURER_MINT = keccak256("TREASURER_MINT");
-    bytes32 public constant ONRAMP_MINTER = keccak256("ONRAMP_MINTER");
+    bytes32 public constant BACKEND = keccak256("BACKEND");
     bytes32 public constant PAUSER = keccak256("PAUSER");
     bytes32 public constant SYSTEM_CONTRACT_MANAGER = keccak256("SYSTEM_CONTRACT_MANAGER");
 
@@ -61,10 +66,18 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     // Emergency transfer flag (bypasses membership checks)
     bool private _inEmergencyTransfer;
 
-    // Daily minting limits for ONRAMP_MINTER role
+    // Daily minting limits for BACKEND role
     mapping(address => uint256) public dailyMintLimit;
     mapping(address => uint256) public dailyMinted;
     mapping(address => uint256) public lastMintDay;
+
+    // Fee collection
+    uint256 public transferFeePercent = 10; // 0.1% = 10 basis points
+    address public feeRecipient;
+
+    // Multi-coop foundation (minimal)
+    uint256 public coopId = 1; // Default to Soulaan Co-op
+    address public clearingContract = address(0); // Future cross-coop clearing
 
     // Events
     event Minted(address indexed to, uint256 amount, address indexed minter);
@@ -76,15 +89,27 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     event SystemContractRemoved(address indexed contractAddress, address indexed removedBy);
     event OwnershipTransferInitiated(address indexed from, address indexed to, uint256 timestamp);
     event OwnershipTransferCompleted(address indexed from, uint256 timestamp);
+    
+    // Fee events
+    event FeeCollected(address indexed from, uint256 amount, address indexed recipient);
+    event TransferFeeChanged(uint256 oldPercent, uint256 newPercent, address indexed changedBy);
+    event FeeRecipientChanged(address indexed oldRecipient, address indexed newRecipient, address indexed changedBy);
+
+    // Multi-coop events
+    event ClearingContractChanged(address indexed oldClearingContract, address indexed newClearingContract, address indexed changedBy);
+    event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
+    event CrossCoopTransfer(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed from, address to, uint256 amount);
 
     /**
      * @notice Constructor - initializes UC token
      * @param admin Address that will have admin role (can grant other roles)
      * @param _soulaaniCoin Address of the SoulaaniCoin contract (for membership verification)
+     * @param redemptionVault Address of the RedemptionVault contract (for USDC onboarding)
      */
-    constructor(address admin, address _soulaaniCoin) ERC20("UnityCoin", "UC") {
+    constructor(address admin, address _soulaaniCoin, address redemptionVault) ERC20("UnityCoin", "UC") {
         require(admin != address(0), "Admin cannot be zero address");
         require(_soulaaniCoin != address(0), "SoulaaniCoin address cannot be zero");
+        require(redemptionVault != address(0), "RedemptionVault address cannot be zero");
 
         soulaaniCoin = ISoulaaniCoin(_soulaaniCoin);
 
@@ -93,8 +118,12 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
 
         // Admin starts with all roles, can transfer them later
         _grantRole(TREASURER_MINT, admin);
+        _grantRole(BACKEND, admin);
         _grantRole(PAUSER, admin);
         _grantRole(SYSTEM_CONTRACT_MANAGER, admin);
+
+        // Grant RedemptionVault permission to mint UC for USDC onboarding
+        _grantRole(TREASURER_MINT, redemptionVault);
     }
 
     /**
@@ -110,6 +139,16 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         require(soulaaniCoin.isActiveMember(to), "Recipient must be an active SC member");
 
         _mint(to, amount);
+
+        // Optional: Notify clearing contract for cross-coop transfer tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopTransfer(coopId, coopId, address(0), to, amount) {
+                // Success - clearing contract handled the transfer
+            } catch {
+                // Ignore clearing contract errors - don't fail the mint
+            }
+        }
+
         emit Minted(to, amount, msg.sender);
     }
 
@@ -117,11 +156,11 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @notice Mint UC tokens with daily limit (for instant onramps)
      * @param to Address to receive the tokens
      * @param amount Amount of tokens to mint (in wei, 18 decimals)
-     * @dev Only callable by ONRAMP_MINTER role (backend)
+     * @dev Only callable by BACKEND role (backend)
      * @dev Subject to daily minting limit set by admin
      * @dev Recipient must be an active SC member
      */
-    function mintOnramp(address to, uint256 amount) external onlyRole(ONRAMP_MINTER) {
+    function mintOnramp(address to, uint256 amount) external onlyRole(BACKEND) {
         require(to != address(0), "Cannot mint to zero address");
         require(amount > 0, "Amount must be greater than 0");
         require(dailyMintLimit[msg.sender] > 0, "Daily limit not set");
@@ -140,17 +179,27 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
 
         dailyMinted[msg.sender] += amount;
         _mint(to, amount);
+
+        // Optional: Notify clearing contract for cross-coop transfer tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopTransfer(coopId, coopId, address(0), to, amount) {
+                // Success - clearing contract handled the transfer
+            } catch {
+                // Ignore clearing contract errors - don't fail the mint
+            }
+        }
+
         emit Minted(to, amount, msg.sender);
     }
 
     /**
-     * @notice Set daily minting limit for an ONRAMP_MINTER
+     * @notice Set daily minting limit for a BACKEND
      * @param minter Address of the minter
      * @param limit Daily minting limit in wei (18 decimals)
      * @dev Only callable by DEFAULT_ADMIN (Treasury Safe)
      */
     function setDailyMintLimit(address minter, uint256 limit) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(hasRole(ONRAMP_MINTER, minter), "Address is not an onramp minter");
+        require(hasRole(BACKEND, minter), "Address is not a backend minter");
         dailyMintLimit[minter] = limit;
         emit DailyLimitSet(minter, limit);
     }
@@ -183,6 +232,16 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      */
     function burn(uint256 amount) public override {
         super.burn(amount);
+
+        // Optional: Notify clearing contract for cross-coop transfer tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopTransfer(coopId, coopId, msg.sender, address(0), amount) {
+                // Success - clearing contract handled the transfer
+            } catch {
+                // Ignore clearing contract errors - don't fail the burn
+            }
+        }
+
         emit Burned(msg.sender, amount);
     }
 
@@ -193,33 +252,33 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      */
     function burnFrom(address account, uint256 amount) public override {
         super.burnFrom(account, amount);
+
+        // Optional: Notify clearing contract for cross-coop transfer tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopTransfer(coopId, coopId, account, address(0), amount) {
+                // Success - clearing contract handled the transfer
+            } catch {
+                // Ignore clearing contract errors - don't fail the burn
+            }
+        }
+
         emit Burned(account, amount);
     }
 
     /**
      * @notice Pause all token transfers
-     * @dev Only callable by PAUSER role (Treasury Safe)
+     * @dev Only callable by PAUSER role
      */
     function pause() external onlyRole(PAUSER) {
         _pause();
-        emit Paused(msg.sender);
     }
 
     /**
      * @notice Unpause token transfers
-     * @dev Only callable by PAUSER role (Treasury Safe)
+     * @dev Only callable by PAUSER role
      */
     function unpause() external onlyRole(PAUSER) {
         _unpause();
-        emit Unpaused(msg.sender);
-    }
-
-    /**
-     * @notice Check if token transfers are paused
-     * @return bool True if paused, false otherwise
-     */
-    function isPaused() external view returns (bool) {
-        return paused();
     }
 
     /**
@@ -304,6 +363,31 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     // ========== ADMIN FUNCTIONS ==========
 
     /**
+     * @notice Set the transfer fee percentage
+     * @param newPercent New fee percentage in basis points (100 = 1%)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Maximum fee is 100 basis points (1%)
+     */
+    function setTransferFee(uint256 newPercent) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newPercent <= 100, "Fee cannot exceed 1%");
+        uint256 oldPercent = transferFeePercent;
+        transferFeePercent = newPercent;
+        emit TransferFeeChanged(oldPercent, newPercent, msg.sender);
+    }
+
+    /**
+     * @notice Set the fee recipient address
+     * @param newRecipient Address to receive transfer fees
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     */
+    function setFeeRecipient(address newRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRecipient != address(0), "Fee recipient cannot be zero address");
+        address oldRecipient = feeRecipient;
+        feeRecipient = newRecipient;
+        emit FeeRecipientChanged(oldRecipient, newRecipient, msg.sender);
+    }
+
+    /**
      * @notice Initiate transfer of admin role to new address
      * @param newAdmin Address of new admin (typically a new multisig)
      * @dev New admin is granted role, old admin should call completeOwnershipTransfer after verification
@@ -340,6 +424,15 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
             if (!isSystemContract[to]) {
                 require(soulaaniCoin.isActiveMember(to), "Recipient must be an active SC member");
             }
+
+            // Collect transfer fee (only on transfers between users, not mints/burns)
+            if (transferFeePercent > 0 && feeRecipient != address(0)) {
+                uint256 fee = (amount * transferFeePercent) / 10000; // Basis points
+                if (fee > 0) {
+                    _mint(feeRecipient, fee);
+                    emit FeeCollected(from, fee, feeRecipient);
+                }
+            }
         }
 
         super._update(from, to, amount);
@@ -350,5 +443,33 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      */
     function supportsInterface(bytes4 interfaceId) public view override(AccessControlEnumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    // ========== MULTI-COOP ADMIN FUNCTIONS ==========
+
+    /**
+     * @notice Set the clearing contract address for cross-coop functionality
+     * @param newClearingContract Address of the clearing contract
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Used for future multi-coop cross-settlement
+     */
+    function setClearingContract(address newClearingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newClearingContract != address(0), "Clearing contract cannot be zero address");
+        address oldClearingContract = clearingContract;
+        clearingContract = newClearingContract;
+        emit ClearingContractChanged(oldClearingContract, newClearingContract, msg.sender);
+    }
+
+    /**
+     * @notice Set the coop ID for this contract
+     * @param newCoopId New coop ID to assign
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Used for future multi-coop identification
+     */
+    function setCoopId(uint256 newCoopId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newCoopId > 0, "Coop ID must be greater than 0");
+        uint256 oldCoopId = coopId;
+        coopId = newCoopId;
+        emit CoopIdChanged(oldCoopId, newCoopId, msg.sender);
     }
 }

@@ -5,6 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
+// Interface for future cross-coop clearing functionality
+interface ICoopClearing {
+    function recordCrossCoopActivity(uint256 fromCoopId, uint256 toCoopId, address member, bytes32 activityType) external;
+}
+
 /**
  * @title SoulaaniCoin (SC)
  * @notice Non-transferable, soulbound governance and yield token for Soulaan Co-op
@@ -76,6 +81,10 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     uint256 public maxAwardPerTransaction = 0; // 0 = unlimited by default
     uint256 public maxSlashPerTransaction = 0; // 0 = unlimited by default
 
+    // Multi-coop foundation (minimal)
+    uint256 public coopId = 1; // Default to Soulaan Co-op
+    address public clearingContract = address(0); // Future cross-coop clearing
+
     // Events
     event Awarded(address indexed recipient, uint256 amount, bytes32 indexed reason, address indexed awarder);
 
@@ -101,6 +110,11 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     event OwnershipTransferInitiated(address indexed from, address indexed to, uint256 timestamp);
 
     event OwnershipTransferCompleted(address indexed from, uint256 timestamp);
+
+    // Multi-coop events
+    event ClearingContractChanged(address indexed oldClearingContract, address indexed newClearingContract, address indexed changedBy);
+    event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
+    event CrossCoopActivity(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed member, bytes32 activityType);
 
     /**
      * @notice Constructor - initializes SC token
@@ -148,6 +162,15 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         totalActivities[recipient] += 1;
         activityTypeCount[recipient][reason] += 1;
 
+        // Optional: Notify clearing contract for cross-coop activity tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopActivity(coopId, coopId, recipient, reason) {
+                // Success - clearing contract handled the activity
+            } catch {
+                // Ignore clearing contract errors - don't fail the award
+            }
+        }
+
         emit Awarded(recipient, amount, reason, msg.sender);
         emit ActivityRecorded(recipient, reason, block.timestamp);
     }
@@ -170,6 +193,15 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         }
 
         _burn(account, amount);
+
+        // Optional: Notify clearing contract for cross-coop activity tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopActivity(coopId, coopId, account, reason) {
+                // Success - clearing contract handled the activity
+            } catch {
+                // Ignore clearing contract errors - don't fail the slash
+            }
+        }
 
         emit Slashed(account, amount, reason, msg.sender);
     }
@@ -538,5 +570,33 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
      */
     function supportsInterface(bytes4 interfaceId) public view override(AccessControlEnumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    // ========== MULTI-COOP ADMIN FUNCTIONS ==========
+
+    /**
+     * @notice Set the clearing contract address for cross-coop functionality
+     * @param newClearingContract Address of the clearing contract
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Used for future multi-coop cross-settlement
+     */
+    function setClearingContract(address newClearingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newClearingContract != address(0), "Clearing contract cannot be zero address");
+        address oldClearingContract = clearingContract;
+        clearingContract = newClearingContract;
+        emit ClearingContractChanged(oldClearingContract, newClearingContract, msg.sender);
+    }
+
+    /**
+     * @notice Set the coop ID for this contract
+     * @param newCoopId New coop ID to assign
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Used for future multi-coop identification
+     */
+    function setCoopId(uint256 newCoopId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newCoopId > 0, "Coop ID must be greater than 0");
+        uint256 oldCoopId = coopId;
+        coopId = newCoopId;
+        emit CoopIdChanged(oldCoopId, newCoopId, msg.sender);
     }
 }

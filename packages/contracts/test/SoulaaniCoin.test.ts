@@ -1061,4 +1061,56 @@ describe("SoulaaniCoin (SC)", function () {
         .reverted;
     });
   });
+
+  describe("Multi-Coop Foundation", function () {
+    it("Should have default coop ID of 1", async function () {
+      expect(await sc.coopId()).to.equal(1);
+    });
+
+    it("Should have default clearing contract as zero address", async function () {
+      expect(await sc.clearingContract()).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Should allow admin to set clearing contract", async function () {
+      const newClearingContract = ethers.Wallet.createRandom().address;
+      
+      await expect(sc.connect(governanceBot).setClearingContract(newClearingContract))
+        .to.emit(sc, "ClearingContractChanged")
+        .withArgs(ethers.ZeroAddress, newClearingContract, governanceBot.address);
+      
+      expect(await sc.clearingContract()).to.equal(newClearingContract);
+    });
+
+    it("Should allow admin to set coop ID", async function () {
+      const newCoopId = 5;
+      
+      await expect(sc.connect(governanceBot).setCoopId(newCoopId))
+        .to.emit(sc, "CoopIdChanged")
+        .withArgs(1, newCoopId, governanceBot.address);
+      
+      expect(await sc.coopId()).to.equal(newCoopId);
+    });
+
+    it("Should not allow non-admin to set clearing contract", async function () {
+      const newClearingContract = ethers.Wallet.createRandom().address;
+      
+      await expect(sc.connect(member1).setClearingContract(newClearingContract))
+        .to.be.revertedWithCustomError(sc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should not allow non-admin to set coop ID", async function () {
+      await expect(sc.connect(member1).setCoopId(5))
+        .to.be.revertedWithCustomError(sc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should revert if setting clearing contract to zero address", async function () {
+      await expect(sc.connect(governanceBot).setClearingContract(ethers.ZeroAddress))
+        .to.be.revertedWith("Clearing contract cannot be zero address");
+    });
+
+    it("Should revert if setting coop ID to zero", async function () {
+      await expect(sc.connect(governanceBot).setCoopId(0))
+        .to.be.revertedWith("Coop ID must be greater than 0");
+    });
+  });
 });
