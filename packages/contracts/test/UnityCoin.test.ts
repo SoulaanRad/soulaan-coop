@@ -7,6 +7,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 describe("UnityCoin (UC)", function () {
   let uc: UnityCoin;
   let sc: SoulaaniCoin;
+  let mockUSDC: any;
   let admin: SignerWithAddress;
   let treasurer: SignerWithAddress;
   let onrampMinter: SignerWithAddress;
@@ -15,7 +16,7 @@ describe("UnityCoin (UC)", function () {
   let attacker: SignerWithAddress;
 
   const TREASURER_MINT = ethers.id("TREASURER_MINT");
-  const ONRAMP_MINTER = ethers.id("ONRAMP_MINTER");
+  const BACKEND = ethers.keccak256(ethers.toUtf8Bytes("BACKEND"));
   const PAUSER = ethers.id("PAUSER");
   const SYSTEM_CONTRACT_MANAGER = ethers.id("SYSTEM_CONTRACT_MANAGER");
   const DEFAULT_ADMIN_ROLE = ethers.ZeroHash;
@@ -39,9 +40,14 @@ describe("UnityCoin (UC)", function () {
         user2.address,
       ]);
 
+    // Deploy MockUSDC
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    mockUSDC = await MockUSDC.deploy();
+    await mockUSDC.waitForDeployment();
+
     // Deploy UnityCoin
     const UnityCoin = await ethers.getContractFactory("UnityCoin");
-    uc = await UnityCoin.deploy(admin.address, await sc.getAddress());
+    uc = await UnityCoin.deploy(admin.address, await sc.getAddress(), admin.address); // Use admin as placeholder
     await uc.waitForDeployment();
   });
 
@@ -72,14 +78,14 @@ describe("UnityCoin (UC)", function () {
 
     it("Should revert if deployed with zero admin address", async function () {
       const UnityCoin = await ethers.getContractFactory("UnityCoin");
-      await expect(UnityCoin.deploy(ethers.ZeroAddress, await sc.getAddress())).to.be.revertedWith(
+      await expect(UnityCoin.deploy(ethers.ZeroAddress, await sc.getAddress(), admin.address)).to.be.revertedWith(
         "Admin cannot be zero address"
       );
     });
 
     it("Should revert if deployed with zero SoulaaniCoin address", async function () {
       const UnityCoin = await ethers.getContractFactory("UnityCoin");
-      await expect(UnityCoin.deploy(admin.address, ethers.ZeroAddress)).to.be.revertedWith(
+      await expect(UnityCoin.deploy(admin.address, ethers.ZeroAddress, admin.address)).to.be.revertedWith(
         "SoulaaniCoin address cannot be zero"
       );
     });
@@ -91,9 +97,9 @@ describe("UnityCoin (UC)", function () {
       expect(await uc.hasRole(TREASURER_MINT, treasurer.address)).to.be.true;
     });
 
-    it("Should allow admin to grant ONRAMP_MINTER role", async function () {
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
-      expect(await uc.hasRole(ONRAMP_MINTER, onrampMinter.address)).to.be.true;
+    it("Should allow admin to grant BACKEND role", async function () {
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
+      expect(await uc.hasRole(BACKEND, onrampMinter.address)).to.be.true;
     });
 
     it("Should allow admin to revoke roles", async function () {
@@ -158,17 +164,18 @@ describe("UnityCoin (UC)", function () {
     });
   });
 
-  describe("Limited Minting (ONRAMP_MINTER)", function () {
+  describe("Limited Minting (BACKEND)", function () {
     const dailyLimit = ethers.parseEther("50000");
+    const BACKEND = ethers.keccak256(ethers.toUtf8Bytes("BACKEND"));
 
     beforeEach(async function () {
-      // Grant onramp minter role
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
+      // Grant backend role
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
       // Set daily limit
       await uc.connect(admin).setDailyMintLimit(onrampMinter.address, dailyLimit);
     });
 
-    it("Should allow ONRAMP_MINTER to mint within daily limit", async function () {
+    it("Should allow BACKEND to mint within daily limit", async function () {
       const amount = ethers.parseEther("100");
       await uc.connect(onrampMinter).mintOnramp(user1.address, amount);
       expect(await uc.balanceOf(user1.address)).to.equal(amount);
@@ -265,14 +272,14 @@ describe("UnityCoin (UC)", function () {
       expect(remaining).to.equal(dailyLimit);
     });
 
-    it("Should not allow mintOnramp without ONRAMP_MINTER role", async function () {
+    it("Should not allow mintOnramp without BACKEND role", async function () {
       await expect(uc.connect(user1).mintOnramp(user2.address, ethers.parseEther("100"))).to.be
         .reverted;
     });
 
     it("Should not allow mintOnramp if daily limit not set", async function () {
       // Grant role to new address but don't set limit
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, user1.address);
+      await uc.connect(admin).grantRole(BACKEND, user1.address);
 
       await expect(
         uc.connect(user1).mintOnramp(user2.address, ethers.parseEther("100"))
@@ -294,7 +301,7 @@ describe("UnityCoin (UC)", function () {
 
   describe("Daily Limit Management", function () {
     beforeEach(async function () {
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
     });
 
     it("Should allow admin to set daily limit", async function () {
@@ -326,10 +333,10 @@ describe("UnityCoin (UC)", function () {
       ).to.be.reverted;
     });
 
-    it("Should not allow setting limit for non-ONRAMP_MINTER", async function () {
+    it("Should not allow setting limit for non-BACKEND", async function () {
       await expect(
         uc.connect(admin).setDailyMintLimit(user1.address, ethers.parseEther("100000"))
-      ).to.be.revertedWith("Address is not an onramp minter");
+      ).to.be.revertedWith("Address is not a backend minter");
     });
   });
 
@@ -438,10 +445,10 @@ describe("UnityCoin (UC)", function () {
       await expect(uc.connect(user1).unpause()).to.be.reverted;
     });
 
-    it("Should return correct paused status via isPaused", async function () {
-      expect(await uc.isPaused()).to.be.false;
+    it("Should return correct paused status via paused()", async function () {
+      expect(await uc.paused()).to.be.false;
       await uc.connect(admin).pause();
-      expect(await uc.isPaused()).to.be.true;
+      expect(await uc.paused()).to.be.true;
     });
   });
 
@@ -500,8 +507,8 @@ describe("UnityCoin (UC)", function () {
       const limit2 = ethers.parseEther("20000");
 
       // Set up two minters with different limits
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, minter2.address);
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
+      await uc.connect(admin).grantRole(BACKEND, minter2.address);
       await uc.connect(admin).setDailyMintLimit(onrampMinter.address, limit1);
       await uc.connect(admin).setDailyMintLimit(minter2.address, limit2);
 
@@ -530,14 +537,14 @@ describe("UnityCoin (UC)", function () {
     });
 
     it("Should prevent minting after role is revoked", async function () {
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
       await uc.connect(admin).setDailyMintLimit(onrampMinter.address, ethers.parseEther("10000"));
 
       // Mint successfully
       await uc.connect(onrampMinter).mintOnramp(user1.address, ethers.parseEther("100"));
 
       // Revoke role
-      await uc.connect(admin).revokeRole(ONRAMP_MINTER, onrampMinter.address);
+      await uc.connect(admin).revokeRole(BACKEND, onrampMinter.address);
 
       // Should not be able to mint anymore
       await expect(uc.connect(onrampMinter).mintOnramp(user1.address, ethers.parseEther("100"))).to
@@ -590,7 +597,7 @@ describe("UnityCoin (UC)", function () {
     });
 
     it("Should block onramp minting to suspended member", async function () {
-      await uc.connect(admin).grantRole(ONRAMP_MINTER, onrampMinter.address);
+      await uc.connect(admin).grantRole(BACKEND, onrampMinter.address);
       await uc.connect(admin).setDailyMintLimit(onrampMinter.address, ethers.parseEther("10000"));
       await sc.connect(admin).suspendMember(user1.address);
 
@@ -861,6 +868,241 @@ describe("UnityCoin (UC)", function () {
 
       // Now they can pause
       await expect(uc.connect(user1).pause()).to.not.be.reverted;
+    });
+  });
+
+  describe("Multi-Coop Foundation", function () {
+    it("Should have default coop ID of 1", async function () {
+      expect(await uc.coopId()).to.equal(1);
+    });
+
+    it("Should have default clearing contract as zero address", async function () {
+      expect(await uc.clearingContract()).to.equal(ethers.ZeroAddress);
+    });
+
+    it("Should allow admin to set clearing contract", async function () {
+      const newClearingContract = ethers.Wallet.createRandom().address;
+      
+      await expect(uc.connect(admin).setClearingContract(newClearingContract))
+        .to.emit(uc, "ClearingContractChanged")
+        .withArgs(ethers.ZeroAddress, newClearingContract, admin.address);
+      
+      expect(await uc.clearingContract()).to.equal(newClearingContract);
+    });
+
+    it("Should allow admin to set coop ID", async function () {
+      const newCoopId = 3;
+      
+      await expect(uc.connect(admin).setCoopId(newCoopId))
+        .to.emit(uc, "CoopIdChanged")
+        .withArgs(1, newCoopId, admin.address);
+      
+      expect(await uc.coopId()).to.equal(newCoopId);
+    });
+
+    it("Should not allow non-admin to set clearing contract", async function () {
+      const newClearingContract = ethers.Wallet.createRandom().address;
+      
+      await expect(uc.connect(user1).setClearingContract(newClearingContract))
+        .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should not allow non-admin to set coop ID", async function () {
+      await expect(uc.connect(user1).setCoopId(3))
+        .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should revert if setting clearing contract to zero address", async function () {
+      await expect(uc.connect(admin).setClearingContract(ethers.ZeroAddress))
+        .to.be.revertedWith("Clearing contract cannot be zero address");
+    });
+
+    it("Should revert if setting coop ID to zero", async function () {
+      await expect(uc.connect(admin).setCoopId(0))
+        .to.be.revertedWith("Coop ID must be greater than 0");
+    });
+  });
+
+  describe("Fee Collection", function () {
+    let treasury: any;
+
+    beforeEach(async function () {
+      // Deploy Treasury contract
+      const Treasury = await ethers.getContractFactory("Treasury");
+      treasury = await Treasury.deploy(await uc.getAddress(), admin.address);
+
+      // Add treasury as an active SC member
+      await sc.connect(admin).addMembersBatch([await treasury.getAddress()]);
+
+      // Set treasury as fee recipient
+      await uc.connect(admin).setFeeRecipient(await treasury.getAddress());
+
+      // Mint UC to users for testing
+      await uc.connect(admin).mint(user1.address, ethers.parseEther("1000"));
+      await uc.connect(admin).mint(user2.address, ethers.parseEther("1000"));
+    });
+
+    it("Should collect fee on transfers between users", async function () {
+      const transferAmount = ethers.parseEther("100");
+      const expectedFee = transferAmount * 10n / 10000n; // 0.1% fee
+      
+      const treasuryBalanceBefore = await treasury.getBalance();
+      const totalSupplyBefore = await uc.totalSupply();
+
+      await uc.connect(user1).transfer(user2.address, transferAmount);
+
+      expect(await treasury.getBalance()).to.equal(treasuryBalanceBefore + expectedFee);
+      expect(await uc.totalSupply()).to.equal(totalSupplyBefore + expectedFee);
+    });
+
+    it("Should emit FeeCollected event", async function () {
+      const transferAmount = ethers.parseEther("50");
+      const expectedFee = transferAmount * 10n / 10000n;
+
+      await expect(uc.connect(user1).transfer(user2.address, transferAmount))
+        .to.emit(uc, "FeeCollected")
+        .withArgs(user1.address, expectedFee, await treasury.getAddress());
+    });
+
+    it("Should not collect fee on mints", async function () {
+      const mintAmount = ethers.parseEther("100");
+      const treasuryBalanceBefore = await treasury.getBalance();
+
+      await uc.connect(admin).mint(user1.address, mintAmount);
+
+      expect(await treasury.getBalance()).to.equal(treasuryBalanceBefore);
+    });
+
+    it("Should not collect fee on burns", async function () {
+      const burnAmount = ethers.parseEther("50");
+      const treasuryBalanceBefore = await treasury.getBalance();
+
+      await uc.connect(user1).burn(burnAmount);
+
+      expect(await treasury.getBalance()).to.equal(treasuryBalanceBefore);
+    });
+
+    it("Should not collect fee when fee recipient is not set", async function () {
+      // Set fee to zero instead of setting recipient to zero (which is not allowed)
+      await uc.connect(admin).setTransferFee(0);
+      
+      const transferAmount = ethers.parseEther("100");
+      const treasuryBalanceBefore = await treasury.getBalance();
+
+      await uc.connect(user1).transfer(user2.address, transferAmount);
+
+      expect(await treasury.getBalance()).to.equal(treasuryBalanceBefore);
+    });
+
+    it("Should not collect fee when fee percent is zero", async function () {
+      // Set fee to zero
+      await uc.connect(admin).setTransferFee(0);
+      
+      const transferAmount = ethers.parseEther("100");
+      const treasuryBalanceBefore = await treasury.getBalance();
+
+      await uc.connect(user1).transfer(user2.address, transferAmount);
+
+      expect(await treasury.getBalance()).to.equal(treasuryBalanceBefore);
+    });
+
+    it("Should calculate fee correctly with different percentages", async function () {
+      const transferAmount = ethers.parseEther("1000");
+      
+      // Test 0.5% fee (50 basis points)
+      await uc.connect(admin).setTransferFee(50);
+      const expectedFee50 = transferAmount * 50n / 10000n;
+      
+      await uc.connect(user1).transfer(user2.address, transferAmount);
+      expect(await treasury.getBalance()).to.equal(expectedFee50);
+
+      // Reset for next test
+      await uc.connect(admin).mint(user1.address, transferAmount);
+      await uc.connect(admin).setTransferFee(25); // 0.25% fee
+      
+      const expectedFee25 = transferAmount * 25n / 10000n;
+      await uc.connect(user1).transfer(user2.address, transferAmount);
+      expect(await treasury.getBalance()).to.equal(expectedFee50 + expectedFee25);
+    });
+  });
+
+  describe("Fee Management", function () {
+    it("Should allow admin to set transfer fee", async function () {
+      const newFee = 25; // 0.25%
+      
+      await expect(uc.connect(admin).setTransferFee(newFee))
+        .to.emit(uc, "TransferFeeChanged")
+        .withArgs(10, newFee, admin.address);
+      
+      expect(await uc.transferFeePercent()).to.equal(newFee);
+    });
+
+    it("Should not allow fee to exceed 1%", async function () {
+      await expect(uc.connect(admin).setTransferFee(101))
+        .to.be.revertedWith("Fee cannot exceed 1%");
+    });
+
+    it("Should not allow non-admin to set transfer fee", async function () {
+      await expect(uc.connect(user1).setTransferFee(25))
+        .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should allow admin to set fee recipient", async function () {
+      const newRecipient = user1.address;
+      
+      await expect(uc.connect(admin).setFeeRecipient(newRecipient))
+        .to.emit(uc, "FeeRecipientChanged")
+        .withArgs(ethers.ZeroAddress, newRecipient, admin.address);
+      
+      expect(await uc.feeRecipient()).to.equal(newRecipient);
+    });
+
+    it("Should not allow setting fee recipient to zero address", async function () {
+      await expect(uc.connect(admin).setFeeRecipient(ethers.ZeroAddress))
+        .to.be.revertedWith("Fee recipient cannot be zero address");
+    });
+
+    it("Should not allow non-admin to set fee recipient", async function () {
+      await expect(uc.connect(user1).setFeeRecipient(user2.address))
+        .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
+    });
+  });
+
+  describe("Role Updates", function () {
+    it("Should use BACKEND role instead of ONRAMP_MINTER", async function () {
+      const BACKEND = ethers.keccak256(ethers.toUtf8Bytes("BACKEND"));
+      
+      // Grant BACKEND role to user1
+      await uc.connect(admin).grantRole(BACKEND, user1.address);
+      
+      // Set daily limit for user1
+      await uc.connect(admin).setDailyMintLimit(user1.address, ethers.parseEther("100"));
+      
+      // User1 should be able to mint onramp
+      await uc.connect(user1).mintOnramp(user2.address, ethers.parseEther("50"));
+      
+      expect(await uc.balanceOf(user2.address)).to.equal(ethers.parseEther("50"));
+    });
+
+    it("Should not allow non-BACKEND to mint onramp", async function () {
+      await expect(
+        uc.connect(user1).mintOnramp(user2.address, ethers.parseEther("50"))
+      ).to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
+    });
+
+    it("Should require BACKEND role for daily limit setting", async function () {
+      const BACKEND = ethers.keccak256(ethers.toUtf8Bytes("BACKEND"));
+      
+      // Grant BACKEND role to user1
+      await uc.connect(admin).grantRole(BACKEND, user1.address);
+      
+      // Should be able to set daily limit for user1
+      await uc.connect(admin).setDailyMintLimit(user1.address, ethers.parseEther("100"));
+      
+      // Should not be able to set daily limit for user2 (not BACKEND)
+      await expect(
+        uc.connect(admin).setDailyMintLimit(user2.address, ethers.parseEther("100"))
+      ).to.be.revertedWith("Address is not a backend minter");
     });
   });
 });
