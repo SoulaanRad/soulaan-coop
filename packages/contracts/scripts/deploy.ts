@@ -59,8 +59,29 @@ async function main() {
   const scAddress = await soulaaniCoin.getAddress();
   console.log("✅ SoulaaniCoin deployed to:", scAddress);
 
+  // ========== GIVE DEPLOYER 1 SC ==========
+  console.log("\n3️⃣  Setting up deployer with 1 SC...");
+
+  // Step 1: Add deployer as a member
+  console.log("   Adding deployer as member...");
+  const addMemberTx = await soulaaniCoin.addMember(deployer.address);
+  await addMemberTx.wait();
+  console.log("   ✅ Deployer added as member");
+
+  // Step 2: Award 1 SC to deployer
+  console.log("   Awarding 1 SC to deployer...");
+  const oneToken = ethers.parseEther("1"); // 1 SC
+  const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_ADMIN_ALLOCATION"));
+  const awardTx = await soulaaniCoin.award(deployer.address, oneToken, reason);
+  await awardTx.wait();
+  console.log("   ✅ 1 SC awarded to deployer");
+
+  // Verify the balance
+  const deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
+  console.log("   💰 Deployer SC balance:", ethers.formatEther(deployerBalance), "SC");
+
   // ========== DEPLOY REDEMPTIONVAULT ==========
-  console.log("\n3️⃣  Deploying RedemptionVault...");
+  console.log("\n4️⃣  Deploying RedemptionVault...");
   const RedemptionVault = await ethers.getContractFactory("RedemptionVault");
   const redemptionVault = await RedemptionVault.deploy(ucAddress, treasurySafe);
   await redemptionVault.waitForDeployment();
