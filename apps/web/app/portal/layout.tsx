@@ -81,7 +81,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-[50vh] flex-col items-center justify-center">
         <h2 className="mb-4 text-xl font-bold">Profile Required</h2>
         <p className="mb-4 text-slate-400">
-          Please complete your profile to access the admin panel.
+          Please complete your profile to access the portal.
         </p>
         <Button onClick={() => router.push('/login')}>
           Complete Profile
@@ -93,13 +93,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <header className="sticky top-0 z-50 border-b border-slate-700 bg-slate-900/80 backdrop-blur-sm">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <Link href="/admin" className="text-xl font-bold text-white">
-            Soulaan Co-op Admin
+          <Link href="/portal" className="text-xl font-bold text-white">
+            Soulaan Co-op Portal
           </Link>
           <WalletAuth />
         </div>
@@ -113,14 +113,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({
+export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <Web3Provider>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
+      <PortalLayoutContent>{children}</PortalLayoutContent>
     </Web3Provider>
   );
 }

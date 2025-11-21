@@ -115,9 +115,9 @@ export function useWeb3Auth() {
       
       // Redirect based on profile status
       if (!hasProfile) {
-        router.push('/admin/create-profile');
+        router.push('/portal/create-profile');
       } else {
-        router.push('/admin');
+        router.push('/portal');
       }
       
       return true;
@@ -152,7 +152,7 @@ export function useWeb3Auth() {
         address: null,
       });
       
-      router.push('/admin');
+      router.push('/portal');
       
       return true;
     } catch (error) {

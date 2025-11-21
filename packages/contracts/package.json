@@ -21,6 +21,8 @@
     "console:local": "hardhat console --network localhost",
     "deploy:local": "hardhat run scripts/deploy-local.ts --network localhost",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
+    "setup-admins:sepolia": "hardhat run scripts/setup-admins.ts --network baseSepolia",
+    "setup-admins:local": "hardhat run scripts/setup-admins.ts --network localhost",
     "verify:sepolia": "hardhat run scripts/verify.ts --network baseSepolia",
     "create-wallet": "hardhat run scripts/create-wallet.ts",
     "check-balance": "hardhat run scripts/check-balance.ts --network baseSepolia",

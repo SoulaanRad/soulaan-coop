@@ -7,7 +7,7 @@ import { AuthSession } from './lib/signature-verification';
 
 // Define protected API routes
 const PROTECTED_API_ROUTES = [
-  '/api/admin/',
+  '/api/portal/',
   '/api/members/',
   '/api/redemptions/',
 ];
@@ -100,8 +100,9 @@ export async function middleware(request: NextRequest) {
   }
   
   // Check if user has a profile
-  const profile = await db.userProfile.findUnique({
+  const profile = await db.user.findUnique({
     where: { walletAddress: session.address },
+    select: { roles: true, profileCompleted: true, walletAddress: true }
   });
   
   if (!profile) {
@@ -111,23 +112,9 @@ export async function middleware(request: NextRequest) {
     );
   }
   
-  // Check if SoulaaniCoin balance is still valid (if last check was more than 1 day ago)
-  const lastBalanceCheck = profile.lastBalanceCheck;
-  const oneDayAgo = new Date();
-  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-  
-  if (!lastBalanceCheck || lastBalanceCheck < oneDayAgo) {
-    // TODO: Implement actual balance check with contract
-    // For now, just update the lastBalanceCheck timestamp
-    await db.userProfile.update({
-      where: { walletAddress: session.address },
-      data: { lastBalanceCheck: new Date() },
-    });
-  }
-  
   // Add user info to request headers for downstream handlers
   response.headers.set('X-User-Address', session.address);
-  response.headers.set('X-User-Role', profile.role);
+  response.headers.set('X-User-Roles', JSON.stringify(profile.roles));
   
   return response;
 }

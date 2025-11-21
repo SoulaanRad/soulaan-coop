@@ -150,18 +150,18 @@ export default function LoginPage() {
     }
   };
 
-  // Step 4: Complete - Redirect to Admin
+  // Step 4: Complete - Redirect to Portal
   const handleComplete = () => {
-    router.push('/admin');
+    router.push('/portal');
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome to Soulaan Co-op Admin</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Soulaan Co-op Portal</CardTitle>
           <CardDescription>
-            Connect your wallet and complete onboarding to access the admin panel
+            Connect your wallet and complete onboarding to access the portal
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -269,7 +269,7 @@ export default function LoginPage() {
                 </p>
               </div>
               <p className="text-sm text-gray-600">
-                Complete your profile to access the admin panel.
+                Complete your profile to access the portal.
               </p>
               
               <div className="space-y-2">
@@ -332,10 +332,10 @@ export default function LoginPage() {
               </div>
               <h3 className="text-lg font-semibold">All Set!</h3>
               <p className="text-sm text-gray-600">
-                Your profile has been created successfully. You can now access the admin panel.
+                Your profile has been created successfully. You can now access the portal.
               </p>
               <Button onClick={handleComplete} className="w-full">
-                Go to Admin Panel
+                Go to Portal
               </Button>
             </div>
           )}

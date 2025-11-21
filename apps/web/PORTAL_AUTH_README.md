@@ -1,8 +1,8 @@
-# Admin Panel Authentication System
+# Portal Authentication System
 
 ## Overview
 
-The admin panel uses a secure Web3-based authentication system that only allows users with SoulaaniCoin (SC) to access it.
+The portal uses a secure Web3-based authentication system that only allows users with SoulaaniCoin (SC) to access it.
 
 ## Features
 
@@ -49,7 +49,7 @@ NODE_ENV=development
 
 When `NEXT_PUBLIC_SOULAANI_COIN_ADDRESS` is not set, the system will:
 - Skip blockchain balance checks
-- Allow any connected wallet to access the admin panel
+- Allow any connected wallet to access the portal
 - Log warnings indicating development mode is active
 
 This allows development and testing without a deployed contract.
@@ -83,9 +83,9 @@ All blockchain checks are enforced in production.
 - Profile is stored in the database
 
 ### 4. Access Granted
-- User is redirected to `/admin`
+- User is redirected to `/portal`
 - Session is created with HTTP-only cookies
-- User can access all admin features
+- User can access all portal features
 
 ## API Endpoints
 
@@ -102,7 +102,7 @@ Generate a challenge for wallet authentication.
 **Response:**
 ```json
 {
-  "message": "Sign in to Soulaan Co-op Admin Panel..."
+  "message": "Sign in to Soulaan Co-op Portal..."
 }
 ```
 
@@ -114,7 +114,7 @@ Verify signature and check SoulaaniCoin balance.
 {
   "address": "0x1234...",
   "signature": "0xabcd...",
-  "message": "Sign in to Soulaan Co-op Admin Panel..."
+  "message": "Sign in to Soulaan Co-op Portal..."
 }
 ```
 
@@ -253,7 +253,7 @@ To test the authentication system:
    # Don't set NEXT_PUBLIC_SOULAANI_COIN_ADDRESS
    pnpm dev
    ```
-   - Any wallet can connect and access admin panel
+   - Any wallet can connect and access portal
    - Warnings logged to console
 
 2. **With Contract (Production Mode)**:
