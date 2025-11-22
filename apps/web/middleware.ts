@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { db } from '@repo/db';
 import { validateCsrfToken } from './lib/csrf';
 import { AuthSession } from './lib/signature-verification';
+
+// Specify Node.js runtime for middleware
+export const runtime = 'nodejs';
 
 // Define protected API routes
 const PROTECTED_API_ROUTES = [
@@ -99,22 +101,12 @@ export async function middleware(request: NextRequest) {
     );
   }
   
-  // Check if user has a profile
-  const profile = await db.user.findUnique({
-    where: { walletAddress: session.address },
-    select: { roles: true, profileCompleted: true, walletAddress: true }
-  });
-  
-  if (!profile) {
-    return new NextResponse(
-      JSON.stringify({ error: 'Profile not found' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-  
   // Add user info to request headers for downstream handlers
+  // The actual role and profile checks should be done in the API routes
   response.headers.set('X-User-Address', session.address);
-  response.headers.set('X-User-Roles', JSON.stringify(profile.roles));
+  if (session.roles) {
+    response.headers.set('X-User-Roles', JSON.stringify(session.roles));
+  }
   
   return response;
 }
