@@ -24,8 +24,8 @@ TREASURY_SAFE_ADDRESS="0x..."   # ← Hard to manage
 # 1. Deploy first (no addresses needed)
 pnpm deploy:sepolia
 
-# 2. Add members after (as many as you want)
-pnpm setup-members:sepolia
+# 2. Add admins after (as many as you want)
+pnpm setup-admins:sepolia
 ```
 
 **Benefits:**
@@ -58,7 +58,7 @@ pnpm deploy:sepolia
 
 ### Step 2: Add Admins
 ```bash
-pnpm setup-members:sepolia
+pnpm setup-admins:sepolia
 ```
 
 **Two ways to use:**
@@ -159,8 +159,8 @@ pnpm deploy:sepolia
 # 3. Save contract addresses from output
 # SoulaaniCoin: 0x...
 
-# 4. Add yourself and team as members
-pnpm setup-members:sepolia
+# 4. Add yourself and team as admins
+pnpm setup-admins:sepolia
 # Enter addresses or use config file
 
 # 5. Update web app

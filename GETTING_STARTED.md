@@ -75,22 +75,10 @@ Create `packages/db/.env`:
 ```bash
 # Database
 DATABASE_URL="postgresql://username:password@localhost:5432/soulaancoop"
-DIRECT_URL="postgresql://username:password@localhost:5432/soulaancoop"
-
-# Authentication
-AUTH_SECRET="your-auth-secret"
-AUTH_REDIRECT_PROXY_URL="http://localhost:3000"
-
-# Slack (optional)
-SLACK_WEBHOOK_URL="your-slack-webhook-url"
-
-# Server
-PORT=3001
 ```
 
 **Replace:**
 - `username` and `password` with your PostgreSQL credentials
-- `your-auth-secret` with a random string
 
 ---
 

@@ -15,12 +15,86 @@ Soulaan Co-op is a community-owned economic platform and digital wallet system. 
 - **Merchant POS:** Accept UC and track sales at local businesses.
 - **Community Dashboard:** Transparency into how community money is spent.
 
-### 📜 Important Documents
+---
 
-- **[Getting Started Guide](GETTING_STARTED.md)** - Step-by-step setup instructions
-- **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - Our founding principles, governance structure, and community guidelines
-- **[Tech Roadmap](documents/tech_roadmap.md)** - Phased plan for the tech implementation
-- **[Organizational Roadmap](documents/org_roadmap.md)** - Stages for building the co-op institution and community network
+## 📚 Documentation
+
+### 🏁 Starting Your Co-op Journey
+
+#### **New to the Project? Start Here:**
+1. **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - **Read this first!** Understand our mission, values, and how the co-op works
+2. **[Getting Started Guide](GETTING_STARTED.md)** - Set up your development environment and run the platform locally
+3. **[Tech Roadmap](documents/tech_roadmap.md)** - See where we are and where we're going
+
+---
+
+### 🏗️ Setting Up Your Co-op
+
+#### **Phase 1: Deploy the Economic Infrastructure**
+The co-op runs on blockchain-based tokens that power the economy:
+
+- **[Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md)** - Deploy Unity Coin (UC) and SoulaaniCoin (SC) in 5 minutes
+- **[Full Deployment Guide](packages/contracts/DEPLOYMENT_GUIDE.md)** - Complete instructions for deploying the co-op's economic system
+- **[Understanding the Contracts](packages/contracts/README.md)** - Learn how UC (payments) and SC (governance) work together
+
+**What you're deploying:**
+- **Unity Coin (UC)** - The stable currency members use for rent, business purchases, and transactions
+- **SoulaaniCoin (SC)** - Governance tokens that give members voting power and rewards
+- **Redemption Vault** - How members convert UC back to cash when needed
+
+#### **Phase 2: Set Up Treasury & Governance**
+Protect community funds and establish decision-making:
+
+- **[Set Up Multi-Sig Wallet](packages/contracts/docs/SETUP_MULTISIG.md)** - Create a secure multi-signature wallet for the treasury (requires 3-of-5 signatures)
+- **[Add Governors & Admins](packages/contracts/SCRIPTS.md#setup-adminsts)** - Give team members the ability to manage the co-op
+- **[Security Best Practices](packages/contracts/SECURITY.md)** - Keep the co-op's funds and systems secure
+
+#### **Phase 3: Launch the Member Portal**
+Give members access to the platform:
+
+- **[Portal Setup Guide](apps/web/PORTAL_AUTH_README.md)** - Set up Web3 wallet authentication so members can log in
+- **[Understanding Security](DEPLOYMENT_SECURITY_GUIDE.md)** - Learn how blockchain roles and app permissions work together
+- **[Quick Deployment Summary](DEPLOYMENT_SUMMARY.md)** - Fast reference for getting the portal live
+
+---
+
+### 🔧 Managing Your Co-op
+
+#### **Day-to-Day Operations**
+- **[Contract Management Scripts](packages/contracts/SCRIPTS.md)** - Award SC to active members, check balances, manage roles
+- **[Monitor Member Activity](packages/contracts/SCRIPTS.md#monitor-sc-awardssts)** - Track SC awards and member participation
+- **[Handle Redemptions](packages/contracts/README.md#redemptionvault)** - Process member requests to convert UC to cash
+
+#### **Governance & Decision Making**
+- **[How Proposals Work](documents/soulaan_proposal_engine.md)** - Create and vote on community proposals
+- **[Organizational Roadmap](documents/org_roadmap.md)** - Grow from pilot to full community institution
+
+---
+
+### 🧪 For Developers
+
+#### **Testing & Quality**
+- **[Testing Guide](TESTING.md)** - Run tests for the web app and API
+- **[Contract Testing](packages/contracts/TESTING_GUIDE.md)** - Test smart contracts before deployment
+- **[CI/CD Setup](packages/contracts/CI_CD_SETUP.md)** - Automate testing and deployment
+
+---
+
+### 📖 Quick Reference: "How Do I...?"
+
+| **How do I...** | **Read this** |
+|------------------|---------------|
+| **Understand the co-op's mission?** | [Soulaan Co-op Charter](documents/soulaan-coop-charter.md) |
+| **Set up my development environment?** | [Getting Started Guide](GETTING_STARTED.md) |
+| **Deploy the co-op's economic system?** | [Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md) |
+| **Understand how UC and SC work?** | [Understanding the Contracts](packages/contracts/README.md) |
+| **Set up the treasury multi-sig?** | [Set Up Multi-Sig Wallet](packages/contracts/docs/SETUP_MULTISIG.md) |
+| **Add governors and admins?** | [Contract Management Scripts](packages/contracts/SCRIPTS.md) |
+| **Launch the member portal?** | [Portal Setup Guide](apps/web/PORTAL_AUTH_README.md) |
+| **Award SC to active members?** | [Contract Management Scripts](packages/contracts/SCRIPTS.md) |
+| **Process member redemptions?** | [Understanding the Contracts](packages/contracts/README.md#redemptionvault) |
+| **Create community proposals?** | [How Proposals Work](documents/soulaan_proposal_engine.md) |
+| **See what's coming next?** | [Tech Roadmap](documents/tech_roadmap.md) |
 
 ---
 
@@ -94,17 +168,6 @@ Create a `.env` file in the `packages/db/` directory:
 ```bash
 # Database
 DATABASE_URL="postgresql://username:password@localhost:5432/soulaancoop"
-DIRECT_URL="postgresql://username:password@localhost:5432/soulaancoop"
-
-# Authentication
-AUTH_SECRET="your-auth-secret"
-AUTH_REDIRECT_PROXY_URL="http://localhost:3000"
-
-# Slack (optional)
-SLACK_WEBHOOK_URL="your-slack-webhook-url"
-
-# Server
-PORT=3001
 ```
 
 ### 4. Database Setup

@@ -170,7 +170,7 @@ Admin Wallets    → Can access portal
 #### 5. **Role-Based Access**
 - Smart contracts enforce who can add admins
 - Only GOVERNANCE_ROLE can award SC
-- Admin panel access is separate from contract control
+- Portal access is separate from contract control
 
 ---
 
