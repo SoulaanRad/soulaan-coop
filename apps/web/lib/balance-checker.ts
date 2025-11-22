@@ -1,6 +1,7 @@
 import { createPublicClient, http } from 'viem';
 import { db } from '@repo/db';
 import { config, chainConfig } from './config';
+import { env } from '~/env';
 
 // ABI for SoulaaniCoin contract (only the functions we need)
 const soulaaniCoinAbi = [
@@ -108,7 +109,7 @@ export async function checkSoulaaniCoinBalance(address: string): Promise<boolean
 export async function checkAllBalances(): Promise<void> {
   try {
     // Skip in test mode
-    if (process.env.NODE_ENV === 'test') {
+    if (env.NODE_ENV === 'test') {
       console.log('⏭️  Skipping balance checks in test mode');
       return;
     }

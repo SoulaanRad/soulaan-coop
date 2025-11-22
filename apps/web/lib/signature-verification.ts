@@ -6,9 +6,10 @@ import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
 import { checkSoulaaniCoinBalance as checkBalance } from './balance-checker';
 import { config } from './config';
+import { env } from '~/env';
 
 // Session type definition
-export type AuthSession = {
+export interface AuthSession {
   address: string;
   isLoggedIn: boolean;
   hasProfile: boolean;
@@ -24,7 +25,7 @@ const sessionOptions = {
   cookieName: config.session.cookieName,
   cookieOptions: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
     maxAge: config.session.maxAge,
   },

@@ -2,34 +2,35 @@
  * Application configuration
  * Uses environment variables with fallbacks for testing
  */
+import { env } from '~/env';
 
 export const config = {
   // Blockchain configuration
   chain: {
-    id: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '84532'), // Base Sepolia by default
-    name: process.env.NEXT_PUBLIC_CHAIN_NAME || 'Base Sepolia',
-    rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://sepolia.base.org',
+    id: parseInt(env.NEXT_PUBLIC_CHAIN_ID || '84532'), // Base Sepolia by default
+    name: env.NEXT_PUBLIC_CHAIN_NAME || 'Base Sepolia',
+    rpcUrl: env.NEXT_PUBLIC_RPC_URL || 'https://sepolia.base.org',
   },
   
   // Smart contract addresses
   contracts: {
-    soulaaniCoin: process.env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS as `0x${string}` | undefined,
+    soulaaniCoin: env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS as `0x${string}` | undefined,
   },
   
   // WalletConnect configuration
   walletConnect: {
-    projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
+    projectId: env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
   },
   
   // App configuration
   app: {
-    domain: process.env.NEXT_PUBLIC_DOMAIN || 'localhost:3000',
-    uri: process.env.NEXT_PUBLIC_URI || 'http://localhost:3000',
+    domain: env.NEXT_PUBLIC_DOMAIN || 'localhost:3000',
+    uri: env.NEXT_PUBLIC_URI || 'http://localhost:3000',
   },
   
   // Session configuration
   session: {
-    secret: process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development',
+    secret: env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development',
     cookieName: 'soulaan_auth_session',
     maxAge: 60 * 60 * 24 * 7, // 1 week
   },
@@ -37,8 +38,8 @@ export const config = {
   // Feature flags
   features: {
     // Skip blockchain checks in test/development mode
-    skipBlockchainChecks: process.env.NODE_ENV === 'test' || 
-                          (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
+    skipBlockchainChecks: env.NODE_ENV === 'test' || 
+                          (env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
   },
 };
 
@@ -46,7 +47,7 @@ export const config = {
 export function validateConfig() {
   const errors: string[] = [];
   
-  if (process.env.NODE_ENV === 'production') {
+  if (env.NODE_ENV === 'production') {
     if (!config.contracts.soulaaniCoin) {
       errors.push('NEXT_PUBLIC_SOULAANI_COIN_ADDRESS is required in production');
     }

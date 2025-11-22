@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
+import { env } from '~/env';
 
 // CSRF token configuration
 const CSRF_TOKEN_COOKIE = 'soulaan_csrf_token';
@@ -24,7 +25,7 @@ export function setCsrfTokenCookie(): string {
     name: CSRF_TOKEN_COOKIE,
     value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'strict',
     maxAge: CSRF_TOKEN_EXPIRY,
     path: '/',

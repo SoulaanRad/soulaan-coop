@@ -25,7 +25,7 @@ const mockRedemptions = [
   },
 ];
 
-export async function GET() {
+export function GET() {
   // In a real app, you'd fetch this from your smart contract events or a database
   return NextResponse.json(mockRedemptions);
 }
