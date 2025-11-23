@@ -43,16 +43,8 @@ async function main() {
     console.log("⚠️  WARNING: Using deployer address for roles. You should update these later!\n");
   }
 
-  // ========== DEPLOY UNITYCOIN (UC) ==========
-  console.log("1️⃣  Deploying UnityCoin (UC)...");
-  const UnityCoin = await ethers.getContractFactory("UnityCoin");
-  const unityCoin = await UnityCoin.deploy(treasurySafe);
-  await unityCoin.waitForDeployment();
-  const ucAddress = await unityCoin.getAddress();
-  console.log("✅ UnityCoin deployed to:", ucAddress);
-
-  // ========== DEPLOY SOULAANICOIN (SC) ==========
-  console.log("\n2️⃣  Deploying SoulaaniCoin (SC)...");
+  // ========== DEPLOY SOULAANICOIN (SC) FIRST ==========
+  console.log("1️⃣  Deploying SoulaaniCoin (SC)...");
   const SoulaaniCoin = await ethers.getContractFactory("SoulaaniCoin");
   const soulaaniCoin = await SoulaaniCoin.deploy(governanceBot);
   await soulaaniCoin.waitForDeployment();
@@ -60,7 +52,7 @@ async function main() {
   console.log("✅ SoulaaniCoin deployed to:", scAddress);
 
   // ========== GIVE DEPLOYER 1 SC ==========
-  console.log("\n3️⃣  Setting up deployer with 1 SC...");
+  console.log("\n2️⃣  Setting up deployer with 1 SC...");
 
   // Step 1: Add deployer as a member
   console.log("   Adding deployer as member...");
@@ -80,22 +72,54 @@ async function main() {
   const deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
   console.log("   💰 Deployer SC balance:", ethers.formatEther(deployerBalance), "SC");
 
+  // ========== DEPLOY MOCK USDC FOR TESTING ==========
+  console.log("\n3️⃣  Deploying Mock USDC (for testing)...");
+  const MockUSDC = await ethers.getContractFactory("MockUSDC");
+  const mockUSDC = await MockUSDC.deploy();
+  await mockUSDC.waitForDeployment();
+  const usdcAddress = await mockUSDC.getAddress();
+  console.log("✅ Mock USDC deployed to:", usdcAddress);
+
+  // ========== DEPLOY UNITYCOIN (UC) WITH TEMPORARY VAULT ADDRESS ==========
+  console.log("\n4️⃣  Deploying UnityCoin (UC) with temporary vault address...");
+  const UnityCoin = await ethers.getContractFactory("UnityCoin");
+  const unityCoin = await UnityCoin.deploy(
+    treasurySafe,      // admin
+    scAddress,         // SoulaaniCoin address
+    deployer.address   // Temporary vault address (will be replaced)
+  );
+  await unityCoin.waitForDeployment();
+  const ucAddress = await unityCoin.getAddress();
+  console.log("✅ UnityCoin deployed to:", ucAddress);
+
   // ========== DEPLOY REDEMPTIONVAULT ==========
-  console.log("\n4️⃣  Deploying RedemptionVault...");
+  console.log("\n5️⃣  Deploying RedemptionVault...");
   const RedemptionVault = await ethers.getContractFactory("RedemptionVault");
-  const redemptionVault = await RedemptionVault.deploy(ucAddress, treasurySafe);
+  const redemptionVault = await RedemptionVault.deploy(
+    ucAddress,         // UC address
+    usdcAddress,       // USDC address
+    treasurySafe       // admin
+  );
   await redemptionVault.waitForDeployment();
   const vaultAddress = await redemptionVault.getAddress();
   console.log("✅ RedemptionVault deployed to:", vaultAddress);
+
+  // ========== GRANT VAULT PERMISSION TO MINT UC ==========
+  console.log("\n6️⃣  Granting RedemptionVault permission to mint UC...");
+  const TREASURER_MINT = await unityCoin.TREASURER_MINT();
+  const grantMintTx = await unityCoin.grantRole(TREASURER_MINT, vaultAddress);
+  await grantMintTx.wait();
+  console.log("✅ RedemptionVault can now mint UC for USDC onboarding");
 
   // ========== SETUP COMPLETE ==========
   console.log("\n\n🎉 DEPLOYMENT COMPLETE!\n");
   console.log("=".repeat(60));
   console.log("📋 DEPLOYED CONTRACT ADDRESSES:");
   console.log("=".repeat(60));
-  console.log("UnityCoin (UC):      ", ucAddress);
   console.log("SoulaaniCoin (SC):   ", scAddress);
+  console.log("Mock USDC:           ", usdcAddress);
   console.log("RedemptionVault:     ", vaultAddress);
+  console.log("UnityCoin (UC):      ", ucAddress);
   console.log("=".repeat(60));
   console.log("");
   console.log("🔑 ROLE ASSIGNMENTS:");
@@ -126,16 +150,19 @@ async function main() {
     deployedAt: new Date().toISOString(),
     deployer: deployer.address,
     contracts: {
-      UnityCoin: {
-        address: ucAddress,
-        admin: treasurySafe,
-      },
       SoulaaniCoin: {
         address: scAddress,
         admin: governanceBot,
       },
+      MockUSDC: {
+        address: usdcAddress,
+      },
       RedemptionVault: {
         address: vaultAddress,
+        admin: treasurySafe,
+      },
+      UnityCoin: {
+        address: ucAddress,
         admin: treasurySafe,
       },
     },

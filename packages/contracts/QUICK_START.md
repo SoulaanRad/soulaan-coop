@@ -1,5 +1,8 @@
 # 🚀 Quick Start: Deploy Soulaan Co-op Contracts
 
+> **📍 Network:** This guide deploys to **Base Sepolia testnet** - a free test network where you can experiment without spending real money. When you're ready for production, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for mainnet deployment.
+
+---
 
 ## ✅ What's Already Done
 
@@ -45,8 +48,15 @@ I've created three smart contracts for you:
 
 1. Install MetaMask: https://metamask.io/download/
 2. Create wallet, save seed phrase
-3. Add Base Sepolia network (see DEPLOYMENT_GUIDE.md)
-4. Get test ETH from faucet
+3. Add **Base Sepolia testnet** to MetaMask:
+   - **Network Name:** Base Sepolia
+   - **RPC URL:** `https://sepolia.base.org`
+   - **Chain ID:** `84532`
+   - **Currency Symbol:** ETH
+   - **Block Explorer:** `https://sepolia.basescan.org`
+4. Get **free test ETH** from a faucet (no real money needed!)
+
+**Note:** Base Sepolia is a **test network** - perfect for development and testing without spending real money.
 
 ### Option 2: Generate Wallet with Code
 
@@ -70,23 +80,39 @@ cp env.example .env
 
 Edit `.env` and add:
 ```bash
-# Your wallet's private key (from MetaMask or create-wallet script)
+# Your wallet's private key (NOT your seed phrase!)
+# Get it from: MetaMask → Account Details → Show Private Key
 DEPLOYER_PRIVATE_KEY=your_key_without_0x
 
 # Free API key from https://basescan.org/apis  
 BASESCAN_API_KEY=your_api_key
 
-# For testing, use your own address for both
-TREASURY_SAFE_ADDRESS=your_wallet_address
-GOVERNANCE_BOT_ADDRESS=your_wallet_address
+# Your wallet address (click your account name in MetaMask to copy it)
+# For testing, use your own address for both roles
+TREASURY_SAFE_ADDRESS=0x1234...  # Starts with 0x
+GOVERNANCE_BOT_ADDRESS=0x1234...  # Use same address for testing
 ```
 
-### 2. Get Test ETH
+### 2. Get Test ETH (Free!)
 
-Visit https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-- Connect wallet
-- Request test ETH
-- Wait 1-2 minutes
+Get free test ETH for Base Sepolia from any of these faucets:
+
+**Option 1: Coinbase Faucet** (Recommended)
+- Visit: https://portal.cdp.coinbase.com/products/faucet
+- Select "Base Sepolia"
+- Connect your wallet
+- Request test ETH (you'll get 0.1 ETH - plenty for deployment!)
+
+**Option 2: Alchemy Faucet**
+- Visit: https://www.alchemy.com/faucets/base-sepolia
+- Enter your wallet address
+- Complete captcha
+
+**Option 3: QuickNode Faucet**
+- Visit: https://faucet.quicknode.com/base/sepolia
+- Enter your wallet address
+
+💡 **Tip:** Test ETH has no real value - it's just for testing!
 
 ### 3. Install & Compile
 
