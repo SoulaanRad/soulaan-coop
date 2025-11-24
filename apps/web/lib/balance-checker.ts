@@ -1,7 +1,20 @@
 import { createPublicClient, http } from 'viem';
-import { db } from '@repo/db';
+import { PrismaClient } from '@prisma/client';
 import { config, chainConfig } from './config';
 import { env } from '~/env';
+
+// Initialize Prisma client directly since @repo/db exports aren't working in Next.js
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const db =
+  globalForPrisma?.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
 // ABI for SoulaaniCoin contract (only the functions we need)
 const soulaaniCoinAbi = [

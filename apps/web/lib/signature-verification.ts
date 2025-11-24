@@ -1,12 +1,25 @@
 import { SiweMessage } from 'siwe';
 import { generateNonce } from 'siwe';
 import { verifyMessage } from 'viem';
-import { db } from '@repo/db';
+import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
 import { checkSoulaaniCoinBalance as checkBalance } from './balance-checker';
-import { config } from './config';
+import { config, getServerConfig } from './config';
 import { env } from '~/env';
+
+// Initialize Prisma client directly since @repo/db exports aren't working in Next.js
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const db =
+  globalForPrisma?.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
 // Session type definition
 export interface AuthSession {
@@ -19,17 +32,20 @@ export interface AuthSession {
   destroy: () => void;
 };
 
-// Iron session configuration
-const sessionOptions = {
-  password: config.session.secret,
-  cookieName: config.session.cookieName,
-  cookieOptions: {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
-    maxAge: config.session.maxAge,
-  },
-};
+// Iron session configuration (server-side only)
+function getSessionOptions() {
+  const serverConfig = getServerConfig();
+  return {
+    password: serverConfig.session.secret,
+    cookieName: serverConfig.session.cookieName,
+    cookieOptions: {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'strict' as const,
+      maxAge: serverConfig.session.maxAge,
+    },
+  };
+}
 
 /**
  * Generate a challenge for the user to sign
@@ -149,7 +165,7 @@ export async function checkSoulaaniCoinBalance(address: string): Promise<boolean
  */
 export async function getSession(): Promise<AuthSession | null> {
   const cookieStore = await cookies();
-  const session = await getIronSession<AuthSession>(cookieStore, sessionOptions);
+  const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
   
   if (!session.isLoggedIn) {
     return null;
@@ -165,7 +181,7 @@ export async function getSession(): Promise<AuthSession | null> {
  */
 export async function createSession(address: string): Promise<AuthSession> {
   const cookieStore = await cookies();
-  const session = await getIronSession<AuthSession>(cookieStore, sessionOptions);
+  const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
   
   // Check if the user has a profile
   const profile = await db.userProfile.findUnique({
@@ -198,7 +214,7 @@ export async function createSession(address: string): Promise<AuthSession> {
  */
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
-  const session = await getIronSession<AuthSession>(cookieStore, sessionOptions);
+  const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
   
   const address = session.address;
   session.destroy();

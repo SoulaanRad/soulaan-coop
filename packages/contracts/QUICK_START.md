@@ -6,39 +6,47 @@
 
 ## ✅ What's Already Done
 
-I've created three smart contracts for you:
+The co-op runs on four smart contracts:
 
-1. **UnityCoin (UC)** - `contracts/UnityCoin.sol`
+1. **SoulaaniCoin (SC)** - `contracts/SoulaaniCoin.sol`  
+   - Non-transferable governance token (soulbound)
+   - Governance awards/slashes SC for member participation
+   - Tracks activity for decay monitoring
+
+2. **UnityCoin (UC)** - `contracts/UnityCoin.sol`
    - ERC-20 stablecoin for transactions
    - Treasury can mint, anyone can burn
    - Pausable in emergencies
-
-2. **SoulaaniCoin (SC)** - `contracts/SoulaaniCoin.sol`  
-   - Non-transferable governance token (soulbound)
-   - Governance bot awards/slashes SC
-   - Tracks activity for decay monitoring
+   - Requires SC membership to receive UC
 
 3. **RedemptionVault** - `contracts/RedemptionVault.sol`
-   - Members deposit UC to redeem for fiat
+   - Members deposit UC to redeem for USDC
    - Backend processes redemptions
    - Treasury can withdraw accumulated UC
+
+4. **MockUSDC** - `contracts/MockUSDC.sol`
+   - Test USDC token for development
+   - Only used on testnet (use real USDC on mainnet)
 
 ---
 
 
-### Use MetaMask (or generate a wallet) for:
-- ✅ **Deploying contracts** (admin task, right now)
-- ✅ Treasury Safe management
-- ✅ Governance bot wallet
+### Wallet Strategy:
 
-### Use Privy for:
-- ✅ **Creating wallets for co-op members** (users)
-- ✅ Member authentication in your app
-- ✅ User transactions
+**For Admins/Governors (you):**
+- Use **MetaMask** or hardware wallet
+- Deploy contracts
+- Manage treasury
+- Award/slash SC tokens
+
+**For Co-op Members:**
+- The portal uses **Web3Modal** for wallet connection
+- Members can use MetaMask, Coinbase Wallet, WalletConnect, etc.
+- Or you can create wallets for them using Privy (optional)
 
 **Think of it this way:**
-- MetaMask = **Admin wallet** (you and treasury)
-- Privy = **Member wallets** (your users)
+- Admin wallets = You control (deploy, manage, govern)
+- Member wallets = They control (vote, transact, participate)
 
 ---
 
@@ -145,48 +153,55 @@ Makes your contracts publicly viewable on BaseScan.
 
 The deployment will print something like:
 ```
-UnityCoin (UC):       0x1234...
-SoulaaniCoin (SC):    0x5678...
+SoulaaniCoin (SC):    0x1234...
+Mock USDC:            0x5678...
 RedemptionVault:      0x9abc...
+UnityCoin (UC):       0xdef0...
 ```
 
-**Save these!** You'll need them in your backend `.env`:
+**Save these!** You'll need them in your web app `.env`:
 
 ```bash
-# Add to apps/api/.env or wherever your backend is
-UC_CONTRACT_ADDRESS=0x1234...
-SC_CONTRACT_ADDRESS=0x5678...
-VAULT_CONTRACT_ADDRESS=0x9abc...
+# Add to apps/web/.env
+NEXT_PUBLIC_SOULAANI_COIN_ADDRESS=0x1234...
+NEXT_PUBLIC_UNITY_COIN_ADDRESS=0xdef0...
+NEXT_PUBLIC_REDEMPTION_VAULT_ADDRESS=0x9abc...
+NEXT_PUBLIC_USDC_ADDRESS=0x5678...  # MockUSDC on testnet, real USDC on mainnet
 ```
 
 ### View on BaseScan
 
 Visit:
-- https://sepolia.basescan.org/address/YOUR_UC_ADDRESS
 - https://sepolia.basescan.org/address/YOUR_SC_ADDRESS
+- https://sepolia.basescan.org/address/YOUR_UC_ADDRESS
 - https://sepolia.basescan.org/address/YOUR_VAULT_ADDRESS
+- https://sepolia.basescan.org/address/YOUR_USDC_ADDRESS
+
+**Note:** Verification might fail for some contracts due to BaseScan API issues. Your contracts still work perfectly - verification just makes the source code public on BaseScan for transparency.
 
 ---
 
-## 🏗️ How Privy Fits In (Later)
+## 🏗️ How the Portal Works
 
-Once contracts are deployed, here's how Privy works with them:
+Once contracts are deployed, members can access the portal:
 
-### In Your App:
+### Member Flow:
 
-1. **Member signs up** → Privy creates a wallet for them
-2. **Member pays rent** → Your backend detects the UC transaction
-3. **Backend awards SC** → Using the governance bot wallet, calls `SC.award(memberAddress, amount, reason)`
-4. **Member votes** → Uses their Privy wallet to interact with SC
+1. **Member visits portal** → Connects their wallet (MetaMask, Coinbase Wallet, etc.)
+2. **Portal checks SC balance** → Must have at least 1 SC to access
+3. **Member completes profile** → Name, email, phone (first time only)
+4. **Member accesses portal** → View finances, vote on proposals, manage account
 
-### Code Example (Backend):
+### Awarding SC to Members:
+
+Governors can award SC using the `setup-admins` script or directly:
 
 ```typescript
 import { ethers } from 'ethers';
 
-// Governance bot wallet (your backend controls this)
-const governanceWallet = new ethers.Wallet(
-  process.env.GOVERNANCE_BOT_PRIVATE_KEY,
+// Governor wallet (you or other governors)
+const governorWallet = new ethers.Wallet(
+  process.env.GOVERNOR_PRIVATE_KEY,
   provider
 );
 
@@ -194,15 +209,27 @@ const governanceWallet = new ethers.Wallet(
 const scContract = new ethers.Contract(
   process.env.SC_CONTRACT_ADDRESS,
   scABI,
-  governanceWallet
+  governorWallet
 );
 
-// Award SC to a member (their Privy wallet address)
+// Award SC to a member
 await scContract.award(
-  memberPrivyWalletAddress,
+  memberWalletAddress,
   ethers.parseEther('10'), // 10 SC
-  ethers.id('RENT_PAYMENT') // reason
+  ethers.keccak256(ethers.toUtf8Bytes('RENT_PAYMENT')) // reason
 );
+```
+
+### Adding Members:
+
+Before awarding SC, members must be added:
+
+```typescript
+// Add member first
+await scContract.addMember(memberWalletAddress);
+
+// Then award SC
+await scContract.award(memberWalletAddress, amount, reason);
 ```
 
 ---
@@ -246,12 +273,12 @@ If still having issues, I can help debug!
 ## 🎯 Next Steps
 
 1. ✅ Deploy contracts (this guide)
-2. ✅ Verify on BaseScan
-3. ✅ Save contract addresses
-4. ⚡ **Set up instant onramps** (see below - critical for UX!)
-5. ⏭️ Integrate with backend (event monitoring)
-6. ⏭️ Connect Privy for member wallets
-7. ⏭️ Build member onboarding flow
+2. ✅ Verify on BaseScan (optional - contracts work without it)
+3. ✅ Save contract addresses to `apps/web/.env`
+4. ⏭️ **Add governors** using `pnpm setup-admins:sepolia`
+5. ⏭️ **Set up the portal** - see [PORTAL_AUTH_README.md](../../apps/web/PORTAL_AUTH_README.md)
+6. ⏭️ **Add members** and award them SC
+7. ⏭️ Test the full flow: member connects wallet → accesses portal
 
 ---
 

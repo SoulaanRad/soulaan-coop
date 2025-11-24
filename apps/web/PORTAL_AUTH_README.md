@@ -17,33 +17,53 @@ The portal uses a secure Web3-based authentication system that only allows users
 
 ## Environment Variables
 
-Create a `.env.local` file in `apps/web/` with the following variables:
+Create a `.env` file in `apps/web/` (or copy from `.env.example`):
 
 ```bash
-# Session Secret (generate a secure random string)
-SESSION_SECRET=your_secure_session_secret_at_least_32_characters_long
+# -----------------------------------------------------------------------------
+# Database Configuration (Required)
+# -----------------------------------------------------------------------------
+DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
 
-# Blockchain Configuration
-NEXT_PUBLIC_CHAIN_ID=84532
-NEXT_PUBLIC_CHAIN_NAME=Base Sepolia
-NEXT_PUBLIC_RPC_URL=https://sepolia.base.org
+# -----------------------------------------------------------------------------
+# Application Configuration
+# -----------------------------------------------------------------------------
+NODE_ENV="development"
 
-# Smart Contract Addresses
-NEXT_PUBLIC_SOULAANI_COIN_ADDRESS=0xYourContractAddressHere
+# Session secret for authentication (generate with: openssl rand -base64 32)
+# IMPORTANT: This must be at least 32 characters long!
+SESSION_SECRET="your-secret-key-at-least-32-characters-long-replace-this"
+
+# PostHog Analytics (get from https://posthog.com)
+NEXT_PUBLIC_POSTHOG_KEY="phc_your_posthog_key_here"
+
+# -----------------------------------------------------------------------------
+# Blockchain Configuration (Required for Portal Access)
+# -----------------------------------------------------------------------------
+# For Base Sepolia testnet (development):
+NEXT_PUBLIC_CHAIN_ID="84532"
+NEXT_PUBLIC_CHAIN_NAME="Base Sepolia"
+NEXT_PUBLIC_RPC_URL="https://sepolia.base.org"
+
+# For Base mainnet (production):
+# NEXT_PUBLIC_CHAIN_ID="8453"
+# NEXT_PUBLIC_CHAIN_NAME="Base"
+# NEXT_PUBLIC_RPC_URL="https://mainnet.base.org"
+
+# SoulaaniCoin contract address (get after deploying contracts)
+# You'll get this address after running: pnpm --filter @soulaan/contracts deploy:sepolia
+NEXT_PUBLIC_SOULAANI_COIN_ADDRESS="0x..."
 
 # WalletConnect Project ID (get from https://cloud.walletconnect.com)
-NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_project_id_here
+# Required for wallet connection functionality
+NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID="your_wallet_connect_project_id"
 
-# App Configuration
-NEXT_PUBLIC_DOMAIN=localhost:3000
-NEXT_PUBLIC_URI=http://localhost:3000
-
-# Database URL
-DATABASE_URL=postgresql://user:password@localhost:5432/soulaancoop
-
-# Environment
-NODE_ENV=development
+# Domain configuration
+NEXT_PUBLIC_DOMAIN="localhost"
+NEXT_PUBLIC_URI="http://localhost:3000"
 ```
+
+**Note:** A complete `.env.example` file is available in `apps/web/.env.example` - just copy it to `.env` and fill in your values.
 
 ## Development Mode
 
@@ -267,7 +287,7 @@ To test the authentication system:
 ## Troubleshooting
 
 ### "SoulaaniCoin contract address not configured"
-- Set `NEXT_PUBLIC_SOULAANI_COIN_ADDRESS` in `.env.local`
+- Set `NEXT_PUBLIC_SOULAANI_COIN_ADDRESS` in `.env`
 - Or run in development mode (will skip blockchain checks)
 
 ### "Failed to verify signature"

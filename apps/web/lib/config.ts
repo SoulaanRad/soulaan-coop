@@ -1,9 +1,13 @@
 /**
  * Application configuration
  * Uses environment variables with fallbacks for testing
+ * 
+ * NOTE: This file exports CLIENT-SAFE configuration only.
+ * For server-side config (like SESSION_SECRET), use getServerConfig()
  */
 import { env } from '~/env';
 
+// Client-safe configuration (can be imported anywhere)
 export const config = {
   // Blockchain configuration
   chain: {
@@ -24,15 +28,8 @@ export const config = {
   
   // App configuration
   app: {
-    domain: env.NEXT_PUBLIC_DOMAIN || 'localhost:3000',
+    domain: env.NEXT_PUBLIC_DOMAIN || 'localhost',
     uri: env.NEXT_PUBLIC_URI || 'http://localhost:3000',
-  },
-  
-  // Session configuration
-  session: {
-    secret: env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development',
-    cookieName: 'soulaan_auth_session',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
   },
   
   // Feature flags
@@ -43,11 +40,26 @@ export const config = {
   },
 };
 
-// Validate required configuration
+// Server-only configuration (use only in API routes, middleware, and server components)
+export function getServerConfig() {
+  // eslint-disable-next-line no-restricted-properties -- Server-side only function
+  const sessionSecret = process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development';
+  
+  return {
+    session: {
+      secret: sessionSecret,
+      cookieName: 'soulaan_auth_session',
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+    },
+  };
+}
+
+// Validate required configuration (server-side only)
 export function validateConfig() {
   const errors: string[] = [];
   
-  if (env.NODE_ENV === 'production') {
+  // eslint-disable-next-line no-restricted-properties -- Server-side validation only
+  if (process.env.NODE_ENV === 'production') {
     if (!config.contracts.soulaaniCoin) {
       errors.push('NEXT_PUBLIC_SOULAANI_COIN_ADDRESS is required in production');
     }
@@ -56,7 +68,8 @@ export function validateConfig() {
       errors.push('NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID is required in production');
     }
     
-    if (config.session.secret.includes('development')) {
+    const serverConfig = getServerConfig();
+    if (serverConfig.session.secret.includes('development')) {
       errors.push('SESSION_SECRET must be set to a secure value in production');
     }
   }

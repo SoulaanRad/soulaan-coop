@@ -214,7 +214,7 @@ await sc.balanceOf("ADMIN_ADDRESS");
 ### 4. Update Web App
 
 ```bash
-# Edit apps/web/.env.local
+# Edit apps/web/.env
 NEXT_PUBLIC_SOULAANI_COIN_ADDRESS="0xYourSCAddress"
 
 # Start web app

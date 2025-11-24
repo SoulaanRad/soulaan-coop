@@ -165,7 +165,7 @@ pnpm setup-admins:sepolia
 
 # 5. Update web app
 cd ../../apps/web
-# Edit .env.local with SC address
+# Edit .env with SC address
 
 # 6. Start web app
 cd ../..

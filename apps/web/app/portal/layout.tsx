@@ -29,7 +29,7 @@ function WalletAuth() {
           {address.slice(0, 6)}...{address.slice(-4)}
         </p>
         <Button 
-          variant="outline" 
+          variant="destructive" 
           size="sm" 
           onClick={async () => {
             await logout();

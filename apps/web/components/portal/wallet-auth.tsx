@@ -46,7 +46,7 @@ export default function WalletAuth() {
         <p className="text-sm text-slate-300">
           Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
         </p>
-        <Button variant="outline" size="sm" onClick={handleLogout}>
+        <Button variant="destructive" size="sm" onClick={handleLogout}>
           Log Out
         </Button>
       </div>
