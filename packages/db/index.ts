@@ -6,11 +6,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Prisma Client will automatically use DATABASE_URL from process.env
 const prisma =
   globalForPrisma?.prisma ??
   new PrismaClient({
-    log: ["query", "error", "warn"],
-    // Optimize for Neon database connections
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
 
@@ -33,5 +33,6 @@ export { PrismaClient as PrismaClientSingleton };
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-
-export { prisma as db };
+// Export db for use in the application
+export const db = prisma;
+export { prisma };

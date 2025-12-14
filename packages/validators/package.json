@@ -34,10 +34,10 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
-    "@vitest/ui": "^3.2.4",
+    "@vitest/ui": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^4.0.3"
+    "vitest": "catalog:"
   }
 }

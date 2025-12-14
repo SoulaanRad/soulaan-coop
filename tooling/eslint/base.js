@@ -1,6 +1,7 @@
 /// <reference types="./types.d.ts" />
 
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { includeIgnoreFile } from "@eslint/compat";
 import eslint from "@eslint/js";
 import importPlugin from "eslint-plugin-import";
@@ -37,9 +38,11 @@ export const restrictEnvAccess = tseslint.config(
   },
 );
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export default tseslint.config(
   // Ignore files not tracked by VCS and any config files
-  includeIgnoreFile(path.join(import.meta.dirname, "../../.gitignore")),
+  includeIgnoreFile(path.join(__dirname, "../../.gitignore")),
   { ignores: ["**/*.config.*"] },
   {
     files: ["**/*.js", "**/*.ts", "**/*.tsx"],
@@ -87,13 +90,6 @@ export default tseslint.config(
       "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
       "@typescript-eslint/prefer-nullish-coalescing": "off",
       "@typescript-eslint/array-type": "warn",
-      "no-restricted-imports": [
-        "error",
-        {
-          name: "zod",
-          message: "Use `import { z } from 'zod/v4'` instead to ensure v4.",
-        },
-      ],
     },
   },
   {

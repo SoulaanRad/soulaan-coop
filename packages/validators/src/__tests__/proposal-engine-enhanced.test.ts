@@ -71,11 +71,13 @@ describe("ProposalEngine Features", () => {
       
       // If missing data exists, check structure
       if (result.missing_data.length > 0) {
-        const missing = result.missing_data[0]!;
-        expect(missing.field).toBeDefined();
-        expect(missing.question).toBeDefined();
-        expect(missing.why_needed).toBeDefined();
-        expect(typeof missing.blocking).toBe('boolean');
+        const missing = result.missing_data[0];
+        if (missing) {
+          expect(missing.field).toBeDefined();
+          expect(missing.question).toBeDefined();
+          expect(missing.why_needed).toBeDefined();
+          expect(typeof missing.blocking).toBe('boolean');
+        }
       }
     });
   });
@@ -121,7 +123,7 @@ describe("ProposalEngine Features", () => {
       // advance|revise → votable, block → draft
       if (result.decision === 'advance' || result.decision === 'revise') {
         expect(result.status).toBe('votable');
-      } else if (result.decision === 'block') {
+      } else {
         expect(result.status).toBe('draft');
       }
     });

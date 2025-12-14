@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type React from "react";
 import { Inter } from "next/font/google";
-import { Suspense } from "react";
 
 import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
