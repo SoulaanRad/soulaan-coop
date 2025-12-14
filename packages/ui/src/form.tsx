@@ -6,9 +6,9 @@ import type {
   FieldValues,
   UseFormProps,
 } from "react-hook-form";
-import type { ZodType } from "zod/v4";
+import type { ZodType } from "zod";
 import * as React from "react";
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Slot } from "radix-ui";
 import {
   useForm as __useForm,
@@ -29,7 +29,7 @@ export function useForm<TOut extends FieldValues, TIn extends FieldValues>(
 ) {
   const form = __useForm<TIn, unknown, TOut>({
     ...props,
-    resolver: standardSchemaResolver(props.schema, undefined),
+    resolver: zodResolver(props.schema),
   });
 
   return form;
