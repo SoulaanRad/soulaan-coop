@@ -40,10 +40,10 @@
   },
   "devDependencies": {
     "@repo/prettier-config": "workspace:*",
-    "@turbo/gen": "^2.5.5",
-    "openai": "^5.12.2",
+    "@turbo/gen": "^2.6.3",
+    "openai": "^6.10.0",
     "prettier": "catalog:",
-    "turbo": "^2.5.5",
+    "turbo": "^2.6.3",
     "typescript": "catalog:"
   },
   "prettier": "@repo/prettier-config",
@@ -61,7 +61,8 @@
       "tar@=7.5.1": ">=7.5.2",
       "tmp@<=0.2.3": ">=0.2.4",
       "js-yaml": ">=4.1.1",
-      "glob@>=10.2.0 <10.5.0": ">=10.5.0"
+      "glob@>=10.2.0 <10.5.0": ">=10.5.0",
+      "zod": "<=3.25.67"
     }
   }
 }
