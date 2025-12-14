@@ -17,7 +17,7 @@ catalog:
   "dotenv-cli": "8.0.0"
   "@types/node": "^22.15.29"
   "superjson": "^2.2.2"
-  "next": "^15.4.7"
+  "next": "^15.5.8"
   "vitest": "^4.0.15"
   "@vitest/ui": "^4.0.15"
 catalogs:
