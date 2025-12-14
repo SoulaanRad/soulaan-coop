@@ -27,7 +27,7 @@ export default function LoginPage() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('connect');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasSoulaaniCoin, setHasSoulaaniCoin] = useState(false);
+  const [_hasSoulaaniCoin, setHasSoulaaniCoin] = useState(false);
   
   // Profile form state
   const [profileData, setProfileData] = useState({

@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/signature-verification';
 
 /**
  * Get the current session
  * @route GET /api/auth/session
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get the current session
     const session = await getSession();

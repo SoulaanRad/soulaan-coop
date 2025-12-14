@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/signature-verification';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import { env } from '~/env';
 
 // Initialize Prisma client directly since @repo/db exports aren't working in Next.js
 const globalForPrisma = globalThis as unknown as {
@@ -11,10 +13,10 @@ const globalForPrisma = globalThis as unknown as {
 const db =
   globalForPrisma?.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+if (env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 
 // Schema for request validation
 const profileSchema = z.object({
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
  * Get the current user's profile
  * @route GET /api/auth/profile
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get the current session
     const session = await getSession();

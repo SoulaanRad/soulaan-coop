@@ -1,20 +1,16 @@
-import { createEnv } from "@t3-oss/env-nextjs";
-import { vercel } from "@t3-oss/env-nextjs/presets-zod";
-import { z } from "zod/v4";
+import { createEnv } from "@t3-oss/env-core";
+import { z } from "zod";
 
 export const env = createEnv({
-  extends: [vercel()],
-  shared: {
-    NODE_ENV: z
-      .enum(["development", "production", "test"])
-      .default("development"),
-  },
   /**
    * Specify your server-side environment variables schema here.
    * This way you can ensure the app isn't built with invalid env vars.
    */
   server: {
-    SLACK_WEBHOOK_URL: z.url().optional(),
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
+    SLACK_WEBHOOK_URL: z.string().url().optional(),
     SESSION_SECRET: z.string().min(32).optional(),
   },
 
@@ -48,6 +44,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DOMAIN: process.env.NEXT_PUBLIC_DOMAIN,
     NEXT_PUBLIC_URI: process.env.NEXT_PUBLIC_URI,
   },
+  emptyStringAsUndefined: true,
   skipValidation:
     !!process.env.CI || process.env.npm_lifecycle_event === "lint",
 });

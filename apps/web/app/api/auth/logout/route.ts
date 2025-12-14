@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { destroySession } from '@/lib/signature-verification';
 
 /**
  * Logout and destroy the current session
  * @route POST /api/auth/logout
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Destroy the session
     await destroySession();
