@@ -52,18 +52,3 @@ export const networkConfig = {
     credentials: true,
   }
 };
-
-// Blockchain configuration
-export const blockchainConfig = {
-  // RPC URL for blockchain interactions
-  rpcUrl: process.env.EXPO_PUBLIC_RPC_URL || 'https://sepolia.base.org',
-
-  // Chain ID
-  chainId: parseInt(process.env.EXPO_PUBLIC_CHAIN_ID || '84532'), // Base Sepolia
-
-  // Contract addresses (set via environment variables after deployment)
-  contracts: {
-    soulaaniCoin: process.env.EXPO_PUBLIC_SC_CONTRACT || '0x0000000000000000000000000000000000000000',
-    unityCoin: process.env.EXPO_PUBLIC_UC_CONTRACT || '0x0000000000000000000000000000000000000000',
-  },
-};
