@@ -39,16 +39,31 @@ export const getApiUrl = () => {
 export const networkConfig = {
   // Enable network debugging in development
   enableNetworkLogging: __DEV__,
-  
+
   // Headers for all requests
   defaultHeaders: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  
+
   // CORS configuration (handled by the API server)
   cors: {
     origin: __DEV__ ? ['http://localhost:3000', 'http://localhost:8081'] : ['https://soulaan.coop'],
     credentials: true,
   }
+};
+
+// Blockchain configuration
+export const blockchainConfig = {
+  // RPC URL for blockchain interactions
+  rpcUrl: process.env.EXPO_PUBLIC_RPC_URL || 'https://sepolia.base.org',
+
+  // Chain ID
+  chainId: parseInt(process.env.EXPO_PUBLIC_CHAIN_ID || '84532'), // Base Sepolia
+
+  // Contract addresses (set via environment variables after deployment)
+  contracts: {
+    soulaaniCoin: process.env.EXPO_PUBLIC_SC_CONTRACT || '0x0000000000000000000000000000000000000000',
+    unityCoin: process.env.EXPO_PUBLIC_UC_CONTRACT || '0x0000000000000000000000000000000000000000',
+  },
 };

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, Pressable, TextInput, Alert } from 'react-native';
-import { useSubmitApplication, useLogin } from '@/hooks/use-api';
+import { useSubmitApplication } from '@/hooks/use-api';
+import { useAuth } from '@/contexts/auth-context';
+import { getApiUrl } from '@/lib/config';
 import type { ApplicationData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,20 +65,22 @@ export default function OnboardingFlow() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [loginData, setLoginData] = useState({
     email: '',
-    password: '',
-    rememberMe: false,
+    code: '',
   });
+  const [codeSent, setCodeSent] = useState(false);
+  const [canResend, setCanResend] = useState(true);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [loginError, setLoginError] = useState<string>('');
 
   // API hooks
   const { submitApplication, isLoading: isSubmitting, error: submitError, clearError: clearSubmitError } = useSubmitApplication();
-  const { login, isLoading: isLoggingIn, error: loginError, clearError: clearLoginError } = useLogin();
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const { login } = useAuth();
 
   // Display errors if they exist
   if (submitError) {
     console.error('Submit error:', submitError);
-  }
-  if (loginError) {
-    console.error('Login error:', loginError);
   }
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
@@ -378,29 +382,87 @@ export default function OnboardingFlow() {
     }
   };
 
-  const handleLogin = async () => {
-    if (isLoggingIn) return;
-    
-    // Clear any previous errors
-    clearLoginError();
-    
+  // Resend timer effect
+  React.useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setCanResend(true);
+    }
+  }, [resendTimer]);
+
+  const handleRequestCode = async () => {
+    if (isRequestingCode || !loginData.email) return;
+
+    setIsRequestingCode(true);
+    setLoginError('');
+
     try {
-      const result = await login({
-        email: loginData.email,
-        password: loginData.password,
+      const response = await fetch(`${getApiUrl()}/trpc/auth.requestLoginCode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginData.email,
+        }),
       });
-      
-      if (result.success && result.user) {
-        Alert.alert('Login Successful', `Welcome back, ${result.user.name || result.user.email}!`);
-        // Here you would typically navigate to the main app or set user state
-        // For now, we'll just show a success message
+
+      const data = await response.json();
+
+      if (data.result?.data?.success) {
+        setCodeSent(true);
+        setCanResend(false);
+        setResendTimer(60); // 60 second cooldown
+        Alert.alert('Code Sent', data.result.data.message || 'Check your email for the login code');
+      } else {
+        setLoginError(data.error?.message || 'Failed to send code');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Login Failed', 
-        error instanceof Error ? error.message : 'Failed to login. Please try again.'
-      );
+      console.error('Request code error:', error);
+      setLoginError('Failed to send code. Please try again.');
+    } finally {
+      setIsRequestingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (isVerifyingCode || !loginData.email || !loginData.code) return;
+
+    setIsVerifyingCode(true);
+    setLoginError('');
+
+    try {
+      const response = await fetch(`${getApiUrl()}/trpc/auth.verifyLoginCode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginData.email,
+          code: loginData.code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.result?.data?.success && data.result?.data?.user) {
+        const user = data.result.data.user;
+        // Convert createdAt to Date object
+        user.createdAt = new Date(user.createdAt);
+        await login(user);
+        // Navigation is handled by AuthContext
+      } else {
+        setLoginError(data.error?.message || 'Invalid code');
+      }
+    } catch (error) {
+      console.error('Verify code error:', error);
+      setLoginError('Failed to verify code. Please try again.');
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -1278,7 +1340,9 @@ export default function OnboardingFlow() {
               <Icon as={Building} size={32} className="text-white" />
             </View>
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Welcome Back</Text>
-            <Text className="text-charcoal-600 text-center">Sign in to access your co-op membership</Text>
+            <Text className="text-charcoal-600 text-center">
+              {codeSent ? 'Enter the code sent to your email' : 'Sign in to access your co-op membership'}
+            </Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -1294,77 +1358,82 @@ export default function OnboardingFlow() {
                     placeholder="marcus@example.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    editable={!codeSent}
                   />
                 </View>
 
-                {/* Password */}
-                <View>
-                  <Label className="text-charcoal-700">Password</Label>
-                  <View className="relative mt-1">
+                {/* Code Input - shown after code is sent */}
+                {codeSent && (
+                  <View>
+                    <Label className="text-charcoal-700">Verification Code</Label>
                     <Input
-                      value={loginData.password}
-                      onChangeText={(text) => setLoginData(prev => ({ ...prev, password: text }))}
-                      className="border-cream-300 pr-12"
-                      placeholder="Enter your password"
-                      secureTextEntry={!showPassword}
+                      value={loginData.code}
+                      onChangeText={(text) => setLoginData(prev => ({ ...prev, code: text }))}
+                      className="mt-1 border-cream-300"
+                      placeholder="Enter 6-digit code"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoFocus
                     />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-0 h-full justify-center"
-                    >
-                      <Icon
-                        as={showPassword ? EyeOff : Eye}
-                        size={16}
-                        className="text-charcoal-500"
-                      />
-                    </Pressable>
                   </View>
-                </View>
+                )}
 
-                {/* Remember Me & Forgot Password */}
-                <View className="flex flex-row items-center justify-between">
-                  <View className="flex flex-row items-center gap-2">
-                    <Checkbox 
-                      checked={loginData.rememberMe} 
-                      onCheckedChange={(checked) => setLoginData(prev => ({ ...prev, rememberMe: !!checked }))} 
-                    />
-                    <Label className="text-sm text-charcoal-600">Remember me</Label>
+                {/* Error Message */}
+                {loginError && (
+                  <View className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <Text className="text-red-700 text-sm">{loginError}</Text>
                   </View>
-                  <Button variant="ghost" className="p-0">
-                    <Text className="text-sm text-gold-700">Forgot password?</Text>
-                  </Button>
-                </View>
+                )}
 
                 {/* Submit Button */}
-                <Button 
-                  className="w-full bg-red-700 py-3"
-                  onPress={handleLogin}
-                  disabled={isLoggingIn || !loginData.email || !loginData.password}
-                >
-                  <Text className="text-white font-semibold">
-                    {isLoggingIn ? 'Signing In...' : 'Sign In'}
-                  </Text>
-                </Button>
-              </View>
+                {!codeSent ? (
+                  <Button
+                    className="w-full bg-red-700 py-3"
+                    onPress={handleRequestCode}
+                    disabled={isRequestingCode || !loginData.email}
+                  >
+                    <Text className="text-white font-semibold">
+                      {isRequestingCode ? 'Sending Code...' : 'Send Login Code'}
+                    </Text>
+                  </Button>
+                ) : (
+                  <View className="gap-3">
+                    <Button
+                      className="w-full bg-red-700 py-3"
+                      onPress={handleVerifyCode}
+                      disabled={isVerifyingCode || !loginData.code || loginData.code.length !== 6}
+                    >
+                      <Text className="text-white font-semibold">
+                        {isVerifyingCode ? 'Verifying...' : 'Verify & Sign In'}
+                      </Text>
+                    </Button>
 
-              {/* Divider */}
-              <View className="relative my-6">
-                <View className="absolute inset-0 flex items-center">
-                  <View className="w-full border-t border-cream-300" />
-                </View>
-                <View className="relative flex justify-center">
-                  <Text className="px-2 bg-white text-charcoal-500 text-sm">Or continue with</Text>
-                </View>
-              </View>
+                    {/* Resend Code Button */}
+                    <Button
+                      variant="outline"
+                      className="w-full border-cream-300"
+                      onPress={handleRequestCode}
+                      disabled={!canResend || isRequestingCode}
+                    >
+                      <Text className="text-charcoal-700">
+                        {canResend ? 'Resend Code' : `Resend in ${resendTimer}s`}
+                      </Text>
+                    </Button>
 
-              {/* Social Login Options */}
-              <View className="gap-3">
-                <Button variant="outline" className="w-full border-cream-300">
-                  <Text className="text-charcoal-700">Continue with Google</Text>
-                </Button>
-                <Button variant="outline" className="w-full border-cream-300">
-                  <Text className="text-charcoal-700">Continue with Facebook</Text>
-                </Button>
+                    {/* Change Email Button */}
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onPress={() => {
+                        setCodeSent(false);
+                        setLoginData(prev => ({ ...prev, code: '' }));
+                        setLoginError('');
+                      }}
+                    >
+                      <Text className="text-gold-700">Change Email</Text>
+                    </Button>
+                  </View>
+                )}
               </View>
             </CardContent>
           </Card>
