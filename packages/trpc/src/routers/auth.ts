@@ -23,7 +23,7 @@ export const authRouter = router({
         id: z.string(),
         email: z.string(),
         name: z.string().nullable(),
-        role: z.string(),
+        roles: z.array(z.string()),
         status: z.string(),
       }).optional(),
     }))
@@ -90,7 +90,7 @@ export const authRouter = router({
             id: user.id,
             email: user.email,
             name: user.name,
-            role: user.role,
+            roles: user.roles,
             status: user.status,
           },
         };

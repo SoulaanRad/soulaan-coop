@@ -96,7 +96,7 @@ export const applicationRouter = router({
               name: `${input.firstName} ${input.lastName}`,
               phone: input.phone,
               password: hashedPassword,
-              role: "user",
+              roles: ["member"],
               status: "PENDING",
             },
           });

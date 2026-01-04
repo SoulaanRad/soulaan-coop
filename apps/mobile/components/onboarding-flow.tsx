@@ -407,19 +407,19 @@ export default function OnboardingFlow() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: loginData.email,
+          json: { email: loginData.email },
         }),
       });
 
       const data = await response.json();
 
-      if (data.result?.data?.success) {
+      if (data.result?.data?.json?.success) {
         setCodeSent(true);
         setCanResend(false);
         setResendTimer(60); // 60 second cooldown
-        Alert.alert('Code Sent', data.result.data.message || 'Check your email for the login code');
+        Alert.alert('Code Sent', data.result.data.json.message || 'Check your email for the login code');
       } else {
-        setLoginError(data.error?.message || 'Failed to send code');
+        setLoginError(data.error?.json?.message || data.error?.message || 'Failed to send code');
       }
     } catch (error) {
       console.error('Request code error:', error);
@@ -442,21 +442,30 @@ export default function OnboardingFlow() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: loginData.email,
-          code: loginData.code,
+          json: {
+            email: loginData.email,
+            code: loginData.code,
+          },
         }),
       });
 
       const data = await response.json();
+      console.log('📥 Verify code response:', JSON.stringify(data, null, 2));
 
-      if (data.result?.data?.success && data.result?.data?.user) {
-        const user = data.result.data.user;
+      if (data.result?.data?.json?.success && data.result?.data?.json?.user) {
+        console.log('✅ Code verified successfully, logging in...');
+        const user = data.result.data.json.user;
         // Convert createdAt to Date object
         user.createdAt = new Date(user.createdAt);
+        console.log('👤 User data:', user);
         await login(user);
+        console.log('🎉 Login complete!');
         // Navigation is handled by AuthContext
       } else {
-        setLoginError(data.error?.message || 'Invalid code');
+        const errorMsg = data.error?.json?.message || data.error?.message || 'Invalid code';
+        console.error('❌ Verification failed:', errorMsg);
+        console.error('📦 Full response:', data);
+        setLoginError(errorMsg);
       }
     } catch (error) {
       console.error('Verify code error:', error);

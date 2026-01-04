@@ -1,14 +1,18 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /**
- * Secure storage utility using Expo SecureStore
- * Data is encrypted and stored in the device's secure storage (Keychain on iOS, EncryptedSharedPreferences on Android)
+ * Secure storage utility
+ * Uses Expo SecureStore on native (iOS/Android) and localStorage on web
+ * Data is encrypted on native platforms (Keychain on iOS, EncryptedSharedPreferences on Android)
  */
 
 const STORAGE_KEYS = {
-  USER: '@soulaan:user',
-  LOGIN_TIME: '@soulaan:loginTime',
+  USER: 'soulaan.user',
+  LOGIN_TIME: 'soulaan.loginTime',
 } as const;
+
+const isWeb = Platform.OS === 'web';
 
 export const secureStorage = {
   /**
@@ -16,7 +20,17 @@ export const secureStorage = {
    */
   async setItem(key: string, value: string): Promise<void> {
     try {
-      await SecureStore.setItemAsync(key, value);
+      if (isWeb) {
+        // Use localStorage on web
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        } else {
+          throw new Error('localStorage not available');
+        }
+      } else {
+        // Use SecureStore on native
+        await SecureStore.setItemAsync(key, value);
+      }
     } catch (error) {
       console.error('Error storing secure data:', error);
       throw new Error('Failed to store data securely');
@@ -28,7 +42,16 @@ export const secureStorage = {
    */
   async getItem(key: string): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(key);
+      if (isWeb) {
+        // Use localStorage on web
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+        return null;
+      } else {
+        // Use SecureStore on native
+        return await SecureStore.getItemAsync(key);
+      }
     } catch (error) {
       console.error('Error retrieving secure data:', error);
       return null;
@@ -40,7 +63,15 @@ export const secureStorage = {
    */
   async removeItem(key: string): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(key);
+      if (isWeb) {
+        // Use localStorage on web
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } else {
+        // Use SecureStore on native
+        await SecureStore.deleteItemAsync(key);
+      }
     } catch (error) {
       console.error('Error removing secure data:', error);
       throw new Error('Failed to remove data');
@@ -52,10 +83,19 @@ export const secureStorage = {
    */
   async clear(): Promise<void> {
     try {
-      await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.USER),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.LOGIN_TIME),
-      ]);
+      if (isWeb) {
+        // Clear specific keys on web
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(STORAGE_KEYS.USER);
+          window.localStorage.removeItem(STORAGE_KEYS.LOGIN_TIME);
+        }
+      } else {
+        // Clear on native
+        await Promise.all([
+          SecureStore.deleteItemAsync(STORAGE_KEYS.USER),
+          SecureStore.deleteItemAsync(STORAGE_KEYS.LOGIN_TIME),
+        ]);
+      }
     } catch (error) {
       console.error('Error clearing secure storage:', error);
       throw new Error('Failed to clear storage');

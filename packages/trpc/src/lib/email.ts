@@ -12,7 +12,7 @@ const emailConfig = {
 };
 
 // Create reusable transporter object using SMTP transport
-const transporter = nodemailer.createTransporter(emailConfig);
+const transporter = nodemailer.createTransport(emailConfig);
 
 /**
  * Send a login code email
