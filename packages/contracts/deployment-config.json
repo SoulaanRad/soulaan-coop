@@ -1,0 +1,29 @@
+{
+  "baseSepolia": {
+    "network": "Base Sepolia Testnet",
+    "chainId": 84532,
+    "treasurySafe": "",
+    "governanceBot": "",
+    "initialAdmins": [
+      {
+        "address": "",
+        "name": "Primary Admin",
+        "note": "Add your wallet address here"
+      }
+    ]
+  },
+  "base": {
+    "network": "Base Mainnet",
+    "chainId": 8453,
+    "treasurySafe": "",
+    "governanceBot": "",
+    "initialAdmins": [
+      {
+        "address": "",
+        "name": "Primary Admin",
+        "note": "Add production wallet addresses here"
+      }
+    ]
+  }
+}
+
