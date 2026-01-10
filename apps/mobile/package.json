@@ -34,7 +34,7 @@
     "@trpc/react-query": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "expo": "~54.0.10",
+    "expo": "~54.0.31",
     "expo-clipboard": "^8.0.8",
     "expo-constants": "~18.0.9",
     "expo-font": "~14.0.8",
