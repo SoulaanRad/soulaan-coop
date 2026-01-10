@@ -47,7 +47,7 @@
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.12",
     "superjson": "^2.2.2",
-    "viem": "^2.43.5",
+    "viem": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

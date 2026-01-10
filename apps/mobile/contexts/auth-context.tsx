@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // User is not logged in but in authenticated routes, redirect to onboarding
       router.replace('/');
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, router]);
 
   const loadSession = async () => {
     try {
@@ -86,8 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      console.log('Starting logout process...');
       await secureStorage.clear();
+      console.log('Secure storage cleared');
       setUser(null);
+      console.log('User state cleared, should redirect to /');
     } catch (error) {
       console.error('Error during logout:', error);
       throw new Error('Failed to logout');

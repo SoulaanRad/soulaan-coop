@@ -20,6 +20,7 @@ catalog:
   "@types/node": "^22.15.29"
   "superjson": "^2.2.2"
   "next": "^15.5.8"
+  "viem": "^2.43.5"
 catalogs:
   react19:
     react: 19.0.0

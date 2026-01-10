@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, View, TouchableOpacity, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogOut, Copy, Check } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
@@ -20,28 +20,16 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Confirm Logout',
-      'Are you sure you want to log out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    console.log('Logout button pressed!');
+    try {
+      console.log('Calling logout()...');
+      await logout();
+      console.log('Logout completed successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Failed to logout. Please try again.');
+    }
   };
 
   const shortenAddress = (address: string) => {
@@ -189,15 +177,16 @@ export default function ProfileScreen() {
           </Card>
 
           {/* Logout Button */}
-          <Button
+          <TouchableOpacity
             onPress={handleLogout}
-            className="bg-red-600 flex-row items-center justify-center gap-2"
+            className="bg-red-600 flex-row items-center justify-center gap-2 p-4 rounded-lg active:opacity-80"
+            activeOpacity={0.8}
           >
             <LogOut size={20} color="white" />
             <Text className="text-white font-semibold">
               Logout
             </Text>
-          </Button>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

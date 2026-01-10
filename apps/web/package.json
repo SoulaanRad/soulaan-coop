@@ -14,11 +14,14 @@
     "roadmap-bot:test": "jest scripts/roadmap-bot/tests/",
     "roadmap-bot:analyze": "node scripts/roadmap-bot/roadmap-bot-main.js analyze-pr",
     "roadmap-bot:complete": "node scripts/roadmap-bot/roadmap-bot-main.js handle-completion",
-    "roadmap-bot:maintenance": "node scripts/roadmap-bot/roadmap-bot-main.js maintenance"
+    "roadmap-bot:maintenance": "node scripts/roadmap-bot/roadmap-bot-main.js maintenance",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
     "@next/swc-darwin-arm64": "^16.0.0",
+    "@t3-oss/env-nextjs": "^0.13.8",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -48,8 +51,11 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@repo/db": "workspace:*",
     "@repo/eslint-config": "*",
+    "@repo/trpc": "workspace:^",
     "@repo/tsconfig": "workspace:*",
-    "@t3-oss/env-core": "^0.9.2",
+    "@tanstack/react-query": "^5.90.16",
+    "@trpc/client": "catalog:",
+    "@trpc/react-query": "catalog:",
     "@upstash/redis": "^1.35.6",
     "@web3modal/ethereum": "^2.7.1",
     "@web3modal/react": "^2.7.1",
@@ -78,9 +84,11 @@
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
-    "viem": "^2.38.6",
+    "viem": "catalog:",
     "wagmi": "^2.19.2",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "expo": "~54.0.10",
+    "react-native": "0.81.4"
   },
   "devDependencies": {
     "@swc/jest": "^0.2.39",

@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { TRPCProvider } from "@/lib/trpc/provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -164,7 +165,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <PostHogProvider>
-          {children}
+          <TRPCProvider>
+            {children}
+          </TRPCProvider>
         </PostHogProvider>
       </body>
     </html>

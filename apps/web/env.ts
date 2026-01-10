@@ -1,7 +1,14 @@
-import { createEnv } from "@t3-oss/env-core";
-import { z } from "zod";
+import { createEnv } from "@t3-oss/env-nextjs";
+import { vercel } from "@t3-oss/env-nextjs/presets-zod";
+import { z } from "zod/v4";
 
 export const env = createEnv({
+  extends: [vercel()],
+  shared: {
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
+  },
   /**
    * Specify your server-side environment variables schema here.
    * This way you can ensure the app isn't built with invalid env vars.
@@ -19,7 +26,8 @@ export const env = createEnv({
    * For them to be exposed to the client, prefix them with `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_POSTHOG_KEY: z.string(),
+    NEXT_PUBLIC_API_URL: z.string().url().optional(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_CHAIN_ID: z.string().optional(),
     NEXT_PUBLIC_CHAIN_NAME: z.string().optional(),
     NEXT_PUBLIC_RPC_URL: z.string().url().optional(),
@@ -34,6 +42,7 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     SESSION_SECRET: process.env.SESSION_SECRET,
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,
