@@ -80,7 +80,7 @@ export default function DashboardPage() {
           <Link href="/portal/applications">
             <Card className="bg-slate-900 border-slate-800 hover:border-amber-500/50 transition-colors cursor-pointer h-full">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
                   <FileText className="h-5 w-5 text-amber-500" />
                   Review Applications
                 </CardTitle>
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           <Link href="/portal/members">
             <Card className="bg-slate-900 border-slate-800 hover:border-amber-500/50 transition-colors cursor-pointer h-full">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
                   <Users className="h-5 w-5 text-amber-500" />
                   Manage Members
                 </CardTitle>
@@ -119,7 +119,7 @@ export default function DashboardPage() {
           <Link href="/portal/settings">
             <Card className="bg-slate-900 border-slate-800 hover:border-amber-500/50 transition-colors cursor-pointer h-full">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2 text-lg text-white">
                   <TrendingUp className="h-5 w-5 text-amber-500" />
                   Settings
                 </CardTitle>

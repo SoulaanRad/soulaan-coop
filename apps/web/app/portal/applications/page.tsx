@@ -163,8 +163,8 @@ export default function ApplicationsPage() {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-2xl">{currentApp.name || 'No Name'}</CardTitle>
-              <CardDescription className="text-base mt-2">
+              <CardTitle className="text-2xl text-white">{currentApp.name || 'No Name'}</CardTitle>
+              <CardDescription className="text-base mt-2 text-gray-400">
                 {currentApp.email} • {currentApp.phone || 'No phone'}
               </CardDescription>
             </div>
@@ -230,7 +230,7 @@ export default function ApplicationsPage() {
                   <h3 className="font-semibold text-lg mb-3 text-amber-500">Spending Categories</h3>
                   <div className="flex flex-wrap gap-2">
                     {appData.spendingCategories.map((cat: string, i: number) => (
-                      <Badge key={i} variant="outline" className="bg-slate-800">
+                      <Badge key={i} variant="outline" className="bg-slate-800 text-white border-slate-700">
                         {cat}
                       </Badge>
                     ))}
