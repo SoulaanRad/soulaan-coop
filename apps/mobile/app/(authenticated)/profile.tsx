@@ -1,10 +1,9 @@
 import React from 'react';
-import { ScrollView, View, TouchableOpacity, Alert, Pressable } from 'react-native';
+import { ScrollView, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogOut, Copy, Check } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import * as Clipboard from 'expo-clipboard';
 
