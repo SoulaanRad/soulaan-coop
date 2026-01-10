@@ -39,13 +39,13 @@ export const getApiUrl = () => {
 export const networkConfig = {
   // Enable network debugging in development
   enableNetworkLogging: __DEV__,
-  
+
   // Headers for all requests
   defaultHeaders: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  
+
   // CORS configuration (handled by the API server)
   cors: {
     origin: __DEV__ ? ['http://localhost:3000', 'http://localhost:8081'] : ['https://soulaan.coop'],

@@ -1,5 +1,4 @@
 {
-  "extends": "@repo/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
@@ -13,7 +12,8 @@
     "skipLibCheck": true,
     "noEmit": false,
     "strict": true,
-    "declaration": true
+    "declaration": true,
+    "emitDeclarationOnly": false
   },
   "include": ["index.ts", "src/**/*.ts", "prisma/seed.ts"]
 }

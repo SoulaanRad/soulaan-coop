@@ -35,8 +35,10 @@ export const config = {
   // Feature flags
   features: {
     // Skip blockchain checks in test/development mode
-    skipBlockchainChecks: env.NODE_ENV === 'test' || 
-                          (env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
+    // eslint-disable-next-line no-restricted-properties
+    skipBlockchainChecks: process.env.NODE_ENV === 'test' || 
+                          // eslint-disable-next-line no-restricted-properties
+                          (process.env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
   },
 };
 
