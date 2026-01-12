@@ -201,7 +201,7 @@ export const api = {
 
     // Always parse the response body, even for error responses
     const result = await response.json();
-    
+
     // Check if there's a tRPC error in the response
     if (result.error) {
       throw new Error(result.error.message || 'Data retrieval failed');
@@ -214,5 +214,259 @@ export const api = {
 
     // tRPC wraps the response in result.data.json
     return result.result?.data?.json || result.result?.data;
-  }
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // UNITY COIN (UC) WALLET & TRANSFER FUNCTIONS
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Get wallet info for a user
+   */
+  async getWalletInfo(userId: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/user.getWalletInfo`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { userId }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get wallet info');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Get UC balance for a wallet
+   */
+  async getUCBalance(walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/ucTransfer.getBalance`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { walletAddress }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get balance');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Get transfer history for a wallet
+   */
+  async getTransferHistory(walletAddress: string, limit = 50) {
+    const response = await fetch(`${API_BASE_URL}/trpc/ucTransfer.getTransferHistory`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { walletAddress, limit }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get transfer history');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Validate a recipient address for transfers
+   */
+  async validateRecipient(recipientAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/ucTransfer.validateRecipient`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { recipientAddress }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to validate recipient');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Find user by username for transfers
+   */
+  async getUserByUsername(username: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/ucTransfer.getUserByUsername`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { username }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'User not found');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Execute a UC transfer
+   */
+  async executeTransfer(userId: string, recipientAddress: string, amount: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/ucTransfer.executeTransfer`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { userId, recipientAddress, amount }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Transfer failed');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Get available payment processors for onramp
+   */
+  async getAvailableProcessors() {
+    const response = await fetch(`${API_BASE_URL}/trpc/onramp.getAvailableProcessors`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: {}
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get processors');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Create payment intent for buying UC
+   */
+  async createPaymentIntent(amountUSD: number, processor?: 'stripe' | 'paypal' | 'square') {
+    const response = await fetch(`${API_BASE_URL}/trpc/onramp.createPaymentIntent`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { amountUSD, processor }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to create payment intent');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Get onramp transaction history
+   */
+  async getOnrampHistory(limit = 50, offset = 0) {
+    const response = await fetch(`${API_BASE_URL}/trpc/onramp.getOnrampHistory`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { limit, offset }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get onramp history');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
+
+  /**
+   * Get onramp transaction status
+   */
+  async getOnrampStatus(transactionId: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/onramp.getOnrampStatus`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        json: { transactionId }
+      })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get transaction status');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data?.json || result.result?.data;
+  },
 };

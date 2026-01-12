@@ -9,19 +9,22 @@ datasource db {
 }
 
 model User {
-  id               String   @id @default(cuid())
-  email            String   @unique
-  name             String?
-  roles            String[] @default(["member"]) // member, business, admin, governor
-  status           UserStatus @default(PENDING)
-  password         String?
-  phone            String?
-  walletAddress    String?  @unique
-  profileCompleted Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  roles               String[] @default(["member"]) // member, business, admin, governor
+  status              UserStatus @default(PENDING)
+  password            String?
+  phone               String?
+  walletAddress       String?  @unique
+  encryptedPrivateKey String?  // Encrypted wallet private key for backend-managed wallets
+  walletCreatedAt     DateTime? // Timestamp when wallet was created
+  profileCompleted    Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
   // Relations
-  application      Application?
+  application         Application?
+  onrampTransactions  OnrampTransaction[]
   @@schema("public")
 }
 
@@ -190,6 +193,7 @@ model ProposalVote {
 model UserProfile {
   id            String   @id @default(cuid())
   walletAddress String   @unique
+  username      String?  @unique // Username for transfer recipient lookup
   name          String
   email         String?
   phoneNumber   String
@@ -202,7 +206,7 @@ model UserProfile {
   lastLoginAttempt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   @@schema("auth")
 }
 
@@ -301,6 +305,41 @@ enum VoteType {
   FOR
   AGAINST
   ABSTAIN
-  
+
+  @@schema("public")
+}
+
+// ── Onramp Transaction Models ────────────────────────────
+model OnrampTransaction {
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amountUSD         Float         // Amount paid in USD
+  amountUC          Float         // UC tokens to mint (usually 1:1 peg)
+
+  paymentIntentId   String        @unique // Payment ID from processor
+  processor         String        // 'stripe', 'paypal', 'square' - which processor was used
+  status            OnrampStatus  @default(PENDING)
+
+  mintTxHash        String?       // Blockchain tx hash for UC minting
+  processorChargeId String?       // Processor's charge/transaction ID
+
+  createdAt         DateTime      @default(now())
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+
+  @@index([userId, createdAt])
+  @@index([processor, status])
+  @@schema("public")
+}
+
+enum OnrampStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+
   @@schema("public")
 }

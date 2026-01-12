@@ -32,6 +32,21 @@
       "import": "./dist/server/index.js",
       "require": "./dist/server/index.js",
       "types": "./dist/server/index.d.ts"
+    },
+    "./services/wallet-service": {
+      "import": "./dist/services/wallet-service.js",
+      "require": "./dist/services/wallet-service.js",
+      "types": "./dist/services/wallet-service.d.ts"
+    },
+    "./services/blockchain": {
+      "import": "./dist/services/blockchain.js",
+      "require": "./dist/services/blockchain.js",
+      "types": "./dist/services/blockchain.d.ts"
+    },
+    "./services/payment/*": {
+      "import": "./dist/services/payment/*.js",
+      "require": "./dist/services/payment/*.js",
+      "types": "./dist/services/payment/*.d.ts"
     }
   },
   "keywords": [],
@@ -45,7 +60,9 @@
     "bcryptjs": "^3.0.2",
     "next": "catalog:",
     "next-auth": "^4.24.11",
+    "stripe": "^20.1.2",
     "superjson": "^2.2.2",
+    "viem": "^2.39.3",
     "zod": "catalog:"
   },
   "devDependencies": {

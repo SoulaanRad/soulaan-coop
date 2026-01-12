@@ -6,6 +6,9 @@ import { healthRouter } from "./health.js";
 import { applicationRouter } from "./application.js";
 import { authRouter } from "./auth.js";
 import { adminRouter } from "./admin";
+import { ucTransferRouter } from "./uc-transfer.js";
+import { onrampRouter } from "./onramp.js";
+import { ucAdminRouter } from "./uc-admin.js";
 
 
 export const appRouter = router({
@@ -15,6 +18,9 @@ export const appRouter = router({
   application: applicationRouter,
   auth: authRouter,
   admin: adminRouter,
+  ucTransfer: ucTransferRouter,
+  onramp: onrampRouter,
+  ucAdmin: ucAdminRouter,
 });
 
 export type AppRouter = typeof appRouter;

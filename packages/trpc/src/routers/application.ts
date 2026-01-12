@@ -3,8 +3,9 @@ import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
 
 import { Context } from "../context.js";
-import { publicProcedure } from "../procedures/index.js";
+import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
+import { createWalletForUser } from "../services/wallet-service.js";
 
 // Validation schema for application submission
 const applicationSchema = z.object({
@@ -262,5 +263,197 @@ export const applicationRouter = router({
         reviewedAt: application.reviewedAt?.toISOString(),
         reviewNotes: application.reviewNotes ?? undefined,
       };
+    }),
+
+  /**
+   * Approve an application (admin only)
+   * Automatically creates a wallet for the user
+   */
+  approveApplication: privateProcedure
+    .input(z.object({
+      userId: z.string(),
+      reviewNotes: z.string().optional(),
+    }))
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+      walletAddress: z.string(),
+      userId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      console.log('\n🔷 approveApplication - START');
+      console.log('👤 User ID:', input.userId);
+
+      try {
+        // Check if application exists
+        console.log('🔍 Checking for application...');
+        const application = await context.db.application.findUnique({
+          where: { userId: input.userId },
+          include: { user: true },
+        });
+
+        if (!application) {
+          console.log('❌ Application not found');
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Application not found for this user",
+          });
+        }
+
+        if (application.status === "APPROVED") {
+          console.log('⚠️ Application already approved');
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Application is already approved",
+          });
+        }
+
+        console.log('✅ Application found:', application.id);
+
+        // Process approval in a transaction
+        console.log('💾 Starting approval transaction...');
+        const result = await context.db.$transaction(async (tx) => {
+          // 1. Update application status to APPROVED
+          console.log('📝 Updating application status to APPROVED...');
+          await tx.application.update({
+            where: { userId: input.userId },
+            data: {
+              status: "APPROVED",
+              reviewedAt: new Date(),
+              reviewNotes: input.reviewNotes,
+            },
+          });
+          console.log('✅ Application approved');
+
+          // 2. Create wallet for user (if they don't have one already)
+          let walletAddress = application.user.walletAddress;
+
+          if (!walletAddress) {
+            console.log('🔐 Creating wallet for user...');
+            walletAddress = await createWalletForUser(input.userId);
+            console.log('✅ Wallet created:', walletAddress);
+          } else {
+            console.log('ℹ️ User already has wallet:', walletAddress);
+          }
+
+          // 3. Update user status to ACTIVE
+          console.log('👤 Updating user status to ACTIVE...');
+          await tx.user.update({
+            where: { id: input.userId },
+            data: { status: "ACTIVE" },
+          });
+          console.log('✅ User status updated to ACTIVE');
+
+          return { walletAddress };
+        });
+
+        console.log('✅ Transaction completed successfully');
+
+        const response = {
+          success: true,
+          message: `Application approved. Wallet ${result.walletAddress} created for user.`,
+          walletAddress: result.walletAddress,
+          userId: input.userId,
+        };
+
+        console.log('🎉 approveApplication - SUCCESS');
+        console.log('📤 Response:', response);
+        return response;
+      } catch (error) {
+        console.error('\n💥 ERROR in approveApplication:');
+        console.error('Error type:', error?.constructor?.name);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+        console.error('Full error:', error);
+
+        if (error instanceof TRPCError) {
+          console.error('🚨 Throwing TRPCError:', error.code, error.message);
+          throw error;
+        }
+
+        console.error('🚨 Throwing generic INTERNAL_SERVER_ERROR');
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to approve application. Please try again.",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * Reject an application (admin only)
+   */
+  rejectApplication: privateProcedure
+    .input(z.object({
+      userId: z.string(),
+      reviewNotes: z.string(),
+    }))
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+      userId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      console.log('\n🔷 rejectApplication - START');
+      console.log('👤 User ID:', input.userId);
+
+      try {
+        // Check if application exists
+        const application = await context.db.application.findUnique({
+          where: { userId: input.userId },
+        });
+
+        if (!application) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Application not found for this user",
+          });
+        }
+
+        // Update application and user in transaction
+        await context.db.$transaction(async (tx) => {
+          // Update application status to REJECTED
+          await tx.application.update({
+            where: { userId: input.userId },
+            data: {
+              status: "REJECTED",
+              reviewedAt: new Date(),
+              reviewNotes: input.reviewNotes,
+            },
+          });
+
+          // Update user status to REJECTED
+          await tx.user.update({
+            where: { id: input.userId },
+            data: { status: "REJECTED" },
+          });
+        });
+
+        console.log('✅ Application rejected');
+
+        const response = {
+          success: true,
+          message: "Application rejected.",
+          userId: input.userId,
+        };
+
+        console.log('🎉 rejectApplication - SUCCESS');
+        return response;
+      } catch (error) {
+        console.error('\n💥 ERROR in rejectApplication:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reject application. Please try again.",
+          cause: error,
+        });
+      }
     }),
 });

@@ -73,6 +73,11 @@ Give members access to the platform:
 
 ### 🧪 For Developers
 
+#### **Development Workflow**
+- **[Start Development Servers](START_DEV.md)** - Quick guide to run API and Web in dev mode
+- **[Complete Development Guide](DEV_GUIDE.md)** - Full development workflow, debugging, and troubleshooting
+- **[Environment Setup](ENV_SETUP_GUIDE.md)** - Configure all environment variables
+
 #### **Testing & Quality**
 - **[Testing Guide](TESTING.md)** - Run tests for the web app and API
 - **[Contract Testing](packages/contracts/TESTING_GUIDE.md)** - Test smart contracts before deployment
@@ -86,6 +91,8 @@ Give members access to the platform:
 |------------------|---------------|
 | **Understand the co-op's mission?** | [Soulaan Co-op Charter](documents/soulaan-coop-charter.md) |
 | **Set up my development environment?** | [Getting Started Guide](GETTING_STARTED.md) |
+| **Run the API and Web in dev mode?** | [Start Development Servers](START_DEV.md) |
+| **Configure environment variables?** | [Environment Setup Guide](ENV_SETUP_GUIDE.md) |
 | **Deploy the co-op's economic system?** | [Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md) |
 | **Understand how UC and SC work?** | [Understanding the Contracts](packages/contracts/README.md) |
 | **Set up the treasury multi-sig?** | [Set Up Multi-Sig Wallet](packages/contracts/docs/SETUP_MULTISIG.md) |

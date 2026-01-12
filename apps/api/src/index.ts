@@ -13,7 +13,17 @@ import os from "os";
 
 const app: Application = express();
 
-// Parse JSON bodies
+// Import webhook handlers
+import { handleStripeWebhook, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
+
+// IMPORTANT: Stripe webhooks need raw body for signature verification
+// So we add this route BEFORE the general JSON parser
+app.post('/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook
+);
+
+// Parse JSON bodies (for all other routes)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -80,6 +90,10 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
+
+// Webhook endpoints (PayPal and Square use JSON body)
+app.post('/webhooks/paypal', handlePayPalWebhook);
+app.post('/webhooks/square', handleSquareWebhook);
 
 app.use("/trpc", trpcExpress);
 
