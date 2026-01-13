@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Web3Provider } from "@/lib/web3-provider";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { PortalNav } from "@/components/portal/portal-nav";
 
 // Wallet Auth Component
 function WalletAuth() {
@@ -95,16 +95,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="sticky top-0 z-50 border-b border-slate-700 bg-slate-900/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <Link href="/portal" className="text-xl font-bold text-white">
-            Soulaan Co-op Portal
-          </Link>
-          <WalletAuth />
-        </div>
-      </header>
-      <main>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <PortalNav />
+      <main className="container mx-auto px-6 py-8">
         <ProtectedRoute>
           {children}
         </ProtectedRoute>
@@ -118,9 +111,5 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <Web3Provider>
-      <PortalLayoutContent>{children}</PortalLayoutContent>
-    </Web3Provider>
-  );
+  return <PortalLayoutContent>{children}</PortalLayoutContent>;
 }

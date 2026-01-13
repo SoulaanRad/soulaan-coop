@@ -80,21 +80,26 @@ model Application {
   id          String   @id @default(cuid())
   userId      String   @unique
   status      ApplicationStatus @default(SUBMITTED)
-  
+
   // Application data stored as JSON blob for flexibility
   data        Json
-  
+
+  // IPFS file uploads (CIDs - Content Identifiers)
+  photoCID    String?  // Profile photo or ID photo
+  videoCID    String?  // Introduction video (optional)
+  documentCID String?  // Additional supporting documents
+
   // Review Process
   reviewedBy    String?
   reviewedAt    DateTime?
   reviewNotes   String?
-  
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   // Relations
   user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@schema("public")
 }
 
@@ -231,6 +236,18 @@ model RateLimit {
   updatedAt DateTime @updatedAt
   
   @@schema("auth")
+}
+
+model LoginCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+  @@schema("public")
 }
 
 // ── Enums ──────────────────────────────────────────

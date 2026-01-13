@@ -1,15 +1,23 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import 'react-native-reanimated';
 import "../global.css"
 import { PortalHost } from '@rn-primitives/portal';
-import { StripeProvider } from '@stripe/stripe-react-native';
-import Constants from 'expo-constants';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/contexts/auth-context';
 
-const STRIPE_PUBLISHABLE_KEY = Constants.expoConfig?.extra?.stripePublishableKey || process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 5000,
+    },
+  },
+});
 
 export const unstable_settings = {
   anchor: 'onboarding',
@@ -19,13 +27,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-        </Stack>
-        <StatusBar style="auto" />
-        <PortalHost />
-      </ThemeProvider>
-    </StripeProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+          </Stack>
+          <StatusBar style="auto" />
+          <PortalHost />
+        </ThemeProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

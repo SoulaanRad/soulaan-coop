@@ -3,72 +3,23 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Seed Users
-  await prisma.user.createMany({
-    data: [
-      { email: "alice@example.com", name: "Alice", role: "user" },
-      { email: "bob@example.com", name: "Bob", role: "business" },
-      { email: "admin@example.com", name: "Admin", role: "admin" },
-    ],
-    skipDuplicates: true,
+  // Seed real admin user
+  await prisma.user.upsert({
+    where: { email: "admin@soulaan.coop" },
+    update: {},
+    create: {
+      email: "admin@soulaan.coop",
+      name: "Deon Robinson",
+      role: "admin",
+      status: "ACTIVE",
+    },
   });
 
-  // Seed Businesses
-  await prisma.business.createMany({
-    data: [
-      { ownerId: "1", name: "Alice's Bakery", city: "New York" },
-      { ownerId: "2", name: "Bob's Cafe", city: "San Francisco" },
-    ],
-    skipDuplicates: true,
-  });
-
-  // Seed Waitlist Entries
-  await prisma.waitlistEntry.createMany({
-    data: [
-      {
-        email: "waitlist1@example.com",
-        type: "user",
-        name: "Wait User",
-        city: "Boston",
-        source: "hero",
-      },
-      {
-        email: "waitlist2@example.com",
-        type: "business",
-        name: "Wait Biz",
-        city: "Chicago",
-        source: "contact",
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  // Seed Business Waitlist Entries
-  await prisma.businessWaitlist.createMany({
-    data: [
-      {
-        ownerName: "John Smith",
-        ownerEmail: "john@example.com",
-        businessName: "Smith's Coffee Shop",
-        businessAddress: "123 Main St, New York, NY",
-        businessType: "Food & Beverage",
-        monthlyRevenue: "$10,000 - $25,000",
-        description: "Local coffee shop looking to expand",
-      },
-      {
-        ownerName: "Sarah Johnson",
-        ownerEmail: "sarah@example.com",
-        businessName: "Johnson's Hardware",
-        businessAddress: "456 Oak Ave, Chicago, IL",
-        businessType: "Retail",
-        monthlyRevenue: "$25,000 - $50,000",
-        description: "Family-owned hardware store",
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  console.log("Seeding completed.");
+  console.log("✅ Admin user seeded successfully");
+  console.log("   Email: admin@soulaan.coop");
+  console.log("   Name: Deon Robinson");
+  console.log("   Role: admin");
+  console.log("   Status: ACTIVE");
 }
 
 main()

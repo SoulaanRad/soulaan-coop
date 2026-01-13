@@ -36,7 +36,11 @@ export interface ApplicationData {
   // Short Answer (optional)
   motivation?: string;
   desiredService?: string;
-  
+
+  // Media Uploads (optional)
+  videoCID?: string;
+  photoCID?: string;
+
   // Terms Agreement
   agreeToCoopValues: boolean;
   agreeToTerms: boolean;
@@ -59,26 +63,23 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: data
-      })
+      body: JSON.stringify(data)
     });
 
     // Always parse the response body, even for error responses
     const result = await response.json();
-    
+
     console.log('📥 Raw API response:', JSON.stringify(result, null, 2));
     console.log('📥 Response status:', response.status);
     console.log('📥 Has error?', !!result.error);
     if (result.error) {
       console.log('📥 Error object:', JSON.stringify(result.error, null, 2));
-      console.log('📥 Error message from json:', result.error.json?.message);
+      console.log('📥 Error message:', result.error.message);
     }
-    
+
     // Check if there's a tRPC error in the response
-    // tRPC wraps errors in error.json.message (same as success responses)
     if (result.error) {
-      const errorMessage = result.error.json?.message || result.error.message || result.error.data?.message || 'Application submission failed';
+      const errorMessage = result.error.message || result.error.data?.message || 'Application submission failed';
       console.log('📥 Throwing error with message:', errorMessage);
       throw new Error(errorMessage);
     }
@@ -88,8 +89,8 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // tRPC wraps the response in result.data.json
-    return result.result?.data?.json || result.result?.data;
+    // tRPC wraps the response in result.data
+    return result.result?.data;
   },
 
   /**
@@ -101,9 +102,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: data
-      })
+      body: JSON.stringify(data)
     });
 
     // Always parse the response body, even for error responses
@@ -120,7 +119,7 @@ export const api = {
     }
 
     // tRPC wraps the response in result.data.json
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -132,9 +131,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { email }
-      })
+      body: JSON.stringify({ email })
     });
 
     // Always parse the response body, even for error responses
@@ -151,7 +148,7 @@ export const api = {
     }
 
     // tRPC wraps the response in result.data.json
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -163,9 +160,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { userId }
-      })
+      body: JSON.stringify({ userId })
     });
 
     // Always parse the response body, even for error responses
@@ -182,7 +177,7 @@ export const api = {
     }
 
     // tRPC wraps the response in result.data.json
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -194,9 +189,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { userId }
-      })
+      body: JSON.stringify({ userId })
     });
 
     // Always parse the response body, even for error responses
@@ -213,7 +206,7 @@ export const api = {
     }
 
     // tRPC wraps the response in result.data.json
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   // ──────────────────────────────────────────────────────────
@@ -229,9 +222,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { userId }
-      })
+      body: JSON.stringify({ userId })
     });
 
     const result = await response.json();
@@ -242,7 +233,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -254,9 +245,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { walletAddress }
-      })
+      body: JSON.stringify({ walletAddress })
     });
 
     const result = await response.json();
@@ -267,7 +256,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -279,9 +268,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { walletAddress, limit }
-      })
+      body: JSON.stringify({ walletAddress, limit })
     });
 
     const result = await response.json();
@@ -292,7 +279,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -304,9 +291,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { recipientAddress }
-      })
+      body: JSON.stringify({ recipientAddress })
     });
 
     const result = await response.json();
@@ -317,7 +302,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -329,9 +314,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { username }
-      })
+      body: JSON.stringify({ username })
     });
 
     const result = await response.json();
@@ -342,7 +325,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -354,9 +337,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { userId, recipientAddress, amount }
-      })
+      body: JSON.stringify({ userId, recipientAddress, amount })
     });
 
     const result = await response.json();
@@ -367,7 +348,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -379,9 +360,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: {}
-      })
+      body: JSON.stringify({})
     });
 
     const result = await response.json();
@@ -392,7 +371,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -404,9 +383,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { amountUSD, processor }
-      })
+      body: JSON.stringify({ amountUSD, processor })
     });
 
     const result = await response.json();
@@ -417,7 +394,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -429,9 +406,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { limit, offset }
-      })
+      body: JSON.stringify({ limit, offset })
     });
 
     const result = await response.json();
@@ -442,7 +417,7 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 
   /**
@@ -454,9 +429,7 @@ export const api = {
       headers: {
         ...networkConfig.defaultHeaders,
       },
-      body: JSON.stringify({
-        json: { transactionId }
-      })
+      body: JSON.stringify({ transactionId })
     });
 
     const result = await response.json();
@@ -467,6 +440,6 @@ export const api = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    return result.result?.data?.json || result.result?.data;
+    return result.result?.data;
   },
 };

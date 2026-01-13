@@ -4,6 +4,8 @@ import { Inter } from "next/font/google";
 
 import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { TRPCProvider } from "@/lib/trpc/provider";
+import { Web3Provider } from "@/lib/web3-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -164,7 +166,11 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <PostHogProvider>
-          {children}
+          <Web3Provider>
+            <TRPCProvider>
+              {children}
+            </TRPCProvider>
+          </Web3Provider>
         </PostHogProvider>
       </body>
     </html>

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, Pressable, TextInput, Alert } from 'react-native';
-import { useSubmitApplication, useLogin } from '@/hooks/use-api';
+import { useSubmitApplication } from '@/hooks/use-api';
+import { useAuth } from '@/contexts/auth-context';
+import { getApiUrl } from '@/lib/config';
 import type { ApplicationData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
+import VideoUpload from '@/components/video-upload';
+import PhotoUpload from '@/components/photo-upload';
 import {
   Heart,
   Users,
@@ -23,6 +27,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Camera,
 } from 'lucide-react-native';
 
 
@@ -52,6 +57,9 @@ interface FormData {
   // Short Answer
   motivation: string;
   desiredService: string;
+  // Media uploads
+  videoCID: string;
+  photoCID: string;
 }
 
 export default function OnboardingFlow() {
@@ -63,20 +71,22 @@ export default function OnboardingFlow() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [loginData, setLoginData] = useState({
     email: '',
-    password: '',
-    rememberMe: false,
+    code: '',
   });
+  const [codeSent, setCodeSent] = useState(false);
+  const [canResend, setCanResend] = useState(true);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [loginError, setLoginError] = useState<string>('');
 
   // API hooks
   const { submitApplication, isLoading: isSubmitting, error: submitError, clearError: clearSubmitError } = useSubmitApplication();
-  const { login, isLoading: isLoggingIn, error: loginError, clearError: clearLoginError } = useLogin();
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const { login } = useAuth();
 
   // Display errors if they exist
   if (submitError) {
     console.error('Submit error:', submitError);
-  }
-  if (loginError) {
-    console.error('Login error:', loginError);
   }
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
@@ -104,6 +114,9 @@ export default function OnboardingFlow() {
     // Short Answer
     motivation: '',
     desiredService: '',
+    // Media uploads
+    videoCID: '',
+    photoCID: '',
   });
 
   // Generic platform introduction screens
@@ -189,8 +202,8 @@ export default function OnboardingFlow() {
   };
 
   const goToLogin = () => {
-    // Login is at: splashScreens + 1 (browse) + 1 (details) + 3 (form steps) + 1 (success) = index 9
-    setCurrentStep(splashScreens.length + 6);
+    // Login is at: splashScreens + 1 (browse) + 1 (details) + 4 (form steps) + 1 (success) = index 10
+    setCurrentStep(splashScreens.length + 7);
   };
 
   const goToBrowseCoops = () => {
@@ -298,6 +311,8 @@ export default function OnboardingFlow() {
         transparentTransactions: formData.transparentTransactions as any,
         motivation: formData.motivation,
         desiredService: formData.desiredService,
+        videoCID: formData.videoCID || undefined,
+        photoCID: formData.photoCID || undefined,
         agreeToCoopValues: formData.agreeToCoopValues,
         agreeToTerms: formData.agreeToTerms,
         agreeToPrivacy: formData.agreeToPrivacy,
@@ -378,29 +393,94 @@ export default function OnboardingFlow() {
     }
   };
 
-  const handleLogin = async () => {
-    if (isLoggingIn) return;
-    
-    // Clear any previous errors
-    clearLoginError();
-    
+  // Resend timer effect
+  React.useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setCanResend(true);
+    }
+  }, [resendTimer]);
+
+  const handleRequestCode = async () => {
+    if (isRequestingCode || !loginData.email) return;
+
+    setIsRequestingCode(true);
+    setLoginError('');
+
     try {
-      const result = await login({
-        email: loginData.email,
-        password: loginData.password,
+      const response = await fetch(`${getApiUrl()}/trpc/auth.requestLoginCode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginData.email,
+        }),
       });
-      
-      if (result.success && result.user) {
-        Alert.alert('Login Successful', `Welcome back, ${result.user.name || result.user.email}!`);
-        // Here you would typically navigate to the main app or set user state
-        // For now, we'll just show a success message
+
+      const data = await response.json();
+
+      if (data.result?.data?.success) {
+        setCodeSent(true);
+        setCanResend(false);
+        setResendTimer(60); // 60 second cooldown
+        Alert.alert('Code Sent', data.result.data.message || 'Check your email for the login code');
+      } else {
+        setLoginError(data.error?.message || 'Failed to send code');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Login Failed', 
-        error instanceof Error ? error.message : 'Failed to login. Please try again.'
-      );
+      console.error('Request code error:', error);
+      setLoginError('Failed to send code. Please try again.');
+    } finally {
+      setIsRequestingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (isVerifyingCode || !loginData.email || !loginData.code) return;
+
+    setIsVerifyingCode(true);
+    setLoginError('');
+
+    try {
+      const response = await fetch(`${getApiUrl()}/trpc/auth.verifyLoginCode`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: loginData.email,
+          code: loginData.code,
+        }),
+      });
+
+      const data = await response.json();
+      console.log('📥 Verify code response:', JSON.stringify(data, null, 2));
+
+      if (data.result?.data?.success && data.result?.data?.user) {
+        console.log('✅ Code verified successfully, logging in...');
+        const user = data.result.data.user;
+        // Convert createdAt to Date object
+        user.createdAt = new Date(user.createdAt);
+        console.log('👤 User data:', user);
+        await login(user);
+        console.log('🎉 Login complete!');
+        // Navigation is handled by AuthContext
+      } else {
+        const errorMsg = data.error?.message || 'Invalid code';
+        console.error('❌ Verification failed:', errorMsg);
+        console.error('📦 Full response:', data);
+        setLoginError(errorMsg);
+      }
+    } catch (error) {
+      console.error('Verify code error:', error);
+      setLoginError('Failed to verify code. Please try again.');
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -617,7 +697,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               Join {selectedCoop?.name || 'Co-op'}
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 1 of 3: Personal Information</Text>
+            <Text className="text-charcoal-600 text-center">Step 1 of 4: Personal Information</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -771,7 +851,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               {selectedCoop?.name} Application
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 2 of 3: Tell us about yourself</Text>
+            <Text className="text-charcoal-600 text-center">Step 2 of 4: Tell us about yourself</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -915,9 +995,89 @@ export default function OnboardingFlow() {
     );
   };
 
+  const renderMediaUpload = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const apiUrl = getApiUrl();
+
+    return (
+      <ScrollView className="flex-1 bg-background">
+        <View className="min-h-screen flex-1 justify-center p-6">
+          <View className="w-full max-w-md mx-auto">
+            {/* Header */}
+            <View className="items-center mb-8">
+              <View className="bg-amber-500 p-3 rounded-full mb-4">
+                <Icon as={Camera} size={32} className="text-white" />
+              </View>
+              <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
+                Introduce Yourself
+              </Text>
+              <Text className="text-charcoal-600 text-center">
+                Step 3 of 4: Share a video and photo (optional but recommended)
+              </Text>
+            </View>
+
+            <Card className="bg-white border-cream-200">
+              <CardContent className="p-6">
+                {/* Video Upload */}
+                <View className="mb-6">
+                  <VideoUpload
+                    onUploadComplete={(cid, url) => {
+                      handleInputChange('videoCID', cid);
+                    }}
+                    apiUrl={apiUrl}
+                  />
+                </View>
+
+                {/* Photo Upload */}
+                <View className="border-t border-cream-200 pt-6">
+                  <PhotoUpload
+                    onUploadComplete={(cid, url) => {
+                      handleInputChange('photoCID', cid);
+                    }}
+                    apiUrl={apiUrl}
+                    title="Profile Photo"
+                    description="Upload a clear photo of yourself"
+                  />
+                </View>
+
+                {/* Info */}
+                <View className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                  <Text className="text-sm text-blue-900 font-semibold mb-2">Why upload media?</Text>
+                  <Text className="text-sm text-blue-800">
+                    • Helps community members get to know you{'\n'}
+                    • Increases your application approval chances{'\n'}
+                    • Builds trust in the cooperative{'\n'}
+                    • Shows commitment to transparency
+                  </Text>
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Navigation */}
+            <View className="flex flex-row justify-between items-center mt-6">
+              <Button variant="ghost" onPress={prevStep}>
+                <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
+                <Text className="text-charcoal-600 ml-1">Back</Text>
+              </Button>
+              <Button
+                onPress={nextStep}
+                className="bg-amber-500"
+              >
+                <Text className="text-white font-semibold">
+                  {formData.videoCID && formData.photoCID ? 'Continue' : 'Skip for Now'}
+                </Text>
+                <Icon as={ChevronRight} size={16} className="text-white ml-1" />
+              </Button>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
   const renderCommitmentQuestions = () => {
     const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
-    
+
     return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
@@ -930,7 +1090,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               {selectedCoop?.name} Application
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 3 of 3: Commitment & Trust</Text>
+            <Text className="text-charcoal-600 text-center">Step 4 of 4: Commitment & Trust</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -1278,7 +1438,9 @@ export default function OnboardingFlow() {
               <Icon as={Building} size={32} className="text-white" />
             </View>
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Welcome Back</Text>
-            <Text className="text-charcoal-600 text-center">Sign in to access your co-op membership</Text>
+            <Text className="text-charcoal-600 text-center">
+              {codeSent ? 'Enter the code sent to your email' : 'Sign in to access your co-op membership'}
+            </Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -1294,77 +1456,82 @@ export default function OnboardingFlow() {
                     placeholder="marcus@example.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    editable={!codeSent}
                   />
                 </View>
 
-                {/* Password */}
-                <View>
-                  <Label className="text-charcoal-700">Password</Label>
-                  <View className="relative mt-1">
+                {/* Code Input - shown after code is sent */}
+                {codeSent && (
+                  <View>
+                    <Label className="text-charcoal-700">Verification Code</Label>
                     <Input
-                      value={loginData.password}
-                      onChangeText={(text) => setLoginData(prev => ({ ...prev, password: text }))}
-                      className="border-cream-300 pr-12"
-                      placeholder="Enter your password"
-                      secureTextEntry={!showPassword}
+                      value={loginData.code}
+                      onChangeText={(text) => setLoginData(prev => ({ ...prev, code: text }))}
+                      className="mt-1 border-cream-300"
+                      placeholder="Enter 6-digit code"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoFocus
                     />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-0 h-full justify-center"
-                    >
-                      <Icon
-                        as={showPassword ? EyeOff : Eye}
-                        size={16}
-                        className="text-charcoal-500"
-                      />
-                    </Pressable>
                   </View>
-                </View>
+                )}
 
-                {/* Remember Me & Forgot Password */}
-                <View className="flex flex-row items-center justify-between">
-                  <View className="flex flex-row items-center gap-2">
-                    <Checkbox 
-                      checked={loginData.rememberMe} 
-                      onCheckedChange={(checked) => setLoginData(prev => ({ ...prev, rememberMe: !!checked }))} 
-                    />
-                    <Label className="text-sm text-charcoal-600">Remember me</Label>
+                {/* Error Message */}
+                {loginError && (
+                  <View className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <Text className="text-red-700 text-sm">{loginError}</Text>
                   </View>
-                  <Button variant="ghost" className="p-0">
-                    <Text className="text-sm text-gold-700">Forgot password?</Text>
-                  </Button>
-                </View>
+                )}
 
                 {/* Submit Button */}
-                <Button 
-                  className="w-full bg-red-700 py-3"
-                  onPress={handleLogin}
-                  disabled={isLoggingIn || !loginData.email || !loginData.password}
-                >
-                  <Text className="text-white font-semibold">
-                    {isLoggingIn ? 'Signing In...' : 'Sign In'}
-                  </Text>
-                </Button>
-              </View>
+                {!codeSent ? (
+                  <Button
+                    className="w-full bg-red-700 py-3"
+                    onPress={handleRequestCode}
+                    disabled={isRequestingCode || !loginData.email}
+                  >
+                    <Text className="text-white font-semibold">
+                      {isRequestingCode ? 'Sending Code...' : 'Send Login Code'}
+                    </Text>
+                  </Button>
+                ) : (
+                  <View className="gap-3">
+                    <Button
+                      className="w-full bg-red-700 py-3"
+                      onPress={handleVerifyCode}
+                      disabled={isVerifyingCode || !loginData.code || loginData.code.length !== 6}
+                    >
+                      <Text className="text-white font-semibold">
+                        {isVerifyingCode ? 'Verifying...' : 'Verify & Sign In'}
+                      </Text>
+                    </Button>
 
-              {/* Divider */}
-              <View className="relative my-6">
-                <View className="absolute inset-0 flex items-center">
-                  <View className="w-full border-t border-cream-300" />
-                </View>
-                <View className="relative flex justify-center">
-                  <Text className="px-2 bg-white text-charcoal-500 text-sm">Or continue with</Text>
-                </View>
-              </View>
+                    {/* Resend Code Button */}
+                    <Button
+                      variant="outline"
+                      className="w-full border-cream-300"
+                      onPress={handleRequestCode}
+                      disabled={!canResend || isRequestingCode}
+                    >
+                      <Text className="text-charcoal-700">
+                        {canResend ? 'Resend Code' : `Resend in ${resendTimer}s`}
+                      </Text>
+                    </Button>
 
-              {/* Social Login Options */}
-              <View className="gap-3">
-                <Button variant="outline" className="w-full border-cream-300">
-                  <Text className="text-charcoal-700">Continue with Google</Text>
-                </Button>
-                <Button variant="outline" className="w-full border-cream-300">
-                  <Text className="text-charcoal-700">Continue with Facebook</Text>
-                </Button>
+                    {/* Change Email Button */}
+                    <Button
+                      variant="ghost"
+                      className="w-full"
+                      onPress={() => {
+                        setCodeSent(false);
+                        setLoginData(prev => ({ ...prev, code: '' }));
+                        setLoginError('');
+                      }}
+                    >
+                      <Text className="text-gold-700">Change Email</Text>
+                    </Button>
+                  </View>
+                )}
               </View>
             </CardContent>
           </Card>
@@ -1389,15 +1556,16 @@ export default function OnboardingFlow() {
   );
 
   // Determine which step to render
-  // Flow: Splash Screens → Browse Co-ops → Co-op Details → Personal Info → Questions → Commitment → Success → Login
+  // Flow: Splash Screens → Browse Co-ops → Co-op Details → Personal Info → Questions → Media Upload → Commitment → Success → Login
   const renderCurrentStep = () => {
     const splashEnd = splashScreens.length;
     const browseCoopsStep = splashEnd;
     const coopDetailsStep = splashEnd + 1;
     const personalInfoStep = splashEnd + 2;
     const questionsStep = splashEnd + 3;
-    const commitmentStep = splashEnd + 4;
-    const successStep = splashEnd + 5;
+    const mediaUploadStep = splashEnd + 4;
+    const commitmentStep = splashEnd + 5;
+    const successStep = splashEnd + 6;
 
     if (currentStep < splashEnd) {
       return renderSplashScreen(currentStep);
@@ -1409,6 +1577,8 @@ export default function OnboardingFlow() {
       return renderPersonalInfo();
     } else if (currentStep === questionsStep) {
       return renderApplicationQuestions();
+    } else if (currentStep === mediaUploadStep) {
+      return renderMediaUpload();
     } else if (currentStep === commitmentStep) {
       return renderCommitmentQuestions();
     } else if (currentStep === successStep) {

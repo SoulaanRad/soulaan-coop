@@ -22,6 +22,8 @@ export async function GET(_request: NextRequest) {
       isLoggedIn: true,
       address: session.address,
       hasProfile: session.hasProfile,
+      isAdmin: session.isAdmin || false,
+      adminRole: session.adminRole || null,
     });
   } catch (error) {
     console.error('Error getting session:', error);

@@ -93,12 +93,12 @@ export const applicationRouter = router({
           console.log('👤 Creating user...');
           const user = await tx.user.create({
             data: {
-            email: input.email,
-            name: `${input.firstName} ${input.lastName}`,
-            phone: input.phone,
-            password: hashedPassword,
-            roles: ["user"],
-            status: "PENDING",
+              email: input.email,
+              name: `${input.firstName} ${input.lastName}`,
+              phone: input.phone,
+              password: hashedPassword,
+              roles: ["member"],
+              status: "PENDING",
             },
           });
           console.log('✅ User created:', user.id);

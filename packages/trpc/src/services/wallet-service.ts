@@ -11,11 +11,15 @@ const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
 const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9';
 
 if (!WALLET_ENCRYPTION_KEY) {
-  console.warn('⚠️ WALLET_ENCRYPTION_KEY not set - wallet encryption will fail');
+  console.error('❌ WALLET_ENCRYPTION_KEY environment variable not set!');
+  console.error('   Please add WALLET_ENCRYPTION_KEY to your .env file');
+  console.error('   Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
 }
 
 if (!BACKEND_WALLET_PRIVATE_KEY) {
-  console.warn('⚠️ BACKEND_WALLET_PRIVATE_KEY not set - minting will fail');
+  console.error('❌ BACKEND_WALLET_PRIVATE_KEY environment variable not set!');
+  console.error('   Please add BACKEND_WALLET_PRIVATE_KEY to your .env file');
+  console.error('   This wallet must have the BACKEND role in the UnityCoin contract');
 }
 
 /**

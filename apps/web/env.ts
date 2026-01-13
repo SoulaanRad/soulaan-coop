@@ -1,11 +1,13 @@
 import { createEnv } from "@t3-oss/env-nextjs";
-import { z } from "zod";
+import { vercel } from "@t3-oss/env-nextjs/presets-zod";
+import { z } from "zod/v4";
 
 export const env = createEnv({
-  shared:{
+  extends: [vercel()],
+  shared: {
     NODE_ENV: z
       .enum(["development", "production", "test"])
-      .default("development")
+      .default("development"),
   },
   /**
    * Specify your server-side environment variables schema here.
@@ -22,14 +24,17 @@ export const env = createEnv({
    * For them to be exposed to the client, prefix them with `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_POSTHOG_KEY: z.string(),
+    NEXT_PUBLIC_API_URL: z.string().url().optional(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_CHAIN_ID: z.string().optional(),
     NEXT_PUBLIC_CHAIN_NAME: z.string().optional(),
     NEXT_PUBLIC_RPC_URL: z.string().url().optional(),
     NEXT_PUBLIC_SOULAANI_COIN_ADDRESS: z.string().optional(),
+    NEXT_PUBLIC_TREASURY_SAFE_ADDRESS: z.string().optional(),
     NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: z.string().optional(),
     NEXT_PUBLIC_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_URI: z.string().url().optional(),
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   },
   /**
    * Destructure all variables from `process.env` to make sure they aren't tree-shaken away.
@@ -37,15 +42,18 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     SESSION_SECRET: process.env.SESSION_SECRET,
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,
     NEXT_PUBLIC_CHAIN_NAME: process.env.NEXT_PUBLIC_CHAIN_NAME,
     NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL,
     NEXT_PUBLIC_SOULAANI_COIN_ADDRESS: process.env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS,
+    NEXT_PUBLIC_TREASURY_SAFE_ADDRESS: process.env.NEXT_PUBLIC_TREASURY_SAFE_ADDRESS,
     NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID,
     NEXT_PUBLIC_DOMAIN: process.env.NEXT_PUBLIC_DOMAIN,
     NEXT_PUBLIC_URI: process.env.NEXT_PUBLIC_URI,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   },
   emptyStringAsUndefined: true,
   skipValidation:

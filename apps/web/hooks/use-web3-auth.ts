@@ -8,6 +8,8 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasProfile: boolean;
+  isAdmin: boolean;
+  adminRole: string | null;
   error: string | null;
   address: string | null;
 }
@@ -22,6 +24,8 @@ export function useWeb3Auth() {
     isLoading: true,
     isAuthenticated: false,
     hasProfile: false,
+    isAdmin: false,
+    adminRole: null,
     error: null,
     address: null,
   });
@@ -39,6 +43,8 @@ export function useWeb3Auth() {
           isLoading: false,
           isAuthenticated: true,
           hasProfile: data.hasProfile,
+          isAdmin: data.isAdmin || false,
+          adminRole: data.adminRole || null,
           error: null,
           address: data.address,
         });
@@ -47,6 +53,8 @@ export function useWeb3Auth() {
           isLoading: false,
           isAuthenticated: false,
           hasProfile: false,
+          isAdmin: false,
+          adminRole: null,
           error: null,
           address: null,
         });
@@ -56,6 +64,8 @@ export function useWeb3Auth() {
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        isAdmin: false,
+        adminRole: null,
         error: 'Failed to check authentication status',
         address: null,
       });
@@ -103,12 +113,14 @@ export function useWeb3Auth() {
         throw new Error(errorData.error || 'Failed to verify signature');
       }
       
-      const { hasProfile } = await verifyResponse.json();
-      
+      const { hasProfile, isAdmin, adminRole } = await verifyResponse.json();
+
       setAuthState({
         isLoading: false,
         isAuthenticated: true,
         hasProfile,
+        isAdmin: isAdmin || false,
+        adminRole: adminRole || null,
         error: null,
         address,
       });
@@ -127,6 +139,8 @@ export function useWeb3Auth() {
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        isAdmin: false,
+        adminRole: null,
         error: error.message || 'Authentication failed',
       }));
       return false;
@@ -137,23 +151,25 @@ export function useWeb3Auth() {
   const logout = useCallback(async () => {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
-      
+
       // Call logout API
       await fetch('/api/auth/logout', { method: 'POST' });
-      
+
       // Disconnect wallet
       disconnect();
-      
+
       setAuthState({
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        isAdmin: false,
+        adminRole: null,
         error: null,
         address: null,
       });
-      
-      router.push('/portal');
-      
+
+      router.push('/login');
+
       return true;
     } catch (error) {
       setAuthState((prev) => ({

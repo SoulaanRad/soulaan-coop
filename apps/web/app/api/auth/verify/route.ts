@@ -51,12 +51,14 @@ export async function POST(request: NextRequest) {
     
     // Create a session
     const session = await createSession(address);
-    
+
     // Return the session info
     return NextResponse.json({
       success: true,
       address,
       hasProfile: session.hasProfile,
+      isAdmin: session.isAdmin || false,
+      adminRole: session.adminRole || null,
     });
   } catch (error) {
     console.error('Error verifying signature:', error);

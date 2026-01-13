@@ -1,4 +1,4 @@
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, type Address } from 'viem';
 import { PrismaClient } from '@prisma/client';
 import { config, chainConfig } from './config';
 import { env } from '~/env';
@@ -34,6 +34,41 @@ const soulaaniCoinAbi = [
   },
 ] as const;
 
+// ABI for Safe (Gnosis Safe) multisig
+const safeAbi = [
+  {
+    inputs: [{ name: 'owner', type: 'address' }],
+    name: 'isOwner',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getOwners',
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
+// AccessControl role hashes
+const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+// ABI for contracts with AccessControl (Unity/Soulaani Coin)
+const accessControlAbi = [
+  {
+    inputs: [
+      { name: 'role', type: 'bytes32' },
+      { name: 'account', type: 'address' }
+    ],
+    name: 'hasRole',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
 // Create a public client for reading from the blockchain
 function createClient() {
   return createPublicClient({
@@ -43,9 +78,101 @@ function createClient() {
 }
 
 /**
- * Check if a wallet has SoulaaniCoin and is an active member
+ * Check if a wallet is a Treasury Safe owner or has admin roles
  * @param address - The wallet address to check
- * @returns Boolean indicating if the wallet has SoulaaniCoin and is an active member
+ * @returns Object with admin status and role
+ */
+export async function checkAdminStatus(address: string): Promise<{ isAdmin: boolean; role?: string }> {
+  console.log('\n🔍 ========== ADMIN CHECK START ==========');
+  console.log(`   Address: ${address}`);
+
+  try {
+    // If blockchain checks are disabled, return false
+    if (config.features.skipBlockchainChecks) {
+      console.log('⚠️  Blockchain checks are DISABLED - skipping admin check');
+      console.log('🔍 ========== ADMIN CHECK END (DISABLED) ==========\n');
+      return { isAdmin: false };
+    }
+
+    const publicClient = createClient();
+
+    // PRIORITY 1: Check if address is owner of Treasury Safe multisig
+    console.log('\n📋 PRIORITY 1: Treasury Safe Owner Check');
+    console.log(`   Treasury Safe Address: ${env.NEXT_PUBLIC_TREASURY_SAFE_ADDRESS || 'NOT SET'}`);
+
+    if (env.NEXT_PUBLIC_TREASURY_SAFE_ADDRESS) {
+      try {
+        console.log(`   Calling isOwner(${address})...`);
+        const isSafeOwner = await publicClient.readContract({
+          address: env.NEXT_PUBLIC_TREASURY_SAFE_ADDRESS as Address,
+          abi: safeAbi,
+          functionName: 'isOwner',
+          args: [address as Address],
+        });
+
+        console.log(`   Result: ${isSafeOwner}`);
+
+        if (isSafeOwner) {
+          console.log(`✅ ${address} is Treasury Safe owner (ADMIN)`);
+          console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
+          return { isAdmin: true, role: 'Treasury Safe Owner' };
+        } else {
+          console.log(`❌ ${address} is NOT a Treasury Safe owner`);
+        }
+      } catch (error) {
+        console.error('❌ Error checking Treasury Safe ownership:', error);
+        console.error('   Error details:', error instanceof Error ? error.message : String(error));
+      }
+    } else {
+      console.log('⚠️  NEXT_PUBLIC_TREASURY_SAFE_ADDRESS not set - skipping check');
+    }
+
+    // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on Soulaani Coin
+    console.log('\n📋 PRIORITY 2: Soulaani Coin Admin Check');
+    console.log(`   Soulaani Coin Address: ${config.contracts.soulaaniCoin || 'NOT SET'}`);
+
+    if (config.contracts.soulaaniCoin) {
+      try {
+        console.log(`   Calling hasRole(DEFAULT_ADMIN_ROLE, ${address})...`);
+        const isDefaultAdmin = await publicClient.readContract({
+          address: config.contracts.soulaaniCoin,
+          abi: accessControlAbi,
+          functionName: 'hasRole',
+          args: [DEFAULT_ADMIN_ROLE as `0x${string}`, address as Address],
+        });
+
+        console.log(`   Result: ${isDefaultAdmin}`);
+
+        if (isDefaultAdmin) {
+          console.log(`✅ ${address} has DEFAULT_ADMIN_ROLE on Soulaani Coin`);
+          console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
+          return { isAdmin: true, role: 'Soulaani Coin Admin' };
+        } else {
+          console.log(`❌ ${address} does NOT have DEFAULT_ADMIN_ROLE on Soulaani Coin`);
+        }
+      } catch (error) {
+        console.error('❌ Error checking Soulaani Coin admin role:', error);
+        console.error('   Error details:', error instanceof Error ? error.message : String(error));
+      }
+    } else {
+      console.log('⚠️  Soulaani Coin address not set - skipping check');
+    }
+
+    console.log('\n❌ No admin roles found for this address');
+    console.log('🔍 ========== ADMIN CHECK END (NOT ADMIN) ==========\n');
+    return { isAdmin: false };
+  } catch (error) {
+    console.error('❌ FATAL ERROR in checkAdminStatus:', error);
+    console.error('   Error details:', error instanceof Error ? error.message : String(error));
+    console.log('🔍 ========== ADMIN CHECK END (ERROR) ==========\n');
+    return { isAdmin: false };
+  }
+}
+
+/**
+ * Check if a wallet has portal access (either admin or SoulaaniCoin holder)
+ * @param address - The wallet address to check
+ * @returns Boolean indicating if the wallet has portal access
  */
 export async function checkSoulaaniCoinBalance(address: string): Promise<boolean> {
   try {
@@ -54,8 +181,31 @@ export async function checkSoulaaniCoinBalance(address: string): Promise<boolean
       console.warn('⚠️ Blockchain checks disabled - allowing access for development/testing');
       return true;
     }
-    
-    // Check if contract address is configured
+
+    // FIRST: Check if user is an admin (Treasury Safe owner or contract admin)
+    const adminStatus = await checkAdminStatus(address);
+    if (adminStatus.isAdmin) {
+      console.log(`✅ ${address} has admin access via ${adminStatus.role}`);
+
+      // Update the user's role in database
+      const profile = await db.userProfile.findUnique({
+        where: { walletAddress: address },
+      });
+
+      if (profile) {
+        await db.userProfile.update({
+          where: { walletAddress: address },
+          data: {
+            lastBalanceCheck: new Date(),
+            // Could add role field to profile if needed
+          },
+        });
+      }
+
+      return true;
+    }
+
+    // SECOND: Check SoulaaniCoin balance for regular members
     if (!config.contracts.soulaaniCoin) {
       console.error('❌ SoulaaniCoin contract address not configured');
       throw new Error('SoulaaniCoin contract address not configured');

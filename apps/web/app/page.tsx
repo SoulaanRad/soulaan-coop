@@ -70,6 +70,12 @@ export default function SoulaanLanding() {
             >
               Get Involved
             </Link>
+            <Link
+              href="/buy"
+              className="rounded-lg bg-amber-500 px-4 py-2 text-white font-semibold transition-colors hover:bg-amber-600"
+            >
+              Buy UC
+            </Link>
           </nav>
         </div>
       </header>
