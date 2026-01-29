@@ -14,10 +14,9 @@ describe('Wallet Service', () => {
     it('should create a valid Ethereum wallet', () => {
       const wallet = createWallet();
 
-      // Should have address, privateKey, and mnemonic
+      // Should have address and privateKey
       expect(wallet).toHaveProperty('address');
       expect(wallet).toHaveProperty('privateKey');
-      expect(wallet).toHaveProperty('mnemonic');
 
       // Address should be valid Ethereum address
       expect(isAddress(wallet.address)).toBe(true);
@@ -26,10 +25,6 @@ describe('Wallet Service', () => {
       expect(wallet.privateKey.startsWith('0x')).toBe(true);
       expect(isHex(wallet.privateKey)).toBe(true);
       expect(wallet.privateKey.length).toBe(66); // 0x + 64 hex chars
-
-      // Mnemonic should be 12 or 24 words
-      const wordCount = wallet.mnemonic.split(' ').length;
-      expect([12, 24]).toContain(wordCount);
     });
 
     it('should create unique wallets each time', () => {
@@ -38,7 +33,6 @@ describe('Wallet Service', () => {
 
       expect(wallet1.address).not.toBe(wallet2.address);
       expect(wallet1.privateKey).not.toBe(wallet2.privateKey);
-      expect(wallet1.mnemonic).not.toBe(wallet2.mnemonic);
     });
   });
 

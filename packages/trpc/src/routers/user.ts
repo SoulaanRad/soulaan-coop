@@ -5,9 +5,9 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 
 import { Context } from "../context.js";
-import { privateProcedure, publicProcedure } from "../procedures/index.js";
+import { privateProcedure, publicProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
-import { getUserWallet } from "../services/wallet-service.js";
+import { getUserWallet, createWalletForUser } from "../services/wallet-service.js";
 
 // Blockchain client for fetching balances
 const publicClient = createPublicClient({
@@ -92,15 +92,50 @@ export const userRouter = router({
     }),
 
   // Private procedures (require authentication)
-  me: privateProcedure.query(({ ctx }) => {
-    // Get the current user based on auth context
-    // In a real app, you'd get the user ID from the auth token
-    // For demo purposes, using a hardcoded ID:
-    // const userId = "current-user-id";
-    // return ctx.db.user.findUnique({
-    //   where: { id: userId }
-    // });
-  }),
+  /**
+   * Get current user data by ID
+   * Used to refresh user session with latest data from database
+   */
+  getMe: authenticatedProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .output(z.object({
+      id: z.string(),
+      email: z.string(),
+      name: z.string().nullable(),
+      roles: z.array(z.string()),
+      status: z.string(),
+      walletAddress: z.string().nullable(),
+      phone: z.string().nullable(),
+      createdAt: z.date(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const user = await context.db.user.findUnique({
+        where: { id: input.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          status: true,
+          walletAddress: true,
+          phone: true,
+          createdAt: true,
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      return user;
+    }),
 
   /**
    * Export wallet private key (requires password re-authentication)
@@ -205,8 +240,9 @@ export const userRouter = router({
 
   /**
    * Get wallet info (address and balance only, no private key)
+   * Users can only access their own wallet info
    */
-  getWalletInfo: privateProcedure
+  getWalletInfo: authenticatedProcedure
     .input(z.object({
       userId: z.string(),
     }))
@@ -237,6 +273,50 @@ export const userRouter = router({
         address: user.walletAddress || "",
         hasWallet: !!user.walletAddress,
         walletCreatedAt: user.walletCreatedAt?.toISOString(),
+      };
+    }),
+
+  /**
+   * Create a wallet for a user
+   */
+  createWallet: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .output(z.object({
+      address: z.string(),
+      created: z.boolean(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      // Check if user exists
+      const user = await context.db.user.findUnique({
+        where: { id: input.userId },
+        select: { walletAddress: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      // If user already has a wallet, return it
+      if (user.walletAddress) {
+        return {
+          address: user.walletAddress,
+          created: false,
+        };
+      }
+
+      // Create new wallet for user
+      const walletAddress = await createWalletForUser(input.userId);
+
+      return {
+        address: walletAddress,
+        created: true,
       };
     }),
 });

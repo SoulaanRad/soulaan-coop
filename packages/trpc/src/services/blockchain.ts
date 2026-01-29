@@ -33,6 +33,13 @@ export function getWalletClient(privateKey: string): WalletClient {
 // ABI for UnityCoin contract
 export const unityCoinAbi = [
   {
+    inputs: [],
+    name: 'totalSupply',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [{ name: 'account', type: 'address' }],
     name: 'balanceOf',
     outputs: [{ name: '', type: 'uint256' }],
@@ -96,7 +103,87 @@ export const soulaaniCoinAbi = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [{ name: 'account', type: 'address' }],
+    name: 'isMember',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'account', type: 'address' }],
+    name: 'memberStatus',
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'member', type: 'address' }],
+    name: 'addMember',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'member', type: 'address' },
+      { name: 'newStatus', type: 'uint8' },
+    ],
+    name: 'setMemberStatus',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'member', type: 'address' }],
+    name: 'suspendMember',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'member', type: 'address' }],
+    name: 'reactivateMember',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'member', type: 'address' }],
+    name: 'banMember',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
 ] as const;
+
+// MemberStatus enum matching the contract
+export enum MemberStatus {
+  NotMember = 0,
+  Active = 1,
+  Suspended = 2,
+  Banned = 3,
+}
+
+/**
+ * Get total supply of UnityCoin (total UC in circulation)
+ * @returns Total supply in UC
+ */
+export async function getUCTotalSupply(): Promise<{ totalSupply: bigint; formatted: string }> {
+  const publicClient = getPublicClient();
+
+  const totalSupply = await publicClient.readContract({
+    address: UNITY_COIN_ADDRESS as Address,
+    abi: unityCoinAbi,
+    functionName: 'totalSupply',
+    args: [],
+  });
+
+  return {
+    totalSupply,
+    formatted: formatUnits(totalSupply, 18),
+  };
+}
 
 /**
  * Get UnityCoin balance for an address
@@ -120,6 +207,98 @@ export async function getUCBalance(address: string): Promise<{ balance: bigint; 
 }
 
 /**
+ * Get SoulaaniCoin balance for an address
+ * @param address - The address to check
+ * @returns Balance in SC (formatted as string)
+ */
+export async function getSCBalance(address: string): Promise<{ balance: bigint; formatted: string }> {
+  const publicClient = getPublicClient();
+
+  const balance = await publicClient.readContract({
+    address: SOULAANI_COIN_ADDRESS as Address,
+    abi: soulaaniCoinAbi,
+    functionName: 'balanceOf',
+    args: [address as Address],
+  });
+
+  return {
+    balance,
+    formatted: formatUnits(balance, 18),
+  };
+}
+
+/**
+ * Get ETH balance for an address
+ * @param address - The address to check
+ * @returns Balance in ETH (formatted as string)
+ */
+export async function getETHBalance(address: string): Promise<{ balance: bigint; formatted: string }> {
+  const publicClient = getPublicClient();
+
+  const balance = await publicClient.getBalance({
+    address: address as Address,
+  });
+
+  return {
+    balance,
+    formatted: formatUnits(balance, 18),
+  };
+}
+
+/**
+ * Get comprehensive blockchain info for a user
+ * @param address - The wallet address to check
+ * @returns All relevant blockchain data
+ */
+export async function getComprehensiveBlockchainInfo(address: string): Promise<{
+  walletAddress: string;
+  ethBalance: { balance: string; formatted: string };
+  ucBalance: { balance: string; formatted: string };
+  scBalance: { balance: string; formatted: string };
+  memberStatus: MemberStatus;
+  memberStatusLabel: string;
+  isActiveMember: boolean;
+  isMember: boolean;
+}> {
+  const publicClient = getPublicClient();
+
+  // Fetch all data in parallel for efficiency
+  const [ethBalance, ucBalance, scBalance, memberStatus, isActive, isMemberResult] = await Promise.all([
+    getETHBalance(address),
+    getUCBalance(address),
+    getSCBalance(address),
+    getMemberStatus(address),
+    isActiveMember(address),
+    publicClient.readContract({
+      address: SOULAANI_COIN_ADDRESS as Address,
+      abi: soulaaniCoinAbi,
+      functionName: 'isMember',
+      args: [address as Address],
+    }),
+  ]);
+
+  return {
+    walletAddress: address,
+    ethBalance: {
+      balance: ethBalance.balance.toString(),
+      formatted: ethBalance.formatted,
+    },
+    ucBalance: {
+      balance: ucBalance.balance.toString(),
+      formatted: ucBalance.formatted,
+    },
+    scBalance: {
+      balance: scBalance.balance.toString(),
+      formatted: scBalance.formatted,
+    },
+    memberStatus,
+    memberStatusLabel: MemberStatus[memberStatus],
+    isActiveMember: isActive,
+    isMember: isMemberResult as boolean,
+  };
+}
+
+/**
  * Check if an address is an active SoulaaniCoin member
  * @param address - The address to check
  * @returns Boolean indicating active membership
@@ -135,6 +314,153 @@ export async function isActiveMember(address: string): Promise<boolean> {
   });
 
   return isActive;
+}
+
+/**
+ * Get member status from SoulaaniCoin contract
+ * @param address - The address to check
+ * @returns MemberStatus enum value
+ */
+export async function getMemberStatus(address: string): Promise<MemberStatus> {
+  const publicClient = getPublicClient();
+
+  const status = await publicClient.readContract({
+    address: SOULAANI_COIN_ADDRESS as Address,
+    abi: soulaaniCoinAbi,
+    functionName: 'memberStatus',
+    args: [address as Address],
+  });
+
+  return status as MemberStatus;
+}
+
+/**
+ * Add a member to the SoulaaniCoin contract
+ * @param memberAddress - The address to add as a member
+ * @param adminPrivateKey - Private key of an account with MEMBER_MANAGER role
+ * @returns Transaction hash
+ */
+export async function addMemberToContract(
+  memberAddress: string,
+  adminPrivateKey: string
+): Promise<string> {
+  const walletClient = getWalletClient(adminPrivateKey);
+  const account = privateKeyToAccount(adminPrivateKey as `0x${string}`);
+
+  console.log(`📝 Adding member ${memberAddress} to SoulaaniCoin contract...`);
+
+  const hash = await walletClient.writeContract({
+    address: SOULAANI_COIN_ADDRESS as Address,
+    abi: soulaaniCoinAbi,
+    functionName: 'addMember',
+    args: [memberAddress as Address],
+    account,
+    chain: baseSepolia,
+  });
+
+  console.log(`✅ Member added, tx: ${hash}`);
+
+  // Wait for confirmation
+  const publicClient = getPublicClient();
+  await publicClient.waitForTransactionReceipt({ hash });
+
+  return hash;
+}
+
+/**
+ * Set member status on the SoulaaniCoin contract
+ * @param memberAddress - The address to update
+ * @param status - The new MemberStatus
+ * @param adminPrivateKey - Private key of an account with MEMBER_MANAGER role
+ * @returns Transaction hash
+ */
+export async function setMemberStatusOnContract(
+  memberAddress: string,
+  status: MemberStatus,
+  adminPrivateKey: string
+): Promise<string> {
+  const walletClient = getWalletClient(adminPrivateKey);
+  const account = privateKeyToAccount(adminPrivateKey as `0x${string}`);
+
+  console.log(`📝 Setting member ${memberAddress} status to ${MemberStatus[status]}...`);
+
+  const hash = await walletClient.writeContract({
+    address: SOULAANI_COIN_ADDRESS as Address,
+    abi: soulaaniCoinAbi,
+    functionName: 'setMemberStatus',
+    args: [memberAddress as Address, status],
+    account,
+    chain: baseSepolia,
+  });
+
+  console.log(`✅ Member status updated, tx: ${hash}`);
+
+  // Wait for confirmation
+  const publicClient = getPublicClient();
+  await publicClient.waitForTransactionReceipt({ hash });
+
+  return hash;
+}
+
+/**
+ * Sync a user's membership status from DB to contract
+ * @param walletAddress - The user's wallet address
+ * @param dbStatus - The user's status from the database
+ * @param adminPrivateKey - Private key of an account with MEMBER_MANAGER role
+ * @returns Object with sync result
+ */
+export async function syncMembershipToContract(
+  walletAddress: string,
+  dbStatus: string,
+  adminPrivateKey: string
+): Promise<{ success: boolean; action: string; txHash?: string; error?: string }> {
+  try {
+    const currentContractStatus = await getMemberStatus(walletAddress);
+
+    console.log(`🔄 Syncing membership for ${walletAddress}`);
+    console.log(`   DB status: ${dbStatus}`);
+    console.log(`   Contract status: ${MemberStatus[currentContractStatus]}`);
+
+    // Map DB status to contract MemberStatus
+    let targetStatus: MemberStatus;
+    switch (dbStatus.toUpperCase()) {
+      case 'ACTIVE':
+        targetStatus = MemberStatus.Active;
+        break;
+      case 'SUSPENDED':
+        targetStatus = MemberStatus.Suspended;
+        break;
+      case 'BANNED':
+        targetStatus = MemberStatus.Banned;
+        break;
+      default:
+        targetStatus = MemberStatus.NotMember;
+    }
+
+    // If already matching, no action needed
+    if (currentContractStatus === targetStatus) {
+      console.log(`   ✅ Already in sync`);
+      return { success: true, action: 'already_synced' };
+    }
+
+    // If user is NotMember on contract and should be Active, use addMember
+    if (currentContractStatus === MemberStatus.NotMember && targetStatus === MemberStatus.Active) {
+      const txHash = await addMemberToContract(walletAddress, adminPrivateKey);
+      return { success: true, action: 'added_member', txHash };
+    }
+
+    // Otherwise use setMemberStatus
+    const txHash = await setMemberStatusOnContract(walletAddress, targetStatus, adminPrivateKey);
+    return { success: true, action: 'status_updated', txHash };
+
+  } catch (error) {
+    console.error(`❌ Failed to sync membership:`, error);
+    return {
+      success: false,
+      action: 'failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
 }
 
 /**

@@ -226,15 +226,15 @@ export default function VideoUpload({ onUploadComplete, apiUrl }: VideoUploadPro
 
       {/* Upload progress */}
       {isUploading && (
-        <View className="bg-blue-50 p-4 rounded-xl space-y-2">
+        <View className="bg-amber-50 p-4 rounded-xl space-y-2">
           <View className="flex-row items-center justify-center">
-            <ActivityIndicator size="small" color="#3b82f6" />
-            <Text className="text-blue-700 ml-2">Uploading to IPFS...</Text>
+            <ActivityIndicator size="small" color="#D97706" />
+            <Text className="text-amber-700 ml-2">Uploading to IPFS...</Text>
           </View>
           {uploadProgress > 0 && (
-            <View className="bg-blue-200 h-2 rounded-full overflow-hidden">
+            <View className="bg-amber-200 h-2 rounded-full overflow-hidden">
               <View
-                className="bg-blue-600 h-full"
+                className="bg-amber-600 h-full"
                 style={{ width: `${uploadProgress}%` }}
               />
             </View>

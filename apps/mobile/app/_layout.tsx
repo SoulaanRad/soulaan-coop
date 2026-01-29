@@ -8,6 +8,8 @@ import { PortalHost } from '@rn-primitives/portal';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/auth-context';
+import { PaymentConfirmationProvider } from '@/components/payment-confirmation-provider';
+import StripeWrapper from '@/components/providers/StripeWrapper';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,14 +30,18 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-          </Stack>
-          <StatusBar style="auto" />
-          <PortalHost />
-        </ThemeProvider>
-      </AuthProvider>
+      <StripeWrapper>
+        <AuthProvider>
+          <PaymentConfirmationProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack screenOptions={{ headerShown: false }}>
+              </Stack>
+              <StatusBar style="auto" />
+              <PortalHost />
+            </ThemeProvider>
+          </PaymentConfirmationProvider>
+        </AuthProvider>
+      </StripeWrapper>
     </QueryClientProvider>
   );
 }

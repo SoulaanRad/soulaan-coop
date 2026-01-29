@@ -1,5 +1,5 @@
-import { createWalletClient, http, parseUnits, encodeFunctionData, createPublicClient, type Address } from 'viem';
-import { privateKeyToAccount, generatePrivateKey, mnemonicToAccount, english, generateMnemonic } from 'viem/accounts';
+import { createWalletClient, http, parseUnits, parseEther, formatEther, encodeFunctionData, createPublicClient, type Address } from 'viem';
+import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import { db } from '@repo/db';
@@ -10,33 +10,27 @@ const WALLET_ENCRYPTION_KEY = process.env.WALLET_ENCRYPTION_KEY;
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
 const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9';
 
-if (!WALLET_ENCRYPTION_KEY) {
-  console.error('❌ WALLET_ENCRYPTION_KEY environment variable not set!');
-  console.error('   Please add WALLET_ENCRYPTION_KEY to your .env file');
-  console.error('   Generate with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-}
+// Minimum ETH balance for gas (0.0001 ETH = 100+ transactions on Base L2)
+const MIN_GAS_BALANCE = parseEther('0.0001');
+// Amount to fund when wallet is low on gas (~$1 USD worth of ETH)
+const GAS_FUNDING_AMOUNT = parseEther('0.0003');
 
-if (!BACKEND_WALLET_PRIVATE_KEY) {
-  console.error('❌ BACKEND_WALLET_PRIVATE_KEY environment variable not set!');
-  console.error('   Please add BACKEND_WALLET_PRIVATE_KEY to your .env file');
-  console.error('   This wallet must have the BACKEND role in the UnityCoin contract');
-}
+
 
 /**
  * Generate a new Ethereum wallet (EOA)
- * Returns address, private key, and mnemonic
+ * Returns address and private key
  */
-export function createWallet(): { address: string; privateKey: string; mnemonic: string } {
-  // Generate mnemonic (12 words)
-  const mnemonic = generateMnemonic(english);
+export function createWallet(): { address: string; privateKey: string } {
+  // Generate a random private key (hex string starting with 0x)
+  const privateKey = generatePrivateKey();
 
-  // Create account from mnemonic
-  const account = mnemonicToAccount(mnemonic);
+  // Create account from private key
+  const account = privateKeyToAccount(privateKey);
 
   return {
     address: account.address,
-    privateKey: account.source, // This is the private key
-    mnemonic,
+    privateKey,
   };
 }
 
@@ -138,6 +132,13 @@ export async function createWalletForUser(userId: string): Promise<string> {
 }
 
 /**
+ * Check if a private key is valid (hex string starting with 0x, 66 characters)
+ */
+function isValidPrivateKey(key: string): boolean {
+  return /^0x[a-fA-F0-9]{64}$/.test(key);
+}
+
+/**
  * Get a user's wallet for transaction signing
  * @param userId - The user ID
  * @returns Wallet address and decrypted private key
@@ -154,6 +155,32 @@ export async function getUserWallet(userId: string): Promise<{ address: string; 
 
   // Decrypt private key
   const privateKey = decryptPrivateKey(user.encryptedPrivateKey);
+
+  // Validate the private key format
+  if (!isValidPrivateKey(privateKey)) {
+    console.warn(`⚠️ Invalid private key for user ${userId}, regenerating wallet...`);
+
+    // Generate a new valid wallet
+    const newWallet = createWallet();
+    const encryptedKey = encryptPrivateKey(newWallet.privateKey);
+
+    // Update user with new wallet
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        walletAddress: newWallet.address,
+        encryptedPrivateKey: encryptedKey,
+        walletCreatedAt: new Date(),
+      },
+    });
+
+    console.log(`✅ Regenerated wallet ${newWallet.address} for user ${userId}`);
+
+    return {
+      address: newWallet.address,
+      privateKey: newWallet.privateKey,
+    };
+  }
 
   return {
     address: user.walletAddress,
@@ -217,14 +244,112 @@ export function getPublicClient() {
 }
 
 /**
+ * Get the ETH balance of a wallet address
+ */
+export async function getEthBalance(address: string): Promise<bigint> {
+  const publicClient = getPublicClient();
+  return publicClient.getBalance({ address: address as Address });
+}
+
+/**
+ * Check if a wallet has enough ETH for gas
+ */
+export async function hasEnoughGas(address: string): Promise<boolean> {
+  const balance = await getEthBalance(address);
+  return balance >= MIN_GAS_BALANCE;
+}
+
+/**
+ * Fund a wallet with ETH for gas from the backend wallet
+ * @param toAddress - The wallet address to fund
+ * @returns Transaction hash
+ */
+export async function fundWalletWithGas(toAddress: string): Promise<string> {
+  // Debug: Log the key format (masked for security)
+  const keyPreview = BACKEND_WALLET_PRIVATE_KEY
+    ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
+    : 'NOT SET';
+  console.log(`🔑 BACKEND_WALLET_PRIVATE_KEY: ${keyPreview}`);
+
+  if (!BACKEND_WALLET_PRIVATE_KEY) {
+    throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
+  }
+
+  // Validate backend private key format
+  if (!isValidPrivateKey(BACKEND_WALLET_PRIVATE_KEY)) {
+    console.error(`❌ Invalid key format. Expected: 0x + 64 hex chars. Got: starts with "${BACKEND_WALLET_PRIVATE_KEY}", length ${BACKEND_WALLET_PRIVATE_KEY.length}`);
+    throw new Error('BACKEND_WALLET_PRIVATE_KEY is invalid. Must be a hex string starting with 0x followed by 64 hex characters (e.g., 0x1234...abcd)');
+  }
+
+  console.log(`⛽ Funding wallet ${toAddress} with ${formatEther(GAS_FUNDING_AMOUNT)} ETH for gas...`);
+
+  // Create backend wallet client
+  const backendAccount = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
+  const walletClient = createWalletClient({
+    account: backendAccount,
+    chain: baseSepolia,
+    transport: http(RPC_URL),
+  });
+
+  // Send ETH to user's wallet
+  const txHash = await walletClient.sendTransaction({
+    to: toAddress as Address,
+    value: GAS_FUNDING_AMOUNT,
+  });
+
+  console.log(`✅ Gas funding transaction sent: ${txHash}`);
+
+  // Wait for confirmation
+  const publicClient = getPublicClient();
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+  console.log(`✅ Gas funding confirmed for ${toAddress}`);
+
+  return txHash;
+}
+
+/**
+ * Ensure a wallet has enough gas, funding it if necessary
+ * @param address - The wallet address to check/fund
+ * @returns true if wallet now has gas, false if funding failed
+ */
+export async function ensureWalletHasGas(address: string): Promise<boolean> {
+  const hasGas = await hasEnoughGas(address);
+
+  if (hasGas) {
+    return true;
+  }
+
+  try {
+    await fundWalletWithGas(address);
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to fund wallet ${address} with gas:`, error);
+    return false;
+  }
+}
+
+/**
  * Mint UnityCoin to a user's wallet (used for fiat onramp)
  * @param userId - The user ID to mint UC for
  * @param amountUC - Amount of UC to mint (in UC, not wei)
  * @returns Transaction hash
  */
 export async function mintUCToUser(userId: string, amountUC: number): Promise<string> {
+  // Debug: Log the key format (masked for security)
+  const keyPreview = BACKEND_WALLET_PRIVATE_KEY
+    ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
+    : 'NOT SET';
+  console.log(`🔑 BACKEND_WALLET_PRIVATE_KEY: ${keyPreview}`);
+
   if (!BACKEND_WALLET_PRIVATE_KEY) {
     throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
+  }
+
+  // Validate backend private key format
+  if (!isValidPrivateKey(BACKEND_WALLET_PRIVATE_KEY)) {
+    console.error(`❌ Invalid key format. Expected: 0x + 64 hex chars. Got: starts with "${BACKEND_WALLET_PRIVATE_KEY}", length ${BACKEND_WALLET_PRIVATE_KEY.length}`);
+    throw new Error('BACKEND_WALLET_PRIVATE_KEY is invalid. Must be a hex string starting with 0x followed by 64 hex characters (e.g., 0x1234...abcd)');
   }
 
   // Get user's wallet address

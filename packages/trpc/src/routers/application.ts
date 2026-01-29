@@ -6,6 +6,11 @@ import { Context } from "../context.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { createWalletForUser } from "../services/wallet-service.js";
+import { syncMembershipToContract } from "../services/blockchain.js";
+import { toE164 } from "../lib/phone.js";
+
+// Backend wallet for contract interactions
+const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
 
 // Validation schema for application submission
 const applicationSchema = z.object({
@@ -91,11 +96,15 @@ export const applicationRouter = router({
         const result = await context.db.$transaction(async (tx) => {
           // Create user with PENDING status
           console.log('👤 Creating user...');
+          // Normalize phone to E.164 format
+          const normalizedPhone = toE164(input.phone);
+          console.log(`📱 Phone: "${input.phone}" -> "${normalizedPhone}"`);
+
           const user = await tx.user.create({
             data: {
               email: input.email,
               name: `${input.firstName} ${input.lastName}`,
-              phone: input.phone,
+              phone: normalizedPhone,
               password: hashedPassword,
               roles: ["member"],
               status: "PENDING",
@@ -114,7 +123,7 @@ export const applicationRouter = router({
                 firstName: input.firstName,
                 lastName: input.lastName,
                 email: input.email,
-                phone: input.phone,
+                phone: normalizedPhone,
                 
                 // Identity & Eligibility
                 identity: input.identity,
@@ -350,6 +359,32 @@ export const applicationRouter = router({
         });
 
         console.log('✅ Transaction completed successfully');
+
+        // 4. Sync membership to blockchain contract
+        if (BACKEND_WALLET_PRIVATE_KEY && result.walletAddress) {
+          console.log('⛓️ Syncing membership to SoulaaniCoin contract...');
+          try {
+            const syncResult = await syncMembershipToContract(
+              result.walletAddress,
+              'ACTIVE',
+              BACKEND_WALLET_PRIVATE_KEY
+            );
+            if (syncResult.success) {
+              console.log(`✅ Membership synced: ${syncResult.action}`);
+              if (syncResult.txHash) {
+                console.log(`   Transaction: ${syncResult.txHash}`);
+              }
+            } else {
+              console.warn(`⚠️ Membership sync failed: ${syncResult.error}`);
+              // Don't fail the approval, just log the warning
+            }
+          } catch (syncError) {
+            console.warn('⚠️ Failed to sync membership to contract:', syncError);
+            // Don't fail the approval, just log the warning
+          }
+        } else {
+          console.warn('⚠️ BACKEND_WALLET_PRIVATE_KEY not set, skipping contract sync');
+        }
 
         const response = {
           success: true,

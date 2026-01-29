@@ -2,29 +2,33 @@ import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndic
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { api } from '~/lib/api';
+import { useAuth } from '~/contexts/auth-context';
 
 export default function WalletScreen() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [walletInfo, setWalletInfo] = useState<any>(null);
-  const [balance, setBalance] = useState<string>('0');
+  const [balance, setBalance] = useState<string>('$0.00');
   const [error, setError] = useState<string | null>(null);
 
-  // TODO: Get from auth context
-  const userId = 'PLACEHOLDER_USER_ID';
-
   const loadWalletData = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setError(null);
 
       // Get wallet info
-      const wallet = await api.getWalletInfo(userId);
+      const wallet = await api.getWalletInfo(user.id);
       setWalletInfo(wallet);
 
-      // If user has a wallet, get balance
+      // If user has a wallet, get USD balance
       if (wallet.hasWallet && wallet.address) {
-        const balanceData = await api.getUCBalance(wallet.address);
-        setBalance(balanceData.balanceFormatted);
+        const balanceData = await api.getUSDBalance(user.id, wallet.address);
+        setBalance(balanceData.formatted);
       }
     } catch (err) {
       console.error('Error loading wallet:', err);
@@ -33,7 +37,7 @@ export default function WalletScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [user?.id]);
 
   useEffect(() => {
     loadWalletData();
@@ -52,7 +56,7 @@ export default function WalletScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color="#D97706" />
         <Text className="mt-4 text-gray-600">Loading wallet...</Text>
       </View>
     );
@@ -65,7 +69,7 @@ export default function WalletScreen() {
         <Text className="text-center text-gray-600 mb-6">{error}</Text>
         <TouchableOpacity
           onPress={loadWalletData}
-          className="bg-blue-600 px-6 py-3 rounded-lg"
+          className="bg-amber-600 px-6 py-3 rounded-lg"
         >
           <Text className="text-white font-semibold">Retry</Text>
         </TouchableOpacity>
@@ -92,9 +96,9 @@ export default function WalletScreen() {
       }
     >
       {/* Balance Card */}
-      <View className="bg-gradient-to-br from-blue-600 to-purple-600 mx-4 mt-6 p-6 rounded-2xl shadow-lg">
-        <Text className="text-white text-sm font-medium mb-2">Unity Coin Balance</Text>
-        <Text className="text-white text-4xl font-bold mb-4">{balance} UC</Text>
+      <View className="bg-gradient-to-br from-amber-600 to-amber-800 mx-4 mt-6 p-6 rounded-2xl shadow-lg">
+        <Text className="text-white text-sm font-medium mb-2">Available Balance</Text>
+        <Text className="text-white text-4xl font-bold mb-4">{balance}</Text>
         <View className="bg-white/20 rounded-lg p-3">
           <Text className="text-white/80 text-xs mb-1">Wallet Address</Text>
           <Text className="text-white font-mono text-sm">{truncateAddress(walletInfo.address)}</Text>
@@ -102,19 +106,18 @@ export default function WalletScreen() {
       </View>
 
       {/* Action Buttons */}
-      <View className="mx-4 mt-6 flex-row gap-3">
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/buy')}
-          className="flex-1 bg-green-600 py-4 rounded-xl items-center shadow-md"
-        >
-          <Text className="text-white font-semibold text-base">Buy UC</Text>
-        </TouchableOpacity>
-
+      <View className="mx-4 mt-6 flex-row space-x-3">
         <TouchableOpacity
           onPress={() => router.push('/(tabs)/transfer')}
-          className="flex-1 bg-blue-600 py-4 rounded-xl items-center shadow-md"
+          className="flex-1 bg-amber-600 py-4 rounded-xl items-center shadow-md"
         >
-          <Text className="text-white font-semibold text-base">Send UC</Text>
+          <Text className="text-white font-semibold text-base">Pay</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push('/withdraw' as any)}
+          className="flex-1 bg-gray-800 py-4 rounded-xl items-center shadow-md"
+        >
+          <Text className="text-white font-semibold text-base">Withdraw</Text>
         </TouchableOpacity>
       </View>
 

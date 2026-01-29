@@ -15,16 +15,29 @@ model User {
   roles               String[] @default(["member"]) // member, business, admin, governor
   status              UserStatus @default(PENDING)
   password            String?
-  phone               String?
+  phone               String?  @unique  // E.164 format: +1XXXXXXXXXX
   walletAddress       String?  @unique
   encryptedPrivateKey String?  // Encrypted wallet private key for backend-managed wallets
   walletCreatedAt     DateTime? // Timestamp when wallet was created
   profileCompleted    Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  // Stripe integration for P2P payments
+  stripeCustomerId       String?  @unique
+  defaultPaymentMethodId String?
+
   // Relations
   application         Application?
   onrampTransactions  OnrampTransaction[]
+  paymentMethods      PaymentMethod[]
+  sentTransfers       P2PTransfer[] @relation("sender")
+  receivedTransfers   P2PTransfer[] @relation("recipient")
+  pendingTransfersSent PendingTransfer[] @relation("sender")
+  bankAccounts        BankAccount[]
+  withdrawals         Withdrawal[]
+  notifications       Notification[]
+
   @@schema("public")
 }
 
@@ -357,6 +370,192 @@ enum OnrampStatus {
   COMPLETED
   FAILED
   REFUNDED
+
+  @@schema("public")
+}
+
+// ── P2P Payment Models ────────────────────────────────
+
+// Saved payment methods (cards) for P2P payments
+model PaymentMethod {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripePaymentMethodId String   @unique
+  type                  String   // 'card'
+  last4                 String
+  brand                 String   // visa, mastercard, amex
+  expiryMonth           Int
+  expiryYear            Int
+  isDefault             Boolean  @default(false)
+
+  createdAt             DateTime @default(now())
+
+  @@index([userId])
+  @@schema("public")
+}
+
+// P2P transfer between two Soulaan users
+model P2PTransfer {
+  id                String   @id @default(cuid())
+
+  senderId          String
+  sender            User     @relation("sender", fields: [senderId], references: [id])
+  recipientId       String
+  recipient         User     @relation("recipient", fields: [recipientId], references: [id])
+
+  amountUSD         Float    // Display amount (what user sees)
+  amountUC          Float    // Settlement amount (internal, same as USD at 1:1)
+
+  // Funding source
+  fundingSource     FundingSource  // BALANCE or CARD
+  stripePaymentIntentId String?    // If funded by card
+  stripeChargeId    String?
+
+  // Settlement
+  blockchainTxHash  String?
+  status            P2PStatus @default(PENDING)
+
+  note              String?
+  createdAt         DateTime @default(now())
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, createdAt])
+  @@index([status])
+  @@schema("public")
+}
+
+// Pending transfer to non-user (escrow until claimed)
+model PendingTransfer {
+  id                String   @id @default(cuid())
+
+  senderId          String
+  sender            User     @relation("sender", fields: [senderId], references: [id])
+
+  recipientPhone    String   // Phone number of non-user
+  recipientEmail    String?  // Optional email
+
+  amountUSD         Float
+  amountUC          Float
+
+  claimToken        String   @unique @default(cuid())  // For claim URL
+  status            PendingStatus @default(PENDING_CLAIM)
+
+  // Funding
+  fundingSource     FundingSource
+  stripePaymentIntentId String?
+  stripeChargeId    String?
+
+  note              String?
+  expiresAt         DateTime  // 7 days from creation
+  createdAt         DateTime @default(now())
+  claimedAt         DateTime?
+  claimedByUserId   String?   // User ID if they joined Soulaan
+  refundedAt        DateTime?
+
+  @@index([recipientPhone])
+  @@index([claimToken])
+  @@index([status, expiresAt])
+  @@schema("public")
+}
+
+// Bank account for withdrawals
+model BankAccount {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripeBankAccountId   String?  @unique
+  accountHolderName     String
+  bankName              String
+  last4                 String   // Last 4 digits of account
+  routingLast4          String   // Last 4 of routing number
+  isDefault             Boolean  @default(false)
+  isVerified            Boolean  @default(false)
+
+  createdAt             DateTime @default(now())
+
+  @@index([userId])
+  @@schema("public")
+}
+
+// Withdrawal request (USD to bank)
+model Withdrawal {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  bankAccountId     String
+
+  amountUSD         Float
+  amountUC          Float    // UC debited from balance
+
+  stripePayoutId    String?  @unique
+  status            WithdrawalStatus @default(PENDING)
+
+  createdAt         DateTime @default(now())
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@schema("public")
+}
+
+// In-app notifications
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String   // PAYMENT_RECEIVED, PAYMENT_SENT, WITHDRAWAL_COMPLETE, etc.
+  title       String
+  body        String
+  data        Json?    // Additional data (transferId, amount, etc)
+  read        Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId, read, createdAt])
+  @@schema("public")
+}
+
+// ── P2P Enums ──────────────────────────────────────────
+
+enum FundingSource {
+  BALANCE    // Funded from existing UC balance
+  CARD       // Funded via Stripe card charge
+
+  @@schema("public")
+}
+
+enum P2PStatus {
+  PENDING     // Transfer initiated
+  PROCESSING  // Card charge or blockchain tx in progress
+  COMPLETED   // Successfully settled
+  FAILED      // Failed (card declined, blockchain error, etc.)
+
+  @@schema("public")
+}
+
+enum PendingStatus {
+  PENDING_CLAIM      // Waiting for recipient to claim
+  CLAIMED_TO_BANK    // Recipient withdrew to bank (dead end)
+  CLAIMED_TO_SOULAAN // Recipient joined Soulaan
+  EXPIRED            // 7 days passed, refunded to sender
+
+  @@schema("public")
+}
+
+enum WithdrawalStatus {
+  PENDING     // Withdrawal requested
+  PROCESSING  // Payout initiated with Stripe
+  COMPLETED   // Funds sent to bank
+  FAILED      // Payout failed
 
   @@schema("public")
 }

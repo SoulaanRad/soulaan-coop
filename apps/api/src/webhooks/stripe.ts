@@ -1,51 +1,102 @@
 import type { Request, Response } from 'express';
 import { db } from '@repo/db';
 import { mintUCToUser } from '@repo/trpc/services/wallet-service';
+import crypto from 'crypto';
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const HOOKDECK_SIGNATURE_KEY = process.env.HOOKDECK_SIGNATURE_KEY;
+const USE_HOOKDECK = process.env.USE_HOOKDECK === 'true';
 
 /**
  * Stripe webhook handler
- * Processes payment completion events and mints UC tokens
+ * Supports both direct Stripe webhooks and Hookdeck proxy
+ * 
+ * Setup Options:
+ * 1. Direct Stripe (default): Set STRIPE_WEBHOOK_SECRET
+ * 2. Via Hookdeck: Set USE_HOOKDECK=true and HOOKDECK_SIGNATURE_KEY
  *
  * Webhook URL: POST /webhooks/stripe
  */
 export async function handleStripeWebhook(req: Request, res: Response) {
   console.log('\n🔷 STRIPE WEBHOOK - START');
+  console.log(`📍 Mode: ${USE_HOOKDECK ? 'Hookdeck' : 'Direct Stripe'}`);
 
   try {
-    const sig = req.headers['stripe-signature'];
+    let event: any;
 
-    if (!sig) {
-      console.error('❌ Missing Stripe signature');
-      return res.status(400).json({ error: 'Missing signature' });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Option 1: Hookdeck Proxy (webhook debugging/management)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (USE_HOOKDECK) {
+      console.log('🔗 Processing via Hookdeck');
+
+      // Verify Hookdeck signature (optional but recommended)
+      if (HOOKDECK_SIGNATURE_KEY) {
+        const hookdeckSig = req.headers['x-hookdeck-signature'];
+        if (!hookdeckSig) {
+          console.error('❌ Missing Hookdeck signature');
+          return res.status(400).json({ error: 'Missing Hookdeck signature' });
+        }
+
+        // Verify Hookdeck signature
+        const payload = req.body.toString('utf8');
+        const expectedSig = crypto
+          .createHmac('sha256', HOOKDECK_SIGNATURE_KEY)
+          .update(payload)
+          .digest('hex');
+
+        if (hookdeckSig !== expectedSig) {
+          console.error('❌ Invalid Hookdeck signature');
+          return res.status(400).json({ error: 'Invalid Hookdeck signature' });
+        }
+
+        console.log('✅ Hookdeck signature verified');
+      }
+
+      // Hookdeck already verified the Stripe signature
+      // Parse the body directly as JSON
+      event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      console.log('✅ Event parsed from Hookdeck');
     }
 
-    if (!STRIPE_WEBHOOK_SECRET) {
-      console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
-      return res.status(500).json({ error: 'Webhook secret not configured' });
-    }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Option 2: Direct Stripe Webhook (default)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    else {
+      console.log('⚡ Processing direct from Stripe');
 
-    // Import Stripe dynamically to avoid issues if not installed
-    const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2024-12-18.acacia',
-    });
+      const sig = req.headers['stripe-signature'];
 
-    // Verify webhook signature
-    // req.body is a Buffer when using express.raw()
-    let event;
-    try {
-      const payload = req.body.toString('utf8');
-      event = stripe.webhooks.constructEvent(
-        payload,
-        sig as string,
-        STRIPE_WEBHOOK_SECRET
-      );
-      console.log('✅ Stripe webhook signature verified');
-    } catch (err) {
-      console.error('❌ Webhook signature verification failed:', err);
-      return res.status(400).json({ error: 'Invalid signature' });
+      if (!sig) {
+        console.error('❌ Missing Stripe signature');
+        return res.status(400).json({ error: 'Missing signature' });
+      }
+
+      if (!STRIPE_WEBHOOK_SECRET) {
+        console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+        return res.status(500).json({ error: 'Webhook secret not configured' });
+      }
+
+      // Import Stripe dynamically to avoid issues if not installed
+      const Stripe = (await import('stripe')).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: '2024-12-18.acacia',
+      });
+
+      // Verify webhook signature
+      // req.body is a Buffer when using express.raw()
+      try {
+        const payload = req.body.toString('utf8');
+        event = stripe.webhooks.constructEvent(
+          payload,
+          sig as string,
+          STRIPE_WEBHOOK_SECRET
+        );
+        console.log('✅ Stripe webhook signature verified');
+      } catch (err) {
+        console.error('❌ Webhook signature verification failed:', err);
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
     }
 
     console.log('📨 Event type:', event.type);
@@ -113,9 +164,52 @@ export async function handleStripeWebhook(req: Request, res: Response) {
           },
         });
 
-        // TODO: Initiate refund via Stripe
+        // Automatically refund the user since minting failed
+        console.log('💸 Initiating automatic refund...');
+        try {
+          const Stripe = (await import('stripe')).default;
+          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+            apiVersion: '2024-12-18.acacia',
+          });
 
-        return res.status(500).json({ error: 'Minting failed' });
+          const refund = await stripe.refunds.create({
+            payment_intent: paymentIntent.id,
+            reason: 'requested_by_customer',
+            metadata: {
+              original_transaction_id: transaction.id,
+              failure_reason: error instanceof Error ? error.message : 'Minting failed',
+            },
+          });
+
+          console.log('✅ Refund initiated:', refund.id);
+
+          // Update transaction with refund info
+          await db.onrampTransaction.update({
+            where: { id: transaction.id },
+            data: {
+              status: 'REFUNDED',
+              failureReason: `Minting failed, refund issued: ${refund.id}`,
+            },
+          });
+
+          console.log('✅ Transaction marked as REFUNDED');
+        } catch (refundError) {
+          // Refund failed - this needs manual intervention
+          console.error('💥 CRITICAL: Refund failed:', refundError);
+          console.error('🚨 MANUAL INTERVENTION REQUIRED for transaction:', transaction.id);
+          console.error('🚨 Payment Intent:', paymentIntent.id);
+          console.error('🚨 User:', transaction.user.email);
+
+          // Update with critical failure status
+          await db.onrampTransaction.update({
+            where: { id: transaction.id },
+            data: {
+              failureReason: `CRITICAL: Minting failed AND refund failed. Manual refund required. Error: ${refundError instanceof Error ? refundError.message : 'Unknown'}`,
+            },
+          });
+        }
+
+        return res.status(500).json({ error: 'Minting failed, refund initiated' });
       }
     }
 

@@ -25,6 +25,9 @@ export const authRouter = router({
         name: z.string().nullable(),
         roles: z.array(z.string()),
         status: z.string(),
+        walletAddress: z.string().nullable(),
+        phone: z.string().nullable(),
+        createdAt: z.date(),
       }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -86,13 +89,16 @@ export const authRouter = router({
         return {
           success: true,
           message: "Login successful",
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          roles: user.roles,
-          status: user.status,
-        },
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            roles: user.roles,
+            status: user.status,
+            walletAddress: user.walletAddress,
+            phone: user.phone,
+            createdAt: user.createdAt,
+          },
         };
       } catch (error) {
         console.error("Login error:", error);

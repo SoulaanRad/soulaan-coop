@@ -59,9 +59,7 @@ export class StripePaymentService implements PaymentServiceInterface {
           type: 'uc_onramp',
           ...params.metadata,
         },
-        automatic_payment_methods: {
-          enabled: true,
-        },
+        payment_method_types: ['card'],
       });
 
       console.log('✅ Stripe payment intent created:', paymentIntent.id);

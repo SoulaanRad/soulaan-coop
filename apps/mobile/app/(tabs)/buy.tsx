@@ -104,12 +104,12 @@ export default function BuyScreen() {
                   key={processor}
                   onPress={() => setSelectedProcessor(processor as any)}
                   className={`flex-row items-center p-3 rounded-lg border-2 ${
-                    selectedProcessor === processor ? 'border-blue-600 bg-blue-50' : 'border-gray-200'
+                    selectedProcessor === processor ? 'border-amber-600 bg-amber-50' : 'border-gray-200'
                   }`}
                 >
                   <View className="flex-1">
                     <Text className={`font-semibold capitalize ${
-                      selectedProcessor === processor ? 'text-blue-600' : 'text-gray-900'
+                      selectedProcessor === processor ? 'text-amber-700' : 'text-gray-900'
                     }`}>
                       {processor}
                     </Text>
@@ -118,7 +118,7 @@ export default function BuyScreen() {
                     )}
                   </View>
                   {selectedProcessor === processor && (
-                    <Text className="text-blue-600 text-xl">✓</Text>
+                    <Text className="text-amber-700 text-xl">✓</Text>
                   )}
                 </TouchableOpacity>
               ))}
@@ -138,12 +138,12 @@ export default function BuyScreen() {
                 onPress={() => setAmount(preset.toString())}
                 className={`px-4 py-2 rounded-lg border ${
                   amount === preset.toString()
-                    ? 'border-blue-600 bg-blue-50'
+                    ? 'border-amber-600 bg-amber-50'
                     : 'border-gray-300 bg-white'
                 }`}
               >
                 <Text className={`font-medium ${
-                  amount === preset.toString() ? 'text-blue-600' : 'text-gray-700'
+                  amount === preset.toString() ? 'text-amber-700' : 'text-gray-700'
                 }`}>
                   ${preset}
                 </Text>
@@ -166,12 +166,12 @@ export default function BuyScreen() {
 
           {/* UC Preview */}
           {amount && parseFloat(amount) >= 10 && (
-            <View className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <Text className="text-blue-800 text-sm">You will receive</Text>
-              <Text className="text-blue-900 text-2xl font-bold mt-1">
+            <View className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <Text className="text-amber-800 text-sm">You will receive</Text>
+              <Text className="text-amber-900 text-2xl font-bold mt-1">
                 {parseFloat(amount).toFixed(2)} UC
               </Text>
-              <Text className="text-blue-600 text-xs mt-1">1 UC = 1 USD</Text>
+              <Text className="text-amber-700 text-xs mt-1">1 UC = 1 USD</Text>
             </View>
           )}
 

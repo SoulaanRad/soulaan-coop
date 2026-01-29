@@ -57,9 +57,24 @@ export const onrampRouter = router({
       console.log('💳 Preferred processor:', input.processor || 'auto');
 
       try {
-        // TODO: Get userId from auth context
-        // For now, we'll require it to be passed in
-        const userId = 'PLACEHOLDER_USER_ID'; // Replace with actual auth
+        // Get wallet address from authenticated context
+        const walletAddress = (ctx as any).walletAddress as string;
+        console.log('👛 Wallet address:', walletAddress);
+
+        // Look up user by wallet address
+        const user = await context.db.user.findUnique({
+          where: { walletAddress },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found. Please complete registration first.",
+          });
+        }
+
+        const userId = user.id;
+        console.log('👤 User ID:', userId);
 
         // Create payment intent with automatic failover
         const paymentIntent = await paymentService.createPaymentIntent({
@@ -143,8 +158,22 @@ export const onrampRouter = router({
       console.log('\n🔷 getOnrampHistory - START');
 
       try {
-        // TODO: Get userId from auth context
-        const userId = 'PLACEHOLDER_USER_ID'; // Replace with actual auth
+        // Get wallet address from authenticated context
+        const walletAddress = (ctx as any).walletAddress as string;
+
+        // Look up user by wallet address
+        const user = await context.db.user.findUnique({
+          where: { walletAddress },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        const userId = user.id;
 
         // Get total count
         const total = await context.db.onrampTransaction.count({

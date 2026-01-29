@@ -3,20 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Coins } from "lucide-react";
+import { Users, FileText, BarChart3, Settings, LogOut, Landmark } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
+import BackendWalletStatus from "./backend-wallet-status";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   {
     title: "Dashboard",
     href: "/portal",
     icon: BarChart3,
   },
   {
-    title: "Buy UC",
-    href: "/buy",
-    icon: Coins,
+    title: "Treasury",
+    href: "/portal/treasury",
+    icon: Landmark,
+    adminOnly: true,
   },
   {
     title: "Members",
@@ -69,6 +78,11 @@ export function PortalNav() {
             {/* Navigation */}
             <nav className="flex items-center gap-1">
               {navItems.map((item) => {
+                // Skip admin-only items for non-admins
+                if (item.adminOnly && !isAdmin) {
+                  return null;
+                }
+
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
 
@@ -93,6 +107,9 @@ export function PortalNav() {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
+            {/* Gas Wallet Status */}
+            {isAdmin && <BackendWalletStatus />}
+
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
                 <p className="text-sm font-medium text-white">Deon Robinson</p>

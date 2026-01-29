@@ -1041,9 +1041,9 @@ export default function OnboardingFlow() {
                 </View>
 
                 {/* Info */}
-                <View className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-                  <Text className="text-sm text-blue-900 font-semibold mb-2">Why upload media?</Text>
-                  <Text className="text-sm text-blue-800">
+                <View className="bg-cream-100 border border-cream-300 rounded-lg p-4 mt-6">
+                  <Text className="text-sm text-charcoal-800 font-semibold mb-2">Why upload media?</Text>
+                  <Text className="text-sm text-charcoal-600">
                     • Helps community members get to know you{'\n'}
                     • Increases your application approval chances{'\n'}
                     • Builds trust in the cooperative{'\n'}

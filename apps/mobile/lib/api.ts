@@ -6,6 +6,23 @@ import { getApiUrl, networkConfig } from './config';
 // API configuration
 export const API_BASE_URL = getApiUrl();
 
+/**
+ * Helper to create headers with optional wallet address
+ * Used for authenticated requests that require wallet verification
+ */
+export function createApiHeaders(walletAddress?: string | null): HeadersInit {
+  const headers: Record<string, string> = {
+    ...networkConfig.defaultHeaders,
+  };
+
+  // Add wallet address header if provided (for privateProcedure endpoints)
+  if (walletAddress) {
+    headers['x-wallet-address'] = walletAddress;
+  }
+
+  return headers;
+}
+
 // Application submission types
 export interface ApplicationData {
   // Personal Information
@@ -209,6 +226,28 @@ export const api = {
     return result.result?.data;
   },
 
+  /**
+   * Refresh user data from the server
+   * Used to get updated user info including wallet address
+   */
+  async refreshUser(userId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/user.getMe?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to refresh user');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
   // ──────────────────────────────────────────────────────────
   // UNITY COIN (UC) WALLET & TRANSFER FUNCTIONS
   // ──────────────────────────────────────────────────────────
@@ -216,8 +255,29 @@ export const api = {
   /**
    * Get wallet info for a user
    */
-  async getWalletInfo(userId: string) {
-    const response = await fetch(`${API_BASE_URL}/trpc/user.getWalletInfo`, {
+  async getWalletInfo(userId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/user.getWalletInfo?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get wallet info');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Create a wallet for a user
+   */
+  async createWallet(userId: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/user.createWallet`, {
       method: 'POST',
       headers: {
         ...networkConfig.defaultHeaders,
@@ -227,7 +287,7 @@ export const api = {
 
     const result = await response.json();
     if (result.error) {
-      throw new Error(result.error.message || 'Failed to get wallet info');
+      throw new Error(result.error.message || 'Failed to create wallet');
     }
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -353,13 +413,12 @@ export const api = {
 
   /**
    * Get available payment processors for onramp
+   * @param walletAddress - User's wallet address for authentication
    */
-  async getAvailableProcessors() {
+  async getAvailableProcessors(walletAddress?: string | null) {
     const response = await fetch(`${API_BASE_URL}/trpc/onramp.getAvailableProcessors`, {
       method: 'POST',
-      headers: {
-        ...networkConfig.defaultHeaders,
-      },
+      headers: createApiHeaders(walletAddress),
       body: JSON.stringify({})
     });
 
@@ -376,13 +435,16 @@ export const api = {
 
   /**
    * Create payment intent for buying UC
+   * @param walletAddress - User's wallet address for authentication
    */
-  async createPaymentIntent(amountUSD: number, processor?: 'stripe' | 'paypal' | 'square') {
+  async createPaymentIntent(
+    amountUSD: number, 
+    walletAddress: string | null,
+    processor?: 'stripe' | 'paypal' | 'square'
+  ) {
     const response = await fetch(`${API_BASE_URL}/trpc/onramp.createPaymentIntent`, {
       method: 'POST',
-      headers: {
-        ...networkConfig.defaultHeaders,
-      },
+      headers: createApiHeaders(walletAddress),
       body: JSON.stringify({ amountUSD, processor })
     });
 
@@ -399,13 +461,12 @@ export const api = {
 
   /**
    * Get onramp transaction history
+   * @param walletAddress - User's wallet address for authentication
    */
-  async getOnrampHistory(limit = 50, offset = 0) {
+  async getOnrampHistory(walletAddress: string | null, limit = 50, offset = 0) {
     const response = await fetch(`${API_BASE_URL}/trpc/onramp.getOnrampHistory`, {
       method: 'POST',
-      headers: {
-        ...networkConfig.defaultHeaders,
-      },
+      headers: createApiHeaders(walletAddress),
       body: JSON.stringify({ limit, offset })
     });
 
@@ -422,19 +483,426 @@ export const api = {
 
   /**
    * Get onramp transaction status
+   * @param walletAddress - User's wallet address for authentication
    */
-  async getOnrampStatus(transactionId: string) {
+  async getOnrampStatus(transactionId: string, walletAddress?: string | null) {
     const response = await fetch(`${API_BASE_URL}/trpc/onramp.getOnrampStatus`, {
       method: 'POST',
-      headers: {
-        ...networkConfig.defaultHeaders,
-      },
+      headers: createApiHeaders(walletAddress),
       body: JSON.stringify({ transactionId })
     });
 
     const result = await response.json();
     if (result.error) {
       throw new Error(result.error.message || 'Failed to get transaction status');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // P2P PAYMENT FUNCTIONS
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Get user's balance in USD
+   */
+  async getUSDBalance(userId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getBalance?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get balance');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Send payment to another user (Soulaan user or non-user via phone)
+   */
+  async sendPayment(
+    userId: string,
+    recipient: string,
+    recipientType: 'username' | 'phone' | 'userId',
+    amount: number,
+    note?: string,
+    walletAddress?: string | null
+  ) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.sendPayment`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, recipient, recipientType, amount, note })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Payment failed');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Look up a recipient by username or phone
+   */
+  async lookupRecipient(
+    query: string,
+    type: 'username' | 'phone',
+    walletAddress?: string | null
+  ) {
+    const input = encodeURIComponent(JSON.stringify({ query, type }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.lookupRecipient?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Lookup failed');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get P2P payment history
+   */
+  async getP2PHistory(userId: string, limit = 50, offset = 0, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId, limit, offset }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getHistory?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get history');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get saved payment methods
+   */
+  async getPaymentMethods(userId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getPaymentMethods?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get payment methods');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Create SetupIntent for adding a new card
+   */
+  async createSetupIntent(userId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.createSetupIntent`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to create setup intent');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Save payment method after SetupIntent succeeds
+   */
+  async savePaymentMethod(userId: string, paymentMethodId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.savePaymentMethod`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, paymentMethodId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to save payment method');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Remove a payment method
+   */
+  async removePaymentMethod(userId: string, paymentMethodId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.removePaymentMethod`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, paymentMethodId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to remove payment method');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Set default payment method
+   */
+  async setDefaultPaymentMethod(userId: string, paymentMethodId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.setDefaultPaymentMethod`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, paymentMethodId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to set default payment method');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get notifications
+   */
+  async getNotifications(userId: string, unreadOnly = false, limit = 20, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId, unreadOnly, limit }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getNotifications?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get notifications');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Mark notification as read
+   */
+  async markNotificationRead(notificationId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.markNotificationRead`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ notificationId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to mark notification as read');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Mark all notifications as read
+   */
+  async markAllNotificationsRead(userId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.markAllNotificationsRead`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to mark notifications as read');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // BANK ACCOUNTS
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Get saved bank accounts
+   */
+  async getBankAccounts(userId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getBankAccounts?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get bank accounts');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Add a new bank account
+   */
+  async addBankAccount(
+    userId: string,
+    accountHolderName: string,
+    routingNumber: string,
+    accountNumber: string,
+    bankName?: string,
+    walletAddress?: string | null
+  ) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.addBankAccount`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, accountHolderName, routingNumber, accountNumber, bankName })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to add bank account');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Remove a bank account
+   */
+  async removeBankAccount(userId: string, bankAccountId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.removeBankAccount`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, bankAccountId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to remove bank account');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Set default bank account
+   */
+  async setDefaultBankAccount(userId: string, bankAccountId: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.setDefaultBankAccount`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, bankAccountId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to set default bank account');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // WITHDRAWALS
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Withdraw funds to bank account
+   */
+  async withdraw(userId: string, bankAccountId: string, amountUSD: number, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.withdraw`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, bankAccountId, amountUSD })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to process withdrawal');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get withdrawal history
+   */
+  async getWithdrawals(userId: string, limit = 20, offset = 0, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ userId, limit, offset }));
+    const response = await fetch(`${API_BASE_URL}/trpc/p2p.getWithdrawals?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get withdrawals');
     }
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
