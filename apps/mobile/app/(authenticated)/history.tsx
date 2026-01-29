@@ -29,18 +29,41 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [walletAddress, setWalletAddress] = useState<string | null>(user?.walletAddress || null);
 
   useEffect(() => {
     if (user?.id) {
-      loadTransactions();
+      initAndLoad();
     }
   }, [user?.id]);
 
-  const loadTransactions = async (offset = 0) => {
+  const initAndLoad = async () => {
     if (!user?.id) return;
 
+    // Get wallet address if not in session
+    let currentWalletAddress = user.walletAddress;
+    if (!currentWalletAddress) {
+      try {
+        const walletResult = await api.getWalletInfo(user.id, null);
+        if (walletResult?.hasWallet && walletResult?.address) {
+          currentWalletAddress = walletResult.address;
+          setWalletAddress(currentWalletAddress);
+        }
+      } catch (err) {
+        console.error('Error getting wallet info:', err);
+      }
+    }
+
+    await loadTransactions(0, currentWalletAddress);
+  };
+
+  const loadTransactions = async (offset = 0, walletAddr?: string | null) => {
+    if (!user?.id) return;
+
+    const addressToUse = walletAddr || walletAddress || user.walletAddress;
+
     try {
-      const result = await api.getP2PHistory(user.id, 20, offset);
+      const result = await api.getP2PHistory(user.id, 20, offset, addressToUse);
       if (offset === 0) {
         setTransactions(result.transfers);
       } else {
@@ -58,13 +81,13 @@ export default function HistoryScreen() {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadTransactions(0);
-  }, [user?.id]);
+    loadTransactions(0, walletAddress);
+  }, [user?.id, walletAddress]);
 
   const loadMore = () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
-    loadTransactions(transactions.length);
+    loadTransactions(transactions.length, walletAddress);
   };
 
   const formatDate = (dateString: string) => {
