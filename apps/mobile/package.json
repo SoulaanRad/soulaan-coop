@@ -37,7 +37,7 @@
     "@trpc/react-query": "catalog:",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "expo": "~54.0.31",
+    "expo": "~54.0.32",
     "expo-av": "^16.0.8",
     "expo-barcode-scanner": "~13.0.1",
     "expo-camera": "~16.0.6",
