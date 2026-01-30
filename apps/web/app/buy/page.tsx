@@ -13,6 +13,7 @@ import CheckoutForm from "@/components/buy/checkout-form";
 
 // Load Stripe publishable key from environment
 const stripePromise = loadStripe(
+  // eslint-disable-next-line no-restricted-properties
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
 );
 

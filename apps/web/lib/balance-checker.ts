@@ -1,4 +1,5 @@
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http  } from 'viem';
+import type {Address} from 'viem';
 import { PrismaClient } from '@prisma/client';
 import { config, chainConfig } from './config';
 import { env } from '~/env';

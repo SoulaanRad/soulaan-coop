@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
 import { validateCsrfToken } from './lib/csrf';
-import { AuthSession } from './lib/signature-verification';
+import type { AuthSession } from './lib/signature-verification';
+import { env } from './env';
 
 // Specify Node.js runtime for middleware
 export const runtime = 'nodejs';
@@ -19,11 +21,11 @@ const STATE_CHANGING_METHODS = ['POST', 'PUT', 'DELETE', 'PATCH'];
 
 // Session options
 const sessionOptions = {
-  password: process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long',
+  password: env.SESSION_SECRET || 'complex_password_at_least_32_characters_long',
   cookieName: 'soulaan_auth_session',
   cookieOptions: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.NODE_ENV === 'production',
     sameSite: 'strict' as const,
     maxAge: 60 * 60 * 24 * 7, // 1 week
   },

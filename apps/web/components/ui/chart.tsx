@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+ 
+ 
+ 
 "use client";
 
 import * as React from "react";
@@ -192,7 +192,7 @@ const ChartTooltipContent = React.forwardRef<
           {payload.map((item, index) => {
             const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+             
             const indicatorColor = color ?? item.payload.fill ?? item.color;
 
             return (
@@ -224,9 +224,9 @@ const ChartTooltipContent = React.forwardRef<
                           )}
                           style={
                             {
-                              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                               
                               "--color-bg": indicatorColor,
-                              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                               
                               "--color-border": indicatorColor,
                             } as React.CSSProperties
                           }

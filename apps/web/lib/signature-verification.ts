@@ -47,7 +47,7 @@ function getSessionOptions() {
     cookieOptions: {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: sameSite as 'strict' | 'lax',
+      sameSite: sameSite,
       maxAge: serverConfig.session.maxAge,
     },
   };

@@ -1,6 +1,8 @@
+/* eslint-disable no-restricted-properties */
 /**
  * Coop-specific configuration for the web app
  * These values are loaded from environment variables
+ * Note: Uses process.env directly for NEXT_PUBLIC_ vars which are client-accessible
  */
 
 export interface CoopConfig {

@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties, turbo/no-undeclared-env-vars, @typescript-eslint/require-await */
 import '@testing-library/jest-dom'
 
 // Mock environment variables for tests

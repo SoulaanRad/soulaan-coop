@@ -464,7 +464,7 @@ export default function TreasuryDashboard() {
               <div className="grid gap-1">
                 {chartQuery.data.data.slice(-14).map((day, i) => {
                   const total = day.onramp + day.p2p + day.withdrawal;
-                  const maxTotal = Math.max(...chartQuery.data!.data.slice(-14).map(d => d.onramp + d.p2p + d.withdrawal));
+                  const maxTotal = Math.max(...chartQuery.data.data.slice(-14).map(d => d.onramp + d.p2p + d.withdrawal));
                   const width = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
 
                   return (

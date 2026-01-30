@@ -6,7 +6,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "next lint",
+    "lint": "eslint .",
     "start": "next start",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch --passWithNoTests",
@@ -103,6 +103,8 @@
     "jiti": "^2.4.2",
     "postcss": "^8.5.4",
     "tailwindcss": "^3.4.17",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-next": "catalog:"
   }
 }
