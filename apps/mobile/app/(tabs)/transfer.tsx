@@ -255,7 +255,7 @@ export default function PayScreen() {
         {!recipientInfo?.isSoulaanUser && (
           <View className="bg-white/20 rounded-lg p-4 mb-8">
             <Text className="text-white text-center">
-              They'll receive a text to claim the money
+              They&apos;ll receive a text to claim the money
             </Text>
           </View>
         )}
@@ -564,7 +564,7 @@ export default function PayScreen() {
               {!recipientInfo?.isSoulaanUser && (
                 <View className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <Text className="text-amber-800 text-sm">
-                    {recipientInfo?.value} is not on {config.shortName} yet. They'll receive a text
+                    {recipientInfo?.value} is not on {config.shortName} yet. They&apos;ll receive a text
                     message to claim this payment within {config.claimExpirationDays} days.
                   </Text>
                 </View>
@@ -574,7 +574,7 @@ export default function PayScreen() {
             {/* Biometric indicator */}
             <View className="bg-amber-50 rounded-lg p-3 mb-4 flex-row items-center justify-center">
               <Text className="text-amber-800 text-sm">
-                You'll use {biometricName} to confirm
+                You&apos;ll use {biometricName} to confirm
               </Text>
             </View>
 

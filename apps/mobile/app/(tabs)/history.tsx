@@ -211,7 +211,9 @@ export default function HistoryScreen() {
                   {/* Note if present */}
                   {transfer.note && (
                     <View className="mt-3 bg-gray-50 rounded-lg p-2">
-                      <Text className="text-gray-600 text-sm">"{transfer.note}"</Text>
+                      <Text className="text-gray-600 text-sm">
+                        &quot;{transfer.note}&quot;
+                      </Text>
                     </View>
                   )}
 

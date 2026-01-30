@@ -321,7 +321,7 @@ export default function PayScreen() {
                         )}
                         {!r.isSoulaanUser && (
                           <Text className="text-gray-400 text-xs mt-1">
-                            They'll receive a text to claim
+                            They&apos;ll receive a text to claim
                           </Text>
                         )}
                       </View>
@@ -410,7 +410,7 @@ export default function PayScreen() {
             <View className="p-4">
               {/* Summary Card */}
               <View className="bg-gray-50 rounded-xl p-6 mb-6">
-                <Text className="text-gray-500 text-center mb-2">You're sending</Text>
+                <Text className="text-gray-500 text-center mb-2">You&apos;re sending</Text>
                 <Text className="text-gray-900 text-4xl font-bold text-center mb-4">
                   ${parseFloat(amount).toFixed(2)}
                 </Text>
@@ -420,7 +420,9 @@ export default function PayScreen() {
                 </Text>
                 {note && (
                   <View className="mt-4 pt-4 border-t border-gray-200">
-                    <Text className="text-gray-500 text-sm text-center">"{note}"</Text>
+                    <Text className="text-gray-500 text-sm text-center">
+                      &quot;{note}&quot;
+                    </Text>
                   </View>
                 )}
               </View>
@@ -429,7 +431,7 @@ export default function PayScreen() {
               {!recipient.isSoulaanUser && (
                 <View className="bg-amber-50 rounded-xl p-4 mb-6">
                   <Text className="text-amber-800 text-sm">
-                    {recipient.phone} isn't on {config.shortName} yet. They'll receive a text message
+                    {recipient.phone} isn&apos;t on {config.shortName} yet. They&apos;ll receive a text message
                     with a link to claim this payment.
                   </Text>
                 </View>
@@ -463,7 +465,7 @@ export default function PayScreen() {
               </TouchableOpacity>
 
               <Text className="text-gray-400 text-xs text-center mt-4">
-                You'll be asked to confirm with Face ID or fingerprint
+                You&apos;ll be asked to confirm with Face ID or fingerprint
               </Text>
             </View>
           )}

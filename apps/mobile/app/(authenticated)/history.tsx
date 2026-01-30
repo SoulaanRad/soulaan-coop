@@ -162,7 +162,9 @@ export default function HistoryScreen() {
               </>
             )}
           </View>
-          {tx.note && <Text className="text-gray-400 text-xs mt-1">"{tx.note}"</Text>}
+          {tx.note && (
+            <Text className="text-gray-400 text-xs mt-1">&quot;{tx.note}&quot;</Text>
+          )}
         </View>
 
         <Text
