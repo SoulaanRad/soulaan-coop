@@ -57,6 +57,26 @@ export class StripePaymentService implements PaymentServiceInterface {
       throw new PaymentError('Amount must be positive', 'stripe', 'INVALID_AMOUNT');
     }
 
+    // Validate amount limits
+    const MIN_AMOUNT = 10;
+    const MAX_AMOUNT = 10000;
+    
+    if (params.amountUSD < MIN_AMOUNT) {
+      throw new PaymentError(
+        `Amount must be at least $${MIN_AMOUNT}`,
+        'stripe',
+        'AMOUNT_BELOW_MINIMUM'
+      );
+    }
+
+    if (params.amountUSD > MAX_AMOUNT) {
+      throw new PaymentError(
+        `Amount cannot exceed $${MAX_AMOUNT}`,
+        'stripe',
+        'AMOUNT_ABOVE_MAXIMUM'
+      );
+    }
+
     try {
       console.log(`💳 Creating Stripe payment intent for $${params.amountUSD}`);
 

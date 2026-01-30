@@ -100,6 +100,20 @@ export class PaymentServiceManager {
         return paymentIntent;
       } catch (error) {
         console.error(`❌ ${processorName} failed:`, error);
+        
+        // Re-throw validation errors immediately (don't try other processors)
+        if (error instanceof PaymentError) {
+          const validationCodes = [
+            'INVALID_AMOUNT',
+            'INVALID_USER_ID',
+            'AMOUNT_BELOW_MINIMUM',
+            'AMOUNT_ABOVE_MAXIMUM',
+          ];
+          if (validationCodes.includes(error.code || '')) {
+            throw error;
+          }
+        }
+        
         errors.push({
           processor: processorName,
           error: error instanceof Error ? error : new Error(String(error)),
