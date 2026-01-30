@@ -20,13 +20,13 @@ catalog:
   "dotenv-cli": "8.0.0"
   "@types/node": "^22.15.29"
   "superjson": "^2.2.2"
-  "next": "^15.5.10"
+  "next": "^16.1.6"
   "viem": "^2.43.5"
 catalogs:
   react19:
-    react: 19.0.0
-    react-dom: 19.0.0
-    "@types/react": ^19.1.6
-    "@types/react-dom": ^19.1.5
+    react: 19.2.4
+    react-dom: 19.2.4
+    "@types/react": ^19.2.4
+    "@types/react-dom": ^19.2.3
 onlyBuiltDependencies:
   - esbuild

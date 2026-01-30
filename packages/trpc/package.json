@@ -64,7 +64,6 @@
     "@trpc/server": "catalog:",
     "bcryptjs": "^3.0.2",
     "iron-session": "catalog:",
-    "next": "catalog:",
     "next-auth": "^4.24.13",
     "nodemailer": "^7.0.12",
     "stripe": "^20.1.2",
