@@ -51,19 +51,19 @@
     "ethers": "^6.10.0"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.3",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.11",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "^4.3.11",
     "@types/node": "^22.15.29",
     "chai": "^4.3.10",
-    "hardhat": "^2.19.5",
+    "hardhat": "^2.22.17",
     "hardhat-gas-reporter": "^1.0.10",
     "prettier": "catalog:",
     "prettier-plugin-solidity": "^2.1.0",
     "solhint": "^6.0.1",
-    "solidity-coverage": "^0.8.5",
+    "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typescript": "catalog:"

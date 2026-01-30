@@ -42,18 +42,27 @@ vi.mock('stripe', () => {
     };
     
     paymentIntents = {
-      create: vi.fn().mockResolvedValue({
-        id: 'pi_mock',
-        client_secret: 'pi_mock_secret',
-        status: 'requires_payment_method',
-        amount: 5000,
-        currency: 'usd',
+      create: vi.fn().mockImplementation((params: any) => {
+        // Validate amount
+        if (!params.amount || params.amount <= 0) {
+          throw new Error('Amount must be positive');
+        }
+        
+        return Promise.resolve({
+          id: 'pi_mock',
+          client_secret: 'pi_mock_secret',
+          status: 'requires_payment_method',
+          amount: params.amount,
+          currency: 'usd',
+          metadata: params.metadata || {},
+        });
       }),
       retrieve: vi.fn().mockResolvedValue({
         id: 'pi_mock',
         status: 'succeeded',
         amount: 5000,
         currency: 'usd',
+        metadata: {},
       }),
       confirm: vi.fn().mockResolvedValue({
         id: 'pi_mock',
@@ -71,6 +80,7 @@ vi.mock('stripe', () => {
               id: 'pi_mock',
               status: 'succeeded',
               amount: 5000,
+              metadata: { userId: 'test-user' },
             },
           },
         };

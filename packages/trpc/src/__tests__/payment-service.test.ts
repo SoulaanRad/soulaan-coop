@@ -227,8 +227,11 @@ describe('Payment Service Manager', () => {
       const result = await paymentManager.createPaymentIntent(params);
 
       // Result should include payment intent details
-      expect(result).toHaveProperty('paymentIntentId');
+      expect(result).toHaveProperty('id');
       expect(result).toHaveProperty('processor');
+      expect(result).toHaveProperty('clientSecret');
+      expect(result).toHaveProperty('amountUSD');
+      expect(result.amountUSD).toBe(50);
     });
   });
 

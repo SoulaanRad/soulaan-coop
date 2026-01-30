@@ -48,6 +48,15 @@ export class StripePaymentService implements PaymentServiceInterface {
       throw new PaymentError('Stripe not configured', 'stripe', 'NOT_CONFIGURED');
     }
 
+    // Validate inputs
+    if (!params.userId || params.userId.trim() === '') {
+      throw new PaymentError('User ID is required', 'stripe', 'INVALID_USER_ID');
+    }
+
+    if (params.amountUSD <= 0) {
+      throw new PaymentError('Amount must be positive', 'stripe', 'INVALID_AMOUNT');
+    }
+
     try {
       console.log(`💳 Creating Stripe payment intent for $${params.amountUSD}`);
 
