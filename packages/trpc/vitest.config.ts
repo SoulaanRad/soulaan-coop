@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,ts}'],
+    setupFiles: ['./src/__tests__/setup.ts'],
     // Prevent hanging in CI/CD
     watch: false,
     // Increase timeout for AI agent calls

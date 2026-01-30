@@ -33,13 +33,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "cache/**", "artifacts/**"],
       "inputs": ["test/**/*.ts", "contracts/**/*.sol", "src/**/*.ts", "src/**/*.tsx"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
-      "cache": false
+      "outputs": ["coverage/**", "cache/**", "artifacts/**"],
+      "cache": true
     },
     "test:watch": {
       "cache": false,

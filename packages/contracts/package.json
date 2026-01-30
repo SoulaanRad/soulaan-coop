@@ -5,6 +5,7 @@
   "type": "commonjs",
   "description": "Smart contracts for Soulaan Co-op (UC, SC, RedemptionVault)",
   "scripts": {
+    "build": "hardhat compile",
     "compile": "hardhat compile",
     "clean": "hardhat clean",
     "typechain": "hardhat typechain",
@@ -12,7 +13,7 @@
     "test:uc": "hardhat test test/UnityCoin.test.ts",
     "test:sc": "hardhat test test/SoulaaniCoin.test.ts",
     "test:vault": "hardhat test test/RedemptionVault.test.ts",
-    "test:coverage": "hardhat coverage",
+    "test:coverage": "hardhat compile && hardhat coverage",
     "test:gas": "REPORT_GAS=true hardhat test",
     "test:watch": "hardhat watch test",
     "node": "hardhat node",
