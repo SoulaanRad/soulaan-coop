@@ -1,13 +1,8 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
-
-// Force client-side rendering
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
