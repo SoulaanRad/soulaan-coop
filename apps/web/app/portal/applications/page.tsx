@@ -20,16 +20,20 @@ export default function ApplicationsPage() {
   const [reviewNotes, setReviewNotes] = useState("");
 
   // Fetch pending applications
-  const { data: applicationsResponse, isLoading, error, refetch } = api.admin.getPendingApplications.useQuery();
-  const applications = applicationsResponse?.json;
+  const { data: applications, isLoading, error, refetch } = api.admin.getPendingApplications.useQuery();
 
   // Update status mutation
   const updateStatus = api.admin.updateUserStatus.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ Mutation success:', data);
       setReviewNotes("");
       refetch();
       // Reset to first application after refetch
       setCurrentIndex(0);
+    },
+    onError: (error) => {
+      console.error('❌ Mutation error:', error);
+      alert(`Error: ${error.message}`);
     },
   });
 
@@ -235,6 +239,46 @@ export default function ApplicationsPage() {
                       </Badge>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Introduction Video */}
+              {currentApp.application?.videoCID && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-amber-500">Introduction Video</h3>
+                  <div className="bg-slate-950 rounded-lg overflow-hidden">
+                    <video
+                      controls
+                      className="w-full max-h-96"
+                      preload="metadata"
+                    >
+                      <source
+                        src={`https://gateway.pinata.cloud/ipfs/${currentApp.application.videoCID}`}
+                        type="video/mp4"
+                      />
+                      Your browser doesn't support video playback.
+                    </video>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Stored on IPFS: {currentApp.application.videoCID}
+                  </p>
+                </div>
+              )}
+
+              {/* Profile Photo */}
+              {currentApp.application?.photoCID && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-amber-500">Profile Photo</h3>
+                  <div className="bg-slate-950 rounded-lg overflow-hidden p-4">
+                    <img
+                      src={`https://gateway.pinata.cloud/ipfs/${currentApp.application.photoCID}`}
+                      alt="Profile"
+                      className="max-w-sm rounded-lg"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Stored on IPFS: {currentApp.application.photoCID}
+                  </p>
                 </div>
               )}
 

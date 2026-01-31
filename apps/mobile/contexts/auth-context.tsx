@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { secureStorage } from '@/lib/secure-storage';
+import { setActiveCoopConfig, resetCoopConfig, type CoopConfig } from '@/lib/coop-config';
 
 interface User {
   id: string;
@@ -11,6 +12,17 @@ interface User {
   walletAddress: string | null;
   phone: string | null;
   createdAt: Date;
+  // Coop membership info (set after application approval)
+  coop?: {
+    id: string;
+    name: string;
+    shortName: string;
+    apiUrl: string;
+    webUrl: string;
+    primaryColor?: string;
+    accentColor?: string;
+    logoUrl?: string;
+  };
 }
 
 interface AuthContextType {
@@ -57,6 +69,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Convert createdAt string back to Date
         parsedUser.createdAt = new Date(parsedUser.createdAt);
         setUser(parsedUser);
+
+        // Set coop config if user has coop membership
+        if (parsedUser.coop) {
+          setActiveCoopConfig({
+            id: parsedUser.coop.id,
+            name: parsedUser.coop.name,
+            shortName: parsedUser.coop.shortName,
+            apiUrl: parsedUser.coop.apiUrl,
+            webUrl: parsedUser.coop.webUrl,
+            primaryColor: parsedUser.coop.primaryColor,
+            accentColor: parsedUser.coop.accentColor,
+            logoUrl: parsedUser.coop.logoUrl,
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading session:', error);
@@ -77,6 +103,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         new Date().toISOString()
       );
 
+      // Set coop config if user has coop membership
+      if (userData.coop) {
+        setActiveCoopConfig({
+          id: userData.coop.id,
+          name: userData.coop.name,
+          shortName: userData.coop.shortName,
+          apiUrl: userData.coop.apiUrl,
+          webUrl: userData.coop.webUrl,
+          primaryColor: userData.coop.primaryColor,
+          accentColor: userData.coop.accentColor,
+          logoUrl: userData.coop.logoUrl,
+        });
+      }
+
       setUser(userData);
     } catch (error) {
       console.error('Error saving session:', error);
@@ -89,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Starting logout process...');
       await secureStorage.clear();
       console.log('Secure storage cleared');
+      resetCoopConfig();
+      console.log('Coop config reset');
       setUser(null);
       console.log('User state cleared, should redirect to /');
     } catch (error) {

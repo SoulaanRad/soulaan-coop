@@ -17,10 +17,15 @@ const config = {
   ],
 
   /** We already do linting and typechecking as separate tasks in CI */
-  eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
 
-  /** Webpack configuration for crypto libraries */
+  /** Turbopack configuration (Next.js 16 default) */
+  turbopack: {
+    // Empty config to silence the warning about webpack config
+    // Turbopack handles most externals automatically
+  },
+
+  /** Webpack configuration for when using --webpack flag */
   webpack: (config) => {
     config.externals.push('pino-pretty', 'lokijs', 'encoding');
     config.resolve.fallback = {

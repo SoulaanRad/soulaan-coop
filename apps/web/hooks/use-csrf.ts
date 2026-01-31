@@ -65,7 +65,7 @@ export function useCsrf() {
     // Add CSRF token to headers
     const headers = {
       ...options.headers,
-      'X-CSRF-Token': csrfToken as string,
+      'X-CSRF-Token': csrfToken!,
       'Content-Type': 'application/json',
     };
     

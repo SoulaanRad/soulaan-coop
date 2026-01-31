@@ -33,13 +33,13 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
+      "outputs": ["coverage/**", "cache/**", "artifacts/**"],
       "inputs": ["test/**/*.ts", "contracts/**/*.sol", "src/**/*.ts", "src/**/*.tsx"]
     },
     "test:coverage": {
       "dependsOn": ["^build"],
-      "outputs": ["coverage/**"],
-      "cache": false
+      "outputs": ["coverage/**", "cache/**", "artifacts/**"],
+      "cache": true
     },
     "test:watch": {
       "cache": false,
@@ -100,7 +100,8 @@
     "MAINNET_RPC_URL",
     "DEPLOYER_PRIVATE_KEY",
     "ETHERSCAN_API_KEY",
-    "REPORT_GAS"
+    "REPORT_GAS",
+    "WALLET_ENCRYPTION_KEY"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",

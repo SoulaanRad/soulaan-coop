@@ -32,6 +32,26 @@
       "import": "./dist/server/index.js",
       "require": "./dist/server/index.js",
       "types": "./dist/server/index.d.ts"
+    },
+    "./services/wallet-service": {
+      "import": "./dist/services/wallet-service.js",
+      "require": "./dist/services/wallet-service.js",
+      "types": "./dist/services/wallet-service.d.ts"
+    },
+    "./services/blockchain": {
+      "import": "./dist/services/blockchain.js",
+      "require": "./dist/services/blockchain.js",
+      "types": "./dist/services/blockchain.d.ts"
+    },
+    "./services/payment/*": {
+      "import": "./dist/services/payment/*.js",
+      "require": "./dist/services/payment/*.js",
+      "types": "./dist/services/payment/*.d.ts"
+    },
+    "./services/admin-verification": {
+      "import": "./dist/services/admin-verification.js",
+      "require": "./dist/services/admin-verification.js",
+      "types": "./dist/services/admin-verification.d.ts"
     }
   },
   "keywords": [],
@@ -43,10 +63,12 @@
     "@repo/validators": "workspace:*",
     "@trpc/server": "catalog:",
     "bcryptjs": "^3.0.2",
-    "next": "catalog:",
-    "next-auth": "^4.24.11",
+    "iron-session": "catalog:",
+    "next-auth": "^4.24.13",
     "nodemailer": "^7.0.12",
+    "stripe": "^20.1.2",
     "superjson": "^2.2.2",
+    "twilio": "^5.11.2",
     "viem": "catalog:",
     "zod": "catalog:"
   },

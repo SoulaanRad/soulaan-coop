@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import type { ReactNode} from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWeb3Auth } from '@/hooks/use-web3-auth';
 import { Loader2 } from 'lucide-react';

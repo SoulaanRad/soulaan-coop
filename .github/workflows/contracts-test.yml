@@ -28,14 +28,15 @@ jobs:
         with:
           version: 10.11.1
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
 
       - name: Compile contracts
         working-directory: packages/contracts

@@ -70,6 +70,7 @@ export default function SoulaanLanding() {
             >
               Get Involved
             </Link>
+
           </nav>
         </div>
       </header>

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Web3Provider } from "@/lib/web3-provider";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -112,9 +111,5 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <Web3Provider>
-      <PortalLayoutContent>{children}</PortalLayoutContent>
-    </Web3Provider>
-  );
+  return <PortalLayoutContent>{children}</PortalLayoutContent>;
 }

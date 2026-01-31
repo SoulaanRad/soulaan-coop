@@ -1,21 +1,47 @@
+// Environment variables are preloaded via -r dotenv/config flag (see package.json)
+// Verify they're loaded correctly
+console.log(`\n🔐 Environment Variables Check:`);
+console.log(`  WALLET_ENCRYPTION_KEY: ${process.env.WALLET_ENCRYPTION_KEY ? '✅ Set (' + process.env.WALLET_ENCRYPTION_KEY.substring(0, 8) + '...)' : '❌ NOT SET'}`);
+console.log(`  DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Set' : '❌ NOT SET'}`);
+
+// Import modules
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
-
 import { trpcExpress } from "@repo/trpc/server";
-import { createMiddleware } from "@sashimo/lib"
-
-
-import "dotenv/config";
-
 import type { Application, Request, Response } from "express";
 import express from "express";
 import os from "os";
+import { fileURLToPath } from "url";
+import { resolve } from "path";
 
 const app: Application = express();
 
-// Parse JSON bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Import webhook handlers
+import { handleStripeWebhook, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
+import uploadRouter from './routes/upload.js';
+
+// IMPORTANT: Stripe webhooks need raw body for signature verification
+// So we add this route BEFORE the general JSON parser
+app.post('/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook
+);
+
+// Parse JSON bodies (for non-tRPC routes only)
+// tRPC has its own body parsing with SuperJSON transformer
+app.use((req, res, next) => {
+  if (req.path.startsWith('/trpc')) {
+    // Skip JSON parsing for tRPC routes - tRPC handles its own body parsing
+    return next();
+  }
+  express.json()(req, res, next);
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith('/trpc')) {
+    return next();
+  }
+  express.urlencoded({ extended: true })(req, res, next);
+});
 
 // Enable CORS for all routes - allow mobile app origins
 app.use(
@@ -33,16 +59,13 @@ app.use(
 // Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   // Log incoming request
   console.log('\n' + '═'.repeat(80));
-  console.log(`📨 INCOMING REQUEST`);
-  console.log(`⏰ Time: ${new Date().toISOString()}`);
-  console.log(`🔵 Method: ${req.method}`);
-  console.log(`🔗 Path: ${req.path}`);
-  console.log(`🌐 Origin: ${req.get('origin') || 'N/A'}`);
-  
-  if (req.method === 'POST' || req.method === 'PUT') {
+  console.log(`📨 ${req.method} ${req.path}`);
+  console.log(`⏰ ${new Date().toISOString()}`);
+
+  if ((req.method === 'POST' || req.method === 'PUT') && req.body) {
     console.log(`📦 Body:`, JSON.stringify(req.body, null, 2));
   }
   
@@ -81,11 +104,20 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 
+// Webhook endpoints (PayPal and Square use JSON body)
+app.post('/webhooks/paypal', handlePayPalWebhook);
+app.post('/webhooks/square', handleSquareWebhook);
+
+// File upload endpoints
+app.use('/api/upload', uploadRouter);
+
 app.use("/trpc", trpcExpress);
 
-app.use("/sashi", createMiddleware({
-  openAIKey: process.env.OPENAI_API_KEY || ""
-}));
+// TODO: Fix Sashimo middleware path-to-regexp compatibility issue
+// Temporarily commented out - causing PathError with '*' route pattern
+// app.use("/sashi", createMiddleware({
+//   openAIKey: process.env.OPENAI_API_KEY || ""
+// }));
 
 // Error handling middleware (MUST be after all routes)
 app.use((err: any, req: any, res: any, next: any) => {
@@ -125,7 +157,15 @@ app.listen(port, () => {
   console.log(`🌐 Local:   http://localhost:${port}`);
   console.log(`📱 Network: http://${localIp}:${port}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('💡 For mobile testing, update your mobile app config to:');
+
+  // Log environment variable status
+  console.log('\n📋 Environment Variables:');
+  console.log(`  PINATA_JWT: ${process.env.PINATA_JWT ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  WALLET_ENCRYPTION_KEY: ${process.env.WALLET_ENCRYPTION_KEY ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  STRIPE_SECRET_KEY: ${process.env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Not set'}`);
+
+  console.log('\n💡 For mobile testing, update your mobile app config to:');
   console.log(`   API_BASE_URL: 'http://${localIp}:${port}'\n`);
 });
 

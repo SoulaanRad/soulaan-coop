@@ -4,9 +4,10 @@ import { verifyMessage } from 'viem';
 import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
 import { getIronSession } from 'iron-session';
-import { checkSoulaaniCoinBalance as checkBalance } from './balance-checker';
 import { config, getServerConfig } from './config';
 import { env } from '~/env';
+// Import admin verification from API server (server-side only, secure)
+import { checkPortalAccess } from '@repo/trpc/services/admin-verification';
 
 // Initialize Prisma client directly since @repo/db exports aren't working in Next.js
 const globalForPrisma = globalThis as unknown as {
@@ -26,6 +27,8 @@ export interface AuthSession {
   address: string;
   isLoggedIn: boolean;
   hasProfile: boolean;
+  isAdmin?: boolean;
+  adminRole?: string;
   nonce?: string;
   expiresAt?: Date;
   save: () => Promise<void>;
@@ -35,13 +38,16 @@ export interface AuthSession {
 // Iron session configuration (server-side only)
 function getSessionOptions() {
   const serverConfig = getServerConfig();
+  // Use 'lax' in development to allow cookies across localhost ports (3000 -> 3001)
+  const sameSite = env.NODE_ENV === 'production' ? 'strict' : 'lax';
+
   return {
     password: serverConfig.session.secret,
     cookieName: serverConfig.session.cookieName,
     cookieOptions: {
       httpOnly: true,
       secure: env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
+      sameSite: sameSite,
       maxAge: serverConfig.session.maxAge,
     },
   };
@@ -151,12 +157,21 @@ export async function verifySignature(
 }
 
 /**
- * Check if a wallet has SoulaaniCoin and is an active member
+ * Check if a wallet has portal access (calls API server - secure!)
  * @param address - The wallet address to check
- * @returns Boolean indicating if the wallet has SoulaaniCoin and is an active member
+ * @returns Boolean indicating if the wallet has portal access
  */
 export async function checkSoulaaniCoinBalance(address: string): Promise<boolean> {
-  return checkBalance(address);
+  try {
+    console.log(`🔒 Checking portal access via API server for ${address}...`);
+    // Call the API server function (server-side only, secure!)
+    const result = await checkPortalAccess(address as `0x${string}`);
+    console.log(`🔒 Portal access result: hasAccess=${result.hasAccess}, isAdmin=${result.isAdmin}`);
+    return result.hasAccess;
+  } catch (error) {
+    console.error('❌ Error checking portal access:', error);
+    return false;
+  }
 }
 
 /**
@@ -182,17 +197,45 @@ export async function getSession(): Promise<AuthSession | null> {
 export async function createSession(address: string): Promise<AuthSession> {
   const cookieStore = await cookies();
   const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
-  
+
+  console.log(`\n🔐 Creating session for ${address}`);
+
   // Check if the user has a profile
   const profile = await db.userProfile.findUnique({
     where: { walletAddress: address },
   });
-  
+
+  // Check admin status using API server (secure server-side check)
+  let isAdmin = false;
+  let adminRole: string | undefined = undefined;
+
+  try {
+    console.log('🔒 Checking portal access via API server (includes admin check)...');
+    // Call the API server function (server-side only, secure!)
+    // This checks BOTH admin status AND coin balance
+    const accessCheck = await checkPortalAccess(address as `0x${string}`);
+
+    isAdmin = accessCheck.isAdmin;
+    adminRole = accessCheck.role;
+
+    if (isAdmin) {
+      console.log(`✅ Admin status confirmed: ${address} is ${adminRole}`);
+    } else if (accessCheck.hasAccess) {
+      console.log(`✅ Portal access granted (regular member)`);
+    } else {
+      console.log(`❌ No portal access`);
+    }
+  } catch (error) {
+    console.error('❌ Error checking portal access:', error);
+  }
+
   // Update the session
   session.address = address;
   session.isLoggedIn = true;
   session.hasProfile = !!profile;
-  
+  session.isAdmin = isAdmin;
+  session.adminRole = adminRole;
+
   // Update last login time if profile exists
   if (profile) {
     await db.userProfile.update({
@@ -200,12 +243,12 @@ export async function createSession(address: string): Promise<AuthSession> {
       data: { lastLogin: new Date() },
     });
   }
-  
+
   // Save the session
   await session.save();
-  
-  console.log(`✅ Session created for ${address}, hasProfile: ${!!profile}`);
-  
+
+  console.log(`✅ Session created for ${address}, hasProfile: ${!!profile}, isAdmin: ${isAdmin}, role: ${adminRole || 'N/A'}`);
+
   return session;
 }
 

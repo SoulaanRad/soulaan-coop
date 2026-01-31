@@ -7,4 +7,10 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    rules: {
+      // Disable import resolution checking since TypeScript handles this
+      'import/no-unresolved': 'off',
+    },
+  },
 ]);

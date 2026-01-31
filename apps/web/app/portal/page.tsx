@@ -7,8 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
-  const { data: statsResponse, isLoading } = api.admin.getApplicationStats.useQuery();
-  const stats = statsResponse?.json;
+  const { data: stats, isLoading } = api.admin.getApplicationStats.useQuery();
 
   if (isLoading) {
     return (

@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Eye, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle } from "lucide-react";
 
 type UserStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 
@@ -39,18 +39,40 @@ export default function MemberManagement() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [walletModalState, setWalletModalState] = useState<{
+    type: 'confirm' | 'success' | 'error';
+    message: string;
+    walletAddress?: string;
+    userId?: string;
+  }>({
+    type: 'confirm',
+    message: '',
+  });
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncModalState, setSyncModalState] = useState<{
+    type: 'loading' | 'success' | 'error';
+    message: string;
+    txHash?: string;
+    action?: string;
+  }>({
+    type: 'loading',
+    message: '',
+  });
+  const [blockchainInfoModalOpen, setBlockchainInfoModalOpen] = useState(false);
+  const [selectedUserForBlockchainInfo, setSelectedUserForBlockchainInfo] = useState<string | null>(null);
 
   // Fetch users based on filter
   const allUsersQuery = api.admin.getAllUsersWithApplications.useQuery(undefined, {
     enabled: statusFilter === 'ALL',
   });
-  const allUsers = allUsersQuery.data?.json;
+  const allUsers = allUsersQuery.data;
 
   const filteredUsersQuery = api.admin.getUsersByStatus.useQuery(
     { status: statusFilter as UserStatus },
     { enabled: statusFilter !== 'ALL' }
   );
-  const filteredUsers = filteredUsersQuery.data?.json;
+  const filteredUsers = filteredUsersQuery.data;
 
   // Use the appropriate query and data based on filter
   const isLoading = statusFilter === 'ALL' ? allUsersQuery.isLoading : filteredUsersQuery.isLoading;
@@ -58,21 +80,12 @@ export default function MemberManagement() {
   const refetch = statusFilter === 'ALL' ? allUsersQuery.refetch : filteredUsersQuery.refetch;
   const users = statusFilter === 'ALL' ? allUsers : filteredUsers;
 
-  console.log('🔍 Member Management Debug:', {
-    statusFilter,
-    users,
-    isLoading,
-    error: error?.message,
-    usersCount: users?.length
-  });
-
   // Get stats
-  const { data: statsResponse, error: statsError } = api.admin.getApplicationStats.useQuery(undefined, {
+  const { data: stats, error: statsError } = api.admin.getApplicationStats.useQuery(undefined, {
     onError: (err) => {
       console.error('❌ Error loading stats:', err);
     },
   });
-  const stats = statsResponse?.json;
 
   // Update status mutation
   const updateStatus = api.admin.updateUserStatus.useMutation({
@@ -82,6 +95,50 @@ export default function MemberManagement() {
       setReviewNotes("");
     },
   });
+
+  // Create wallet mutation
+  const createWallet = api.admin.createWalletForUserAdmin.useMutation({
+    onSuccess: (data) => {
+      refetch();
+      setWalletModalState({
+        type: 'success',
+        message: 'Wallet created successfully!',
+        walletAddress: data.walletAddress,
+      });
+    },
+    onError: (error) => {
+      setWalletModalState({
+        type: 'error',
+        message: error.message || 'Failed to create wallet. Please try again.',
+      });
+    },
+  });
+
+  // Sync membership to contract mutation
+  const syncMembership = api.admin.syncMembershipToContract.useMutation({
+    onSuccess: (data) => {
+      setSyncModalState({
+        type: 'success',
+        message: data.success
+          ? `Membership synced successfully!`
+          : `Sync failed: ${data.error}`,
+        txHash: data.txHash,
+        action: data.action,
+      });
+    },
+    onError: (error) => {
+      setSyncModalState({
+        type: 'error',
+        message: error.message || 'Failed to sync membership to contract.',
+      });
+    },
+  });
+
+  // Query for blockchain info
+  const blockchainInfoQuery = api.admin.getUserBlockchainInfo.useQuery(
+    { userId: selectedUserForBlockchainInfo || '' },
+    { enabled: !!selectedUserForBlockchainInfo && blockchainInfoModalOpen }
+  );
 
   const handleStatusChange = (userId: string, newStatus: UserStatus) => {
     updateStatus.mutate({
@@ -94,6 +151,69 @@ export default function MemberManagement() {
   const handleViewApplication = (user: any) => {
     setSelectedUser(user);
     setIsDialogOpen(true);
+  };
+
+  const handleCreateWallet = (userId: string, userName: string) => {
+    setWalletModalState({
+      type: 'confirm',
+      message: `Create a wallet for ${userName}? This will generate a new blockchain wallet address.`,
+      userId,
+    });
+    setWalletModalOpen(true);
+  };
+
+  const confirmCreateWallet = () => {
+    if (walletModalState.userId) {
+      createWallet.mutate({ userId: walletModalState.userId });
+    }
+  };
+
+  const closeWalletModal = () => {
+    setWalletModalOpen(false);
+    setTimeout(() => {
+      setWalletModalState({
+        type: 'confirm',
+        message: '',
+      });
+    }, 300); // Wait for modal animation
+  };
+
+  const handleSyncMembership = (userId: string, userName: string) => {
+    setSyncModalState({
+      type: 'loading',
+      message: `Syncing membership for ${userName} to the blockchain...`,
+    });
+    setSyncModalOpen(true);
+    syncMembership.mutate({ userId });
+  };
+
+  const closeSyncModal = () => {
+    setSyncModalOpen(false);
+    setTimeout(() => {
+      setSyncModalState({
+        type: 'loading',
+        message: '',
+      });
+    }, 300);
+  };
+
+  const handleViewBlockchainInfo = (userId: string) => {
+    setSelectedUserForBlockchainInfo(userId);
+    setBlockchainInfoModalOpen(true);
+  };
+
+  const closeBlockchainInfoModal = () => {
+    setBlockchainInfoModalOpen(false);
+    setTimeout(() => {
+      setSelectedUserForBlockchainInfo(null);
+    }, 300);
+  };
+
+  const formatBalance = (formatted: string) => {
+    const num = parseFloat(formatted);
+    if (num === 0) return '0';
+    if (num < 0.0001) return '< 0.0001';
+    return num.toLocaleString(undefined, { maximumFractionDigits: 4 });
   };
 
   const getStatusColor = (status: string) => {
@@ -197,6 +317,7 @@ export default function MemberManagement() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Wallet</TableHead>
               <TableHead>Applied</TableHead>
               <TableHead>Application</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -220,6 +341,46 @@ export default function MemberManagement() {
                       {user.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {user.walletAddress ? (
+                      <div className="flex items-center gap-1">
+                        <Wallet className="h-4 w-4 text-green-500" />
+                        <span className="text-xs text-gray-400 font-mono">
+                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewBlockchainInfo(user.id)}
+                          className="text-blue-500 hover:text-blue-400 p-1 h-6 w-6"
+                          title="View blockchain info"
+                        >
+                          <Info className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSyncMembership(user.id, user.name || user.email)}
+                          disabled={syncMembership.isPending}
+                          className="text-purple-500 hover:text-purple-400 p-1 h-6 w-6"
+                          title="Sync membership to contract"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCreateWallet(user.id, user.name || user.email)}
+                        disabled={createWallet.isPending || user.status !== 'ACTIVE'}
+                        className="text-blue-500 hover:text-blue-400"
+                      >
+                        <Wallet className="h-4 w-4 mr-1" />
+                        Create
+                      </Button>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-gray-400">
                     {formatDate(user.createdAt)}
                   </TableCell>
@@ -239,30 +400,6 @@ export default function MemberManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {user.status === 'PENDING' && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-500 hover:text-green-400"
-                            onClick={() => handleStatusChange(user.id, 'ACTIVE')}
-                            disabled={updateStatus.isPending}
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-400"
-                            onClick={() => handleStatusChange(user.id, 'REJECTED')}
-                            disabled={updateStatus.isPending}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </>
-                      )}
                       {user.status === 'ACTIVE' && (
                         <Button
                           variant="ghost"
@@ -285,13 +422,23 @@ export default function MemberManagement() {
                           Reactivate
                         </Button>
                       )}
+                      {user.status === 'PENDING' && (
+                        <span className="text-sm text-gray-500">
+                          Pending approval
+                        </span>
+                      )}
+                      {user.status === 'REJECTED' && (
+                        <span className="text-sm text-gray-500">
+                          -
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                   No users found
                 </TableCell>
               </TableRow>
@@ -380,6 +527,39 @@ export default function MemberManagement() {
                 </div>
               )}
 
+              {/* Introduction Video */}
+              {selectedUser.application.videoCID && (
+                <div>
+                  <h3 className="font-semibold mb-2 text-sm text-gray-400">Introduction Video</h3>
+                  <div className="bg-slate-900 rounded overflow-hidden">
+                    <video
+                      controls
+                      className="w-full max-h-64"
+                      preload="metadata"
+                    >
+                      <source
+                        src={`https://gateway.pinata.cloud/ipfs/${selectedUser.application.videoCID}`}
+                        type="video/mp4"
+                      />
+                    </video>
+                  </div>
+                </div>
+              )}
+
+              {/* Profile Photo */}
+              {selectedUser.application.photoCID && (
+                <div>
+                  <h3 className="font-semibold mb-2 text-sm text-gray-400">Profile Photo</h3>
+                  <div className="bg-slate-900 rounded p-3">
+                    <img
+                      src={`https://gateway.pinata.cloud/ipfs/${selectedUser.application.photoCID}`}
+                      alt="Profile"
+                      className="max-w-xs rounded"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Motivation & Desired Service */}
               {(selectedUser.application.data.motivation || selectedUser.application.data.desiredService) && (
                 <div>
@@ -421,26 +601,372 @@ export default function MemberManagement() {
           )}
 
           <DialogFooter>
-            {selectedUser?.status === 'PENDING' && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleStatusChange(selectedUser.id, 'REJECTED')}
-                  disabled={updateStatus.isPending}
-                  className="text-red-500 hover:text-red-400 border-red-500/20"
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Reject
-                </Button>
-                <Button
-                  onClick={() => handleStatusChange(selectedUser.id, 'ACTIVE')}
-                  disabled={updateStatus.isPending}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Approve
-                </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Wallet Creation Modal */}
+      <Dialog open={walletModalOpen} onOpenChange={setWalletModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {walletModalState.type === 'confirm' && 'Create Wallet'}
+              {walletModalState.type === 'success' && 'Wallet Created'}
+              {walletModalState.type === 'error' && 'Error'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            {walletModalState.type === 'confirm' && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-400">
+                  {walletModalState.message}
+                </p>
+                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs text-blue-900 dark:text-blue-100">
+                    <strong>Note:</strong> This will generate a new Ethereum wallet on Base Sepolia testnet.
+                    The private key will be encrypted and stored securely.
+                  </p>
+                </div>
               </div>
+            )}
+
+            {walletModalState.type === 'success' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 dark:bg-green-900 rounded-full">
+                  <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                  {walletModalState.message}
+                </p>
+                {walletModalState.walletAddress && (
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Wallet Address:</p>
+                    <p className="text-sm font-mono break-all text-gray-900 dark:text-gray-100">
+                      {walletModalState.walletAddress}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {walletModalState.type === 'error' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900 rounded-full">
+                  <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-center text-sm text-red-600 dark:text-red-400">
+                  {walletModalState.message}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {walletModalState.type === 'confirm' && (
+              <>
+                <Button variant="outline" onClick={closeWalletModal} disabled={createWallet.isPending}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmCreateWallet}
+                  disabled={createWallet.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {createWallet.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="h-4 w-4 mr-2" />
+                      Create Wallet
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+            {(walletModalState.type === 'success' || walletModalState.type === 'error') && (
+              <Button onClick={closeWalletModal} className="w-full">
+                Close
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync Membership Modal */}
+      <Dialog open={syncModalOpen} onOpenChange={setSyncModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {syncModalState.type === 'loading' && 'Syncing Membership'}
+              {syncModalState.type === 'success' && 'Sync Complete'}
+              {syncModalState.type === 'error' && 'Sync Failed'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            {syncModalState.type === 'loading' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                </div>
+                <p className="text-center text-sm text-gray-400">
+                  {syncModalState.message}
+                </p>
+                <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                  <p className="text-xs text-purple-900 dark:text-purple-100">
+                    This is syncing the user's membership status from the database to the SoulaaniCoin smart contract on the blockchain.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {syncModalState.type === 'success' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 dark:bg-green-900 rounded-full">
+                  <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                  {syncModalState.message}
+                </p>
+                {syncModalState.action && (
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Action taken:</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {syncModalState.action === 'already_synced' && 'Already in sync - no changes needed'}
+                      {syncModalState.action === 'added_member' && 'Added as new member on contract'}
+                      {syncModalState.action === 'status_updated' && 'Membership status updated on contract'}
+                    </p>
+                  </div>
+                )}
+                {syncModalState.txHash && (
+                  <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Transaction Hash:</p>
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${syncModalState.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-mono break-all text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {syncModalState.txHash}
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {syncModalState.type === 'error' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900 rounded-full">
+                  <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-center text-sm text-red-600 dark:text-red-400">
+                  {syncModalState.message}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            {syncModalState.type !== 'loading' && (
+              <Button onClick={closeSyncModal} className="w-full">
+                Close
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blockchain Info Modal */}
+      <Dialog open={blockchainInfoModalOpen} onOpenChange={setBlockchainInfoModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Blockchain Status</DialogTitle>
+            <DialogDescription>
+              User's wallet and contract information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {blockchainInfoQuery.isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              </div>
+            )}
+
+            {blockchainInfoQuery.error && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 dark:bg-red-900 rounded-full">
+                  <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-center text-sm text-red-600 dark:text-red-400">
+                  {blockchainInfoQuery.error.message}
+                </p>
+              </div>
+            )}
+
+            {blockchainInfoQuery.data && (
+              <div className="space-y-4">
+                {/* User Info */}
+                <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">User</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                    {blockchainInfoQuery.data.user.name || blockchainInfoQuery.data.user.email}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    DB Status: <Badge className={getStatusColor(blockchainInfoQuery.data.user.status)}>
+                      {blockchainInfoQuery.data.user.status}
+                    </Badge>
+                  </p>
+                </div>
+
+                {!blockchainInfoQuery.data.blockchain ? (
+                  <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                      <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                        User does not have a wallet address
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Wallet Address */}
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Wallet Address</p>
+                      <a
+                        href={`https://sepolia.basescan.org/address/${blockchainInfoQuery.data.blockchain.walletAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-mono break-all text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {blockchainInfoQuery.data.blockchain.walletAddress}
+                      </a>
+                    </div>
+
+                    {/* Balances */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">ETH Balance</p>
+                        <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                          {formatBalance(blockchainInfoQuery.data.blockchain.ethBalance.formatted)}
+                        </p>
+                        <p className="text-xs text-gray-500">ETH</p>
+                      </div>
+                      <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 text-center border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-green-600 dark:text-green-400 mb-1">UnityCoin</p>
+                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                          {formatBalance(blockchainInfoQuery.data.blockchain.ucBalance.formatted)}
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400">UC</p>
+                      </div>
+                      <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-3 text-center border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mb-1">SoulaaniCoin</p>
+                        <p className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                          {formatBalance(blockchainInfoQuery.data.blockchain.scBalance.formatted)}
+                        </p>
+                        <p className="text-xs text-purple-600 dark:text-purple-400">SC</p>
+                      </div>
+                    </div>
+
+                    {/* Membership Status */}
+                    <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Contract Membership</p>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-500">Status:</span>{' '}
+                          <Badge className={
+                            blockchainInfoQuery.data.blockchain.memberStatusLabel === 'Active'
+                              ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                              : blockchainInfoQuery.data.blockchain.memberStatusLabel === 'NotMember'
+                              ? 'bg-gray-500/10 text-gray-500 border-gray-500/20'
+                              : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                          }>
+                            {blockchainInfoQuery.data.blockchain.memberStatusLabel}
+                          </Badge>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Is Member:</span>{' '}
+                          <span className={blockchainInfoQuery.data.blockchain.isMember ? 'text-green-500' : 'text-red-500'}>
+                            {blockchainInfoQuery.data.blockchain.isMember ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Is Active:</span>{' '}
+                          <span className={blockchainInfoQuery.data.blockchain.isActiveMember ? 'text-green-500' : 'text-red-500'}>
+                            {blockchainInfoQuery.data.blockchain.isActiveMember ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sync Status */}
+                    {blockchainInfoQuery.data.comparison && (
+                      <div className={`rounded-lg p-3 ${
+                        blockchainInfoQuery.data.comparison.isSynced
+                          ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800'
+                          : 'bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {blockchainInfoQuery.data.comparison.isSynced ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          )}
+                          <p className={`text-sm font-medium ${
+                            blockchainInfoQuery.data.comparison.isSynced
+                              ? 'text-green-900 dark:text-green-100'
+                              : 'text-yellow-900 dark:text-yellow-100'
+                          }`}>
+                            {blockchainInfoQuery.data.comparison.isSynced
+                              ? 'Database and Contract are in sync'
+                              : 'Out of sync'}
+                          </p>
+                        </div>
+                        <div className="text-sm">
+                          <p className="text-gray-600 dark:text-gray-400">
+                            DB: <strong>{blockchainInfoQuery.data.comparison.dbStatus}</strong> | Contract: <strong>{blockchainInfoQuery.data.comparison.contractStatus}</strong>
+                          </p>
+                          {blockchainInfoQuery.data.comparison.syncAction && (
+                            <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                              {blockchainInfoQuery.data.comparison.syncAction}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={closeBlockchainInfoModal} variant="outline">
+              Close
+            </Button>
+            {blockchainInfoQuery.data?.blockchain && blockchainInfoQuery.data.comparison && !blockchainInfoQuery.data.comparison.isSynced && (
+              <Button
+                onClick={() => {
+                  closeBlockchainInfoModal();
+                  if (selectedUserForBlockchainInfo) {
+                    handleSyncMembership(
+                      selectedUserForBlockchainInfo,
+                      blockchainInfoQuery.data?.user.name || blockchainInfoQuery.data?.user.email || ''
+                    );
+                  }
+                }}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Sync Now
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>

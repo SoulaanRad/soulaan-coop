@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
+import VideoUpload from '@/components/video-upload';
+import PhotoUpload from '@/components/photo-upload';
 import {
   Heart,
   Users,
@@ -25,6 +27,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Camera,
 } from 'lucide-react-native';
 
 
@@ -54,6 +57,9 @@ interface FormData {
   // Short Answer
   motivation: string;
   desiredService: string;
+  // Media uploads
+  videoCID: string;
+  photoCID: string;
 }
 
 export default function OnboardingFlow() {
@@ -108,6 +114,9 @@ export default function OnboardingFlow() {
     // Short Answer
     motivation: '',
     desiredService: '',
+    // Media uploads
+    videoCID: '',
+    photoCID: '',
   });
 
   // Generic platform introduction screens
@@ -193,8 +202,8 @@ export default function OnboardingFlow() {
   };
 
   const goToLogin = () => {
-    // Login is at: splashScreens + 1 (browse) + 1 (details) + 3 (form steps) + 1 (success) = index 9
-    setCurrentStep(splashScreens.length + 6);
+    // Login is at: splashScreens + 1 (browse) + 1 (details) + 4 (form steps) + 1 (success) = index 10
+    setCurrentStep(splashScreens.length + 7);
   };
 
   const goToBrowseCoops = () => {
@@ -302,6 +311,8 @@ export default function OnboardingFlow() {
         transparentTransactions: formData.transparentTransactions as any,
         motivation: formData.motivation,
         desiredService: formData.desiredService,
+        videoCID: formData.videoCID || undefined,
+        photoCID: formData.photoCID || undefined,
         agreeToCoopValues: formData.agreeToCoopValues,
         agreeToTerms: formData.agreeToTerms,
         agreeToPrivacy: formData.agreeToPrivacy,
@@ -407,19 +418,19 @@ export default function OnboardingFlow() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          json: { email: loginData.email },
+          email: loginData.email,
         }),
       });
 
       const data = await response.json();
 
-      if (data.result?.data?.json?.success) {
+      if (data.result?.data?.success) {
         setCodeSent(true);
         setCanResend(false);
         setResendTimer(60); // 60 second cooldown
-        Alert.alert('Code Sent', data.result.data.json.message || 'Check your email for the login code');
+        Alert.alert('Code Sent', data.result.data.message || 'Check your email for the login code');
       } else {
-        setLoginError(data.error?.json?.message || data.error?.message || 'Failed to send code');
+        setLoginError(data.error?.message || 'Failed to send code');
       }
     } catch (error) {
       console.error('Request code error:', error);
@@ -442,19 +453,17 @@ export default function OnboardingFlow() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          json: {
-            email: loginData.email,
-            code: loginData.code,
-          },
+          email: loginData.email,
+          code: loginData.code,
         }),
       });
 
       const data = await response.json();
       console.log('📥 Verify code response:', JSON.stringify(data, null, 2));
 
-      if (data.result?.data?.json?.success && data.result?.data?.json?.user) {
+      if (data.result?.data?.success && data.result?.data?.user) {
         console.log('✅ Code verified successfully, logging in...');
-        const user = data.result.data.json.user;
+        const user = data.result.data.user;
         // Convert createdAt to Date object
         user.createdAt = new Date(user.createdAt);
         console.log('👤 User data:', user);
@@ -462,7 +471,7 @@ export default function OnboardingFlow() {
         console.log('🎉 Login complete!');
         // Navigation is handled by AuthContext
       } else {
-        const errorMsg = data.error?.json?.message || data.error?.message || 'Invalid code';
+        const errorMsg = data.error?.message || 'Invalid code';
         console.error('❌ Verification failed:', errorMsg);
         console.error('📦 Full response:', data);
         setLoginError(errorMsg);
@@ -688,7 +697,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               Join {selectedCoop?.name || 'Co-op'}
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 1 of 3: Personal Information</Text>
+            <Text className="text-charcoal-600 text-center">Step 1 of 4: Personal Information</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -842,7 +851,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               {selectedCoop?.name} Application
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 2 of 3: Tell us about yourself</Text>
+            <Text className="text-charcoal-600 text-center">Step 2 of 4: Tell us about yourself</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -986,9 +995,89 @@ export default function OnboardingFlow() {
     );
   };
 
+  const renderMediaUpload = () => {
+    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const apiUrl = getApiUrl();
+
+    return (
+      <ScrollView className="flex-1 bg-background">
+        <View className="min-h-screen flex-1 justify-center p-6">
+          <View className="w-full max-w-md mx-auto">
+            {/* Header */}
+            <View className="items-center mb-8">
+              <View className="bg-amber-500 p-3 rounded-full mb-4">
+                <Icon as={Camera} size={32} className="text-white" />
+              </View>
+              <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
+                Introduce Yourself
+              </Text>
+              <Text className="text-charcoal-600 text-center">
+                Step 3 of 4: Share a video and photo (optional but recommended)
+              </Text>
+            </View>
+
+            <Card className="bg-white border-cream-200">
+              <CardContent className="p-6">
+                {/* Video Upload */}
+                <View className="mb-6">
+                  <VideoUpload
+                    onUploadComplete={(cid, url) => {
+                      handleInputChange('videoCID', cid);
+                    }}
+                    apiUrl={apiUrl}
+                  />
+                </View>
+
+                {/* Photo Upload */}
+                <View className="border-t border-cream-200 pt-6">
+                  <PhotoUpload
+                    onUploadComplete={(cid, url) => {
+                      handleInputChange('photoCID', cid);
+                    }}
+                    apiUrl={apiUrl}
+                    title="Profile Photo"
+                    description="Upload a clear photo of yourself"
+                  />
+                </View>
+
+                {/* Info */}
+                <View className="bg-cream-100 border border-cream-300 rounded-lg p-4 mt-6">
+                  <Text className="text-sm text-charcoal-800 font-semibold mb-2">Why upload media?</Text>
+                  <Text className="text-sm text-charcoal-600">
+                    • Helps community members get to know you{'\n'}
+                    • Increases your application approval chances{'\n'}
+                    • Builds trust in the cooperative{'\n'}
+                    • Shows commitment to transparency
+                  </Text>
+                </View>
+              </CardContent>
+            </Card>
+
+            {/* Navigation */}
+            <View className="flex flex-row justify-between items-center mt-6">
+              <Button variant="ghost" onPress={prevStep}>
+                <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
+                <Text className="text-charcoal-600 ml-1">Back</Text>
+              </Button>
+              <Button
+                onPress={nextStep}
+                className="bg-amber-500"
+              >
+                <Text className="text-white font-semibold">
+                  {formData.videoCID && formData.photoCID ? 'Continue' : 'Skip for Now'}
+                </Text>
+                <Icon as={ChevronRight} size={16} className="text-white ml-1" />
+              </Button>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
   const renderCommitmentQuestions = () => {
     const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
-    
+
     return (
     <ScrollView className="flex-1 bg-background">
       <View className="min-h-screen flex-1 justify-center p-6">
@@ -1001,7 +1090,7 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               {selectedCoop?.name} Application
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 3 of 3: Commitment & Trust</Text>
+            <Text className="text-charcoal-600 text-center">Step 4 of 4: Commitment & Trust</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
@@ -1467,15 +1556,16 @@ export default function OnboardingFlow() {
   );
 
   // Determine which step to render
-  // Flow: Splash Screens → Browse Co-ops → Co-op Details → Personal Info → Questions → Commitment → Success → Login
+  // Flow: Splash Screens → Browse Co-ops → Co-op Details → Personal Info → Questions → Media Upload → Commitment → Success → Login
   const renderCurrentStep = () => {
     const splashEnd = splashScreens.length;
     const browseCoopsStep = splashEnd;
     const coopDetailsStep = splashEnd + 1;
     const personalInfoStep = splashEnd + 2;
     const questionsStep = splashEnd + 3;
-    const commitmentStep = splashEnd + 4;
-    const successStep = splashEnd + 5;
+    const mediaUploadStep = splashEnd + 4;
+    const commitmentStep = splashEnd + 5;
+    const successStep = splashEnd + 6;
 
     if (currentStep < splashEnd) {
       return renderSplashScreen(currentStep);
@@ -1487,6 +1577,8 @@ export default function OnboardingFlow() {
       return renderPersonalInfo();
     } else if (currentStep === questionsStep) {
       return renderApplicationQuestions();
+    } else if (currentStep === mediaUploadStep) {
+      return renderMediaUpload();
     } else if (currentStep === commitmentStep) {
       return renderCommitmentQuestions();
     } else if (currentStep === successStep) {

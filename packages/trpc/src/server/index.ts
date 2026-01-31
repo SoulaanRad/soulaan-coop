@@ -8,10 +8,8 @@ export const trpcExpress = createExpressMiddleware({
   createContext: createContext,
   onError: ({ path, error }) => {
     console.error(`\n❌ tRPC Error on path: ${path}`);
-    console.error(`Error name: ${error.name}`);
-    console.error(`Error message: ${error.message}`);
     console.error(`Error code: ${error.code}`);
-    console.error(`Full error:`, error);
+    console.error(`Error message: ${error.message}`);
     if (error.cause) {
       console.error(`Error cause:`, error.cause);
     }

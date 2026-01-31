@@ -5,6 +5,7 @@
   "type": "commonjs",
   "description": "Smart contracts for Soulaan Co-op (UC, SC, RedemptionVault)",
   "scripts": {
+    "_build": "hardhat compile",
     "compile": "hardhat compile",
     "clean": "hardhat clean",
     "typechain": "hardhat typechain",
@@ -12,7 +13,7 @@
     "test:uc": "hardhat test test/UnityCoin.test.ts",
     "test:sc": "hardhat test test/SoulaaniCoin.test.ts",
     "test:vault": "hardhat test test/RedemptionVault.test.ts",
-    "test:coverage": "hardhat coverage",
+    "test:coverage": "hardhat compile && hardhat coverage",
     "test:gas": "REPORT_GAS=true hardhat test",
     "test:watch": "hardhat watch test",
     "node": "hardhat node",
@@ -45,24 +46,24 @@
     "format:check": "prettier --check 'contracts/**/*.sol' 'test/**/*.ts' 'scripts/**/*.ts'"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.1",
+    "@openzeppelin/contracts": "^5.2.0",
     "dotenv": "^16.6.1",
-    "ethers": "^6.10.0"
+    "ethers": "^6.13.0"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.3",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.12",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "^4.3.11",
+    "@types/chai": "^5.0.2",
     "@types/node": "^22.15.29",
-    "chai": "^4.3.10",
-    "hardhat": "^2.19.5",
+    "chai": "^5.1.2",
+    "hardhat": "^2.24.0",
     "hardhat-gas-reporter": "^1.0.10",
     "prettier": "catalog:",
     "prettier-plugin-solidity": "^2.1.0",
     "solhint": "^6.0.1",
-    "solidity-coverage": "^0.8.5",
+    "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typescript": "catalog:"
