@@ -6,7 +6,7 @@
   "description": "Smart contracts for Soulaan Co-op (UC, SC, RedemptionVault)",
   "scripts": {
     "_build": "hardhat compile",
-    "_compile": "hardhat compile",
+    "compile": "hardhat compile",
     "clean": "hardhat clean",
     "typechain": "hardhat typechain",
     "test": "hardhat test",
