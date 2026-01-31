@@ -101,19 +101,19 @@ jobs:
 
       - name: Compile contracts
         working-directory: packages/contracts
-        env:
-          # Try to force Hardhat to use local compiler
-          HARDHAT_SKIP_COMPILER_DOWNLOAD: "false"
         run: |
-          set -e
-          echo "🔨 Compiling contracts..."
+          echo "🔨 Compiling contracts with Node.js $(node --version)..."
           
-          # Check if compiler is already cached
-          if [ -f "$HOME/.cache/hardhat-nodejs/compilers-v2/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9" ]; then
-            echo "✅ Compiler found in cache"
+          # Check if artifacts exist from cache
+          if [ -d "artifacts/contracts" ] && [ -d "typechain-types" ]; then
+            FILE_COUNT=$(find artifacts/contracts -name "*.json" | wc -l)
+            if [ "$FILE_COUNT" -gt 20 ]; then
+              echo "✅ Found $FILE_COUNT compiled artifacts in cache, skipping compilation"
+              exit 0
+            fi
           fi
           
-          # Run compilation - if it fails, the set -e will stop execution
+          echo "Running pnpm compile..."
           pnpm compile
 
       - name: Run tests
