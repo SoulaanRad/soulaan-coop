@@ -13,6 +13,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      evmVersion: "cancun", // Use latest EVM version for Base L2
     },
   },
   networks: {
