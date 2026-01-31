@@ -39,7 +39,7 @@ jobs:
 
       - name: Compile contracts
         working-directory: packages/contracts
-        run: pnpm compile
+        run: npx hardhat compile
 
       - name: Run tests
         working-directory: packages/contracts
