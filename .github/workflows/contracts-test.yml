@@ -34,12 +34,95 @@ jobs:
           node-version: '22'
           cache: 'pnpm'
 
+      - name: Test network connectivity
+        run: |
+          echo "🌐 Testing network connectivity..."
+          echo "Testing GitHub:"
+          curl -I https://github.com/ --max-time 10 || echo "⚠️  Cannot reach GitHub"
+          echo ""
+          echo "Testing Solidity binaries:"
+          curl -I https://binaries.soliditylang.org/ --max-time 10 || echo "⚠️  Cannot reach Solidity binaries"
+          echo ""
+          echo "Testing Solidity list endpoint:"
+          curl -I https://binaries.soliditylang.org/bin/list.json --max-time 10 || echo "⚠️  Cannot reach Solidity list"
+          echo ""
+          echo "Testing specific compiler:"
+          curl -I https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.28+commit.7893614a --max-time 10 || echo "⚠️  Cannot reach compiler binary"
+
+      - name: Cache Hardhat compiler
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/contracts/cache
+            packages/contracts/artifacts
+            ~/.cache/hardhat-nodejs
+          key: ${{ runner.os }}-hardhat-compiler-${{ hashFiles('packages/contracts/hardhat.config.ts') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-hardhat-compiler-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Compile contracts
+      - name: Pre-download Solidity compiler
+        run: |
+          echo "📥 Attempting to pre-download Solidity 0.8.24 compiler..."
+          mkdir -p ~/.cache/hardhat-nodejs/compilers-v2/linux-amd64
+          
+          # Try to download the compiler directly
+          COMPILER_URL="https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9"
+          COMPILER_PATH="$HOME/.cache/hardhat-nodejs/compilers-v2/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9"
+          
+          if [ ! -f "$COMPILER_PATH" ]; then
+            echo "Downloading from: $COMPILER_URL"
+            if curl -L --retry 5 --retry-delay 5 --max-time 60 -o "$COMPILER_PATH" "$COMPILER_URL"; then
+              chmod +x "$COMPILER_PATH"
+              echo "✅ Successfully pre-downloaded compiler"
+              ls -lh "$COMPILER_PATH"
+            else
+              echo "⚠️  Pre-download failed, will rely on Hardhat's automatic download"
+            fi
+          else
+            echo "✅ Compiler already cached"
+            ls -lh "$COMPILER_PATH"
+          fi
+
+      - name: Compile contracts with retry
         working-directory: packages/contracts
-        run: pnpm compile
+        run: |
+          MAX_ATTEMPTS=5
+          ATTEMPT=1
+          
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "🔨 Compilation attempt $ATTEMPT of $MAX_ATTEMPTS..."
+            
+            if pnpm compile 2>&1 | tee compile.log; then
+              echo "✅ Compilation successful!"
+              exit 0
+            else
+              EXIT_CODE=$?
+              echo "⚠️  Compilation attempt $ATTEMPT failed with exit code $EXIT_CODE"
+              
+              # Check if it's a network error
+              if grep -q "HH502\|Couldn't download\|ENOTFOUND\|ETIMEDOUT" compile.log; then
+                echo "📡 Network error detected. Waiting before retry..."
+                if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                  WAIT_TIME=$((ATTEMPT * 15))
+                  echo "⏳ Waiting ${WAIT_TIME} seconds..."
+                  sleep $WAIT_TIME
+                fi
+              else
+                echo "❌ Non-network error, not retrying"
+                cat compile.log
+                exit $EXIT_CODE
+              fi
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          echo "❌ Compilation failed after $MAX_ATTEMPTS attempts"
+          cat compile.log
+          exit 1
 
       - name: Run tests
         working-directory: packages/contracts
