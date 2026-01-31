@@ -34,87 +34,13 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
-      - name: Test network connectivity
-        run: |
-          echo "🌐 Testing network connectivity..."
-          echo "Testing GitHub:"
-          curl -I https://github.com/ --max-time 10 || echo "⚠️  Cannot reach GitHub"
-          echo ""
-          echo "Testing Solidity binaries:"
-          curl -I https://binaries.soliditylang.org/ --max-time 10 || echo "⚠️  Cannot reach Solidity binaries"
-          echo ""
-          echo "Testing Solidity list endpoint:"
-          curl -I https://binaries.soliditylang.org/bin/list.json --max-time 10 || echo "⚠️  Cannot reach Solidity list"
-          echo ""
-          echo "Testing specific compiler (0.8.24):"
-          curl -I https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9 --max-time 10 || echo "⚠️  Cannot reach compiler binary"
-
-      - name: Cache Hardhat compiler
-        uses: actions/cache@v4
-        with:
-          path: |
-            packages/contracts/cache
-            packages/contracts/artifacts
-            ~/.cache/hardhat-nodejs
-          key: ${{ runner.os }}-hardhat-compiler-${{ hashFiles('packages/contracts/hardhat.config.ts') }}-v2
-          restore-keys: |
-            ${{ runner.os }}-hardhat-compiler-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Pre-download Solidity compiler
-        run: |
-          echo "📥 Attempting to pre-download Solidity 0.8.24 compiler..."
-          mkdir -p ~/.cache/hardhat-nodejs/compilers-v2/linux-amd64
-          
-          # Try to download the compiler directly
-          COMPILER_URL="https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9"
-          COMPILER_PATH="$HOME/.cache/hardhat-nodejs/compilers-v2/linux-amd64/solc-linux-amd64-v0.8.24+commit.e11b9ed9"
-          
-          if [ ! -f "$COMPILER_PATH" ]; then
-            echo "Downloading from: $COMPILER_URL"
-            if curl -L --retry 5 --retry-delay 5 --max-time 60 -o "$COMPILER_PATH" "$COMPILER_URL"; then
-              chmod +x "$COMPILER_PATH"
-              echo "✅ Successfully pre-downloaded compiler"
-              ls -lh "$COMPILER_PATH"
-            else
-              echo "⚠️  Pre-download failed, will rely on Hardhat's automatic download"
-            fi
-          else
-            echo "✅ Compiler already cached"
-            ls -lh "$COMPILER_PATH"
-          fi
-
-      - name: Download compiler version list
-        run: |
-          echo "📋 Downloading Solidity version list..."
-          mkdir -p ~/.cache/hardhat-nodejs/compilers-v2
-          LIST_PATH="$HOME/.cache/hardhat-nodejs/compilers-v2/list.json"
-          
-          if curl -L --retry 5 --retry-delay 5 --max-time 30 -o "$LIST_PATH" "https://binaries.soliditylang.org/bin/list.json"; then
-            echo "✅ Downloaded version list"
-            ls -lh "$LIST_PATH"
-          else
-            echo "⚠️  Could not download version list, but compilation may still work with cached compiler"
-          fi
 
       - name: Compile contracts
         working-directory: packages/contracts
-        run: |
-          echo "🔨 Compiling contracts with Node.js $(node --version)..."
-          
-          # Check if artifacts exist from cache
-          if [ -d "artifacts/contracts" ] && [ -d "typechain-types" ]; then
-            FILE_COUNT=$(find artifacts/contracts -name "*.json" | wc -l)
-            if [ "$FILE_COUNT" -gt 20 ]; then
-              echo "✅ Found $FILE_COUNT compiled artifacts in cache, skipping compilation"
-              exit 0
-            fi
-          fi
-          
-          echo "Running pnpm compile..."
-          pnpm compile
+        run: pnpm compile
 
       - name: Run tests
         working-directory: packages/contracts
