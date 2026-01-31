@@ -63,7 +63,7 @@ export class StripePaymentService implements PaymentServiceInterface {
     
     if (params.amountUSD < MIN_AMOUNT) {
       throw new PaymentError(
-        `Amount must be at least $${MIN_AMOUNT}`,
+        `Amount must be at least the minimum of $${MIN_AMOUNT}`,
         'stripe',
         'AMOUNT_BELOW_MINIMUM'
       );
@@ -71,7 +71,7 @@ export class StripePaymentService implements PaymentServiceInterface {
 
     if (params.amountUSD > MAX_AMOUNT) {
       throw new PaymentError(
-        `Amount cannot exceed $${MAX_AMOUNT}`,
+        `Amount cannot exceed the maximum of $${MAX_AMOUNT}`,
         'stripe',
         'AMOUNT_ABOVE_MAXIMUM'
       );
