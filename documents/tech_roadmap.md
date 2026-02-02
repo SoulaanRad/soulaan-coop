@@ -72,8 +72,5 @@
   - [ ] Implement error handling for payment processing failures and provide user feedback. � �
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
-  - [ ] Create a monitoring dashboard for real-time voting activity metrics. � �
-
 ---
 *🤖 Roadmap updated 2026-01-31 - AI-generated sub-items added based on completed work analysis*
