@@ -223,13 +223,15 @@ export default function PayScreen() {
   };
 
   const goBack = () => {
-    if (step === 'amount') {
+    if (step === 'recipient') {
+      // Navigate back to home
+      router.back();
+    } else if (step === 'amount') {
       setStep('recipient');
       setRecipient(null);
     } else if (step === 'confirm') {
       setStep('amount');
     }
-    // Don't navigate back from recipient step - it's a tab
   };
 
   return (
@@ -246,13 +248,9 @@ export default function PayScreen() {
         {/* Header */}
         <View className="pt-14 pb-4 px-4 border-b border-gray-100">
           <View className="flex-row items-center">
-            {step !== 'recipient' ? (
-              <TouchableOpacity onPress={goBack} className="p-2 -ml-2">
-                <ArrowLeft size={24} color="#111827" />
-              </TouchableOpacity>
-            ) : (
-              <View className="w-10" />
-            )}
+            <TouchableOpacity onPress={goBack} className="p-2 -ml-2">
+              <ArrowLeft size={24} color="#111827" />
+            </TouchableOpacity>
             <Text className="flex-1 text-center text-lg font-semibold text-gray-900">
               {step === 'recipient' && 'Send Money'}
               {step === 'amount' && 'Enter Amount'}

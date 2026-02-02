@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus } from 'lucide-react-native';
+import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Star, ShieldCheck, Store, TrendingUp } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
@@ -25,9 +25,12 @@ export default function HomeScreen() {
   const config = coopConfig();
   const [balance, setBalance] = useState<number>(0);
   const [balanceFormatted, setBalanceFormatted] = useState<string>('$0.00');
+  const [scBalance, setScBalance] = useState<string>('0');
+  const [ucBalance, setUcBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState<string | null>(user?.walletAddress || null);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -65,6 +68,25 @@ export default function HomeScreen() {
       } catch (historyErr) {
         console.error('Error loading history:', historyErr);
         // Don't fail the whole load if history fails
+      }
+
+      // Fetch featured products
+      try {
+        const featuredResult = await api.getFeaturedProducts(6);
+        setFeaturedProducts(featuredResult);
+      } catch (featuredErr) {
+        console.error('Error loading featured products:', featuredErr);
+      }
+
+      // Fetch token balances (SC and UC)
+      if (currentWalletAddress) {
+        try {
+          const tokenBalances = await api.getTokenBalances(currentWalletAddress);
+          setScBalance(tokenBalances.sc);
+          setUcBalance(tokenBalances.uc);
+        } catch (tokenErr) {
+          console.error('Error loading token balances:', tokenErr);
+        }
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -157,50 +179,76 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Balance Card */}
-          <View className="mb-6 rounded-3xl overflow-hidden shadow-lg" style={{ shadowColor: '#B45309', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 12 }}>
-            <LinearGradient
-              colors={['#D97706', '#B45309', '#78350F']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ padding: 24, borderRadius: 24 }}
-            >
-              <View className="mb-6">
-                <Text className="text-amber-200 text-sm font-medium tracking-wide uppercase">Available Balance</Text>
+          {/* Balance Cards - USD and SC side by side */}
+          <View className="flex-row gap-3 mb-4">
+            {/* Available Balance (USD) */}
+            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+              <LinearGradient
+                colors={['#DC2626', '#B91C1C', '#991B1B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 20, borderRadius: 16 }}
+              >
+                <View className="flex-row items-center mb-3">
+                  <Wallet size={18} color="white" />
+                  <Text className="text-white/90 text-xs font-medium ml-2">Available Balance</Text>
+                </View>
                 {isLoading ? (
-                  <ActivityIndicator size="large" color="white" style={{ marginTop: 8 }} />
+                  <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-white text-5xl font-bold mt-2" style={{ letterSpacing: -1 }}>{balanceFormatted}</Text>
+                  <Text className="text-white text-2xl font-bold">{balanceFormatted}</Text>
                 )}
-              </View>
+              </LinearGradient>
+            </View>
 
-              {/* Quick Action Buttons */}
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/pay' as any)}
-                  className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center"
-                  style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}
-                >
-                  <Send size={20} color="#B45309" />
-                  <Text className="text-amber-700 font-bold ml-2">Send</Text>
-                </TouchableOpacity>
+            {/* Soulaan Coin */}
+            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+              <LinearGradient
+                colors={['#F59E0B', '#D97706', '#B45309']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 20, borderRadius: 16 }}
+              >
+                <View className="flex-row items-center mb-3">
+                  <TrendingUp size={18} color="white" />
+                  <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
+                </View>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-2xl font-bold">{parseFloat(scBalance).toFixed(2)} SC</Text>
+                )}
+              </LinearGradient>
+            </View>
+          </View>
 
-                <TouchableOpacity
-                  onPress={() => router.push('/withdraw' as any)}
-                  className="flex-1 bg-white/20 rounded-2xl py-4 flex-row items-center justify-center border border-white/30"
-                >
-                  <Landmark size={20} color="white" />
-                  <Text className="text-white font-bold ml-2">Withdraw</Text>
-                </TouchableOpacity>
+          {/* Quick Action Buttons */}
+          <View className="flex-row gap-3 mb-6">
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/pay' as any)}
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Send size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Send</Text>
+            </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-                  className="bg-white/20 rounded-2xl py-4 px-5 items-center justify-center border border-white/30"
-                >
-                  <Plus size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
+            <TouchableOpacity
+              onPress={() => router.push('/withdraw' as any)}
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Landmark size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Withdraw</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/payment-methods' as any)}
+              className="bg-white rounded-2xl py-4 px-5 items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Plus size={20} color="#B45309" />
+            </TouchableOpacity>
           </View>
 
 
@@ -268,6 +316,72 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
+
+          {/* Featured Products */}
+          {featuredProducts.length > 0 && (
+            <View className="mb-4">
+              <View className="flex-row justify-between items-center mb-4">
+                <View className="flex-row items-center">
+                  <Star size={20} color="#D97706" fill="#D97706" />
+                  <Text className="text-xl font-bold text-gray-900 ml-2">Featured</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push('/(authenticated)/stores' as any)}
+                  className="bg-gray-100 px-3 py-1.5 rounded-full"
+                >
+                  <Text className="text-amber-700 text-sm font-medium">Shop All</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6">
+                <View className="flex-row gap-3">
+                  {featuredProducts.map((product) => (
+                    <TouchableOpacity
+                      key={product.id}
+                      onPress={() => router.push(`/(authenticated)/product-detail?id=${product.id}` as any)}
+                      className="bg-white rounded-2xl overflow-hidden shadow-sm"
+                      style={{ width: 160 }}
+                    >
+                      {product.imageUrl ? (
+                        <Image
+                          source={{ uri: product.imageUrl }}
+                          className="w-full h-32"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-full h-32 bg-gray-100 items-center justify-center">
+                          <Store size={32} color="#D1D5DB" />
+                        </View>
+                      )}
+                      <View className="p-3">
+                        <Text className="text-gray-900 font-semibold text-sm" numberOfLines={1}>
+                          {product.name}
+                        </Text>
+                        <View className="flex-row items-center mt-1">
+                          {product.store?.isScVerified && (
+                            <ShieldCheck size={12} color="#D97706" style={{ marginRight: 4 }} />
+                          )}
+                          <Text className="text-gray-500 text-xs" numberOfLines={1}>
+                            {product.store?.name}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center mt-2">
+                          <Text className="text-amber-700 font-bold">
+                            ${product.priceUSD.toFixed(2)}
+                          </Text>
+                          {product.compareAtPrice && product.compareAtPrice > product.priceUSD && (
+                            <Text className="text-gray-400 text-xs line-through ml-2">
+                              ${product.compareAtPrice.toFixed(2)}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           {/* Coop Info */}
           {user?.coop && (

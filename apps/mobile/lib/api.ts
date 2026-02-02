@@ -529,6 +529,29 @@ export const api = {
   },
 
   /**
+   * Get token balances (SC and UC) from blockchain
+   */
+  async getTokenBalances(walletAddress: string) {
+    const input = encodeURIComponent(JSON.stringify({ walletAddress }));
+    const response = await fetch(`${API_BASE_URL}/trpc/user.getBalances?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get token balances');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data || { sc: '0', uc: '0', scRaw: '0', ucRaw: '0' };
+  },
+
+  /**
    * Send payment to another user (Soulaan user or non-user via phone)
    */
   async sendPayment(
@@ -909,5 +932,306 @@ export const api = {
     }
 
     return result.result?.data;
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // STORE / MARKETPLACE
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Get all stores (public)
+   */
+  async getStores(options?: {
+    category?: string;
+    scVerifiedOnly?: boolean;
+    featured?: boolean;
+    search?: string;
+    limit?: number;
+    cursor?: string;
+  }) {
+    const input = encodeURIComponent(JSON.stringify(options || {}));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getStores?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get stores');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get single store details (public)
+   */
+  async getStore(storeId: string) {
+    const input = encodeURIComponent(JSON.stringify({ storeId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getStore?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get store');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get products (public)
+   */
+  async getProducts(options: {
+    storeId?: string;
+    category?: string;
+    featured?: boolean;
+    search?: string;
+    limit?: number;
+    cursor?: string;
+  }) {
+    const input = encodeURIComponent(JSON.stringify(options));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getProducts?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get products');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get single product details (public)
+   */
+  async getProduct(productId: string) {
+    const input = encodeURIComponent(JSON.stringify({ productId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getProduct?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get product');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get my store (authenticated)
+   */
+  async getMyStore(walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getMyStore`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get my store');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Apply to become a store (authenticated)
+   */
+  async applyForStore(data: {
+    storeName: string;
+    storeDescription: string;
+    category: string;
+    businessName: string;
+    businessAddress: string;
+    businessCity: string;
+    businessState: string;
+    businessZip: string;
+    ownerName: string;
+    ownerEmail: string;
+    ownerPhone: string;
+    communityBenefitStatement: string;
+    communityCommitmentPercent: number;
+    estimatedMonthlyRevenue?: string;
+    websiteUrl?: string;
+    socialMediaUrls?: string[];
+    businessLicenseCID?: string;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.applyForStore`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to submit store application');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get my products (authenticated - store owners)
+   */
+  async getMyProducts(walletAddress: string, includeInactive = false) {
+    const input = encodeURIComponent(JSON.stringify({ includeInactive }));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getMyProducts?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get my products');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Add a product (authenticated - store owners)
+   */
+  async addProduct(data: {
+    name: string;
+    description?: string;
+    category: string;
+    imageUrl?: string;
+    images?: string[];
+    priceUSD: number;
+    ucDiscountPrice?: number;
+    sku?: string;
+    quantity?: number;
+    trackInventory?: boolean;
+    allowBackorder?: boolean;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.addProduct`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to add product');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Update a product (authenticated - store owners)
+   */
+  async updateProduct(productId: string, data: {
+    name?: string;
+    description?: string;
+    category?: string;
+    imageUrl?: string | null;
+    images?: string[];
+    priceUSD?: number;
+    ucDiscountPrice?: number | null;
+    sku?: string | null;
+    quantity?: number;
+    trackInventory?: boolean;
+    allowBackorder?: boolean;
+    isActive?: boolean;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.updateProduct`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ productId, ...data })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to update product');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Delete a product (authenticated - store owners)
+   */
+  async deleteProduct(productId: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.deleteProduct`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ productId })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to delete product');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  /**
+   * Get featured products for home page (public)
+   */
+  async getFeaturedProducts(limit?: number) {
+    const input = encodeURIComponent(JSON.stringify({ limit: limit || 8 }));
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getFeaturedProducts?input=${input}`, {
+      method: 'GET',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get featured products');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data || [];
   },
 };

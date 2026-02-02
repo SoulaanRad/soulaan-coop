@@ -37,6 +37,7 @@ model User {
   bankAccounts        BankAccount[]
   withdrawals         Withdrawal[]
   notifications       Notification[]
+  stores              Store[]
 
   @@schema("public")
 }
@@ -556,6 +557,272 @@ enum WithdrawalStatus {
   PROCESSING  // Payout initiated with Stripe
   COMPLETED   // Funds sent to bank
   FAILED      // Payout failed
+
+  @@schema("public")
+}
+
+// ── Store/Marketplace Models ────────────────────────────
+
+model Store {
+  id                String   @id @default(cuid())
+  ownerId           String
+  owner             User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String?
+  category          StoreCategory
+  imageUrl          String?
+  bannerUrl         String?
+
+  // Location
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+
+  // Contact
+  phone             String?
+  email             String?
+  website           String?
+
+  // SC Verification - stores that can earn SC from transactions
+  isScVerified      Boolean  @default(false)
+  scVerifiedAt      DateTime?
+  acceptsUC         Boolean  @default(true)  // Accepts UC payments (20% discount)
+  ucDiscountPercent Float    @default(20)    // Discount for UC payments
+
+  // Community commitment - percentage of profits that go back to the coop
+  communityCommitmentPercent Float @default(10)
+
+  // Status
+  status            StoreStatus @default(PENDING)
+  isFeatured        Boolean  @default(false)
+
+  // Stats
+  totalSales        Float    @default(0)
+  totalOrders       Int      @default(0)
+  rating            Float?
+  reviewCount       Int      @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  products          Product[]
+  application       StoreApplication?
+  orders            StoreOrder[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([category])
+  @@schema("public")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  storeId           String
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String?
+  category          ProductCategory
+  imageUrl          String?
+  images            String[] // Additional images
+
+  // Pricing
+  priceUSD          Float
+  compareAtPrice    Float?   // Original price for showing discounts (admin only)
+  ucDiscountPrice   Float?   // Price when paying with UC (auto-calculated or custom)
+
+  // Inventory
+  sku               String?
+  quantity          Int      @default(0)
+  trackInventory    Boolean  @default(true)
+  allowBackorder    Boolean  @default(false)
+
+  // Status
+  isActive          Boolean  @default(true)
+  isFeatured        Boolean  @default(false)
+
+  // Stats
+  totalSold         Int      @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  orderItems        StoreOrderItem[]
+
+  @@index([storeId])
+  @@index([category])
+  @@index([isActive])
+  @@schema("public")
+}
+
+model StoreApplication {
+  id                String   @id @default(cuid())
+  storeId           String   @unique
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // Business information
+  businessName      String
+  businessAddress   String
+  businessCity      String
+  businessState     String
+  businessZip       String
+
+  // Owner information
+  ownerName         String
+  ownerEmail        String
+  ownerPhone        String
+
+  // Application details
+  storeDescription           String   @default("") // Description of what the store sells/offers
+  communityBenefitStatement  String   @default("") // How the store will benefit the community
+  communityCommitmentPercent Float    @default(10) // Percentage of profits committed back to coop
+  estimatedMonthlyRevenue    String?
+  websiteUrl                 String?
+  socialMediaUrls            String[]
+
+  // Documents (optional)
+  businessLicenseCID String?  // IPFS CID for business license
+
+  // Review
+  status            StoreApplicationStatus @default(PENDING)
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  rejectionReason   String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@schema("public")
+}
+
+model StoreOrder {
+  id                String   @id @default(cuid())
+  storeId           String
+  store             Store    @relation(fields: [storeId], references: [id])
+  buyerId           String
+
+  // Totals
+  subtotalUSD       Float
+  discountUSD       Float    @default(0)
+  totalUSD          Float
+  totalUC           Float?   // If paid with UC
+
+  // Payment
+  paymentMethod     PaymentType
+  paymentStatus     PaymentStatus @default(PENDING)
+  transactionHash   String?  // Blockchain tx if paid with UC
+
+  // Fulfillment
+  fulfillmentStatus FulfillmentStatus @default(PENDING)
+  shippingAddress   String?
+  trackingNumber    String?
+
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  items             StoreOrderItem[]
+
+  @@index([storeId])
+  @@index([buyerId])
+  @@schema("public")
+}
+
+model StoreOrderItem {
+  id                String   @id @default(cuid())
+  orderId           String
+  order             StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id])
+
+  quantity          Int
+  priceUSD          Float    // Price at time of purchase
+  totalUSD          Float
+
+  @@schema("public")
+}
+
+// ── Store Enums ──────────────────────────────────────────
+
+enum StoreCategory {
+  FOOD_BEVERAGE
+  RETAIL
+  SERVICES
+  HEALTH_WELLNESS
+  ENTERTAINMENT
+  EDUCATION
+  PROFESSIONAL
+  HOME_GARDEN
+  AUTOMOTIVE
+  OTHER
+
+  @@schema("public")
+}
+
+enum ProductCategory {
+  FOOD
+  BEVERAGES
+  CLOTHING
+  ELECTRONICS
+  HOME
+  BEAUTY
+  HEALTH
+  SPORTS
+  TOYS
+  BOOKS
+  SERVICES
+  OTHER
+
+  @@schema("public")
+}
+
+enum StoreStatus {
+  PENDING      // Application submitted, awaiting review
+  APPROVED     // Approved and active
+  SUSPENDED    // Temporarily suspended
+  REJECTED     // Application rejected
+
+  @@schema("public")
+}
+
+enum StoreApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+
+  @@schema("public")
+}
+
+enum PaymentType {
+  CARD
+  UC_BALANCE
+  MIXED
+
+  @@schema("public")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+
+  @@schema("public")
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
 
   @@schema("public")
 }

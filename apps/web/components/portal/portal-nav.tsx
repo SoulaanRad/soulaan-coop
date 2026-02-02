@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Landmark } from "lucide-react";
+import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
 import BackendWalletStatus from "./backend-wallet-status";
@@ -36,6 +36,12 @@ const navItems: NavItem[] = [
     title: "Applications",
     href: "/portal/applications",
     icon: FileText,
+  },
+  {
+    title: "Stores",
+    href: "/portal/stores",
+    icon: Store,
+    adminOnly: true,
   },
   {
     title: "Settings",

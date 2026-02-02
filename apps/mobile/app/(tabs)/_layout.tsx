@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Home, Wallet, Send, Clock, User } from 'lucide-react-native';
+import { Home, Wallet, Store, User } from 'lucide-react-native';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -31,23 +31,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="transfer"
         options={{
-          title: 'Pay',
-          tabBarIcon: ({ color, size }) => <Send size={size} color={color} />,
+          href: null, // Hidden - accessible from home
         }}
       />
       <Tabs.Screen
         name="buy"
         options={{
-          href: null, // Hide this tab - Buy UC disabled for now
+          href: null, // Hidden - Buy UC disabled for now
         }}
       />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
-        }}
-      />
+
       <Tabs.Screen
         name="explore"
         options={{

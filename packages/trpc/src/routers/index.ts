@@ -12,6 +12,7 @@ import { onrampRouter } from "./onramp.js";
 import { ucAdminRouter } from "./uc-admin.js";
 import { p2pRouter } from "./p2p.js";
 import { claimRouter } from "./claim.js";
+import { storeRouter } from "./store.js";
 
 
 export const appRouter = router({
@@ -27,6 +28,7 @@ export const appRouter = router({
   ucAdmin: ucAdminRouter,
   p2p: p2pRouter,
   claim: claimRouter,
+  store: storeRouter,
 });
 
 export type AppRouter = typeof appRouter;
