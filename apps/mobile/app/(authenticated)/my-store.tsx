@@ -27,23 +27,10 @@ import {
   AlertCircle,
   ChevronRight,
   Edit3,
+  QrCode,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-
-// Store categories
-const STORE_CATEGORIES = [
-  { value: 'FOOD_BEVERAGE', label: 'Food & Beverage' },
-  { value: 'RETAIL', label: 'Retail' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'HEALTH_WELLNESS', label: 'Health & Wellness' },
-  { value: 'ENTERTAINMENT', label: 'Entertainment' },
-  { value: 'EDUCATION', label: 'Education' },
-  { value: 'PROFESSIONAL', label: 'Professional' },
-  { value: 'HOME_GARDEN', label: 'Home & Garden' },
-  { value: 'AUTOMOTIVE', label: 'Automotive' },
-  { value: 'OTHER', label: 'Other' },
-];
 
 interface ProductData {
   id: string;
@@ -65,6 +52,7 @@ export default function MyStoreScreen() {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
 
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
@@ -95,6 +83,19 @@ export default function MyStoreScreen() {
     init();
   }, [loadStore, loadProducts]);
 
+  // Load store categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getStoreCategories(true); // Include admin-only for viewing
+        setStoreCategories(categories);
+      } catch (error) {
+        console.error('Failed to load store categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
   // Refresh products when screen comes into focus (after adding/editing)
   useFocusEffect(
     useCallback(() => {
@@ -111,7 +112,7 @@ export default function MyStoreScreen() {
   };
 
   const getCategoryLabel = (value: string) => {
-    return STORE_CATEGORIES.find((c) => c.value === value)?.label || value;
+    return storeCategories.find((c) => c.key === value)?.label || value;
   };
 
   const formatPrice = (price: number) => {
@@ -332,6 +333,30 @@ export default function MyStoreScreen() {
             )}
           </View>
         </View>
+
+        {/* Quick Pay Card */}
+        {store.status === 'APPROVED' && (
+          <TouchableOpacity
+            onPress={() => router.push('/(authenticated)/accept-payment' as any)}
+            className="mx-5 mt-4"
+          >
+            <LinearGradient
+              colors={['#10B981', '#059669']}
+              className="rounded-2xl p-5 flex-row items-center"
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
+                <QrCode size={24} color="white" />
+              </View>
+              <View className="flex-1 ml-4">
+                <Text className="text-white font-bold text-lg">Accept Payment</Text>
+                <Text className="text-white/80 text-sm">Generate QR codes & payment links</Text>
+              </View>
+              <ChevronRight size={24} color="white" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         {/* Products Section */}
         {store.status === 'APPROVED' && (

@@ -58,7 +58,7 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     bytes32 public constant SYSTEM_CONTRACT_MANAGER = keccak256("SYSTEM_CONTRACT_MANAGER");
 
     // Reference to SoulaaniCoin for membership verification
-    ISoulaaniCoin public immutable soulaaniCoin;
+    ISoulaaniCoin public soulaaniCoin;
 
     // Whitelisted system contracts (can send/receive UC without membership check)
     mapping(address => bool) public isSystemContract;
@@ -99,6 +99,9 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     event ClearingContractChanged(address indexed oldClearingContract, address indexed newClearingContract, address indexed changedBy);
     event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
     event CrossCoopTransfer(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed from, address to, uint256 amount);
+    
+    // SoulaaniCoin reference update event
+    event SoulaaniCoinAddressChanged(address indexed oldAddress, address indexed newAddress, address indexed changedBy);
 
     /**
      * @notice Constructor - initializes UC token
@@ -385,6 +388,18 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         address oldRecipient = feeRecipient;
         feeRecipient = newRecipient;
         emit FeeRecipientChanged(oldRecipient, newRecipient, msg.sender);
+    }
+
+    /**
+     * @notice Update SoulaaniCoin contract reference
+     * @param newSoulaaniCoin New SoulaaniCoin contract address
+     * @dev Only callable by DEFAULT_ADMIN_ROLE. Allows upgrading SC contract independently.
+     */
+    function setSoulaaniCoinAddress(address newSoulaaniCoin) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newSoulaaniCoin != address(0), "SoulaaniCoin cannot be zero address");
+        address oldAddress = address(soulaaniCoin);
+        soulaaniCoin = ISoulaaniCoin(newSoulaaniCoin);
+        emit SoulaaniCoinAddressChanged(oldAddress, newSoulaaniCoin, msg.sender);
     }
 
     /**

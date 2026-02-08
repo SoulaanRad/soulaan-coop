@@ -13,6 +13,9 @@ import { ucAdminRouter } from "./uc-admin.js";
 import { p2pRouter } from "./p2p.js";
 import { claimRouter } from "./claim.js";
 import { storeRouter } from "./store.js";
+import { storePayRouter } from "./store-pay.js";
+import { categoriesRouter } from "./categories.js";
+import { notificationRouter } from "./notification.js";
 
 
 export const appRouter = router({
@@ -29,6 +32,9 @@ export const appRouter = router({
   p2p: p2pRouter,
   claim: claimRouter,
   store: storeRouter,
+  storePay: storePayRouter,
+  categories: categoriesRouter,
+  notification: notificationRouter,
 });
 
 export type AppRouter = typeof appRouter;

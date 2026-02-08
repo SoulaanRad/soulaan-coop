@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
-import { Home, User, Send, Clock, Store } from 'lucide-react-native';
+import { Home, User, Store } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function AuthenticatedLayout() {
@@ -55,8 +55,13 @@ export default function AuthenticatedLayout() {
         options={{
           title: 'Shop',
           tabBarIcon: ({ color, focused }) => (
- 
+            <View style={focused ? {
+              backgroundColor: '#FEF3C7',
+              borderRadius: 12,
+              padding: 8,
+            } : { padding: 8 }}>
               <Store color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
           ),
         }}
       />
@@ -78,11 +83,10 @@ export default function AuthenticatedLayout() {
         }}
       />
       {/* Hide these screens from tabs - accessed via navigation */}
-
-      <Tabs.Screen
-        name="pay"
-        options={{ href: null }}
-      /> 
+      <Tabs.Screen name="pay" options={{ href: null }} />
+      <Tabs.Screen name="scan-pay" options={{ href: null }} />
+      <Tabs.Screen name="quick-pay" options={{ href: null }} />
+      <Tabs.Screen name="accept-payment" options={{ href: null }} />
       <Tabs.Screen name="history" options={{ href: null }} />
       <Tabs.Screen name="bank-accounts" options={{ href: null }} />
       <Tabs.Screen name="payment-methods" options={{ href: null }} />
@@ -90,8 +94,15 @@ export default function AuthenticatedLayout() {
       <Tabs.Screen name="product-detail" options={{ href: null }} />
       <Tabs.Screen name="apply-store" options={{ href: null }} />
       <Tabs.Screen name="my-store" options={{ href: null }} />
+      <Tabs.Screen name="store-payments" options={{ href: null }} />
       <Tabs.Screen name="add-product" options={{ href: null }} />
       <Tabs.Screen name="edit-product" options={{ href: null }} />
+      <Tabs.Screen name="cart" options={{ href: null }} />
+      <Tabs.Screen name="checkout" options={{ href: null }} />
+      <Tabs.Screen name="orders" options={{ href: null }} />
+      <Tabs.Screen name="order-detail" options={{ href: null }} />
+      <Tabs.Screen name="fund-wallet" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

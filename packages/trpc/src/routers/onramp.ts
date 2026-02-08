@@ -2,9 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { Context } from "../context.js";
-import { privateProcedure } from "../procedures/index.js";
+import { privateProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { paymentService } from "../services/payment/index.js";
+import { chargePaymentMethod } from "../services/stripe-customer.js";
+import { mintUCToUser } from "../services/wallet-service.js";
 
 export const onrampRouter = router({
   /**
@@ -123,6 +125,178 @@ export const onrampRouter = router({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create payment intent. Please try again.",
+          cause: error,
+        });
+      }
+    }),
+
+  /**
+   * Fund wallet with a saved card (instant UC minting)
+   * Charges saved card and mints UC to user's wallet
+   */
+  fundWithSavedCard: authenticatedProcedure
+    .input(z.object({
+      amountUSD: z.number().min(10).max(10000), // $10-$10,000 limits
+      paymentMethodId: z.string().optional(), // If not provided, use default
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+      const walletAddress = (ctx as any).walletAddress as string;
+
+      console.log('\n🔷 fundWithSavedCard - START');
+      console.log('💰 Amount USD:', input.amountUSD);
+      console.log('💳 Payment method ID:', input.paymentMethodId || 'default');
+      console.log('👛 Wallet address:', walletAddress);
+
+      try {
+        // Look up user by wallet address
+        const user = await context.db.user.findUnique({
+          where: { walletAddress },
+          include: {
+            paymentMethods: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found. Please complete registration first.",
+          });
+        }
+
+        const userId = user.id;
+        console.log('👤 User ID:', userId);
+
+        // Find the payment method to use
+        let paymentMethod = input.paymentMethodId
+          ? user.paymentMethods.find(pm => pm.id === input.paymentMethodId)
+          : user.paymentMethods.find(pm => pm.isDefault) || user.paymentMethods[0];
+
+        if (!paymentMethod) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No payment method on file. Please add a card first.",
+          });
+        }
+
+        console.log('💳 Using card:', paymentMethod.brand, '****', paymentMethod.last4);
+
+        // Convert amount to cents
+        const amountCents = Math.round(input.amountUSD * 100);
+        const amountUC = input.amountUSD; // 1:1 peg
+
+        // Create onramp transaction record first (PENDING)
+        const transaction = await context.db.onrampTransaction.create({
+          data: {
+            userId,
+            amountUSD: input.amountUSD,
+            amountUC,
+            paymentIntentId: `fund_${Date.now()}_${userId.slice(-6)}`,
+            processor: 'stripe',
+            status: 'PENDING',
+          },
+        });
+
+        console.log('💾 Transaction created:', transaction.id);
+
+        try {
+          // Charge the saved card
+          console.log('💳 Charging card...');
+          const chargeResult = await chargePaymentMethod(
+            userId,
+            amountCents,
+            `Wallet funding: $${input.amountUSD} → ${amountUC} UC`,
+            {
+              transactionId: transaction.id,
+              type: 'wallet_funding',
+            }
+          );
+
+          console.log('✅ Card charged:', chargeResult.paymentIntentId);
+
+          // Mint UC to user's wallet
+          console.log('🪙 Minting UC...');
+          const mintTxHash = await mintUCToUser(userId, amountUC);
+
+          console.log('✅ UC minted:', mintTxHash);
+
+          // Update transaction as COMPLETED
+          await context.db.onrampTransaction.update({
+            where: { id: transaction.id },
+            data: {
+              paymentIntentId: chargeResult.paymentIntentId,
+              processorChargeId: chargeResult.chargeId,
+              mintTxHash,
+              status: 'COMPLETED',
+              completedAt: new Date(),
+            },
+          });
+
+          // Create notification
+          await context.db.notification.create({
+            data: {
+              userId,
+              type: 'WALLET_FUNDED',
+              title: 'Wallet Funded',
+              body: `$${input.amountUSD.toFixed(2)} has been added to your wallet.`,
+              data: {
+                transactionId: transaction.id,
+                amountUSD: input.amountUSD,
+                amountUC,
+                mintTxHash,
+              },
+            },
+          });
+
+          console.log('🎉 fundWithSavedCard - SUCCESS');
+
+          return {
+            success: true,
+            transactionId: transaction.id,
+            amountUSD: input.amountUSD,
+            amountUC,
+            mintTxHash,
+            message: `Successfully funded wallet with ${amountUC} UC`,
+          };
+        } catch (error: any) {
+          console.error('💥 Funding failed:', error);
+
+          // Update transaction as FAILED
+          await context.db.onrampTransaction.update({
+            where: { id: transaction.id },
+            data: {
+              status: 'FAILED',
+              failedAt: new Date(),
+              failureReason: error.message || 'Unknown error',
+            },
+          });
+
+          // Re-throw with appropriate error message
+          if (error.message?.includes('card was declined')) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Your card was declined. Please try a different card.",
+            });
+          }
+
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to fund wallet. Please try again.",
+            cause: error,
+          });
+        }
+      } catch (error) {
+        console.error('💥 ERROR in fundWithSavedCard:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fund wallet. Please try again.",
           cause: error,
         });
       }

@@ -82,7 +82,7 @@ async function main() {
     await run("verify:verify", {
       address: RedemptionVault.address,
       constructorArguments: [
-        "0x0000000000000000000000000000000000000000", // UC was zero address initially
+        UnityCoin.address, // UC address (not zero address)
         MockUSDC.address,
         treasurySafe
       ],

@@ -24,22 +24,6 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 
-// Product categories
-const PRODUCT_CATEGORIES = [
-  { value: 'FOOD', label: 'Food' },
-  { value: 'BEVERAGES', label: 'Beverages' },
-  { value: 'CLOTHING', label: 'Clothing' },
-  { value: 'ELECTRONICS', label: 'Electronics' },
-  { value: 'HOME', label: 'Home' },
-  { value: 'BEAUTY', label: 'Beauty' },
-  { value: 'HEALTH', label: 'Health' },
-  { value: 'SPORTS', label: 'Sports' },
-  { value: 'TOYS', label: 'Toys' },
-  { value: 'BOOKS', label: 'Books' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'OTHER', label: 'Other' },
-];
-
 export default function EditProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -47,6 +31,7 @@ export default function EditProductScreen() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string }>>([]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -95,12 +80,25 @@ export default function EditProductScreen() {
     loadProduct();
   }, [loadProduct]);
 
+  // Load product categories on mount (exclude admin-only for regular users)
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getProductCategories(false);
+        setProductCategories(categories);
+      } catch (error) {
+        console.error('Failed to load product categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
   const updateField = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getCategoryLabel = (value: string) => {
-    return PRODUCT_CATEGORIES.find((c) => c.value === value)?.label || 'Select Category';
+    return productCategories.find((c) => c.key === value)?.label || 'Select Category';
   };
 
   const validateForm = (): boolean => {
@@ -269,19 +267,19 @@ export default function EditProductScreen() {
               {showCategoryPicker && (
                 <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 overflow-hidden max-h-48">
                   <ScrollView nestedScrollEnabled>
-                    {PRODUCT_CATEGORIES.map((cat) => (
+                    {productCategories.map((cat) => (
                       <TouchableOpacity
-                        key={cat.value}
+                        key={cat.key}
                         onPress={() => {
-                          updateField('category', cat.value);
+                          updateField('category', cat.key);
                           setShowCategoryPicker(false);
                         }}
                         className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                          formData.category === cat.value ? 'bg-amber-50 dark:bg-amber-900/30' : ''
+                          formData.category === cat.key ? 'bg-amber-50 dark:bg-amber-900/30' : ''
                         }`}
                       >
                         <Text className={`${
-                          formData.category === cat.value
+                          formData.category === cat.key
                             ? 'text-amber-600 dark:text-amber-400 font-semibold'
                             : 'text-gray-700 dark:text-gray-300'
                         }`}>

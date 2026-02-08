@@ -407,3 +407,154 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
 
   return txHash;
 }
+
+// Soulaani Coin (SC) reward configuration
+const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542';
+const SC_REWARD_RATE = 0.01; // 1% SC reward on qualifying transactions
+
+/**
+ * Calculate SC reward for a transaction
+ * @param amountUSD - Transaction amount in USD
+ * @returns SC reward amount (1% of transaction)
+ */
+export function calculateSCReward(amountUSD: number): number {
+  return amountUSD * SC_REWARD_RATE;
+}
+
+/**
+ * Mint Soulaani Coin (SC) to a user's wallet as a reward
+ * Called for qualifying transactions (e.g., store payments)
+ * @param userId - The user ID to mint SC for
+ * @param amountSC - Amount of SC to mint
+ * @param reason - Reason for the reward (for logging)
+ * @returns Transaction hash
+ */
+export async function mintSCToUser(userId: string, amountSC: number, reason: string = 'transaction_reward'): Promise<string> {
+  const keyPreview = BACKEND_WALLET_PRIVATE_KEY
+    ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
+    : 'NOT SET';
+  console.log(`🪙 SC Mint - BACKEND_WALLET_PRIVATE_KEY: ${keyPreview}`);
+
+  if (!BACKEND_WALLET_PRIVATE_KEY) {
+    throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
+  }
+
+  if (!isValidPrivateKey(BACKEND_WALLET_PRIVATE_KEY)) {
+    console.error(`❌ Invalid key format for SC mint`);
+    throw new Error('BACKEND_WALLET_PRIVATE_KEY is invalid');
+  }
+
+  // Get user's wallet address
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { walletAddress: true },
+  });
+
+  if (!user?.walletAddress) {
+    throw new Error('User does not have a wallet');
+  }
+
+  // Create backend wallet client (has BACKEND role for minting)
+  const backendAccount = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
+  const walletClient = createWalletClient({
+    account: backendAccount,
+    chain: baseSepolia,
+    transport: http(RPC_URL),
+  });
+
+  // Encode mintReward function call
+  // SoulaaniCoin has 18 decimals
+  const amountInWei = parseUnits(amountSC.toString(), 18);
+
+  const txData = encodeFunctionData({
+    abi: [
+      {
+        inputs: [
+          { name: 'to', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+        ],
+        name: 'mintReward',
+        outputs: [],
+        stateMutability: 'nonpayable',
+        type: 'function',
+      },
+    ],
+    functionName: 'mintReward',
+    args: [user.walletAddress as Address, amountInWei],
+  });
+
+  // Send mint transaction
+  const txHash = await walletClient.sendTransaction({
+    to: SOULAANI_COIN_ADDRESS as Address,
+    data: txData,
+  });
+
+  console.log(`🪙 Minted ${amountSC} SC to ${user.walletAddress} for ${reason}, tx: ${txHash}`);
+
+  // Wait for transaction confirmation
+  const publicClient = getPublicClient();
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+  console.log(`✅ SC Mint confirmed: ${txHash}`);
+
+  return txHash;
+}
+
+/**
+ * Award SC reward for a store payment transaction
+ * Mints SC to both the customer (for shopping) and optionally the store owner (for being SC-verified)
+ * @param customerId - The customer who made the payment
+ * @param storeOwnerId - The store owner who received payment
+ * @param amountUSD - Transaction amount in USD
+ * @param storeIsScVerified - Whether the store is SC-verified
+ */
+export async function awardStoreTransactionReward(
+  customerId: string,
+  storeOwnerId: string,
+  amountUSD: number,
+  storeIsScVerified: boolean
+): Promise<{ customerReward: number; storeReward: number; customerTxHash?: string; storeTxHash?: string }> {
+  const result: { customerReward: number; storeReward: number; customerTxHash?: string; storeTxHash?: string } = {
+    customerReward: 0,
+    storeReward: 0,
+  };
+
+  // Only award SC for SC-verified stores
+  if (!storeIsScVerified) {
+    console.log(`🪙 Store not SC-verified, skipping SC reward`);
+    return result;
+  }
+
+  const scReward = calculateSCReward(amountUSD);
+
+  // Minimum reward threshold (avoid minting dust)
+  if (scReward < 0.01) {
+    console.log(`🪙 SC reward too small (${scReward}), skipping`);
+    return result;
+  }
+
+  try {
+    // Award customer SC for shopping at verified store
+    result.customerReward = scReward;
+    result.customerTxHash = await mintSCToUser(
+      customerId,
+      scReward,
+      `store_purchase_reward`
+    );
+    console.log(`🪙 Awarded ${scReward} SC to customer ${customerId}`);
+
+    // Award store owner SC for receiving payment (same rate)
+    result.storeReward = scReward;
+    result.storeTxHash = await mintSCToUser(
+      storeOwnerId,
+      scReward,
+      `store_sale_reward`
+    );
+    console.log(`🪙 Awarded ${scReward} SC to store owner ${storeOwnerId}`);
+  } catch (error) {
+    // Log but don't fail the transaction if SC minting fails
+    console.error(`❌ Failed to mint SC reward:`, error);
+  }
+
+  return result;
+}

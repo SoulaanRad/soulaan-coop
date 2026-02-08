@@ -12,13 +12,21 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { router, Stack } from 'expo-router';
-import { ArrowLeft, User, Search, X, Check, AlertCircle, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, User, Search, X, Check, AlertCircle, CheckCircle, Home, Briefcase, Store, Heart } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { authenticateForPayment } from '@/lib/biometric';
 import { coopConfig } from '@/lib/coop-config';
 
-type PaymentStep = 'recipient' | 'amount' | 'confirm';
+type PaymentStep = 'recipient' | 'amount' | 'type' | 'confirm';
+type TransferType = 'PERSONAL' | 'RENT' | 'SERVICE' | 'STORE';
+
+const TRANSFER_TYPES: { type: TransferType; label: string; icon: any; color: string }[] = [
+  { type: 'PERSONAL', label: 'Personal', icon: Heart, color: '#EC4899' },
+  { type: 'RENT', label: 'Rent', icon: Home, color: '#8B5CF6' },
+  { type: 'SERVICE', label: 'Service / Work', icon: Briefcase, color: '#3B82F6' },
+  { type: 'STORE', label: 'Store / Goods', icon: Store, color: '#10B981' },
+];
 
 interface Recipient {
   id?: string;
@@ -44,6 +52,12 @@ export default function PayScreen() {
   // Amount state
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+
+  // Transfer type state
+  const [transferType, setTransferType] = useState<TransferType | null>(null);
+  const [rentMonth, setRentMonth] = useState('');
+  const [providerRole, setProviderRole] = useState('');
+  const [storeName, setStoreName] = useState('');
 
   // Modal state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -169,10 +183,14 @@ export default function PayScreen() {
     setNote('');
     setSearchQuery('');
     setSearchResults([]);
+    setTransferType(null);
+    setRentMonth('');
+    setProviderRole('');
+    setStoreName('');
   };
 
   const handleConfirm = async () => {
-    if (!user?.id || !recipient) return;
+    if (!user?.id || !recipient || !transferType) return;
 
     const amountNum = parseFloat(amount);
 
@@ -192,13 +210,28 @@ export default function PayScreen() {
       const recipientType = recipient.isSoulaanUser ? 'userId' : 'phone';
       const recipientValue = recipient.isSoulaanUser ? recipient.id! : recipient.phone;
 
+      // Build metadata based on transfer type
+      const metadata: Record<string, string> = {};
+      if (transferType === 'RENT' && rentMonth) {
+        metadata.rentMonth = rentMonth;
+      } else if (transferType === 'SERVICE' && providerRole) {
+        metadata.providerRole = providerRole;
+      } else if (transferType === 'STORE' && storeName) {
+        metadata.storeName = storeName;
+      }
+      if (note) {
+        metadata.personalNote = note.substring(0, 50);
+      }
+
       const result = await api.sendPayment(
         user.id,
         recipientValue,
         recipientType,
         amountNum,
         note || undefined,
-        user.walletAddress
+        user.walletAddress,
+        transferType,
+        Object.keys(metadata).length > 0 ? metadata : undefined
       );
 
       if (result.success) {
@@ -224,13 +257,15 @@ export default function PayScreen() {
 
   const goBack = () => {
     if (step === 'recipient') {
-      // Navigate back to home
       router.back();
     } else if (step === 'amount') {
       setStep('recipient');
       setRecipient(null);
-    } else if (step === 'confirm') {
+    } else if (step === 'type') {
       setStep('amount');
+    } else if (step === 'confirm') {
+      setStep('type');
+      setTransferType(null);
     }
   };
 
@@ -254,6 +289,7 @@ export default function PayScreen() {
             <Text className="flex-1 text-center text-lg font-semibold text-gray-900">
               {step === 'recipient' && 'Send Money'}
               {step === 'amount' && 'Enter Amount'}
+              {step === 'type' && 'What\'s This For?'}
               {step === 'confirm' && 'Confirm Payment'}
             </Text>
             <View className="w-10" />
@@ -392,7 +428,7 @@ export default function PayScreen() {
 
               {/* Continue Button */}
               <TouchableOpacity
-                onPress={() => setStep('confirm')}
+                onPress={() => setStep('type')}
                 disabled={!canProceedToConfirm()}
                 className={`py-4 rounded-xl items-center ${
                   canProceedToConfirm() ? 'bg-amber-600' : 'bg-gray-300'
@@ -403,11 +439,55 @@ export default function PayScreen() {
             </View>
           )}
 
-          {/* Step 3: Confirmation */}
-          {step === 'confirm' && recipient && (
+          {/* Step 3: Transfer Type Selection */}
+          {step === 'type' && recipient && (
+            <View className="p-4">
+              <Text className="text-gray-600 text-center mb-6">
+                Select the purpose of this payment
+              </Text>
+
+              {/* Transfer Type Options */}
+              <View className="gap-3 mb-6">
+                {TRANSFER_TYPES.map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = transferType === item.type;
+                  return (
+                    <TouchableOpacity
+                      key={item.type}
+                      onPress={() => {
+                        setTransferType(item.type);
+                        setStep('confirm');
+                      }}
+                      className={`flex-row items-center p-4 rounded-xl border-2 ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-50'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <View
+                        className="w-12 h-12 rounded-full items-center justify-center mr-4"
+                        style={{ backgroundColor: `${item.color}20` }}
+                      >
+                        <Icon size={24} color={item.color} />
+                      </View>
+                      <Text className="text-gray-900 font-medium text-lg flex-1">
+                        {item.label}
+                      </Text>
+                      {isSelected && (
+                        <Check size={24} color="#D97706" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Step 4: Confirmation */}
+          {step === 'confirm' && recipient && transferType && (
             <View className="p-4">
               {/* Summary Card */}
-              <View className="bg-gray-50 rounded-xl p-6 mb-6">
+              <View className="bg-gray-50 rounded-xl p-6 mb-4">
                 <Text className="text-gray-500 text-center mb-2">You&apos;re sending</Text>
                 <Text className="text-gray-900 text-4xl font-bold text-center mb-4">
                   ${parseFloat(amount).toFixed(2)}
@@ -416,18 +496,97 @@ export default function PayScreen() {
                 <Text className="text-gray-900 text-lg font-medium text-center">
                   {recipient.name || recipient.phone}
                 </Text>
-                {note && (
-                  <View className="mt-4 pt-4 border-t border-gray-200">
-                    <Text className="text-gray-500 text-sm text-center">
-                      &quot;{note}&quot;
+
+                {/* Transfer Type Badge */}
+                <View className="mt-4 pt-4 border-t border-gray-200 items-center">
+                  <View
+                    className="px-4 py-2 rounded-full"
+                    style={{ backgroundColor: `${TRANSFER_TYPES.find(t => t.type === transferType)?.color}20` }}
+                  >
+                    <Text
+                      className="font-medium"
+                      style={{ color: TRANSFER_TYPES.find(t => t.type === transferType)?.color }}
+                    >
+                      {TRANSFER_TYPES.find(t => t.type === transferType)?.label}
                     </Text>
                   </View>
-                )}
+                </View>
+              </View>
+
+              {/* Optional Metadata Fields - Inline, Skippable */}
+              {transferType === 'RENT' && (
+                <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                  <Text className="text-gray-600 text-sm mb-2">Month (optional)</Text>
+                  <TextInput
+                    className="bg-gray-100 rounded-lg px-4 py-3 text-gray-900"
+                    placeholder="e.g., February 2026"
+                    placeholderTextColor="#9CA3AF"
+                    value={rentMonth}
+                    onChangeText={setRentMonth}
+                    maxLength={30}
+                  />
+                </View>
+              )}
+
+              {transferType === 'SERVICE' && (
+                <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                  <Text className="text-gray-600 text-sm mb-2">Provider type (optional)</Text>
+                  <View className="flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => setProviderRole('individual')}
+                      className={`flex-1 py-3 rounded-lg items-center ${
+                        providerRole === 'individual' ? 'bg-blue-100 border-blue-500' : 'bg-gray-100'
+                      } border`}
+                    >
+                      <Text className={providerRole === 'individual' ? 'text-blue-700 font-medium' : 'text-gray-600'}>
+                        Individual
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setProviderRole('contractor')}
+                      className={`flex-1 py-3 rounded-lg items-center ${
+                        providerRole === 'contractor' ? 'bg-blue-100 border-blue-500' : 'bg-gray-100'
+                      } border`}
+                    >
+                      <Text className={providerRole === 'contractor' ? 'text-blue-700 font-medium' : 'text-gray-600'}>
+                        Contractor
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {transferType === 'STORE' && (
+                <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                  <Text className="text-gray-600 text-sm mb-2">Store name (optional)</Text>
+                  <TextInput
+                    className="bg-gray-100 rounded-lg px-4 py-3 text-gray-900"
+                    placeholder="e.g., Coffee Shop"
+                    placeholderTextColor="#9CA3AF"
+                    value={storeName}
+                    onChangeText={setStoreName}
+                    maxLength={50}
+                  />
+                </View>
+              )}
+
+              {/* Note field for all types */}
+              <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                <Text className="text-gray-600 text-sm mb-2">Note (optional)</Text>
+                <TextInput
+                  className="bg-gray-100 rounded-lg px-4 py-3 text-gray-900"
+                  placeholder="Add a note"
+                  placeholderTextColor="#9CA3AF"
+                  value={note}
+                  onChangeText={(text) => setNote(text.substring(0, 50))}
+                  maxLength={50}
+                />
+                <Text className="text-gray-400 text-xs mt-1 text-right">{note.length}/50</Text>
               </View>
 
               {/* Non-user notice */}
               {!recipient.isSoulaanUser && (
-                <View className="bg-amber-50 rounded-xl p-4 mb-6">
+                <View className="bg-amber-50 rounded-xl p-4 mb-4">
                   <Text className="text-amber-800 text-sm">
                     {recipient.phone} isn&apos;t on {config.shortName} yet. They&apos;ll receive a text message
                     with a link to claim this payment.
@@ -437,9 +596,18 @@ export default function PayScreen() {
 
               {/* Funding source */}
               {parseFloat(amount) > balance && (
-                <View className="bg-yellow-50 rounded-xl p-4 mb-6">
+                <View className="bg-yellow-50 rounded-xl p-4 mb-4">
                   <Text className="text-yellow-800 text-sm font-medium">
                     Your default payment method will be charged for the difference.
+                  </Text>
+                </View>
+              )}
+
+              {/* SC Eligibility Info - Non-blocking, informational */}
+              {transferType !== 'PERSONAL' && (
+                <View className="mb-4">
+                  <Text className="text-gray-400 text-xs text-center">
+                    This transaction may be eligible for Soulaani once verification is active.
                   </Text>
                 </View>
               )}

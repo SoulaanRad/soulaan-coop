@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Star,
   Plus,
+  Minus,
   Package,
   CheckCircle,
   ShoppingCart,
@@ -29,21 +30,9 @@ import {
 } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/auth-context';
+import { useCart } from '@/contexts/cart-context';
 import { api } from '@/lib/api';
 
-// Store categories
-const STORE_CATEGORIES = [
-  { value: 'FOOD_BEVERAGE', label: 'Food & Beverage' },
-  { value: 'RETAIL', label: 'Retail' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'HEALTH_WELLNESS', label: 'Health & Wellness' },
-  { value: 'ENTERTAINMENT', label: 'Entertainment' },
-  { value: 'EDUCATION', label: 'Education' },
-  { value: 'PROFESSIONAL', label: 'Professional' },
-  { value: 'HOME_GARDEN', label: 'Home & Garden' },
-  { value: 'AUTOMOTIVE', label: 'Automotive' },
-  { value: 'OTHER', label: 'Other' },
-];
 
 interface StoreData {
   id: string;
@@ -86,6 +75,12 @@ type ViewMode = 'popular' | 'stores';
 
 export default function StoresScreen() {
   const { user } = useAuth();
+  const { items: cartItems, addItem, updateQuantity, removeItem, totalItems } = useCart();
+
+  const getCartQuantity = (productId: string) => {
+    const item = cartItems.find(i => i.productId === productId);
+    return item?.quantity || 0;
+  };
   const [viewMode, setViewMode] = useState<ViewMode>('popular');
   const [stores, setStores] = useState<StoreData[]>([]);
   const [featuredStores, setFeaturedStores] = useState<StoreData[]>([]);
@@ -95,6 +90,28 @@ export default function StoresScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [myStore, setMyStore] = useState<any>(null);
+  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
+
+  const handleAddToCart = (product: ProductData) => {
+    addItem(
+      {
+        id: product.id,
+        name: product.name,
+        imageUrl: product.imageUrl,
+        priceUSD: product.priceUSD,
+        store: {
+          id: product.store.id,
+          name: product.store.name,
+          isScVerified: product.store.isScVerified,
+        },
+      },
+      {
+        id: product.store.id,
+        name: product.store.name,
+        isScVerified: product.store.isScVerified,
+      }
+    );
+  };
 
   const loadStores = useCallback(async () => {
     try {
@@ -138,6 +155,19 @@ export default function StoresScreen() {
     }
   }, [user?.walletAddress]);
 
+  // Load store categories on mount
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getStoreCategories(false);
+        setStoreCategories(categories);
+      } catch (error) {
+        console.error('Failed to load store categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -154,7 +184,7 @@ export default function StoresScreen() {
   };
 
   const getCategoryLabel = (value: string) => {
-    return STORE_CATEGORIES.find(c => c.value === value)?.label || value;
+    return storeCategories.find(c => c.key === value)?.label || value;
   };
 
   const getStoreInitials = (name: string) => {
@@ -193,6 +223,21 @@ export default function StoresScreen() {
                 <Text className="text-sm text-gray-500">Community-owned marketplace</Text>
               </View>
             </View>
+            <View className="flex-row items-center">
+              {/* Cart Button */}
+              <TouchableOpacity
+                onPress={() => router.push('/(authenticated)/cart')}
+                className="mr-3 relative"
+              >
+                <ShoppingCart size={24} color="#374151" />
+                {totalItems > 0 && (
+                  <View className="absolute -top-2 -right-2 bg-red-600 rounded-full min-w-[18px] h-[18px] items-center justify-center">
+                    <Text className="text-white text-xs font-bold">
+                      {totalItems > 99 ? '99+' : totalItems}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             {myStore ? (
               <TouchableOpacity
                 onPress={() => router.push('/my-store')}
@@ -210,6 +255,7 @@ export default function StoresScreen() {
                 <Text className="text-white font-semibold text-sm ml-1">Create Store</Text>
               </TouchableOpacity>
             )}
+            </View>
           </View>
 
           {/* Store Info Banner */}
@@ -295,18 +341,18 @@ export default function StoresScreen() {
                       All Items
                     </Text>
                   </TouchableOpacity>
-                  {STORE_CATEGORIES.map((cat) => (
+                  {storeCategories.map((cat) => (
                     <TouchableOpacity
-                      key={cat.value}
-                      onPress={() => setSelectedCategory(cat.value)}
+                      key={cat.key}
+                      onPress={() => setSelectedCategory(cat.key)}
                       className={`mx-1 px-3 py-2 rounded-full border ${
-                        selectedCategory === cat.value
+                        selectedCategory === cat.key
                           ? 'bg-amber-600 border-amber-600'
                           : 'bg-white border-gray-200'
                       }`}
                     >
                       <Text className={`text-xs font-medium ${
-                        selectedCategory === cat.value ? 'text-white' : 'text-gray-600'
+                        selectedCategory === cat.key ? 'text-white' : 'text-gray-600'
                       }`}>
                         {cat.label}
                       </Text>
@@ -377,10 +423,46 @@ export default function StoresScreen() {
                           <Text className="text-lg font-bold text-amber-700">
                             ${product.priceUSD.toFixed(2)}
                           </Text>
-                          <TouchableOpacity className="bg-red-700 px-4 py-2 rounded-lg flex-row items-center">
-                            <ShoppingCart size={14} color="white" />
-                            <Text className="text-white font-semibold text-sm ml-1">Add</Text>
-                          </TouchableOpacity>
+                          {getCartQuantity(product.id) > 0 ? (
+                            <View className="flex-row items-center bg-gray-100 rounded-lg">
+                              <TouchableOpacity
+                                onPress={() => {
+                                  const qty = getCartQuantity(product.id);
+                                  if (qty <= 1) {
+                                    removeItem(product.id);
+                                  } else {
+                                    updateQuantity(product.id, qty - 1);
+                                  }
+                                }}
+                                className="p-2"
+                                activeOpacity={0.7}
+                              >
+                                <Minus size={16} color="#B45309" />
+                              </TouchableOpacity>
+                              <Text className="text-amber-700 font-bold text-sm min-w-[24px] text-center">
+                                {getCartQuantity(product.id)}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  const qty = getCartQuantity(product.id);
+                                  updateQuantity(product.id, qty + 1);
+                                }}
+                                className="p-2"
+                                activeOpacity={0.7}
+                              >
+                                <Plus size={16} color="#B45309" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : (
+                            <TouchableOpacity
+                              onPress={() => handleAddToCart(product)}
+                              className="bg-red-700 px-4 py-2 rounded-lg flex-row items-center"
+                              activeOpacity={0.7}
+                            >
+                              <ShoppingCart size={14} color="white" />
+                              <Text className="text-white font-semibold text-sm ml-1">Add</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -472,18 +554,18 @@ export default function StoresScreen() {
                       All Stores
                     </Text>
                   </TouchableOpacity>
-                  {STORE_CATEGORIES.map((cat) => (
+                  {storeCategories.map((cat) => (
                     <TouchableOpacity
-                      key={cat.value}
-                      onPress={() => setSelectedCategory(cat.value)}
+                      key={cat.key}
+                      onPress={() => setSelectedCategory(cat.key)}
                       className={`mx-1 px-3 py-2 rounded-full border ${
-                        selectedCategory === cat.value
+                        selectedCategory === cat.key
                           ? 'bg-amber-600 border-amber-600'
                           : 'bg-white border-gray-200'
                       }`}
                     >
                       <Text className={`text-xs font-medium ${
-                        selectedCategory === cat.value ? 'text-white' : 'text-gray-600'
+                        selectedCategory === cat.key ? 'text-white' : 'text-gray-600'
                       }`}>
                         {cat.label}
                       </Text>

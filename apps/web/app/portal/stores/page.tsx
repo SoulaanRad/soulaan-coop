@@ -31,6 +31,8 @@ import {
   Eye,
   DollarSign,
 } from "lucide-react";
+import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
+import { CreateProductDialog } from "@/components/portal/create-product-dialog";
 
 type MainTab = "applications" | "stores" | "featured";
 type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
@@ -42,9 +44,12 @@ export default function StoreManagementPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Store Management</h1>
-        <p className="text-gray-400 mt-1">Manage stores, applications, and featured products</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Store Management</h1>
+          <p className="text-gray-400 mt-1">Manage stores, applications, and featured products</p>
+        </div>
+        <CreateStoreDialog onSuccess={() => window.location.reload()} />
       </div>
 
       {/* Main Tabs */}
@@ -205,16 +210,94 @@ function AllStoresTab() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setSelectedStore(selectedStore === store.id ? null : store.id)}
+                      className="hover:bg-slate-800"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-4 w-4 text-gray-400 hover:text-white" />
                     </Button>
                   </div>
                 </div>
 
                 {/* Expanded View */}
                 {selectedStore === store.id && (
-                  <div className="mt-4 pt-4 border-t border-slate-800">
-                    <div className="flex gap-2 mb-4">
+                  <div className="mt-4 pt-4 border-t border-slate-800 space-y-4">
+                    {/* Store Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-800 rounded-lg p-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Store Information</h4>
+                        <div className="space-y-2 text-sm">
+                          {store.description && (
+                            <div>
+                              <span className="text-gray-500">Description: </span>
+                              <span className="text-white">{store.description}</span>
+                            </div>
+                          )}
+                          {store.address && (
+                            <div>
+                              <span className="text-gray-500">Address: </span>
+                              <span className="text-white">{store.address}</span>
+                              {store.city && store.state && (
+                                <span className="text-white">, {store.city}, {store.state}</span>
+                              )}
+                            </div>
+                          )}
+                          {store.phone && (
+                            <div>
+                              <span className="text-gray-500">Phone: </span>
+                              <span className="text-white">{store.phone}</span>
+                            </div>
+                          )}
+                          {store.email && (
+                            <div>
+                              <span className="text-gray-500">Email: </span>
+                              <span className="text-white">{store.email}</span>
+                            </div>
+                          )}
+                          {store.website && (
+                            <div>
+                              <span className="text-gray-500">Website: </span>
+                              <a 
+                                href={store.website} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-amber-400 hover:text-amber-300"
+                              >
+                                {store.website} <ExternalLink className="h-3 w-3 inline" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Settings & Stats</h4>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-gray-500">UC Discount: </span>
+                            <span className="text-white">{store.ucDiscountPercent}%</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Accepts UC: </span>
+                            <span className="text-white">{store.acceptsUC ? 'Yes' : 'No'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Total Sales: </span>
+                            <span className="text-white">${store.totalSales?.toFixed(2) || '0.00'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Total Orders: </span>
+                            <span className="text-white">{store.orderCount || 0}</span>
+                          </div>
+                          {store.rating && (
+                            <div>
+                              <span className="text-gray-500">Rating: </span>
+                              <span className="text-white">{store.rating.toFixed(1)} ({store.reviewCount} reviews)</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -252,6 +335,8 @@ function AllStoresTab() {
                         )}
                       </Button>
                     </div>
+
+                    {/* Products Section */}
                     <StoreProductsPanel storeId={store.id} storeName={store.name} />
                   </div>
                 )}
@@ -268,7 +353,7 @@ function AllStoresTab() {
 // STORE PRODUCTS PANEL
 // ============================================
 function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName: string }) {
-  const { data: products, isLoading, refetch } = api.store.getStoreProductsAdmin.useQuery({
+  const { data: products, isLoading, error, refetch } = api.store.getStoreProductsAdmin.useQuery({
     storeId,
     includeInactive: true,
   });
@@ -281,13 +366,33 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
     return <div className="py-4 text-center text-gray-400">Loading products...</div>;
   }
 
+  if (error) {
+    return (
+      <div className="py-4 text-center">
+        <p className="text-red-400 mb-2">Error loading products</p>
+        <p className="text-sm text-gray-500">{error.message}</p>
+        <Button onClick={() => refetch()} size="sm" className="mt-2">
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!products || products.length === 0) {
-    return <div className="py-4 text-center text-gray-400">No products yet</div>;
+    return (
+      <div className="py-4 text-center">
+        <p className="text-gray-400 mb-2">No products yet</p>
+        <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+      </div>
+    );
   }
 
   return (
     <div>
-      <h4 className="font-medium text-white mb-3">Products ({products.length})</h4>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-white">Products ({products.length})</h4>
+        <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {products.map((product) => (
           <div

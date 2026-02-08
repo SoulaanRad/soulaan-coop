@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
+import { useCart } from '@/contexts/cart-context';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,6 +29,7 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const { addItem, totalItems } = useCart();
 
   const loadProduct = useCallback(async () => {
     if (!id) return;
@@ -50,21 +52,55 @@ export default function ProductDetailScreen() {
   };
 
   const handleAddToCart = () => {
-    // TODO: Implement cart functionality
+    if (!product) return;
+
+    addItem(
+      {
+        id: product.id,
+        name: product.name,
+        imageUrl: product.imageUrl,
+        priceUSD: product.priceUSD,
+      },
+      {
+        id: product.store.id,
+        name: product.store.name,
+        isScVerified: product.store.isScVerified,
+      },
+      quantity
+    );
+
     Alert.alert(
-      'Coming Soon',
-      'Shopping cart functionality will be available soon!',
-      [{ text: 'OK' }]
+      'Added to Cart',
+      `${quantity} x ${product.name} added to your cart.`,
+      [
+        { text: 'Continue Shopping', style: 'cancel' },
+        {
+          text: 'View Cart',
+          onPress: () => router.push('/cart'),
+        },
+      ]
     );
   };
 
   const handleBuyNow = () => {
-    // TODO: Implement checkout
-    Alert.alert(
-      'Coming Soon',
-      'Direct checkout will be available soon!',
-      [{ text: 'OK' }]
+    if (!product) return;
+
+    addItem(
+      {
+        id: product.id,
+        name: product.name,
+        imageUrl: product.imageUrl,
+        priceUSD: product.priceUSD,
+      },
+      {
+        id: product.store.id,
+        name: product.store.name,
+        isScVerified: product.store.isScVerified,
+      },
+      quantity
     );
+
+    router.push(`/checkout?storeId=${product.store.id}`);
   };
 
   if (loading || !product) {
@@ -90,6 +126,14 @@ export default function ProductDetailScreen() {
         <Text className="text-lg font-semibold text-gray-900 dark:text-white flex-1 ml-4" numberOfLines={1}>
           {product.name}
         </Text>
+        <TouchableOpacity onPress={() => router.push('/cart')} className="relative">
+          <ShoppingCart size={24} color="#374151" />
+          {totalItems > 0 && (
+            <View className="absolute -top-2 -right-2 bg-amber-500 w-5 h-5 rounded-full items-center justify-center">
+              <Text className="text-white text-xs font-bold">{totalItems > 99 ? '99+' : totalItems}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>

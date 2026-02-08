@@ -12,6 +12,8 @@
     "build": "pnpm run db:generate && tsup",
     "dev": "pnpm run db:generate && tsup --watch",
     "seed": "ts-node --transpile-only prisma/seed.ts",
+    "seed:categories": "pnpm with-env ts-node --transpile-only scripts/seed-categories.ts",
+    "seed:test-store": "pnpm with-env ts-node --transpile-only scripts/seed-test-store.ts",
     "clean": "rm -rf .turbo node_modules",
     "db:generate": "prisma generate",
     "db:migrate-prod": "pnpm with-env prisma migrate deploy",

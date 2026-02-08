@@ -155,6 +155,28 @@ export const soulaaniCoinAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  // Minting function for rewards
+  {
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'mintReward',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Transfer function
+  {
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'transfer',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
 ] as const;
 
 // MemberStatus enum matching the contract

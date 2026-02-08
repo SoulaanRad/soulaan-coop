@@ -23,26 +23,11 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 
-// Product categories
-const PRODUCT_CATEGORIES = [
-  { value: 'FOOD', label: 'Food' },
-  { value: 'BEVERAGES', label: 'Beverages' },
-  { value: 'CLOTHING', label: 'Clothing' },
-  { value: 'ELECTRONICS', label: 'Electronics' },
-  { value: 'HOME', label: 'Home' },
-  { value: 'BEAUTY', label: 'Beauty' },
-  { value: 'HEALTH', label: 'Health' },
-  { value: 'SPORTS', label: 'Sports' },
-  { value: 'TOYS', label: 'Toys' },
-  { value: 'BOOKS', label: 'Books' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'OTHER', label: 'Other' },
-];
-
 export default function AddProductScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string; isAdminOnly: boolean }>>([]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -61,8 +46,21 @@ export default function AddProductScreen() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Load product categories on mount (exclude admin-only for regular users)
+  React.useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getProductCategories(false); // Exclude admin-only categories
+        setProductCategories(categories);
+      } catch (error) {
+        console.error('Failed to load product categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
   const getCategoryLabel = (value: string) => {
-    return PRODUCT_CATEGORIES.find((c) => c.value === value)?.label || 'Select Category';
+    return productCategories.find((c) => c.key === value)?.label || 'Select Category';
   };
 
   const validateForm = (): boolean => {
@@ -171,26 +169,28 @@ export default function AddProductScreen() {
               {showCategoryPicker && (
                 <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 overflow-hidden max-h-48">
                   <ScrollView nestedScrollEnabled>
-                    {PRODUCT_CATEGORIES.map((cat) => (
-                      <TouchableOpacity
-                        key={cat.value}
-                        onPress={() => {
-                          updateField('category', cat.value);
-                          setShowCategoryPicker(false);
-                        }}
-                        className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                          formData.category === cat.value ? 'bg-amber-50 dark:bg-amber-900/30' : ''
-                        }`}
-                      >
-                        <Text className={`${
-                          formData.category === cat.value
-                            ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                            : 'text-gray-700 dark:text-gray-300'
-                        }`}>
-                          {cat.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                    {productCategories
+                      .filter((cat) => !cat.isAdminOnly) // Filter out admin-only categories for creation
+                      .map((cat) => (
+                        <TouchableOpacity
+                          key={cat.key}
+                          onPress={() => {
+                            updateField('category', cat.key);
+                            setShowCategoryPicker(false);
+                          }}
+                          className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
+                            formData.category === cat.key ? 'bg-amber-50 dark:bg-amber-900/30' : ''
+                          }`}
+                        >
+                          <Text className={`${
+                            formData.category === cat.key
+                              ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                              : 'text-gray-700 dark:text-gray-300'
+                          }`}>
+                            {cat.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
                   </ScrollView>
                 </View>
               )}

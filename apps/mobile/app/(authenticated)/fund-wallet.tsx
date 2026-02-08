@@ -1,0 +1,363 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import {
+  ArrowLeft,
+  CreditCard,
+  Plus,
+  Check,
+  Wallet,
+  AlertCircle,
+} from 'lucide-react-native';
+import { api } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
+
+const PRESET_AMOUNTS = [25, 50, 100, 250];
+
+interface PaymentMethod {
+  id: string;
+  brand: string;
+  last4: string;
+  expiryMonth: number;
+  expiryYear: number;
+  isDefault: boolean;
+}
+
+export default function FundWalletScreen() {
+  const { user } = useAuth();
+  const [amount, setAmount] = useState<number | null>(null);
+  const [customAmount, setCustomAmount] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [currentBalance, setCurrentBalance] = useState<number>(0);
+
+  const loadData = useCallback(async () => {
+    if (!user?.id || !user?.walletAddress) return;
+
+    try {
+      // Load payment methods and balance in parallel
+      const [methodsResult, balanceResult] = await Promise.all([
+        api.getPaymentMethods(user.id, user.walletAddress),
+        api.getTokenBalances(user.walletAddress),
+      ]);
+
+      setPaymentMethods(methodsResult?.methods || []);
+
+      // Find default method
+      const defaultMethod = methodsResult?.methods?.find((m: PaymentMethod) => m.isDefault);
+      if (defaultMethod) {
+        setSelectedMethodId(defaultMethod.id);
+      } else if (methodsResult?.methods?.length > 0) {
+        setSelectedMethodId(methodsResult.methods[0].id);
+      }
+
+      // Parse balance (UC = dollars, 1:1 peg)
+      const balance = parseFloat(balanceResult?.uc || '0');
+      setCurrentBalance(balance);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const getEffectiveAmount = (): number => {
+    if (amount) return amount;
+    const parsed = parseFloat(customAmount);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const handlePresetAmount = (preset: number) => {
+    setAmount(preset);
+    setCustomAmount('');
+  };
+
+  const handleCustomAmountChange = (text: string) => {
+    // Only allow numbers and one decimal point
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) return;
+    if (parts[1] && parts[1].length > 2) return;
+
+    setCustomAmount(cleaned);
+    setAmount(null);
+  };
+
+  const handleFundWallet = async () => {
+    const fundAmount = getEffectiveAmount();
+
+    if (fundAmount < 10) {
+      Alert.alert('Minimum Amount', 'The minimum amount is $10.');
+      return;
+    }
+
+    if (fundAmount > 10000) {
+      Alert.alert('Maximum Amount', 'The maximum amount is $10,000.');
+      return;
+    }
+
+    if (!selectedMethodId) {
+      Alert.alert('No Card Selected', 'Please select a payment method or add a new card.');
+      return;
+    }
+
+    if (!user?.walletAddress) {
+      Alert.alert('Error', 'Wallet not found. Please try again.');
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      await api.fundWithSavedCard(
+        fundAmount,
+        user.walletAddress,
+        selectedMethodId
+      );
+
+      Alert.alert(
+        'Success',
+        `$${fundAmount.toFixed(2)} has been added to your wallet.`,
+        [
+          {
+            text: 'Done',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Fund wallet error:', error);
+      Alert.alert(
+        'Payment Failed',
+        error.message || 'Unable to add funds. Please try again.'
+      );
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleAddCard = () => {
+    router.push('/payment-methods');
+  };
+
+  const getBrandIcon = (brand: string) => {
+    return <CreditCard size={20} color="#6B7280" />;
+  };
+
+  const formatCardBrand = (brand: string) => {
+    const brands: Record<string, string> = {
+      visa: 'Visa',
+      mastercard: 'Mastercard',
+      amex: 'American Express',
+      discover: 'Discover',
+    };
+    return brands[brand.toLowerCase()] || brand;
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#B45309" />
+          <Text className="text-gray-500 dark:text-gray-400 mt-4">Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const effectiveAmount = getEffectiveAmount();
+  const isValidAmount = effectiveAmount >= 10 && effectiveAmount <= 10000;
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
+      {/* Header */}
+      <View className="flex-row items-center px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color="#374151" />
+        </TouchableOpacity>
+        <Text className="text-xl font-bold text-gray-900 dark:text-white ml-4">
+          Add Money
+        </Text>
+      </View>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Current Balance */}
+        <View className="bg-white dark:bg-gray-800 mx-5 mt-5 rounded-xl p-5">
+          <Text className="text-gray-500 dark:text-gray-400 text-sm mb-1">
+            Wallet Balance
+          </Text>
+          <View className="flex-row items-center">
+            <Wallet size={24} color="#B45309" />
+            <Text className="text-2xl font-bold text-gray-900 dark:text-white ml-2">
+              ${currentBalance.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Amount Selection */}
+        <View className="px-5 mt-6">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Select Amount
+          </Text>
+
+          {/* Preset Amounts */}
+          <View className="flex-row flex-wrap gap-3 mb-4">
+            {PRESET_AMOUNTS.map((preset) => (
+              <TouchableOpacity
+                key={preset}
+                onPress={() => handlePresetAmount(preset)}
+                className={`flex-1 min-w-[45%] py-4 rounded-xl border-2 items-center ${
+                  amount === preset
+                    ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-500'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <Text
+                  className={`text-xl font-bold ${
+                    amount === preset
+                      ? 'text-amber-600'
+                      : 'text-gray-900 dark:text-white'
+                  }`}
+                >
+                  ${preset}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Custom Amount */}
+          <View className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
+            <Text className="text-gray-500 dark:text-gray-400 text-sm mb-2">
+              Custom Amount
+            </Text>
+            <View className="flex-row items-center">
+              <Text className="text-2xl font-bold text-gray-900 dark:text-white mr-2">
+                $
+              </Text>
+              <TextInput
+                value={customAmount}
+                onChangeText={handleCustomAmountChange}
+                placeholder="Enter amount"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+                className="flex-1 text-2xl font-bold text-gray-900 dark:text-white"
+              />
+            </View>
+            <Text className="text-gray-400 dark:text-gray-500 text-xs mt-2">
+              Min: $10 | Max: $10,000
+            </Text>
+          </View>
+        </View>
+
+        {/* Payment Method Selection */}
+        <View className="px-5 mt-6">
+          <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Payment Method
+          </Text>
+
+          {paymentMethods.length === 0 ? (
+            <TouchableOpacity
+              onPress={handleAddCard}
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 flex-row items-center justify-center"
+            >
+              <Plus size={20} color="#B45309" />
+              <Text className="text-amber-600 font-medium ml-2">
+                Add a Card
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View className="space-y-3">
+              {paymentMethods.map((method) => (
+                <TouchableOpacity
+                  key={method.id}
+                  onPress={() => setSelectedMethodId(method.id)}
+                  className={`bg-white dark:bg-gray-800 rounded-xl p-4 flex-row items-center border-2 ${
+                    selectedMethodId === method.id
+                      ? 'border-amber-500'
+                      : 'border-transparent'
+                  }`}
+                >
+                  {getBrandIcon(method.brand)}
+                  <View className="flex-1 ml-3">
+                    <Text className="text-gray-900 dark:text-white font-medium">
+                      {formatCardBrand(method.brand)} **** {method.last4}
+                    </Text>
+                    <Text className="text-gray-500 dark:text-gray-400 text-sm">
+                      Expires {method.expiryMonth}/{method.expiryYear}
+                    </Text>
+                  </View>
+                  {selectedMethodId === method.id && (
+                    <View className="w-6 h-6 bg-amber-500 rounded-full items-center justify-center">
+                      <Check size={14} color="#FFFFFF" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
+                onPress={handleAddCard}
+                className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 flex-row items-center justify-center mt-2"
+              >
+                <Plus size={18} color="#6B7280" />
+                <Text className="text-gray-600 dark:text-gray-400 font-medium ml-2">
+                  Add New Card
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Info */}
+        <View className="mx-5 mt-6 mb-8 flex-row items-start">
+          <AlertCircle size={16} color="#9CA3AF" className="mt-0.5" />
+          <Text className="text-gray-500 dark:text-gray-400 text-sm flex-1 ml-2">
+            Funds will be added to your wallet instantly. Use your balance for faster checkout at any store in the marketplace.
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Bottom Action */}
+      <View className="px-5 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <TouchableOpacity
+          onPress={handleFundWallet}
+          disabled={!isValidAmount || !selectedMethodId || processing}
+          className={`py-4 rounded-xl items-center ${
+            isValidAmount && selectedMethodId && !processing
+              ? 'bg-amber-500'
+              : 'bg-gray-300 dark:bg-gray-700'
+          }`}
+        >
+          {processing ? (
+            <View className="flex-row items-center">
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text className="text-white font-bold text-lg ml-2">
+                Processing...
+              </Text>
+            </View>
+          ) : (
+            <Text className="text-white font-bold text-lg">
+              {isValidAmount
+                ? `Add $${effectiveAmount.toFixed(2)}`
+                : 'Enter Amount'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}

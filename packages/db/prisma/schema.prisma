@@ -418,15 +418,26 @@ model P2PTransfer {
   blockchainTxHash  String?
   status            P2PStatus @default(PENDING)
 
+  // Transfer intent labeling
+  transferType      TransferType @default(PERSONAL)
+  transferMetadata  Json?       // Optional context (rentMonth, providerRole, storeName, etc.)
+
   note              String?
   createdAt         DateTime @default(now())
   completedAt       DateTime?
   failedAt          DateTime?
   failureReason     String?
 
+  // Receipt created on completion
+  receipt           Receipt?
+
+  // Store payment request (if originated from one)
+  paymentRequest    StorePaymentRequest?
+
   @@index([senderId, createdAt])
   @@index([recipientId, createdAt])
   @@index([status])
+  @@index([transferType])
   @@schema("public")
 }
 
@@ -451,6 +462,10 @@ model PendingTransfer {
   stripePaymentIntentId String?
   stripeChargeId    String?
 
+  // Transfer intent labeling
+  transferType      TransferType @default(PERSONAL)
+  transferMetadata  Json?       // Optional context (rentMonth, providerRole, storeName, etc.)
+
   note              String?
   expiresAt         DateTime  // 7 days from creation
   createdAt         DateTime @default(now())
@@ -458,9 +473,46 @@ model PendingTransfer {
   claimedByUserId   String?   // User ID if they joined Soulaan
   refundedAt        DateTime?
 
+  // Receipt created on completion
+  receipt           Receipt?
+
   @@index([recipientPhone])
   @@index([claimToken])
   @@index([status, expiresAt])
+  @@index([transferType])
+  @@schema("public")
+}
+
+// Immutable receipt for transfer verification
+model Receipt {
+  id                String   @id @default(cuid())
+
+  // Link to transfer (one of these will be set)
+  p2pTransferId     String?  @unique
+  p2pTransfer       P2PTransfer? @relation(fields: [p2pTransferId], references: [id])
+  pendingTransferId String?  @unique
+  pendingTransfer   PendingTransfer? @relation(fields: [pendingTransferId], references: [id])
+
+  // Copied from transfer (immutable snapshot)
+  senderId          String
+  recipientId       String?  // Null for pending transfers to non-users
+  recipientPhone    String?  // For pending transfers
+
+  amountUSD         Float
+  transferType      TransferType
+  metadata          Json?    // Snapshot of transferMetadata
+
+  // Verification
+  verificationStatus ReceiptVerificationStatus @default(UNVERIFIED)
+  verifiedAt        DateTime?
+  verifiedBy        String?  // User ID who verified
+
+  createdAt         DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([transferType])
+  @@index([verificationStatus])
   @@schema("public")
 }
 
@@ -543,6 +595,23 @@ enum P2PStatus {
   @@schema("public")
 }
 
+enum TransferType {
+  PERSONAL    // Personal transfer (gift, friends/family)
+  RENT        // Rent payment
+  SERVICE     // Service or work payment
+  STORE       // Store/goods purchase
+
+  @@schema("public")
+}
+
+enum ReceiptVerificationStatus {
+  UNVERIFIED  // Default - not yet verified
+  VERIFIED    // Verified by recipient or system
+  DISPUTED    // Disputed by either party
+
+  @@schema("public")
+}
+
 enum PendingStatus {
   PENDING_CLAIM      // Waiting for recipient to claim
   CLAIMED_TO_BANK    // Recipient withdrew to bank (dead end)
@@ -573,6 +642,10 @@ model Store {
   category          StoreCategory
   imageUrl          String?
   bannerUrl         String?
+
+  // Quick Pay settings
+  shortCode         String?  @unique  // e.g., "JOES-COFFEE" or "JC4K9X"
+  acceptsQuickPay   Boolean  @default(true)
 
   // Location
   address           String?
@@ -611,10 +684,12 @@ model Store {
   products          Product[]
   application       StoreApplication?
   orders            StoreOrder[]
+  paymentRequests   StorePaymentRequest[]
 
   @@index([ownerId])
   @@index([status])
   @@index([category])
+  @@index([shortCode])
   @@schema("public")
 }
 
@@ -748,7 +823,80 @@ model StoreOrderItem {
   @@schema("public")
 }
 
+// Store-initiated payment request (for QR codes and payment links)
+model StorePaymentRequest {
+  id                String   @id @default(cuid())
+  storeId           String
+  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // Request details
+  amount            Float?   // Optional - if null, customer enters amount
+  description       String?  // e.g., "Coffee + Pastry"
+  referenceId       String?  // Store's internal reference (receipt #, table #)
+
+  // Access token for the payment link
+  token             String   @unique @default(cuid())
+
+  // Status tracking
+  status            PaymentRequestStatus @default(PENDING)
+
+  // Payment fulfillment (when paid)
+  p2pTransferId     String?  @unique
+  p2pTransfer       P2PTransfer? @relation(fields: [p2pTransferId], references: [id])
+  paidByUserId      String?
+  paidAt            DateTime?
+
+  // Expiration (optional - for time-limited requests)
+  expiresAt         DateTime?
+
+  createdAt         DateTime @default(now())
+
+  @@index([storeId, status])
+  @@index([token])
+  @@index([status, expiresAt])
+  @@schema("public")
+}
+
+// ── Category Management Models ────────────────────────────
+
+model StoreCategoryConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "FOOD_BEVERAGE", "FOUNDER_STORE"
+  label       String   // e.g., "Food & Beverage"
+  isAdminOnly Boolean  @default(false) // If true, only admins can create stores in this category
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@schema("public")
+}
+
+model ProductCategoryConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g., "FOOD", "FOUNDER_BADGES"
+  label       String   // e.g., "Food", "Founder Badges"
+  isAdminOnly Boolean  @default(false) // If true, only admins can create products in this category
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@schema("public")
+}
+
 // ── Store Enums ──────────────────────────────────────────
+
+enum PaymentRequestStatus {
+  PENDING     // Awaiting payment
+  COMPLETED   // Payment received
+  EXPIRED     // Time limit exceeded
+  CANCELLED   // Store cancelled the request
+
+  @@schema("public")
+}
 
 enum StoreCategory {
   FOOD_BEVERAGE
@@ -760,6 +908,7 @@ enum StoreCategory {
   PROFESSIONAL
   HOME_GARDEN
   AUTOMOTIVE
+  FOUNDER_PACKAGE
   OTHER
 
   @@schema("public")
@@ -777,6 +926,7 @@ enum ProductCategory {
   TOYS
   BOOKS
   SERVICES
+  FOUNDER_BADGES
   OTHER
 
   @@schema("public")

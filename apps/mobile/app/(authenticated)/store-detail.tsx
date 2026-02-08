@@ -21,25 +21,13 @@ import {
   Globe,
   Star,
   ShoppingBag,
+  ShoppingCart,
+  Plus,
+  Minus,
   ChevronRight,
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
-
-// Product categories
-const PRODUCT_CATEGORIES = [
-  { value: 'FOOD', label: 'Food' },
-  { value: 'BEVERAGES', label: 'Beverages' },
-  { value: 'CLOTHING', label: 'Clothing' },
-  { value: 'ELECTRONICS', label: 'Electronics' },
-  { value: 'HOME', label: 'Home' },
-  { value: 'BEAUTY', label: 'Beauty' },
-  { value: 'HEALTH', label: 'Health' },
-  { value: 'SPORTS', label: 'Sports' },
-  { value: 'TOYS', label: 'Toys' },
-  { value: 'BOOKS', label: 'Books' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'OTHER', label: 'Other' },
-];
+import { useCart } from '@/contexts/cart-context';
 
 interface ProductData {
   id: string;
@@ -63,11 +51,40 @@ interface ProductData {
 
 export default function StoreDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { items: cartItems, addItem, updateQuantity, removeItem, totalItems } = useCart();
+
+  const getCartQuantity = (productId: string) => {
+    const item = cartItems.find(i => i.productId === productId);
+    return item?.quantity || 0;
+  };
   const [store, setStore] = useState<any>(null);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string }>>([]);
+
+  const handleAddToCart = (product: ProductData) => {
+    if (!store) return;
+    addItem(
+      {
+        id: product.id,
+        name: product.name,
+        imageUrl: product.imageUrl,
+        priceUSD: product.priceUSD,
+        store: {
+          id: store.id,
+          name: store.name,
+          isScVerified: store.isScVerified,
+        },
+      },
+      {
+        id: store.id,
+        name: store.name,
+        isScVerified: store.isScVerified,
+      }
+    );
+  };
 
   const loadStore = useCallback(async () => {
     if (!id) return;
@@ -102,6 +119,19 @@ export default function StoreDetailScreen() {
     init();
   }, [loadStore, loadProducts]);
 
+  // Load product categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getProductCategories(true); // Include admin-only for viewing
+        setProductCategories(categories);
+      } catch (error) {
+        console.error('Failed to load product categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([loadStore(), loadProducts()]);
@@ -109,7 +139,7 @@ export default function StoreDetailScreen() {
   };
 
   const getCategoryLabel = (value: string) => {
-    return PRODUCT_CATEGORIES.find(c => c.value === value)?.label || value;
+    return productCategories.find(c => c.key === value)?.label || value;
   };
 
   const formatPrice = (price: number) => {
@@ -158,6 +188,20 @@ export default function StoreDetailScreen() {
               className="absolute top-4 left-4 bg-black/30 p-2 rounded-full"
             >
               <ArrowLeft size={24} color="white" />
+            </TouchableOpacity>
+            {/* Cart Button */}
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/cart')}
+              className="absolute top-4 right-4 bg-black/30 p-2 rounded-full"
+            >
+              <ShoppingCart size={24} color="white" />
+              {totalItems > 0 && (
+                <View className="absolute -top-1 -right-1 bg-amber-500 rounded-full min-w-[20px] h-5 items-center justify-center">
+                  <Text className="text-white text-xs font-bold">
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -301,19 +345,19 @@ export default function StoreDetailScreen() {
                 All
               </Text>
             </TouchableOpacity>
-            {PRODUCT_CATEGORIES.map((cat) => (
+            {productCategories.map((cat) => (
               <TouchableOpacity
-                key={cat.value}
-                onPress={() => setSelectedCategory(cat.value)}
+                key={cat.key}
+                onPress={() => setSelectedCategory(cat.key)}
                 className={`mr-2 px-4 py-2 rounded-full ${
-                  selectedCategory === cat.value
+                  selectedCategory === cat.key
                     ? 'bg-amber-500'
                     : 'bg-gray-100 dark:bg-gray-700'
                 }`}
               >
                 <Text
                   className={`font-medium ${
-                    selectedCategory === cat.value
+                    selectedCategory === cat.key
                       ? 'text-white'
                       : 'text-gray-700 dark:text-gray-300'
                   }`}
@@ -375,14 +419,55 @@ export default function StoreDetailScreen() {
                         {getCategoryLabel(product.category)}
                       </Text>
 
-                      <View className="mt-2">
-                        <Text className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                          {formatPrice(product.priceUSD)}
-                        </Text>
-                        {product.compareAtPrice && product.compareAtPrice > product.priceUSD && (
-                          <Text className="text-xs text-gray-400 line-through">
-                            {formatPrice(product.compareAtPrice)}
+                      <View className="mt-2 flex-row items-center justify-between">
+                        <View>
+                          <Text className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                            {formatPrice(product.priceUSD)}
                           </Text>
+                          {product.compareAtPrice && product.compareAtPrice > product.priceUSD && (
+                            <Text className="text-xs text-gray-400 line-through">
+                              {formatPrice(product.compareAtPrice)}
+                            </Text>
+                          )}
+                        </View>
+                        {getCartQuantity(product.id) > 0 ? (
+                          <View className="flex-row items-center bg-gray-100 dark:bg-gray-700 rounded-full">
+                            <TouchableOpacity
+                              onPress={() => {
+                                const qty = getCartQuantity(product.id);
+                                if (qty <= 1) {
+                                  removeItem(product.id);
+                                } else {
+                                  updateQuantity(product.id, qty - 1);
+                                }
+                              }}
+                              className="p-2"
+                              activeOpacity={0.7}
+                            >
+                              <Minus size={14} color="#B45309" />
+                            </TouchableOpacity>
+                            <Text className="text-amber-700 dark:text-amber-400 font-bold text-sm min-w-[20px] text-center">
+                              {getCartQuantity(product.id)}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => {
+                                const qty = getCartQuantity(product.id);
+                                updateQuantity(product.id, qty + 1);
+                              }}
+                              className="p-2"
+                              activeOpacity={0.7}
+                            >
+                              <Plus size={14} color="#B45309" />
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={() => handleAddToCart(product)}
+                            className="bg-amber-500 p-2 rounded-full"
+                            activeOpacity={0.7}
+                          >
+                            <Plus size={18} color="white" />
+                          </TouchableOpacity>
                         )}
                       </View>
                     </View>

@@ -8,9 +8,18 @@ import {
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router, Stack } from 'expo-router';
-import { ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, Heart, Home, Briefcase, Store } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
+
+type TransferType = 'PERSONAL' | 'RENT' | 'SERVICE' | 'STORE';
+
+const TRANSFER_TYPE_CONFIG: Record<TransferType, { label: string; icon: any; color: string }> = {
+  PERSONAL: { label: 'Personal', icon: Heart, color: '#EC4899' },
+  RENT: { label: 'Rent', icon: Home, color: '#8B5CF6' },
+  SERVICE: { label: 'Service', icon: Briefcase, color: '#3B82F6' },
+  STORE: { label: 'Store', icon: Store, color: '#10B981' },
+};
 
 interface Transaction {
   id: string;
@@ -20,6 +29,7 @@ interface Transaction {
   status: string;
   note?: string;
   createdAt: string;
+  transferType?: TransferType;
 }
 
 export default function HistoryScreen() {
@@ -120,6 +130,8 @@ export default function HistoryScreen() {
 
   const renderTransaction = ({ item: tx }: { item: Transaction }) => {
     const statusText = getStatusText(tx);
+    const transferTypeConfig = tx.transferType ? TRANSFER_TYPE_CONFIG[tx.transferType] : null;
+    const TransferIcon = transferTypeConfig?.icon;
 
     return (
       <View className="flex-row items-center p-4 bg-white border-b border-gray-100">
@@ -142,7 +154,24 @@ export default function HistoryScreen() {
         </View>
 
         <View className="flex-1">
-          <Text className="text-gray-900 font-medium">{tx.counterparty}</Text>
+          <View className="flex-row items-center">
+            <Text className="text-gray-900 font-medium">{tx.counterparty}</Text>
+            {/* Transfer Type Badge */}
+            {transferTypeConfig && TransferIcon && (
+              <View
+                className="flex-row items-center ml-2 px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${transferTypeConfig.color}15` }}
+              >
+                <TransferIcon size={10} color={transferTypeConfig.color} />
+                <Text
+                  className="text-xs ml-1 font-medium"
+                  style={{ color: transferTypeConfig.color }}
+                >
+                  {transferTypeConfig.label}
+                </Text>
+              </View>
+            )}
+          </View>
           <View className="flex-row items-center">
             <Text className="text-gray-500 text-xs">{formatDate(tx.createdAt)}</Text>
             {statusText && (

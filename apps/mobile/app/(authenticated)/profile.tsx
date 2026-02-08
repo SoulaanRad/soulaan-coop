@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogOut, Copy, Check, Landmark, ChevronRight, Clock, CreditCard, Settings, Shield, HelpCircle } from 'lucide-react-native';
+import { LogOut, Copy, Check, Landmark, ChevronRight, Clock, CreditCard, Settings, Shield, HelpCircle, Package } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
@@ -113,6 +113,20 @@ export default function ProfileScreen() {
           {/* Quick Actions */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4">
             <Text className="text-sm text-gray-500 px-5 pt-5 pb-3 font-medium">Payment & Banking</Text>
+
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/orders' as any)}
+              className="flex-row items-center px-5 py-4 border-b border-gray-100 active:bg-gray-50"
+            >
+              <View className="w-11 h-11 rounded-xl bg-green-100 items-center justify-center mr-4">
+                <Package size={22} color="#16A34A" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base text-gray-900 font-medium">Order History</Text>
+                <Text className="text-sm text-gray-500">View your store purchases</Text>
+              </View>
+              <ChevronRight size={20} color="#D1D5DB" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => router.push('/(authenticated)/payment-methods' as any)}

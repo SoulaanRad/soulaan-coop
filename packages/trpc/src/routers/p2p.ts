@@ -63,6 +63,15 @@ export const p2pRouter = router({
       recipientType: z.enum(['username', 'phone', 'userId']),
       amount: z.number().min(0.01).max(10000),
       note: z.string().optional(),
+      // Transfer intent labeling (required)
+      transferType: z.enum(['PERSONAL', 'RENT', 'SERVICE', 'STORE']),
+      // Optional metadata based on transfer type
+      transferMetadata: z.object({
+        rentMonth: z.string().optional(),      // For RENT: "2026-02"
+        providerRole: z.string().optional(),   // For SERVICE: "contractor", "individual"
+        storeName: z.string().optional(),      // For STORE
+        personalNote: z.string().max(50).optional(), // Optional note
+      }).optional(),
     }))
     .output(z.object({
       success: z.boolean(),
@@ -126,6 +135,8 @@ export const p2pRouter = router({
             recipientId,
             amountUSD: input.amount,
             note: input.note,
+            transferType: input.transferType,
+            transferMetadata: input.transferMetadata,
           });
 
           return {
@@ -142,9 +153,9 @@ export const p2pRouter = router({
             recipientPhone,
             amountUSD: input.amount,
             note: input.note,
+            transferType: input.transferType,
+            transferMetadata: input.transferMetadata,
           });
-
-          // TODO: Send SMS to recipient with claim link
 
           return {
             success: true,
@@ -184,6 +195,7 @@ export const p2pRouter = router({
         amount: z.number(),
         counterparty: z.string(),
         status: z.string(),
+        transferType: z.enum(['PERSONAL', 'RENT', 'SERVICE', 'STORE']),
         note: z.string().optional(),
         createdAt: z.string(),
       })),

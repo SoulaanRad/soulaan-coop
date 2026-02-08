@@ -28,20 +28,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { coopConfig, coopName } from '@/lib/coop-config';
 
-// Store categories
-const STORE_CATEGORIES = [
-  { value: 'FOOD_BEVERAGE', label: 'Food & Beverage' },
-  { value: 'RETAIL', label: 'Retail' },
-  { value: 'SERVICES', label: 'Services' },
-  { value: 'HEALTH_WELLNESS', label: 'Health & Wellness' },
-  { value: 'ENTERTAINMENT', label: 'Entertainment' },
-  { value: 'EDUCATION', label: 'Education' },
-  { value: 'PROFESSIONAL', label: 'Professional' },
-  { value: 'HOME_GARDEN', label: 'Home & Garden' },
-  { value: 'AUTOMOTIVE', label: 'Automotive' },
-  { value: 'OTHER', label: 'Other' },
-];
-
 const REVENUE_RANGES = [
   { value: 'under_10k', label: 'Under $10,000' },
   { value: '10k_50k', label: '$10,000 - $50,000' },
@@ -60,6 +46,7 @@ export default function ApplyStoreScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showRevenuePicker, setShowRevenuePicker] = useState(false);
   const [showCommitmentPicker, setShowCommitmentPicker] = useState(false);
+  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -100,6 +87,19 @@ export default function ApplyStoreScreen() {
   ];
 
   const currentStepIndex = steps.findIndex((s) => s.key === currentStep);
+
+  // Load store categories on mount
+  React.useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categories = await api.getStoreCategories(false); // Don't include admin-only
+        setStoreCategories(categories);
+      } catch (error) {
+        console.error('Failed to load store categories:', error);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const validateStep = (): boolean => {
     switch (currentStep) {
@@ -215,7 +215,7 @@ export default function ApplyStoreScreen() {
   };
 
   const getCategoryLabel = (value: string) => {
-    return STORE_CATEGORIES.find((c) => c.value === value)?.label || 'Select Category';
+    return storeCategories.find((c) => c.key === value)?.label || 'Select Category';
   };
 
   const getRevenueLabel = (value: string) => {
@@ -256,19 +256,19 @@ export default function ApplyStoreScreen() {
         </TouchableOpacity>
         {showCategoryPicker && (
           <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 overflow-hidden">
-            {STORE_CATEGORIES.map((cat) => (
+            {storeCategories.map((cat) => (
               <TouchableOpacity
-                key={cat.value}
+                key={cat.key}
                 onPress={() => {
-                  updateField('category', cat.value);
+                  updateField('category', cat.key);
                   setShowCategoryPicker(false);
                 }}
                 className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                  formData.category === cat.value ? 'bg-amber-50 dark:bg-amber-900/30' : ''
+                  formData.category === cat.key ? 'bg-amber-50 dark:bg-amber-900/30' : ''
                 }`}
               >
                 <Text className={`${
-                  formData.category === cat.value
+                  formData.category === cat.key
                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                     : 'text-gray-700 dark:text-gray-300'
                 }`}>
