@@ -81,6 +81,10 @@ export default function StoresScreen() {
     const item = cartItems.find(i => i.productId === productId);
     return item?.quantity || 0;
   };
+
+  const formatPrice = (price: number) => {
+    return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
   const [viewMode, setViewMode] = useState<ViewMode>('popular');
   const [stores, setStores] = useState<StoreData[]>([]);
   const [featuredStores, setFeaturedStores] = useState<StoreData[]>([]);
@@ -421,7 +425,7 @@ export default function StoresScreen() {
                         {/* Price Section */}
                         <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
                           <Text className="text-lg font-bold text-amber-700">
-                            ${product.priceUSD.toFixed(2)}
+                            ${formatPrice(product.priceUSD)}
                           </Text>
                           {getCartQuantity(product.id) > 0 ? (
                             <View className="flex-row items-center bg-gray-100 rounded-lg">

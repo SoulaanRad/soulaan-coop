@@ -7,39 +7,7 @@ import { Text } from "@/components/ui/text";
 import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
 
-// Mock data for stores
-const FEATURED_STORES = [
-  {
-    id: '1',
-    name: "Joe's Coffee",
-    category: 'Food & Drink',
-    rating: 4.8,
-    reviews: 124,
-    distance: '0.3 mi',
-    isScVerified: true,
-    imageUrl: null,
-  },
-  {
-    id: '2',
-    name: 'Urban Books',
-    category: 'Retail',
-    rating: 4.9,
-    reviews: 89,
-    distance: '0.5 mi',
-    isScVerified: true,
-    imageUrl: null,
-  },
-  {
-    id: '3',
-    name: 'Fresh Market',
-    category: 'Grocery',
-    rating: 4.6,
-    reviews: 256,
-    distance: '0.8 mi',
-    isScVerified: false,
-    imageUrl: null,
-  },
-];
+
 
 // Category icons mapping
 const CATEGORY_ICONS: Record<string, string> = {

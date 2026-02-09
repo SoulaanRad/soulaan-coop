@@ -116,7 +116,7 @@ export default function MyStoreScreen() {
   };
 
   const formatPrice = (price: number) => {
-    return `$${price.toFixed(2)}`;
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const getStatusBadge = () => {
@@ -304,9 +304,8 @@ export default function MyStoreScreen() {
               <View className="flex-row p-4 border-t border-gray-100 dark:border-gray-700">
                 <View className="flex-1 items-center">
                   <View className="flex-row items-center">
-                    <DollarSign size={16} color="#B45309" />
-                    <Text className="text-xl font-bold text-gray-900 dark:text-white ml-1">
-                      {store.totalSales.toFixed(2)}
+                    <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                      {formatPrice(store.totalSales)}
                     </Text>
                   </View>
                   <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">Total Sales</Text>
@@ -334,28 +333,55 @@ export default function MyStoreScreen() {
           </View>
         </View>
 
-        {/* Quick Pay Card */}
+        {/* Quick Actions */}
         {store.status === 'APPROVED' && (
-          <TouchableOpacity
-            onPress={() => router.push('/(authenticated)/accept-payment' as any)}
-            className="mx-5 mt-4"
-          >
-            <LinearGradient
-              colors={['#10B981', '#059669']}
-              className="rounded-2xl p-5 flex-row items-center"
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+          <View className="mx-5 mt-4 gap-3">
+            {/* Quick Pay Card */}
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/accept-payment' as any)}
             >
-              <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
-                <QrCode size={24} color="white" />
-              </View>
-              <View className="flex-1 ml-4">
-                <Text className="text-white font-bold text-lg">Accept Payment</Text>
-                <Text className="text-white/80 text-sm">Generate QR codes & payment links</Text>
-              </View>
-              <ChevronRight size={24} color="white" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                className="rounded-2xl p-5 flex-row items-center"
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
+                  <QrCode size={24} color="white" />
+                </View>
+                <View className="flex-1 ml-4">
+                  <Text className="text-white font-bold text-lg">Accept Payment</Text>
+                  <Text className="text-white/80 text-sm">Generate QR codes & payment links</Text>
+                </View>
+                <ChevronRight size={24} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* View Orders Card */}
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/store-orders' as any)}
+            >
+              <LinearGradient
+                colors={['#D97706', '#B45309']}
+                className="rounded-2xl p-5 flex-row items-center"
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
+                  <Package size={24} color="white" />
+                </View>
+                <View className="flex-1 ml-4">
+                  <Text className="text-white font-bold text-lg">View Orders</Text>
+                  <Text className="text-white/80 text-sm">Manage & fulfill customer orders</Text>
+                </View>
+                <View className="items-end">
+                  <Text className="text-white font-bold text-2xl">{store.totalOrders}</Text>
+                  <Text className="text-white/80 text-xs">Total</Text>
+                </View>
+                <ChevronRight size={24} color="white" style={{ marginLeft: 8 }} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Products Section */}
