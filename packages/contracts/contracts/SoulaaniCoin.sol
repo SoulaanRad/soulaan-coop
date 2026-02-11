@@ -10,6 +10,18 @@ interface ICoopClearing {
     function recordCrossCoopActivity(uint256 fromCoopId, uint256 toCoopId, address member, bytes32 activityType) external;
 }
 
+// Custom errors for better debugging
+error NotActiveMember(address account, uint8 currentStatus);
+error ZeroAddress();
+error ZeroAmount();
+error ExceedsMaxAward(uint256 amount, uint256 maxAllowed);
+error InsufficientBalance(address account, uint256 requested, uint256 available);
+error AlreadyMember(address account);
+error StatusAlreadySet(address account, uint8 status);
+error MemberNotActive(address account);
+error MemberNotSuspended(address account);
+error AlreadyBanned(address account);
+
 /**
  * @title SoulaaniCoin (SC)
  * @notice Non-transferable, soulbound governance and yield token for Soulaan Co-op
@@ -167,13 +179,13 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         uint256 amount,
         bytes32 reason
     ) external onlyRole(GOVERNANCE_AWARD) whenNotPaused {
-        require(recipient != address(0), "Cannot award to zero address");
-        require(amount > 0, "Amount must be greater than 0");
-        require(isActiveMember(recipient), "Recipient must be an active member");
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (!isActiveMember(recipient)) revert NotActiveMember(recipient, uint8(memberStatus[recipient]));
 
         // Check award limit if set (0 = unlimited)
         if (maxAwardPerTransaction > 0) {
-            require(amount <= maxAwardPerTransaction, "Amount exceeds max award limit");
+            if (amount > maxAwardPerTransaction) revert ExceedsMaxAward(amount, maxAwardPerTransaction);
         }
 
         // Apply diminishing returns based on current balance
@@ -221,20 +233,7 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         }
     }
 
-    /**
-     * @notice Mint SC reward tokens to a member (2-parameter version for backward compatibility)
-     * @param recipient Address to receive SC
-     * @param amount Amount of SC to mint (before diminishing returns)
-     * @dev Uses a default "GENERAL_REWARD" reason code
-     * @dev Only callable by GOVERNANCE_AWARD role (governance bot/backend)
-     */
-    function mintReward(
-        address recipient,
-        uint256 amount
-    ) external onlyRole(GOVERNANCE_AWARD) whenNotPaused {
-        bytes32 defaultReason = keccak256("GENERAL_REWARD");
-        this.mintReward(recipient, amount, defaultReason);
-    }
+    // 2-parameter version removed - use 3-parameter version with explicit reason for better gas efficiency
 
     /**
      * @notice Calculate earning multiplier based on current balance

@@ -1,3 +1,17 @@
+import { config as dotenvConfig } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load root .env file BEFORE Next.js loads its own
+dotenvConfig({ path: resolve(__dirname, '../../.env') });
+
+// Then load local .env to allow overrides
+dotenvConfig({ path: resolve(__dirname, '.env'), override: false });
+
+console.log('✅ Next.js: Loaded environment variables from root .env');
+
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url);

@@ -137,7 +137,18 @@ export default function MemberManagement() {
   // Query for blockchain info
   const blockchainInfoQuery = api.admin.getUserBlockchainInfo.useQuery(
     { userId: selectedUserForBlockchainInfo || '' },
-    { enabled: !!selectedUserForBlockchainInfo && blockchainInfoModalOpen }
+    { 
+      enabled: !!selectedUserForBlockchainInfo && blockchainInfoModalOpen,
+      onSuccess: (data) => {
+        if (data.blockchain) {
+          console.log('🔍 Blockchain Info:', {
+            scBalance: data.blockchain.scBalance,
+            ucBalance: data.blockchain.ucBalance,
+            ethBalance: data.blockchain.ethBalance,
+          });
+        }
+      }
+    }
   );
 
   const handleStatusChange = (userId: string, newStatus: UserStatus) => {
@@ -254,7 +265,11 @@ export default function MemberManagement() {
           <p className="font-semibold">Error loading users</p>
           <p className="text-sm text-gray-400 mt-2">{error.message}</p>
         </div>
-        <Button onClick={() => refetch()} variant="outline">
+        <Button 
+          onClick={() => refetch()} 
+          variant="outline"
+          className="border-slate-700 text-gray-300 hover:bg-slate-800 hover:text-white"
+        >
           Try Again
         </Button>
       </div>
@@ -872,6 +887,9 @@ export default function MemberManagement() {
                           {formatBalance(blockchainInfoQuery.data.blockchain.scBalance.formatted)}
                         </p>
                         <p className="text-xs text-purple-600 dark:text-purple-400">SC</p>
+                        <p className="text-[10px] text-purple-500 dark:text-purple-400 mt-1 font-mono">
+                          Raw: {blockchainInfoQuery.data.blockchain.scBalance.formatted}
+                        </p>
                       </div>
                     </div>
 

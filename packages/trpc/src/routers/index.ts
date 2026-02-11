@@ -16,6 +16,7 @@ import { storeRouter } from "./store.js";
 import { storePayRouter } from "./store-pay.js";
 import { categoriesRouter } from "./categories.js";
 import { notificationRouter } from "./notification.js";
+import { scRewardsRouter } from "./sc-rewards.js";
 
 
 export const appRouter = router({
@@ -35,6 +36,7 @@ export const appRouter = router({
   storePay: storePayRouter,
   categories: categoriesRouter,
   notification: notificationRouter,
+  scRewards: scRewardsRouter,
 });
 
 export type AppRouter = typeof appRouter;

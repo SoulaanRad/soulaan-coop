@@ -47,8 +47,8 @@ export const userRouter = router({
       ucRaw: z.string(),
     }))
     .query(async ({ input }) => {
-      const scContract = process.env.SC_CONTRACT_ADDRESS;
-      const ucContract = process.env.UC_CONTRACT_ADDRESS;
+      const scContract = process.env.SOULAANI_COIN_ADDRESS;
+      const ucContract = process.env.UNITY_COIN_ADDRESS;
 
       if (!scContract || !ucContract) {
         console.warn('Contract addresses not configured, returning zero balances');

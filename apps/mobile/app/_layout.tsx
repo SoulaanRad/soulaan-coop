@@ -7,12 +7,14 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import "../global.css"
 import { PortalHost } from '@rn-primitives/portal';
+import Toast from 'react-native-toast-message';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/auth-context';
 import { CartProvider } from '@/contexts/cart-context';
 import { PaymentConfirmationProvider } from '@/components/payment-confirmation-provider';
 import StripeWrapper from '@/components/providers/StripeWrapper';
+import { toastConfig } from '@/lib/toast-config';
 
 // Handle deep links for store quick payments
 function handleDeepLink(url: string) {
@@ -100,6 +102,7 @@ export default function RootLayout() {
                 </Stack>
                 <StatusBar style="auto" />
                 <PortalHost />
+                <Toast config={toastConfig} />
               </ThemeProvider>
             </PaymentConfirmationProvider>
           </CartProvider>

@@ -30,6 +30,7 @@ import {
   Search,
   Eye,
   DollarSign,
+  Coins,
 } from "lucide-react";
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
@@ -335,6 +336,11 @@ function AllStoresTab() {
                         )}
                       </Button>
                     </div>
+
+                    {/* SC Rewards Section (only for SC-verified stores) */}
+                    {store.isScVerified && (
+                      <StoreSCRewardsPanel storeId={store.id} storeName={store.name} />
+                    )}
 
                     {/* Products Section */}
                     <StoreProductsPanel storeId={store.id} storeName={store.name} />
@@ -872,6 +878,116 @@ function ApplicationsTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ============================================
+// STORE SC REWARDS PANEL
+// ============================================
+function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeName: string }) {
+  const { data, isLoading, error } = api.scRewards.getSCRewardsForStore.useQuery({
+    storeId,
+    limit: 10,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-slate-800 rounded-lg p-4">
+        <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+          <Coins className="h-4 w-4 text-amber-500" />
+          SC Rewards
+        </h4>
+        <div className="py-4 text-center text-gray-400">Loading SC rewards...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-slate-800 rounded-lg p-4">
+        <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+          <Coins className="h-4 w-4 text-amber-500" />
+          SC Rewards
+        </h4>
+        <div className="py-4 text-center">
+          <p className="text-red-400 mb-2">Error loading SC rewards</p>
+          <p className="text-sm text-gray-500">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || data.rewards.length === 0) {
+    return (
+      <div className="bg-slate-800 rounded-lg p-4">
+        <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+          <Coins className="h-4 w-4 text-amber-500" />
+          SC Rewards
+        </h4>
+        <div className="py-4 text-center text-gray-400">No SC rewards distributed yet</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-white flex items-center gap-2">
+          <Coins className="h-4 w-4 text-amber-500" />
+          SC Rewards
+        </h4>
+        <a
+          href={`/portal/sc-rewards?storeId=${storeId}`}
+          className="text-sm text-amber-400 hover:text-amber-300"
+        >
+          View All →
+        </a>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-slate-900 rounded-lg">
+        <div>
+          <p className="text-xs text-gray-400">Total Distributed</p>
+          <p className="text-lg font-bold text-amber-400">{data.totalDistributed.toFixed(2)} SC</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-400">Total Rewards</p>
+          <p className="text-lg font-bold text-white">{data.totalCount}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {data.rewards.slice(0, 5).map((reward) => (
+          <div
+            key={reward.id}
+            className="flex items-center justify-between p-2 bg-slate-900 rounded"
+          >
+            <div className="flex-1">
+              <p className="text-sm text-white">{reward.user.name || reward.user.email}</p>
+              <p className="text-xs text-gray-500">
+                {reward.reason === 'STORE_PURCHASE_REWARD' ? 'Purchase' : 'Sale'} •{' '}
+                {new Date(reward.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold text-amber-400">
+                {reward.amountSC.toFixed(4)} SC
+              </p>
+              <Badge
+                className={
+                  reward.status === 'COMPLETED'
+                    ? 'bg-green-500/10 text-green-500 text-xs'
+                    : reward.status === 'FAILED'
+                    ? 'bg-red-500/10 text-red-500 text-xs'
+                    : 'bg-yellow-500/10 text-yellow-500 text-xs'
+                }
+              >
+                {reward.status}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

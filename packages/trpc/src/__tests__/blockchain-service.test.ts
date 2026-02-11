@@ -113,7 +113,7 @@ describe('Blockchain Service', () => {
       const validAddresses = [
         '0x0000000000000000000000000000000000000000',
         '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9',
-        '0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542',
+        '0x5125035DA40376E9Ca0376DDDA9C92F7C84d341F',
       ];
 
       validAddresses.forEach((address) => {

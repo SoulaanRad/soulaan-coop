@@ -307,7 +307,7 @@ const events = await ucContract.queryFilter(
 );
 
 # Or check on BaseScan:
-# https://sepolia.basescan.org/address/UC_CONTRACT_ADDRESS#events
+# https://sepolia.basescan.org/address/UNITY_COIN_ADDRESS#events
 ```
 
 **Step 5: Document the Breach**
@@ -547,7 +547,7 @@ import { ethers } from 'ethers';
 
 export async function monitorSCAwards() {
   const scContract = new ethers.Contract(
-    process.env.SC_CONTRACT_ADDRESS,
+    process.env.SOULAANI_COIN_ADDRESS,
     scABI,
     provider
   );

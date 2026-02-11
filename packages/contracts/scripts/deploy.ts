@@ -82,6 +82,31 @@ async function main() {
   const deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
   console.log("   💰 Deployer SC balance:", ethers.formatEther(deployerBalance), "SC");
 
+  // ========== GRANT ROLES TO GOVERNANCE BOT ==========
+  console.log("\n2.5️⃣  Granting roles to governance bot...");
+  const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
+  const MEMBER_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("MEMBER_MANAGER"));
+  
+  if (governanceBot !== deployer.address) {
+    console.log("   Granting GOVERNANCE_AWARD to:", governanceBot);
+    const grantAwardTx = await soulaaniCoin.grantRole(GOVERNANCE_AWARD, governanceBot);
+    await waitForTx(grantAwardTx, "grantRole(GOVERNANCE_AWARD)");
+    console.log("   ✅ Governance bot can now mint SC rewards");
+    
+    console.log("   Granting MEMBER_MANAGER to:", governanceBot);
+    const grantManagerTx = await soulaaniCoin.grantRole(MEMBER_MANAGER, governanceBot);
+    await waitForTx(grantManagerTx, "grantRole(MEMBER_MANAGER)");
+    console.log("   ✅ Governance bot can now manage members");
+    
+    // Add governance bot as a member so it can receive SC if needed
+    console.log("   Adding governance bot as member...");
+    const addBotMemberTx = await soulaaniCoin.addMember(governanceBot);
+    await waitForTx(addBotMemberTx, "addMember(governanceBot)");
+    console.log("   ✅ Governance bot added as member");
+  } else {
+    console.log("   ⚠️  Governance bot is deployer - skipping (already has admin role)");
+  }
+
   // ========== DEPLOY MOCK USDC FOR TESTING ==========
   console.log("\n3️⃣  Deploying Mock USDC (for testing)...");
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
@@ -134,9 +159,11 @@ async function main() {
   console.log("");
   console.log("🔑 ROLE ASSIGNMENTS:");
   console.log("=".repeat(60));
-  console.log("UC Admin/Treasurer/Pauser:", treasurySafe);
-  console.log("SC Admin/Governance:      ", governanceBot);
-  console.log("Vault Admin/Treasurer:    ", treasurySafe);
+  console.log("UC Admin/Treasurer/Pauser:     ", treasurySafe);
+  console.log("SC Admin:                      ", governanceBot);
+  console.log("SC GOVERNANCE_AWARD (minting): ", governanceBot);
+  console.log("SC MEMBER_MANAGER (add members):", governanceBot);
+  console.log("Vault Admin/Treasurer:         ", treasurySafe);
   console.log("=".repeat(60));
   console.log("");
   console.log("📝 NEXT STEPS:");

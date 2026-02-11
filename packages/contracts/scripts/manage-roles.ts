@@ -24,8 +24,9 @@ const ROLES = {
   // SC (SoulaaniCoin) roles
   SC: {
     DEFAULT_ADMIN: ethers.ZeroHash,
-    GOVERNANCE_AWARD: ethers.id("GOVERNANCE_AWARD"),
+    GOVERNANCE_AWARD: ethers.id("GOVERNANCE_AWARD"), // This is the minting role
     GOVERNANCE_SLASH: ethers.id("GOVERNANCE_SLASH"),
+    MEMBER_MANAGER: ethers.id("MEMBER_MANAGER"),
   },
   // Vault roles
   VAULT: {
@@ -44,14 +45,14 @@ async function main() {
   console.log("");
 
   // TODO: Update these addresses after deployment
-  const UC_ADDRESS = process.env.UC_CONTRACT_ADDRESS || "";
-  const SC_ADDRESS = process.env.SC_CONTRACT_ADDRESS || "";
+  const UC_ADDRESS = process.env.UNITY_COIN_ADDRESS || "";
+  const SC_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || "";
   const VAULT_ADDRESS = process.env.VAULT_CONTRACT_ADDRESS || "";
 
   if (!UC_ADDRESS || !SC_ADDRESS || !VAULT_ADDRESS) {
     console.log("❌ Please set contract addresses in .env:");
-    console.log("   UC_CONTRACT_ADDRESS=0x...");
-    console.log("   SC_CONTRACT_ADDRESS=0x...");
+    console.log("   UNITY_COIN_ADDRESS=0x...");
+    console.log("   SOULAANI_COIN_ADDRESS=0x...");
     console.log("   VAULT_CONTRACT_ADDRESS=0x...");
     process.exit(1);
   }
@@ -70,9 +71,10 @@ async function main() {
   console.log("  TREASURER_MINT:  ", ROLES.UC.TREASURER_MINT);
   console.log("  PAUSER:          ", ROLES.UC.PAUSER);
   console.log("\nSoulaaniCoin (SC):");
-  console.log("  DEFAULT_ADMIN:   ", ROLES.SC.DEFAULT_ADMIN);
-  console.log("  GOVERNANCE_AWARD:", ROLES.SC.GOVERNANCE_AWARD);
-  console.log("  GOVERNANCE_SLASH:", ROLES.SC.GOVERNANCE_SLASH);
+  console.log("  DEFAULT_ADMIN:    ", ROLES.SC.DEFAULT_ADMIN);
+  console.log("  GOVERNANCE_AWARD: ", ROLES.SC.GOVERNANCE_AWARD, "(minting role)");
+  console.log("  GOVERNANCE_SLASH: ", ROLES.SC.GOVERNANCE_SLASH);
+  console.log("  MEMBER_MANAGER:   ", ROLES.SC.MEMBER_MANAGER);
   console.log("\nRedemptionVault:");
   console.log("  DEFAULT_ADMIN:        ", ROLES.VAULT.DEFAULT_ADMIN);
   console.log("  REDEMPTION_PROCESSOR: ", ROLES.VAULT.REDEMPTION_PROCESSOR);
@@ -98,10 +100,12 @@ async function main() {
   console.log("SoulaaniCoin (SC) - " + SC_ADDRESS);
   const scAward = await scContract.hasRole(ROLES.SC.GOVERNANCE_AWARD, signer.address);
   const scSlash = await scContract.hasRole(ROLES.SC.GOVERNANCE_SLASH, signer.address);
+  const scMemberManager = await scContract.hasRole(ROLES.SC.MEMBER_MANAGER, signer.address);
   const scAdmin = await scContract.hasRole(ROLES.SC.DEFAULT_ADMIN, signer.address);
   console.log("  Your address has:");
-  console.log("    GOVERNANCE_AWARD: ", scAward ? "✓ YES" : "✗ NO");
+  console.log("    GOVERNANCE_AWARD: ", scAward ? "✓ YES (can mint SC)" : "✗ NO");
   console.log("    GOVERNANCE_SLASH: ", scSlash ? "✓ YES" : "✗ NO");
+  console.log("    MEMBER_MANAGER:   ", scMemberManager ? "✓ YES" : "✗ NO");
   console.log("    DEFAULT_ADMIN:    ", scAdmin ? "✓ YES" : "✗ NO");
   console.log("");
 

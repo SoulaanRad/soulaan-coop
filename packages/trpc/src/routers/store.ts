@@ -1533,21 +1533,6 @@ export const storeRouter = router({
 
         console.log('✅ Payment complete:', transactionHash);
         console.log('💳 Funding source:', fundingSource);
-
-        // Award SC rewards if store is SC-verified
-        if (store.isScVerified) {
-          try {
-            await awardStoreTransactionReward(
-              buyer.id,
-              store.owner.id,
-              totalUSD,
-              true
-            );
-            console.log('🪙 SC rewards distributed');
-          } catch (error) {
-            console.error('Failed to award SC (non-critical):', error);
-          }
-        }
       } catch (error: any) {
         console.error('❌ Payment failed:', error);
         throw new TRPCError({
@@ -1619,6 +1604,23 @@ export const storeRouter = router({
           totalOrders: { increment: 1 },
         },
       });
+
+      // Award SC rewards if store is SC-verified (after order is created)
+      if (store.isScVerified) {
+        try {
+          await awardStoreTransactionReward(
+            buyer.id,
+            store.owner.id,
+            totalUSD,
+            true,
+            order.id,  // Pass orderId
+            store.id   // Pass storeId
+          );
+          console.log('🪙 SC rewards distributed and tracked');
+        } catch (error) {
+          console.error('Failed to award SC (non-critical):', error);
+        }
+      }
 
       // Create notifications
       await context.db.notification.createMany({

@@ -409,8 +409,18 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
 }
 
 // Soulaani Coin (SC) reward configuration
-const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542';
+const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
 const SC_REWARD_RATE = 0.01; // 1% SC reward on qualifying transactions
+
+// SC Reward Reason Constants
+export const SC_REWARD_REASONS = {
+  STORE_PURCHASE: 'STORE_PURCHASE_REWARD',
+  STORE_SALE: 'STORE_SALE_REWARD',
+  MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT',
+  RENT_PAYMENT: 'RENT_PAYMENT_REWARD',
+  COMMUNITY_SERVICE: 'COMMUNITY_SERVICE_REWARD',
+  GENERAL: 'GENERAL_REWARD',
+} as const;
 
 /**
  * Calculate SC reward for a transaction
@@ -462,16 +472,58 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
     transport: http(RPC_URL),
   });
 
-  // Encode mintReward function call
+  const publicClient = getPublicClient();
+
+  // Check backend wallet has enough ETH for gas
+  const backendBalance = await publicClient.getBalance({ address: backendAccount.address });
+  const minGasBalance = parseEther('0.0001'); // Minimum 0.0001 ETH for gas
+  
+  console.log(`⛽ Backend wallet ETH balance: ${formatEther(backendBalance)} ETH`);
+  
+  if (backendBalance < minGasBalance) {
+    throw new Error(`Backend wallet has insufficient ETH for gas. Balance: ${formatEther(backendBalance)} ETH. Please fund the wallet at ${backendAccount.address}`);
+  }
+
+  console.log(`🔍 Checking if ${user.walletAddress} is an active member...`);
+  
+  // Check if user is an active member
+  const isActiveMember = await publicClient.readContract({
+    address: SOULAANI_COIN_ADDRESS as Address,
+    abi: [
+      {
+        inputs: [{ name: 'account', type: 'address' }],
+        name: 'isActiveMember',
+        outputs: [{ name: '', type: 'bool' }],
+        stateMutability: 'view',
+        type: 'function',
+      },
+    ],
+    functionName: 'isActiveMember',
+    args: [user.walletAddress as Address],
+  });
+
+  console.log(`👤 User ${user.walletAddress} active member status: ${isActiveMember}`);
+
+  // If not an active member, throw an error - they need to be approved first
+  if (!isActiveMember) {
+    throw new Error(`User ${user.walletAddress} is not an active member. SC can only be minted to approved members.`);
+  }
+
+  // Encode mintReward function call (3-parameter version for better gas efficiency)
   // SoulaaniCoin has 18 decimals
   const amountInWei = parseUnits(amountSC.toString(), 18);
+  
+  // Convert reason string to bytes32 hash
+  const reasonHash = `0x${Buffer.from(reason.toUpperCase().replace(/[^A-Z0-9_]/g, '_')).toString('hex').padEnd(64, '0')}` as `0x${string}`;
 
+  console.log(`🔍 Reason hash: ${reasonHash}`);
   const txData = encodeFunctionData({
     abi: [
       {
         inputs: [
-          { name: 'to', type: 'address' },
+          { name: 'recipient', type: 'address' },
           { name: 'amount', type: 'uint256' },
+          { name: 'reason', type: 'bytes32' },
         ],
         name: 'mintReward',
         outputs: [],
@@ -480,8 +532,10 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
       },
     ],
     functionName: 'mintReward',
-    args: [user.walletAddress as Address, amountInWei],
+    args: [user.walletAddress as Address, amountInWei, reasonHash],
   });
+
+  console.log(`🪙 Minting ${amountSC} SC (${amountInWei.toString()} wei) to ${user.walletAddress}...`);
 
   // Send mint transaction
   const txHash = await walletClient.sendTransaction({
@@ -489,11 +543,14 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
     data: txData,
   });
 
-  console.log(`🪙 Minted ${amountSC} SC to ${user.walletAddress} for ${reason}, tx: ${txHash}`);
+  console.log(`📝 Mint tx submitted: ${txHash}`);
 
   // Wait for transaction confirmation
-  const publicClient = getPublicClient();
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  
+  if (receipt.status === 'reverted') {
+    throw new Error(`Transaction reverted: ${txHash}`);
+  }
 
   console.log(`✅ SC Mint confirmed: ${txHash}`);
 
@@ -512,9 +569,25 @@ export async function awardStoreTransactionReward(
   customerId: string,
   storeOwnerId: string,
   amountUSD: number,
-  storeIsScVerified: boolean
-): Promise<{ customerReward: number; storeReward: number; customerTxHash?: string; storeTxHash?: string }> {
-  const result: { customerReward: number; storeReward: number; customerTxHash?: string; storeTxHash?: string } = {
+  storeIsScVerified: boolean,
+  orderId?: string,
+  storeId?: string
+): Promise<{ 
+  customerReward: number; 
+  storeReward: number; 
+  customerTxHash?: string; 
+  storeTxHash?: string;
+  customerRecordId?: string;
+  storeRecordId?: string;
+}> {
+  const result: { 
+    customerReward: number; 
+    storeReward: number; 
+    customerTxHash?: string; 
+    storeTxHash?: string;
+    customerRecordId?: string;
+    storeRecordId?: string;
+  } = {
     customerReward: 0,
     storeReward: 0,
   };
@@ -533,27 +606,105 @@ export async function awardStoreTransactionReward(
     return result;
   }
 
+  // Create database records BEFORE minting
+  let customerRecord;
+  let storeOwnerRecord;
+
   try {
-    // Award customer SC for shopping at verified store
+    // Create customer reward record
+    customerRecord = await db.sCRewardTransaction.create({
+      data: {
+        userId: customerId,
+        amountSC: scReward,
+        reason: SC_REWARD_REASONS.STORE_PURCHASE,
+        status: 'PENDING',
+        relatedOrderId: orderId,
+        relatedStoreId: storeId,
+      },
+    });
+    result.customerRecordId = customerRecord.id;
+    console.log(`📝 Created customer SC reward record: ${customerRecord.id}`);
+
+    // Create store owner reward record
+    storeOwnerRecord = await db.sCRewardTransaction.create({
+      data: {
+        userId: storeOwnerId,
+        amountSC: scReward,
+        reason: SC_REWARD_REASONS.STORE_SALE,
+        status: 'PENDING',
+        relatedOrderId: orderId,
+        relatedStoreId: storeId,
+      },
+    });
+    result.storeRecordId = storeOwnerRecord.id;
+    console.log(`📝 Created store owner SC reward record: ${storeOwnerRecord.id}`);
+  } catch (error) {
+    console.error(`❌ Failed to create SC reward records:`, error);
+    throw error; // Fail if we can't create records
+  }
+
+  // Mint SC for customer
+  try {
     result.customerReward = scReward;
     result.customerTxHash = await mintSCToUser(
       customerId,
       scReward,
-      `store_purchase_reward`
+      SC_REWARD_REASONS.STORE_PURCHASE
     );
-    console.log(`🪙 Awarded ${scReward} SC to customer ${customerId}`);
+    
+    // Update record to COMPLETED
+    await db.sCRewardTransaction.update({
+      where: { id: customerRecord.id },
+      data: {
+        status: 'COMPLETED',
+        txHash: result.customerTxHash,
+        completedAt: new Date(),
+      },
+    });
+    console.log(`🪙 Awarded ${scReward} SC to customer ${customerId} - Record updated to COMPLETED`);
+  } catch (error) {
+    // Update record to FAILED
+    await db.sCRewardTransaction.update({
+      where: { id: customerRecord.id },
+      data: {
+        status: 'FAILED',
+        failedAt: new Date(),
+        failureReason: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+    console.error(`❌ Failed to mint SC for customer ${customerId}:`, error);
+  }
 
-    // Award store owner SC for receiving payment (same rate)
+  // Mint SC for store owner
+  try {
     result.storeReward = scReward;
     result.storeTxHash = await mintSCToUser(
       storeOwnerId,
       scReward,
-      `store_sale_reward`
+      SC_REWARD_REASONS.STORE_SALE
     );
-    console.log(`🪙 Awarded ${scReward} SC to store owner ${storeOwnerId}`);
+    
+    // Update record to COMPLETED
+    await db.sCRewardTransaction.update({
+      where: { id: storeOwnerRecord.id },
+      data: {
+        status: 'COMPLETED',
+        txHash: result.storeTxHash,
+        completedAt: new Date(),
+      },
+    });
+    console.log(`🪙 Awarded ${scReward} SC to store owner ${storeOwnerId} - Record updated to COMPLETED`);
   } catch (error) {
-    // Log but don't fail the transaction if SC minting fails
-    console.error(`❌ Failed to mint SC reward:`, error);
+    // Update record to FAILED
+    await db.sCRewardTransaction.update({
+      where: { id: storeOwnerRecord.id },
+      data: {
+        status: 'FAILED',
+        failedAt: new Date(),
+        failureReason: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+    console.error(`❌ Failed to mint SC for store owner ${storeOwnerId}:`, error);
   }
 
   return result;

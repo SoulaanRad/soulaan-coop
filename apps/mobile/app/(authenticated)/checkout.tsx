@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   TextInput,
 } from 'react-native';
+import { Alert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
@@ -123,10 +123,27 @@ export default function CheckoutScreen() {
       );
     } catch (error: any) {
       console.error('Checkout failed:', error);
-      Alert.alert(
-        'Checkout Failed',
-        error.message || 'Unable to complete your order. Please try again.'
-      );
+      
+      // Parse error message for better user feedback
+      let errorTitle = 'Checkout Failed';
+      let errorMessage = error.message || 'Unable to complete your order. Please try again.';
+      
+      // Check for specific error types
+      if (errorMessage.includes('Daily limit not set')) {
+        errorTitle = 'System Configuration Error';
+        errorMessage = 'The payment system needs to be configured by an administrator. Please contact support.';
+      } else if (errorMessage.includes('Daily minting limit exceeded')) {
+        errorTitle = 'Daily Limit Reached';
+        errorMessage = 'The daily minting limit has been reached. Please try again tomorrow or contact support.';
+      } else if (errorMessage.includes('Recipient must be an active SC member')) {
+        errorTitle = 'Membership Required';
+        errorMessage = 'You need to be an active member to make purchases. Please contact support.';
+      } else if (errorMessage.includes('Insufficient balance')) {
+        errorTitle = 'Insufficient Balance';
+        errorMessage = 'You don\'t have enough balance to complete this purchase. Please add funds or use a payment method.';
+      }
+      
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setProcessing(false);
     }

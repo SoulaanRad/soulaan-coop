@@ -31,9 +31,9 @@ dotenv.config();
 const BATCH_SIZE = 50;
 
 // Get SC contract address from environment variable
-const SC_CONTRACT_ADDRESS = process.env.SOULAANI_COIN_ADDRESS;
+const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS;
 
-if (!SC_CONTRACT_ADDRESS) {
+if (!SOULAANI_COIN_ADDRESS) {
   throw new Error(
     "SOULAANI_COIN_ADDRESS not found in .env file. " +
     "Please add it or run full-deployment.ts first."
@@ -84,9 +84,9 @@ async function main() {
   // ========== STEP 1: CONNECT TO SC CONTRACT ==========
   console.log("🔗 STEP 1: Connecting to SoulaaniCoin contract");
   console.log("-".repeat(70));
-  console.log(`   Address: ${SC_CONTRACT_ADDRESS}\n`);
+  console.log(`   Address: ${SOULAANI_COIN_ADDRESS}\n`);
   
-  const soulaaniCoin = await ethers.getContractAt("SoulaaniCoin", SC_CONTRACT_ADDRESS);
+  const soulaaniCoin = await ethers.getContractAt("SoulaaniCoin", SOULAANI_COIN_ADDRESS);
 
   // ========== STEP 2: FETCH ACTIVE USERS FROM DATABASE ==========
   console.log("📊 STEP 2: Fetching active users from database");
@@ -248,13 +248,13 @@ async function main() {
     console.log("=".repeat(70));
     console.log("");
     console.log("🔗 View contract on BaseScan:");
-    console.log(`   https://sepolia.basescan.org/address/${SC_CONTRACT_ADDRESS}`);
+    console.log(`   https://sepolia.basescan.org/address/${SOULAANI_COIN_ADDRESS}`);
     console.log("");
 
     // Save summary
     const summary = {
       timestamp: new Date().toISOString(),
-      contractAddress: SC_CONTRACT_ADDRESS,
+      contractAddress: SOULAANI_COIN_ADDRESS,
       activeUsersFound: activeUsers.length,
       membersAdded: addedCount,
       awardsSuccessful: successCount,

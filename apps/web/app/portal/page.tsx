@@ -2,12 +2,13 @@
 
 import { api } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, CheckCircle2, XCircle, Loader2, TrendingUp } from "lucide-react";
+import { Users, FileText, CheckCircle2, XCircle, Loader2, TrendingUp, Coins, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = api.admin.getApplicationStats.useQuery();
+  const { data: scStats, isLoading: scLoading } = api.scRewards.getSCRewardStats.useQuery();
 
   if (isLoading) {
     return (
@@ -71,6 +72,62 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* SC Rewards Summary */}
+      {!scLoading && scStats && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">SC Rewards Overview</h2>
+          <Link href="/portal/sc-rewards">
+            <Card className="bg-gradient-to-br from-amber-500/10 to-orange-600/5 border-amber-500/20 hover:border-amber-500/50 transition-colors cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Coins className="h-6 w-6 text-amber-500" />
+                      <h3 className="text-lg font-semibold text-white">Soulaani Coin Rewards</h3>
+                    </div>
+                    <div className="grid grid-cols-3 gap-6">
+                      <div>
+                        <p className="text-sm text-gray-400">Total Minted</p>
+                        <p className="text-2xl font-bold text-amber-400 mt-1">
+                          {scStats.totalMintedDB.toFixed(2)} SC
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          This week: {scStats.weekMinted.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Success Rate</p>
+                        <p className="text-2xl font-bold text-green-400 mt-1">
+                          {scStats.successRate}%
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {scStats.completed} completed
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-400">Failed Mints</p>
+                        <p className="text-2xl font-bold text-red-400 mt-1">
+                          {scStats.failed}
+                        </p>
+                        {scStats.failed > 0 && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <AlertTriangle className="h-3 w-3 text-red-400" />
+                            <span className="text-xs text-red-400">Needs attention</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="outline" className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10">
+                    View Details →
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div>

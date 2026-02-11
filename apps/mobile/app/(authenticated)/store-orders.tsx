@@ -44,11 +44,14 @@ export default function StoreOrdersScreen() {
   const loadOrders = useCallback(async () => {
     if (!user?.walletAddress) return;
     try {
-      const status = selectedStatus === 'ALL' ? undefined : selectedStatus;
-      const result = await api.getStoreOrders(user.walletAddress, status);
+      const options = selectedStatus === 'ALL' ? {} : { status: selectedStatus };
+      console.log('Loading orders with filter:', options);
+      const result = await api.getStoreOrders(user.walletAddress, options);
+      console.log(`Loaded ${result.orders?.length || 0} orders`);
       setOrders(result.orders || []);
     } catch (error) {
       console.error('Failed to load orders:', error);
+      setOrders([]);
     }
   }, [user?.walletAddress, selectedStatus]);
 
@@ -110,7 +113,14 @@ export default function StoreOrdersScreen() {
     }
   };
 
-  const statusFilters: FilterStatus[] = ['ALL', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+  const statusFilters: { value: FilterStatus; label: string }[] = [
+    { value: 'ALL', label: 'All' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'PROCESSING', label: 'Processing' },
+    { value: 'SHIPPED', label: 'Shipped' },
+    { value: 'DELIVERED', label: 'Delivered' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
 
   if (loading) {
     return (
@@ -135,31 +145,35 @@ export default function StoreOrdersScreen() {
       </View>
 
       {/* Status Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="bg-white border-b border-gray-200 px-5 py-3"
-      >
-        {statusFilters.map((status) => (
-          <TouchableOpacity
-            key={status}
-            onPress={() => setSelectedStatus(status)}
-            className={`mr-2 px-4 py-2 rounded-full ${
-              selectedStatus === status
-                ? 'bg-amber-600'
-                : 'bg-gray-100'
-            }`}
-          >
-            <Text
-              className={`text-sm font-medium ${
-                selectedStatus === status ? 'text-white' : 'text-gray-600'
+      <View className="bg-white border-b border-gray-200 px-5 py-3">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+        >
+          {statusFilters.map((filter) => (
+            <TouchableOpacity
+              key={filter.value}
+              onPress={() => setSelectedStatus(filter.value)}
+              className={`px-4 py-2 rounded-lg border ${
+                selectedStatus === filter.value
+                  ? 'bg-amber-600 border-amber-600'
+                  : 'bg-white border-gray-300'
               }`}
+              style={{ minWidth: filter.value === 'ALL' ? 60 : undefined }}
             >
-              {status === 'ALL' ? 'All Orders' : status}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                className={`text-sm font-semibold ${
+                  selectedStatus === filter.value ? 'text-white' : 'text-gray-700'
+                }`}
+                numberOfLines={1}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       <ScrollView
         className="flex-1"
@@ -178,7 +192,7 @@ export default function StoreOrdersScreen() {
               <Text className="text-gray-400 text-center mt-2">
                 {selectedStatus === 'ALL' 
                   ? "Orders from customers will appear here"
-                  : `No ${selectedStatus.toLowerCase()} orders`}
+                  : `No ${statusFilters.find(f => f.value === selectedStatus)?.label.toLowerCase()} orders`}
               </Text>
             </View>
           ) : (

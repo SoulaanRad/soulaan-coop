@@ -38,6 +38,7 @@ model User {
   withdrawals         Withdrawal[]
   notifications       Notification[]
   stores              Store[]
+  scRewards           SCRewardTransaction[]
 
   @@schema("public")
 }
@@ -685,6 +686,7 @@ model Store {
   application       StoreApplication?
   orders            StoreOrder[]
   paymentRequests   StorePaymentRequest[]
+  scRewards         SCRewardTransaction[]
 
   @@index([ownerId])
   @@index([status])
@@ -803,6 +805,7 @@ model StoreOrder {
 
   // Relations
   items             StoreOrderItem[]
+  scRewards         SCRewardTransaction[]
 
   @@index([storeId])
   @@index([buyerId])
@@ -973,6 +976,60 @@ enum FulfillmentStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+
+  @@schema("public")
+}
+
+// ── SC Reward Tracking Models ────────────────────────────
+
+model SCRewardTransaction {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  // Reward details
+  amountSC      Float
+  reason        SCRewardReason
+  status        SCRewardStatus @default(PENDING)
+  
+  // Blockchain
+  txHash        String?  @unique
+  
+  // Context - link to store purchase
+  relatedStoreId   String?
+  relatedStore     Store?  @relation(fields: [relatedStoreId], references: [id])
+  relatedOrderId   String?
+  relatedOrder     StoreOrder? @relation(fields: [relatedOrderId], references: [id])
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  
+  // Error tracking for retries
+  failureReason String?
+  retryCount    Int      @default(0)
+  lastRetryAt   DateTime?
+  
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([relatedStoreId])
+  @@index([relatedOrderId])
+  @@schema("public")
+}
+
+enum SCRewardReason {
+  STORE_PURCHASE_REWARD  // Customer reward for shopping
+  STORE_SALE_REWARD      // Store owner reward for sale
+  MANUAL_ADJUSTMENT      // Admin manual grant/adjustment
+
+  @@schema("public")
+}
+
+enum SCRewardStatus {
+  PENDING
+  COMPLETED
+  FAILED
 
   @@schema("public")
 }
