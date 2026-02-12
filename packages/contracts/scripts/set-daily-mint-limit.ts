@@ -48,13 +48,13 @@ async function main() {
   const currentLimit = await UnityCoin.dailyMintLimit(BACKEND_WALLET);
   console.log(`\n📊 Current daily limit: ${ethers.formatEther(currentLimit)} UC`);
 
-  // Set daily limit (default: 100,000 UC per day)
+  // Set daily limit (default: 10,000 UC per day)
   // This is a reasonable limit for a testnet/development environment
   // Adjust based on your needs:
-  // - Small coop: 10,000 UC/day
+  // - Small coop: 10,000 UC/day (default)
   // - Medium coop: 100,000 UC/day  
   // - Large coop: 1,000,000 UC/day
-  const dailyLimit = ethers.parseEther("100000"); // 100,000 UC
+  const dailyLimit = ethers.parseEther("10000"); // 10,000 UC
   
   console.log(`\n🔄 Setting daily limit to: ${ethers.formatEther(dailyLimit)} UC`);
   

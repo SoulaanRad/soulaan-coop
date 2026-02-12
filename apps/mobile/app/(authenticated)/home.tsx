@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Star, ShieldCheck, Store, TrendingUp } from 'lucide-react-native';
+import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
@@ -30,7 +29,6 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState<string | null>(user?.walletAddress || null);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -61,21 +59,37 @@ export default function HomeScreen() {
       setBalance(balanceResult.balance);
       setBalanceFormatted(balanceResult.formatted);
 
-      // Fetch history separately so it doesn't block balance display
+      // Fetch history and orders separately so they don't block balance display
       try {
-        const historyResult = await api.getP2PHistory(user.id, 5, 0, currentWalletAddress);
-        setRecentTransactions(historyResult.transfers);
+        const [historyResult, ordersResult] = await Promise.all([
+          api.getP2PHistory(user.id, 10, 0, currentWalletAddress),
+          currentWalletAddress 
+            ? api.getMyOrders(currentWalletAddress, 10).catch(() => ({ orders: [] }))
+            : Promise.resolve({ orders: [] })
+        ]);
+
+        // Merge and sort by date
+        const transfers = historyResult.transfers.map((t: any) => ({ 
+          ...t, 
+          activityType: 'transfer' 
+        }));
+        
+        const orders = (ordersResult?.orders || []).map((o: any) => ({ 
+          ...o, 
+          activityType: 'order',
+          counterparty: o.store?.name || 'Store Purchase',
+          amount: o.totalUSD,
+          type: 'sent' // Orders are always outgoing
+        }));
+
+        const combined = [...transfers, ...orders]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+
+        setRecentTransactions(combined);
       } catch (historyErr) {
         console.error('Error loading history:', historyErr);
         // Don't fail the whole load if history fails
-      }
-
-      // Fetch featured products
-      try {
-        const featuredResult = await api.getFeaturedProducts(6);
-        setFeaturedProducts(featuredResult);
-      } catch (featuredErr) {
-        console.error('Error loading featured products:', featuredErr);
       }
 
       // Fetch token balances (SC and UC)
@@ -280,108 +294,79 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View className="bg-white rounded-2xl overflow-hidden">
-                {recentTransactions.map((tx, index) => (
-                  <View
-                    key={tx.id}
-                    className={`flex-row items-center p-4 ${
-                      index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
-                    }`}
-                  >
-                    <View
-                      className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${
-                        tx.type === 'received' ? 'bg-green-100' : 'bg-gray-100'
-                      }`}
-                    >
-                      {tx.type === 'received' ? (
-                        <ArrowDownLeft size={22} color="#16A34A" />
-                      ) : (
-                        <ArrowUpRight size={22} color="#6B7280" />
-                      )}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-gray-900 font-semibold">{tx.counterparty}</Text>
-                      <Text className="text-gray-400 text-xs mt-0.5">
-                        {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {recentTransactions.map((tx, index) => {
+                  // Determine icon and background color based on activity type
+                  const isOrder = tx.activityType === 'order';
+                  const isReceived = tx.type === 'received';
+                  
+                  const bgColor = isOrder 
+                    ? 'bg-amber-100' 
+                    : isReceived 
+                      ? 'bg-green-100' 
+                      : 'bg-gray-100';
+                  
+                  const icon = isOrder ? (
+                    <Store size={22} color="#D97706" />
+                  ) : isReceived ? (
+                    <ArrowDownLeft size={22} color="#16A34A" />
+                  ) : (
+                    <ArrowUpRight size={22} color="#6B7280" />
+                  );
+
+                  const content = (
+                    <>
+                      <View
+                        className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${bgColor}`}
+                      >
+                        {icon}
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-gray-900 font-semibold">{tx.counterparty}</Text>
+                        <Text className="text-gray-400 text-xs mt-0.5">
+                          {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </Text>
+                      </View>
+                      <Text
+                        className={`font-bold text-lg ${
+                          isReceived ? 'text-green-600' : 'text-gray-900'
+                        }`}
+                      >
+                        {isReceived ? '+' : '-'}${tx.amount.toFixed(2)}
                       </Text>
-                    </View>
-                    <Text
-                      className={`font-bold text-lg ${
-                        tx.type === 'received' ? 'text-green-600' : 'text-gray-900'
+                    </>
+                  );
+
+                  // Only make orders clickable
+                  if (isOrder) {
+                    return (
+                      <TouchableOpacity
+                        key={tx.id}
+                        onPress={() => router.push(`/(authenticated)/order-detail?id=${tx.id}` as any)}
+                        className={`flex-row items-center p-4 ${
+                          index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        {content}
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  // Transfers are not clickable
+                  return (
+                    <View
+                      key={tx.id}
+                      className={`flex-row items-center p-4 ${
+                        index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
                       }`}
                     >
-                      {tx.type === 'received' ? '+' : '-'}${tx.amount.toFixed(2)}
-                    </Text>
-                  </View>
-                ))}
+                      {content}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
-
-          {/* Featured Products */}
-          {featuredProducts.length > 0 && (
-            <View className="mb-4">
-              <View className="flex-row justify-between items-center mb-4">
-                <View className="flex-row items-center">
-                  <Star size={20} color="#D97706" fill="#D97706" />
-                  <Text className="text-xl font-bold text-gray-900 ml-2">Featured</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/stores' as any)}
-                  className="bg-gray-100 px-3 py-1.5 rounded-full"
-                >
-                  <Text className="text-amber-700 text-sm font-medium">Shop All</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6">
-                <View className="flex-row gap-3">
-                  {featuredProducts.map((product) => (
-                    <TouchableOpacity
-                      key={product.id}
-                      onPress={() => router.push(`/(authenticated)/product-detail?id=${product.id}` as any)}
-                      className="bg-white rounded-2xl overflow-hidden shadow-sm"
-                      style={{ width: 160 }}
-                    >
-                      {product.imageUrl ? (
-                        <Image
-                          source={{ uri: product.imageUrl }}
-                          className="w-full h-32"
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View className="w-full h-32 bg-gray-100 items-center justify-center">
-                          <Store size={32} color="#D1D5DB" />
-                        </View>
-                      )}
-                      <View className="p-3">
-                        <Text className="text-gray-900 font-semibold text-sm" numberOfLines={1}>
-                          {product.name}
-                        </Text>
-                        <View className="flex-row items-center mt-1">
-                          {product.store?.isScVerified && (
-                            <ShieldCheck size={12} color="#D97706" style={{ marginRight: 4 }} />
-                          )}
-                          <Text className="text-gray-500 text-xs" numberOfLines={1}>
-                            {product.store?.name}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center mt-2">
-                          <Text className="text-amber-700 font-bold">
-                            ${product.priceUSD.toFixed(2)}
-                          </Text>
-                          {product.compareAtPrice && product.compareAtPrice > product.priceUSD && (
-                            <Text className="text-gray-400 text-xs line-through ml-2">
-                              ${product.compareAtPrice.toFixed(2)}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          )}
 
           {/* Coop Info */}
           {user?.coop && (

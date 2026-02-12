@@ -1,5 +1,5 @@
 import { db } from '@repo/db';
-import { encodeFunctionData, type Address } from 'viem';
+import { encodeFunctionData, formatUnits, type Address } from 'viem';
 import { sendTransaction, createWalletForUser, ensureWalletHasGas, mintUCToUser } from './wallet-service.js';
 import {
   getUCBalance,
@@ -118,16 +118,36 @@ export async function sendToSoulaanUser(params: {
     throw new Error('Recipient not found');
   }
 
+  const senderWalletAddress = sender.walletAddress; // TypeScript now knows this is a string
+
   // If recipient doesn't have a wallet, create one for them
-  let recipientWalletAddress = recipient.walletAddress;
+  let recipientWalletAddress: string = recipient.walletAddress || '';
   if (!recipientWalletAddress) {
     console.log(`   Creating wallet for recipient ${recipientId}...`);
     recipientWalletAddress = await createWalletForUser(recipientId);
     console.log(`   ✅ Created wallet: ${recipientWalletAddress}`);
   }
 
+  // Check if sender is an active SC member (required for UC transfers)
+  const { isActiveMember: isSenderActive } = await import('./blockchain.js').then(m => 
+    m.isActiveMember(senderWalletAddress).then(active => ({ isActiveMember: active }))
+  );
+  
+  if (!isSenderActive) {
+    throw new Error('You must be an active Soulaan Co-op member to send payments. Please complete your membership application.');
+  }
+
+  // Check if recipient is an active SC member
+  const { isActiveMember: isRecipientActive } = await import('./blockchain.js').then(m => 
+    m.isActiveMember(recipientWalletAddress).then(active => ({ isActiveMember: active }))
+  );
+  
+  if (!isRecipientActive) {
+    throw new Error('Recipient must be an active Soulaan Co-op member to receive payments.');
+  }
+
   // Check sender's balance
-  const { balance } = await getUCBalance(sender.walletAddress);
+  const { balance } = await getUCBalance(senderWalletAddress);
   const amountInWei = parseUCAmount(amountUC.toString());
   const hasBalance = balance >= amountInWei;
 
@@ -138,28 +158,45 @@ export async function sendToSoulaanUser(params: {
   // If insufficient balance, do JIT charging
   if (!hasBalance) {
     console.log('   Insufficient balance, initiating JIT charge...');
+    console.log(`   Current balance: ${formatUnits(balance, 18)} UC, Need: ${amountUC} UC, Deficit: ${amountUC - parseFloat(formatUnits(balance, 18))} UC`);
 
     if (!sender.defaultPaymentMethodId) {
       throw new Error('Insufficient balance and no payment method on file');
     }
 
-    // Charge the card
-    const amountCents = Math.ceil(amountUSD * 100);
+    // Calculate exact amount to mint (only the deficit)
+    const deficit = amountInWei - balance;
+    const deficitUC = parseFloat(formatUnits(deficit, 18));
+    
+    // Charge the card for the deficit amount
+    const deficitUSD = deficitUC * UC_USD_RATE;
+    const amountCents = Math.ceil(deficitUSD * 100);
+    console.log(`   Charging card for deficit: $${deficitUSD.toFixed(2)} (${deficitUC} UC)`);
+    
     const chargeResult = await chargePaymentMethod(
       senderId,
       amountCents,
       `Payment to ${recipient.name || 'Soulaan user'}`,
-      { recipientId, amountUSD: amountUSD.toString() }
+      { recipientId, amountUSD: deficitUSD.toString() }
     );
 
     stripePaymentIntentId = chargeResult.paymentIntentId;
     stripeChargeId = chargeResult.chargeId;
     fundingSource = 'CARD';
 
-    // Mint UC to sender's wallet after card charge
-    console.log('   Minting UC to sender wallet...');
-    await mintUCToUser(senderId, amountUC);
+    // Mint only the deficit to sender's wallet after card charge
+    console.log(`   Minting ${deficitUC} UC to sender wallet (to cover deficit)...`);
+    await mintUCToUser(senderId, deficitUC);
     console.log('   Card charged and UC minted successfully');
+    
+    // IMPORTANT: Re-check balance after minting to confirm it's available
+    console.log('   Verifying balance after mint...');
+    const { balance: newBalance } = await getUCBalance(senderWalletAddress);
+    if (newBalance < amountInWei) {
+      const currentUSD = parseFloat(formatUnits(newBalance, 18)) * UC_USD_RATE;
+      throw new Error(`Payment processed but funds not yet available in your balance. Please try again in a moment. (Expected: $${amountUSD.toFixed(2)}, Current: $${currentUSD.toFixed(2)})`);
+    }
+    console.log(`   ✅ Balance confirmed: ${formatUnits(newBalance, 18)} UC`);
   }
 
   // Create transfer record first (PENDING)
@@ -182,7 +219,7 @@ export async function sendToSoulaanUser(params: {
   try {
     // Ensure sender has gas for the transaction
     console.log('   Ensuring sender has gas...');
-    const hasGas = await ensureWalletHasGas(sender.walletAddress);
+    const hasGas = await ensureWalletHasGas(senderWalletAddress);
     if (!hasGas) {
       throw new Error('Failed to fund wallet with gas');
     }

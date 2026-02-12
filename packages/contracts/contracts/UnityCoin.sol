@@ -127,6 +127,11 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
 
         // Grant RedemptionVault permission to mint UC for USDC onboarding
         _grantRole(TREASURER_MINT, redemptionVault);
+
+        // Set default daily mint limit for admin (10,000 UC)
+        // This is a reasonable limit for development/testnet
+        // Admin can adjust this later using setDailyMintLimit()
+        dailyMintLimit[admin] = 10_000 * 10**18; // 10,000 UC in wei
     }
 
     /**
