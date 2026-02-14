@@ -2,10 +2,9 @@ import React from 'react';
 import { ScrollView, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogOut, Copy, Check, Landmark, ChevronRight, Clock, CreditCard, Settings, Shield, HelpCircle, Package } from 'lucide-react-native';
+import { LogOut, Copy, Check, Landmark, ChevronRight, CreditCard, Shield, HelpCircle, Package, Wallet, Plus } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
-import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import * as Clipboard from 'expo-clipboard';
 
@@ -109,6 +108,37 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Add Money CTA */}
+          <TouchableOpacity
+            onPress={() => router.push('/fund-wallet' as any)}
+            className="rounded-2xl overflow-hidden mb-4"
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#DC2626', '#D97706']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ padding: 20 }}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-white text-lg font-bold">Add Money to Wallet</Text>
+                  <Text className="text-white/85 text-sm mt-1">
+                    Top up instantly with your saved card.
+                  </Text>
+                </View>
+                <View className="w-12 h-12 rounded-xl bg-white/20 items-center justify-center">
+                  <Wallet size={22} color="#FFFFFF" />
+                </View>
+              </View>
+
+              <View className="mt-4 self-start bg-white px-4 py-2 rounded-xl flex-row items-center">
+                <Plus size={16} color="#B45309" />
+                <Text className="text-amber-700 font-semibold ml-2">Add Money</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
 
           {/* Quick Actions */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4">

@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -17,6 +16,8 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { authenticateForPayment } from '@/lib/biometric';
 import { coopConfig } from '@/lib/coop-config';
+import { calculatePartialPaymentFee, requiresPaymentProcessor } from '@/lib/fee-calculator';
+import { FeeBreakdown } from '@/components/fee-breakdown';
 
 type PaymentStep = 'recipient' | 'amount' | 'type' | 'confirm';
 type TransferType = 'PERSONAL' | 'RENT' | 'SERVICE' | 'STORE';
@@ -118,7 +119,7 @@ export default function PayScreen() {
             },
           ]);
         }
-      } catch (err) {
+      } catch {
         // If lookup fails, still allow sending to phone
         setSearchResults([
           {
@@ -594,14 +595,66 @@ export default function PayScreen() {
                 </View>
               )}
 
-              {/* Funding source */}
-              {parseFloat(amount) > balance && (
-                <View className="bg-yellow-50 rounded-xl p-4 mb-4">
-                  <Text className="text-yellow-800 text-sm font-medium">
-                    Your default payment method will be charged for the difference.
-                  </Text>
-                </View>
-              )}
+              {/* Fee Breakdown & Funding source */}
+              {(() => {
+                const amountNum = parseFloat(amount);
+                const needsCard = requiresPaymentProcessor(amountNum, balance);
+                
+                if (needsCard) {
+                  const feeInfo = calculatePartialPaymentFee(amountNum, balance, 'stripe');
+                  const cardChargeTotal = feeInfo.fromCard + feeInfo.processorFee;
+                  
+                  return (
+                    <>
+                      {/* Payment Method Notice */}
+                      <View className="bg-yellow-50 rounded-xl p-4 mb-4">
+                        <Text className="text-yellow-800 text-sm font-medium">
+                          {balance > 0 
+                            ? `$${balance.toFixed(2)} from wallet + $${feeInfo.fromCard.toFixed(2)} from card (+$${feeInfo.processorFee.toFixed(2)} fee)`
+                            : 'Your default payment method will be charged'}
+                        </Text>
+                      </View>
+
+                      {/* Card Pull Breakdown */}
+                      <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
+                        <Text className="text-gray-700 font-medium mb-3">How this payment is funded</Text>
+                        <View className="space-y-2">
+                          {feeInfo.fromBalance > 0 && (
+                            <View className="flex-row justify-between">
+                              <Text className="text-gray-600">From wallet balance</Text>
+                              <Text className="text-gray-900 font-medium">${feeInfo.fromBalance.toFixed(2)}</Text>
+                            </View>
+                          )}
+                          <View className="flex-row justify-between">
+                            <Text className="text-gray-600">From card</Text>
+                            <Text className="text-gray-900 font-medium">${feeInfo.fromCard.toFixed(2)}</Text>
+                          </View>
+                          <View className="flex-row justify-between">
+                            <Text className="text-gray-600">Processing fee</Text>
+                            <Text className="text-gray-900 font-medium">${feeInfo.processorFee.toFixed(2)}</Text>
+                          </View>
+                          <View className="border-t border-gray-200 my-1" />
+                          <View className="flex-row justify-between">
+                            <Text className="text-gray-900 font-semibold">Total charged to card</Text>
+                            <Text className="text-gray-900 font-semibold">${cardChargeTotal.toFixed(2)}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Fee Breakdown */}
+                      <FeeBreakdown
+                        subtotal={amountNum}
+                        processorFee={feeInfo.processorFee}
+                        processor="Stripe"
+                        showDetails={true}
+                        className="mb-4"
+                      />
+                    </>
+                  );
+                }
+                
+                return null;
+              })()}
 
               {/* SC Eligibility Info - Non-blocking, informational */}
               {transferType !== 'PERSONAL' && (
@@ -624,9 +677,27 @@ export default function PayScreen() {
                     <Text className="text-white font-bold text-lg ml-2">Sending...</Text>
                   </View>
                 ) : (
-                  <Text className="text-white font-bold text-lg">
-                    Pay ${parseFloat(amount).toFixed(2)}
-                  </Text>
+                  (() => {
+                    const amountNum = parseFloat(amount);
+                    const feeInfo = calculatePartialPaymentFee(amountNum, balance, 'stripe');
+                    const buttonAmount = feeInfo.total;
+                    const cardChargeTotal = feeInfo.fromCard + feeInfo.processorFee;
+                    
+                    return (
+                      <View>
+                        <Text className="text-white font-bold text-lg">
+                          Confirm ${buttonAmount.toFixed(2)}
+                        </Text>
+                        {feeInfo.processorFee > 0 && (
+                          <Text className="text-white/80 text-xs mt-1">
+                            {feeInfo.fromBalance > 0
+                              ? `Card pull $${feeInfo.fromCard.toFixed(2)} + fee $${feeInfo.processorFee.toFixed(2)} = $${cardChargeTotal.toFixed(2)}`
+                              : `(Includes ${feeInfo.processorFee.toFixed(2)} processing fee)`}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })()
                 )}
               </TouchableOpacity>
 

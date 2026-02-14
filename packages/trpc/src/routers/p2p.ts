@@ -17,6 +17,7 @@ import {
   setDefaultPaymentMethod,
 } from "../services/stripe-customer.js";
 import { toE164, normalizePhoneForSearch } from "../lib/phone.js";
+import { convertUSDToUC } from "../utils/currency-converter.js";
 
 export const p2pRouter = router({
   /**
@@ -861,7 +862,7 @@ export const p2pRouter = router({
             userId: input.userId,
             bankAccountId: input.bankAccountId,
             amountUSD: input.amountUSD,
-            amountUC: input.amountUSD, // 1:1 rate
+            amountUC: convertUSDToUC(input.amountUSD),
             status: 'PENDING',
           },
         });

@@ -7,6 +7,7 @@ import { router } from "../trpc.js";
 import { chargePaymentMethod } from "../services/stripe-customer.js";
 import { mintUCToUser, awardStoreTransactionReward } from "../services/wallet-service.js";
 import { sendToSoulaanUser } from "../services/p2p-service.js";
+import { convertUSDToUC } from "../utils/currency-converter.js";
 
 // Enums for validation
 const StoreCategoryEnum = z.enum([
@@ -1500,6 +1501,7 @@ export const storeRouter = router({
       }
 
       const totalUSD = subtotalUSD; // Could add taxes/fees later
+      const totalUC = convertUSDToUC(totalUSD);
 
       // Execute payment using p2p service
       // The p2p service handles:
@@ -1552,7 +1554,7 @@ export const storeRouter = router({
           subtotalUSD,
           discountUSD: 0,
           totalUSD,
-          totalUC: totalUSD, // 1:1 peg
+          totalUC,
           paymentMethod: paymentType,
           paymentStatus: 'COMPLETED',
           transactionHash,

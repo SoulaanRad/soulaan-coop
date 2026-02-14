@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { Context } from "../context.js";
-import { privateProcedure } from "../procedures/index.js";
+import { authenticatedProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
+import { checkAdminStatusWithRole } from "../services/admin-verification.js";
 import { 
   validateSCBalance, 
   verifySCTransaction, 
@@ -16,7 +17,7 @@ export const scRewardsRouter = router({
   /**
    * Get SC rewards with filtering and pagination
    */
-  getSCRewards: privateProcedure
+  getSCRewards: authenticatedProcedure
     .input(z.object({
       status: z.enum(['PENDING', 'COMPLETED', 'FAILED']).optional(),
       userId: z.string().optional(),
@@ -29,11 +30,40 @@ export const scRewardsRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const context = ctx as Context;
+      const walletAddress = (ctx as any).walletAddress as string | undefined;
+      const caller = walletAddress
+        ? await context.db.user.findUnique({
+            where: { walletAddress },
+            select: { id: true },
+          })
+        : null;
+
+      if (!caller) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Authenticated user not found',
+        });
+      }
+
+      const isAdmin = walletAddress
+        ? (await checkAdminStatusWithRole(walletAddress as `0x${string}`)).isAdmin
+        : false;
 
       const where: any = {};
       
       if (input.status) where.status = input.status;
-      if (input.userId) where.userId = input.userId;
+      if (input.userId) {
+        if (!isAdmin && input.userId !== caller.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You can only view your own SC rewards',
+          });
+        }
+        where.userId = input.userId;
+      } else if (!isAdmin) {
+        // Non-admin callers default to their own rewards only.
+        where.userId = caller.id;
+      }
       if (input.storeId) where.relatedStoreId = input.storeId;
       if (input.reason) where.reason = input.reason;
       

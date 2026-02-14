@@ -3,7 +3,6 @@ import { View, TouchableOpacity, RefreshControl, ScrollView, ActivityIndicator }
 import { useFocusEffect, router } from "expo-router";
 import {
   Bell,
-  Settings,
   Coins,
   TrendingUp,
   DollarSign,
@@ -11,7 +10,10 @@ import {
   QrCode,
   ShoppingBag,
   ShoppingCart,
-  User
+  Store,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Clock
 } from "lucide-react-native";
 
 import { Text } from "@/components/ui/text";
@@ -26,6 +28,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState({ uc: 0, sc: 0, formatted: '$0.00' });
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,16 +46,60 @@ export default function HomeScreen() {
       // Get wallet info and balance
       const walletInfo = await api.getWalletInfo(user.id);
       if (walletInfo?.hasWallet && walletInfo?.address) {
-        const [balanceData, notificationData] = await Promise.all([
+        const [balanceData, notificationData, tokenBalances] = await Promise.all([
           api.getUSDBalance(user.id, walletInfo.address),
           api.getUnreadNotificationCount(walletInfo.address).catch(() => ({ count: 0 })),
+          api.getTokenBalances(walletInfo.address).catch(() => ({ sc: '0', uc: '0' })),
         ]);
         setBalance({
           uc: balanceData.balance || 0,
-          sc: 0, // TODO: Get SC balance
+          sc: parseFloat(tokenBalances.sc) || 0,
           formatted: balanceData.formatted || '$0.00'
         });
         setUnreadNotifications(notificationData?.count || 0);
+
+        // Fetch recent activity (transfers, orders, SC rewards)
+        try {
+          const [historyResult, ordersResult, scRewardsResult] = await Promise.all([
+            api.getP2PHistory(user.id, 5, 0, walletInfo.address).catch(() => ({ transfers: [] })),
+            api.getMyOrders(walletInfo.address, 5).catch(() => ({ orders: [] })),
+            api.getUserSCRewards(user.id, 5, walletInfo.address).catch(() => ({ rewards: [] }))
+          ]);
+
+          const transfers = (historyResult.transfers || []).map((t: any) => ({ 
+            ...t, 
+            activityType: 'transfer' 
+          }));
+          
+          const orders = (ordersResult?.orders || []).map((o: any) => ({ 
+            ...o, 
+            activityType: 'order',
+            counterparty: o.store?.name || 'Store Purchase',
+            amount: o.totalUSD,
+            type: 'sent'
+          }));
+
+          const scRewards = (scRewardsResult?.rewards || []).map((r: any) => ({
+            ...r,
+            activityType: 'scReward',
+            counterparty: r.reason === 'STORE_PURCHASE_REWARD' 
+              ? `SC Reward from ${r.relatedStore?.name || 'Store'}`
+              : r.reason === 'STORE_SALE_REWARD'
+              ? `SC Reward - Sale`
+              : 'SC Reward',
+            amount: r.amountSC,
+            type: 'received',
+            createdAt: r.completedAt || r.createdAt,
+          }));
+
+          const combined = [...transfers, ...orders, ...scRewards]
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5);
+
+          setRecentActivity(combined);
+        } catch (activityErr) {
+          console.error('Error loading activity:', activityErr);
+        }
       }
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -195,8 +242,8 @@ export default function HomeScreen() {
           />
           <QuickActionButton
             icon={Wallet}
-            label="Receive"
-            onPress={() => router.push('/(tabs)/wallet')}
+            label="Add Money"
+            onPress={() => router.push('/(authenticated)/fund-wallet')}
           />
           <QuickActionButton
             icon={QrCode}
@@ -256,16 +303,80 @@ export default function HomeScreen() {
       </View>
 
       {/* Recent Activity */}
-      <View className="mx-4 mt-4 mb-8 bg-white rounded-2xl p-4 shadow-sm border border-amber-100">
-        <View className="flex-row justify-between items-center mb-4">
+      <View className="mx-4 mt-4 mb-8 bg-white rounded-2xl shadow-sm border border-amber-100">
+        <View className="flex-row justify-between items-center p-4 pb-2">
           <Text className="text-gray-800 font-semibold">Recent Activity</Text>
-          <TouchableOpacity onPress={() => router.push('/(authenticated)/history')}>
-            <Text className="text-amber-700 text-sm font-medium">View All</Text>
-          </TouchableOpacity>
+          {recentActivity.length > 0 && (
+            <TouchableOpacity onPress={() => router.push('/(authenticated)/history')}>
+              <Text className="text-amber-700 text-sm font-medium">View All</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <View className="items-center py-6">
-          <Text className="text-gray-400 text-sm">No recent transactions</Text>
-        </View>
+        {loading ? (
+          <View className="items-center py-8">
+            <ActivityIndicator size="small" color="#B45309" />
+          </View>
+        ) : recentActivity.length === 0 ? (
+          <View className="items-center py-8">
+            <Clock size={32} color="#9CA3AF" />
+            <Text className="text-gray-400 text-sm mt-2">No recent transactions</Text>
+          </View>
+        ) : (
+          <View>
+            {recentActivity.map((tx, index) => {
+              const isOrder = tx.activityType === 'order';
+              const isSCReward = tx.activityType === 'scReward';
+              const isReceived = tx.type === 'received';
+              
+              const bgColor = isOrder 
+                ? 'bg-amber-100' 
+                : isSCReward
+                  ? 'bg-amber-100'
+                : isReceived 
+                  ? 'bg-green-100' 
+                  : 'bg-gray-100';
+              
+              const icon = isOrder ? (
+                <Store size={20} color="#D97706" />
+              ) : isSCReward ? (
+                <Coins size={20} color="#F59E0B" />
+              ) : isReceived ? (
+                <ArrowDownLeft size={20} color="#16A34A" />
+              ) : (
+                <ArrowUpRight size={20} color="#6B7280" />
+              );
+
+              return (
+                <View
+                  key={tx.id}
+                  className={`flex-row items-center p-4 ${
+                    index < recentActivity.length - 1 ? 'border-b border-gray-100' : ''
+                  }`}
+                >
+                  <View className={`w-10 h-10 rounded-xl items-center justify-center mr-3 ${bgColor}`}>
+                    {icon}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-gray-900 font-medium text-sm">{tx.counterparty}</Text>
+                    <Text className="text-gray-400 text-xs mt-0.5">
+                      {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  </View>
+                  <Text
+                    className={`font-semibold ${
+                      isSCReward ? 'text-amber-600' : isReceived ? 'text-green-600' : 'text-gray-900'
+                    }`}
+                  >
+                    {isSCReward 
+                      ? `+${tx.amount.toFixed(2)} SC`
+                      : `${isReceived ? '+' : '-'}$${tx.amount.toFixed(2)}`
+                    }
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </View>
     </ScrollView>
   );

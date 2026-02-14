@@ -1688,6 +1688,36 @@ export const api = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SC REWARDS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get user's SC reward history
+   */
+  async getUserSCRewards(userId: string, limit = 10, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ 
+      userId, 
+      status: 'COMPLETED', // Only show completed rewards
+      limit,
+      offset: 0 
+    }));
+    const response = await fetch(`${API_BASE_URL}/trpc/scRewards.getSCRewards?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get SC rewards');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // NOTIFICATIONS
   // ═══════════════════════════════════════════════════════════════════════════
 

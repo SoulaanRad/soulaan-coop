@@ -20,6 +20,8 @@ import {
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
+import { calculateProcessorFee } from '@/lib/fee-calculator';
+import { FeeBreakdown, CompactFeeDisplay } from '@/components/fee-breakdown';
 
 const PRESET_AMOUNTS = [25, 50, 100, 250];
 
@@ -41,6 +43,28 @@ export default function FundWalletScreen() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number>(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const getErrorMessage = (error: unknown): string => {
+    if (!error) return 'Unable to add funds. Please try again.';
+    if (typeof error === 'string') return error;
+
+    if (error instanceof Error) {
+      return error.message || 'Unable to add funds. Please try again.';
+    }
+
+    const maybeError = error as {
+      message?: string;
+      error?: { message?: string };
+      data?: { message?: string };
+    };
+    return (
+      maybeError?.message ||
+      maybeError?.error?.message ||
+      maybeError?.data?.message ||
+      'Unable to add funds. Please try again.'
+    );
+  };
 
   const loadData = useCallback(async () => {
     if (!user?.id || !user?.walletAddress) return;
@@ -100,6 +124,7 @@ export default function FundWalletScreen() {
 
   const handleFundWallet = async () => {
     const fundAmount = getEffectiveAmount();
+    setSubmitError(null);
 
     if (fundAmount < 10) {
       Alert.alert('Minimum Amount', 'The minimum amount is $10.');
@@ -142,9 +167,11 @@ export default function FundWalletScreen() {
       );
     } catch (error: any) {
       console.error('Fund wallet error:', error);
+      const message = getErrorMessage(error);
+      setSubmitError(message);
       Alert.alert(
         'Payment Failed',
-        error.message || 'Unable to add funds. Please try again.'
+        message
       );
     } finally {
       setProcessing(false);
@@ -182,6 +209,7 @@ export default function FundWalletScreen() {
 
   const effectiveAmount = getEffectiveAmount();
   const isValidAmount = effectiveAmount >= 10 && effectiveAmount <= 10000;
+  const feeInfo = isValidAmount ? calculateProcessorFee(effectiveAmount, 'stripe') : null;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
@@ -322,17 +350,48 @@ export default function FundWalletScreen() {
           )}
         </View>
 
+        {/* Fee Breakdown */}
+        {feeInfo && (
+          <View className="px-5 mt-6">
+            <FeeBreakdown
+              subtotal={effectiveAmount}
+              processorFee={feeInfo.processorFee}
+              processor="Stripe"
+              showDetails={true}
+            />
+          </View>
+        )}
+
         {/* Info */}
         <View className="mx-5 mt-6 mb-8 flex-row items-start">
           <AlertCircle size={16} color="#9CA3AF" className="mt-0.5" />
           <Text className="text-gray-500 dark:text-gray-400 text-sm flex-1 ml-2">
-            Funds will be added to your wallet instantly. Use your balance for faster checkout at any store in the marketplace.
+            Funds are added to your wallet instantly after payment. Processing fees are charged by the payment network.
           </Text>
         </View>
       </ScrollView>
 
       {/* Bottom Action */}
       <View className="px-5 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        {feeInfo && (
+          <View className="mb-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-gray-600 dark:text-gray-400">Wallet Credit</Text>
+              <Text className="text-gray-900 dark:text-white font-medium">
+                ${effectiveAmount.toFixed(2)}
+              </Text>
+            </View>
+            <CompactFeeDisplay processorFee={feeInfo.processorFee} processor="Stripe" />
+            <View className="border-t border-gray-200 dark:border-gray-700 my-2" />
+            <View className="flex-row justify-between items-center">
+              <Text className="text-gray-900 dark:text-white font-bold">Total Card Charge</Text>
+              <Text className="text-gray-900 dark:text-white font-bold text-lg">
+                ${feeInfo.total.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity
           onPress={handleFundWallet}
           disabled={!isValidAmount || !selectedMethodId || processing}
@@ -350,13 +409,28 @@ export default function FundWalletScreen() {
               </Text>
             </View>
           ) : (
-            <Text className="text-white font-bold text-lg">
-              {isValidAmount
-                ? `Add $${effectiveAmount.toFixed(2)}`
-                : 'Enter Amount'}
-            </Text>
+            <View>
+              <Text className="text-white font-bold text-lg">
+                {isValidAmount && feeInfo
+                  ? `Pay $${feeInfo.total.toFixed(2)} to Add $${effectiveAmount.toFixed(2)}`
+                  : 'Enter Amount'}
+              </Text>
+              {isValidAmount && feeInfo && (
+                <Text className="text-white/80 text-xs mt-1 text-center">
+                  Includes ${feeInfo.processorFee.toFixed(2)} processing fee
+                </Text>
+              )}
+            </View>
           )}
         </TouchableOpacity>
+
+        {submitError && (
+          <View className="mt-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
+            <Text className="text-red-700 dark:text-red-300 text-sm font-medium">
+              {submitError}
+            </Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

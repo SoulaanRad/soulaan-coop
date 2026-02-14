@@ -24,10 +24,15 @@ import {
   TrendingUp,
   AlertTriangle,
   Loader2,
-  ExternalLink,
 } from "lucide-react";
 
 type ChartPeriod = '7d' | '30d' | '90d';
+interface OnrampProcessorRow {
+  processor: string;
+  volumeUSD: number;
+  createdUC: number;
+  count: number;
+}
 
 export default function TreasuryDashboard() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d');
@@ -56,6 +61,14 @@ export default function TreasuryDashboard() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(num);
+  };
+
+  const formatProcessorName = (processor: string) => {
+    if (!processor) return 'Unknown';
+    return processor
+      .split(/[_\s-]+/)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
   };
 
   const refetchAll = () => {
@@ -95,6 +108,12 @@ export default function TreasuryDashboard() {
   }
 
   const data = treasuryQuery.data;
+  const allTimeOnramp = data?.allTime.onramp as { volumeUSD: number; count: number; createdUC?: number } | undefined;
+  const ucInCirculation = parseFloat(data?.ucCirculation.totalSupply || '0');
+  const ucCreatedFromOnramp = allTimeOnramp?.createdUC ?? 0;
+  const netUsdFlow = data?.allTime.netFlow || 0;
+  const liveStripeAvailable = data?.stripeBalance?.available.reduce((sum, b) => sum + b.amount, 0) || 0;
+  const onrampByProcessor = ((data as any)?.onrampByProcessor || []) as OnrampProcessorRow[];
 
   return (
     <div className="space-y-6">
@@ -354,6 +373,71 @@ export default function TreasuryDashboard() {
         </Card>
       </div>
 
+      {/* Reserve Coverage vs UC Created */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-lg text-white">Onramp Balances vs UC Supply</CardTitle>
+          <CardDescription className="text-slate-400">
+            Compare processor balances and onramp-created UC against circulation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <p className="text-sm text-blue-300">Live Stripe Available</p>
+              <p className="text-2xl font-bold text-blue-200">{formatAmount(liveStripeAvailable)}</p>
+            </div>
+            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <p className="text-sm text-purple-300">UC in Circulation</p>
+              <p className="text-2xl font-bold text-purple-200">{formatUC(ucInCirculation)} UC</p>
+            </div>
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-sm text-emerald-300">UC Created via Onramp</p>
+              <p className="text-2xl font-bold text-emerald-200">{formatUC(ucCreatedFromOnramp)} UC</p>
+            </div>
+            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <p className="text-sm text-amber-300">Net USD Flow</p>
+              <p className="text-2xl font-bold text-amber-200">{formatAmount(netUsdFlow)}</p>
+              <p className="text-xs text-slate-400 mt-1">Completed onramp - completed withdrawals</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm text-slate-300 font-medium">Onramp Processors (transaction-backed totals)</p>
+            {onrampByProcessor.length > 0 ? (
+              <div className="space-y-2">
+                {onrampByProcessor.map((row) => (
+                  <div
+                    key={row.processor}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg bg-slate-900/60 border border-slate-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="border-slate-600 text-slate-200">
+                        {formatProcessorName(row.processor)}
+                      </Badge>
+                      <span className="text-xs text-slate-400">{row.count} tx</span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="text-sm text-slate-300">
+                        USD: <span className="font-semibold text-white">{formatAmount(row.volumeUSD)}</span>
+                      </span>
+                      <span className="text-sm text-slate-300">
+                        UC: <span className="font-semibold text-white">{formatUC(row.createdUC)} UC</span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">No completed onramp transactions yet.</div>
+            )}
+            <p className="text-xs text-slate-500">
+              Stripe shows live available balance. Other processor rows reflect completed onramp totals recorded in the platform.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* All-Time Totals */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
@@ -462,10 +546,9 @@ export default function TreasuryDashboard() {
             <div className="space-y-4">
               {/* Simple bar representation */}
               <div className="grid gap-1">
-                {chartQuery.data.data.slice(-14).map((day, i) => {
+                {chartQuery.data.data.slice(-14).map((day) => {
                   const total = day.onramp + day.p2p + day.withdrawal;
                   const maxTotal = Math.max(...chartQuery.data.data.slice(-14).map(d => d.onramp + d.p2p + d.withdrawal));
-                  const width = maxTotal > 0 ? (total / maxTotal) * 100 : 0;
 
                   return (
                     <div key={day.date} className="flex items-center gap-2">

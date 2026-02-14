@@ -24,6 +24,8 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { useCart } from '@/contexts/cart-context';
+import { calculatePartialPaymentFee, requiresPaymentProcessor } from '@/lib/fee-calculator';
+import { FeeBreakdown, CompactFeeDisplay } from '@/components/fee-breakdown';
 
 interface PaymentMethod {
   id: string;
@@ -47,9 +49,11 @@ export default function CheckoutScreen() {
 
   const cartItems = storeId ? getStoreItems(storeId) : [];
   const subtotal = cartItems.reduce((sum, item) => sum + item.priceUSD * item.quantity, 0);
-  const total = subtotal; // Could add taxes/fees here
+  const needsCard = requiresPaymentProcessor(subtotal, balance);
+  const feeInfo = needsCard ? calculatePartialPaymentFee(subtotal, balance, 'stripe') : null;
+  const total = feeInfo ? feeInfo.total : subtotal;
 
-  const hasEnoughBalance = balance >= total;
+  const hasEnoughBalance = balance >= subtotal;
 
   const loadData = useCallback(async () => {
     if (!user?.walletAddress || !storeId) return;
@@ -303,7 +307,7 @@ export default function CheckoutScreen() {
                   <View className="flex-row items-center">
                     <CreditCard size={18} color="#B45309" />
                     <Text className="text-amber-700 dark:text-amber-400 ml-2 flex-1">
-                      ${(total - balance).toFixed(2)} will be charged to your card
+                      ${Math.min(balance, subtotal).toFixed(2)} from wallet + ${(feeInfo?.fromCard || 0).toFixed(2)} from card (+${(feeInfo?.processorFee || 0).toFixed(2)} fee)
                     </Text>
                   </View>
                   <View className="flex-row items-center mt-2 ml-6">
@@ -331,6 +335,56 @@ export default function CheckoutScreen() {
                   </TouchableOpacity>
                 </View>
               )}
+            </View>
+          )}
+
+          {/* Card Pull Breakdown */}
+          {!hasEnoughBalance && feeInfo && paymentMethods.length > 0 && (
+            <View className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-3">
+                How this purchase is funded
+              </Text>
+              <View className="space-y-2">
+                {feeInfo.fromBalance > 0 && (
+                  <View className="flex-row justify-between">
+                    <Text className="text-gray-600 dark:text-gray-400">From wallet balance</Text>
+                    <Text className="text-gray-900 dark:text-white font-medium">
+                      ${feeInfo.fromBalance.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 dark:text-gray-400">From card</Text>
+                  <Text className="text-gray-900 dark:text-white font-medium">
+                    ${feeInfo.fromCard.toFixed(2)}
+                  </Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 dark:text-gray-400">Processing fee</Text>
+                  <Text className="text-gray-900 dark:text-white font-medium">
+                    ${feeInfo.processorFee.toFixed(2)}
+                  </Text>
+                </View>
+                <View className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-900 dark:text-white font-semibold">Total charged to card</Text>
+                  <Text className="text-gray-900 dark:text-white font-semibold">
+                    ${(feeInfo.fromCard + feeInfo.processorFee).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Fee Breakdown - only when card payment is needed */}
+          {!hasEnoughBalance && feeInfo && feeInfo.processorFee > 0 && (
+            <View className="mt-4">
+              <FeeBreakdown
+                subtotal={subtotal}
+                processorFee={feeInfo.processorFee}
+                processor="Stripe"
+                showDetails={true}
+              />
             </View>
           )}
         </View>
@@ -372,11 +426,26 @@ export default function CheckoutScreen() {
 
       {/* Bottom - Total & Pay Button */}
       <View className="px-5 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        <View className="flex-row justify-between items-center mb-4">
-          <Text className="text-gray-600 dark:text-gray-400">Total</Text>
-          <Text className="text-2xl font-bold text-gray-900 dark:text-white">
-            ${total.toFixed(2)}
-          </Text>
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-gray-600 dark:text-gray-400">Subtotal</Text>
+            <Text className="text-gray-900 dark:text-white font-medium">
+              ${subtotal.toFixed(2)}
+            </Text>
+          </View>
+
+          {feeInfo && feeInfo.processorFee > 0 && (
+            <CompactFeeDisplay processorFee={feeInfo.processorFee} processor="Stripe" />
+          )}
+
+          <View className="border-t border-gray-200 dark:border-gray-700 my-2" />
+
+          <View className="flex-row justify-between items-center">
+            <Text className="text-gray-900 dark:text-white font-bold text-lg">Total</Text>
+            <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+              ${total.toFixed(2)}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={handleCheckout}
@@ -393,9 +462,18 @@ export default function CheckoutScreen() {
               <Text className="text-white font-bold text-lg ml-2">Processing...</Text>
             </View>
           ) : (
-            <Text className="text-white font-bold text-lg">
-              Pay ${total.toFixed(2)}
-            </Text>
+            <View>
+              <Text className="text-white font-bold text-lg">
+                Pay ${total.toFixed(2)}
+              </Text>
+              {feeInfo && feeInfo.processorFee > 0 && (
+                <Text className="text-white/80 text-xs mt-1">
+                  {feeInfo.fromBalance > 0
+                    ? `Card pull $${feeInfo.fromCard.toFixed(2)} + fee $${feeInfo.processorFee.toFixed(2)} = $${(feeInfo.fromCard + feeInfo.processorFee).toFixed(2)}`
+                    : `(Includes $${feeInfo.processorFee.toFixed(2)} processing fee)`}
+                </Text>
+              )}
+            </View>
           )}
         </TouchableOpacity>
       </View>

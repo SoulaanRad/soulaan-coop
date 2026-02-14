@@ -11,9 +11,7 @@ import {
 import { chargePaymentMethod, refundPayment } from './stripe-customer.js';
 import { sendClaimSMS } from './sms.js';
 import { coopConfig } from '../config/coop.js';
-
-// Exchange rate: 1 UC = 1 USD (fixed for now, can be made dynamic later)
-const UC_USD_RATE = 1.0;
+import { convertUCToUSD, convertUSDToUC, createParityAmounts } from '../utils/currency-converter.js';
 
 /**
  * Get user's balance in USD (converts from UC)
@@ -44,7 +42,7 @@ export async function getUSDBalance(userId: string): Promise<{
   const { balance, formatted } = await getUCBalance(user.walletAddress);
   console.log(`   UC balance from blockchain: ${formatted} UC (raw: ${balance})`);
 
-  const balanceUSD = parseFloat(formatted) * UC_USD_RATE;
+  const balanceUSD = convertUCToUSD(parseFloat(formatted));
   console.log(`   USD balance: $${balanceUSD.toFixed(2)}`);
 
   return {
@@ -94,7 +92,7 @@ export async function sendToSoulaanUser(params: {
   receiptId: string;
 }> {
   const { senderId, recipientId, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
-  const amountUC = amountUSD / UC_USD_RATE;
+  const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer: ${amountUSD} USD (${amountUC} UC)`);
   console.log(`   From: ${senderId} → To: ${recipientId}`);
@@ -169,7 +167,7 @@ export async function sendToSoulaanUser(params: {
     const deficitUC = parseFloat(formatUnits(deficit, 18));
     
     // Charge the card for the deficit amount
-    const deficitUSD = deficitUC * UC_USD_RATE;
+    const deficitUSD = convertUCToUSD(deficitUC);
     const amountCents = Math.ceil(deficitUSD * 100);
     console.log(`   Charging card for deficit: $${deficitUSD.toFixed(2)} (${deficitUC} UC)`);
     
@@ -193,7 +191,7 @@ export async function sendToSoulaanUser(params: {
     console.log('   Verifying balance after mint...');
     const { balance: newBalance } = await getUCBalance(senderWalletAddress);
     if (newBalance < amountInWei) {
-      const currentUSD = parseFloat(formatUnits(newBalance, 18)) * UC_USD_RATE;
+      const currentUSD = convertUCToUSD(parseFloat(formatUnits(newBalance, 18)));
       throw new Error(`Payment processed but funds not yet available in your balance. Please try again in a moment. (Expected: $${amountUSD.toFixed(2)}, Current: $${currentUSD.toFixed(2)})`);
     }
     console.log(`   ✅ Balance confirmed: ${formatUnits(newBalance, 18)} UC`);
@@ -348,7 +346,7 @@ export async function sendToNonUser(params: {
   receiptId: string;
 }> {
   const { senderId, recipientPhone, recipientEmail, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
-  const amountUC = amountUSD / UC_USD_RATE;
+  const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer to non-user: ${amountUSD} USD`);
   console.log(`   From: ${senderId} → To: ${recipientPhone}`);

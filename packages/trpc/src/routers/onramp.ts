@@ -7,6 +7,7 @@ import { router } from "../trpc.js";
 import { paymentService } from "../services/payment/index.js";
 import { chargePaymentMethod } from "../services/stripe-customer.js";
 import { mintUCToUser } from "../services/wallet-service.js";
+import { convertUSDToUC, createParityAmounts } from "../utils/currency-converter.js";
 
 export const onrampRouter = router({
   /**
@@ -93,11 +94,12 @@ export const onrampRouter = router({
 
         // Store onramp transaction in database
         console.log('💾 Storing onramp transaction...');
+        const amounts = createParityAmounts(input.amountUSD);
         const transaction = await context.db.onrampTransaction.create({
           data: {
             userId,
-            amountUSD: input.amountUSD,
-            amountUC: input.amountUSD, // 1:1 peg assumption
+            amountUSD: amounts.amountUSD,
+            amountUC: amounts.amountUC,
             paymentIntentId: paymentIntent.id,
             processor: paymentIntent.processor,
             status: 'PENDING',
@@ -111,8 +113,8 @@ export const onrampRouter = router({
           paymentIntentId: paymentIntent.id,
           clientSecret: paymentIntent.clientSecret,
           processor: paymentIntent.processor,
-          amountUSD: input.amountUSD,
-          amountUC: input.amountUSD, // 1:1 peg
+          amountUSD: amounts.amountUSD,
+          amountUC: amounts.amountUC,
           transactionId: transaction.id,
         };
       } catch (error) {
@@ -185,7 +187,7 @@ export const onrampRouter = router({
 
         // Convert amount to cents
         const amountCents = Math.round(input.amountUSD * 100);
-        const amountUC = input.amountUSD; // 1:1 peg
+        const amountUC = convertUSDToUC(input.amountUSD);
 
         // Create onramp transaction record first (PENDING)
         const transaction = await context.db.onrampTransaction.create({

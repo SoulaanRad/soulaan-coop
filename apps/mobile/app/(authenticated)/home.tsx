@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp } from 'lucide-react-native';
+import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
@@ -59,13 +59,14 @@ export default function HomeScreen() {
       setBalance(balanceResult.balance);
       setBalanceFormatted(balanceResult.formatted);
 
-      // Fetch history and orders separately so they don't block balance display
+      // Fetch history, orders, and SC rewards separately so they don't block balance display
       try {
-        const [historyResult, ordersResult] = await Promise.all([
+        const [historyResult, ordersResult, scRewardsResult] = await Promise.all([
           api.getP2PHistory(user.id, 10, 0, currentWalletAddress),
           currentWalletAddress 
             ? api.getMyOrders(currentWalletAddress, 10).catch(() => ({ orders: [] }))
-            : Promise.resolve({ orders: [] })
+            : Promise.resolve({ orders: [] }),
+          api.getUserSCRewards(user.id, 10, currentWalletAddress).catch(() => ({ rewards: [] }))
         ]);
 
         // Merge and sort by date
@@ -82,7 +83,20 @@ export default function HomeScreen() {
           type: 'sent' // Orders are always outgoing
         }));
 
-        const combined = [...transfers, ...orders]
+        const scRewards = (scRewardsResult?.rewards || []).map((r: any) => ({
+          ...r,
+          activityType: 'scReward',
+          counterparty: r.reason === 'STORE_PURCHASE_REWARD' 
+            ? `SC Reward from ${r.relatedStore?.name || 'Store'}`
+            : r.reason === 'STORE_SALE_REWARD'
+            ? `SC Reward - Sale`
+            : 'SC Reward',
+          amount: r.amountSC,
+          type: 'received', // SC rewards are always incoming
+          createdAt: r.completedAt || r.createdAt,
+        }));
+
+        const combined = [...transfers, ...orders, ...scRewards]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 5);
 
@@ -297,16 +311,21 @@ export default function HomeScreen() {
                 {recentTransactions.map((tx, index) => {
                   // Determine icon and background color based on activity type
                   const isOrder = tx.activityType === 'order';
+                  const isSCReward = tx.activityType === 'scReward';
                   const isReceived = tx.type === 'received';
                   
                   const bgColor = isOrder 
                     ? 'bg-amber-100' 
+                    : isSCReward
+                      ? 'bg-amber-100'
                     : isReceived 
                       ? 'bg-green-100' 
                       : 'bg-gray-100';
                   
                   const icon = isOrder ? (
                     <Store size={22} color="#D97706" />
+                  ) : isSCReward ? (
+                    <Coins size={22} color="#F59E0B" />
                   ) : isReceived ? (
                     <ArrowDownLeft size={22} color="#16A34A" />
                   ) : (
@@ -328,10 +347,13 @@ export default function HomeScreen() {
                       </View>
                       <Text
                         className={`font-bold text-lg ${
-                          isReceived ? 'text-green-600' : 'text-gray-900'
+                          isSCReward ? 'text-amber-600' : isReceived ? 'text-green-600' : 'text-gray-900'
                         }`}
                       >
-                        {isReceived ? '+' : '-'}${tx.amount.toFixed(2)}
+                        {isSCReward 
+                          ? `+${tx.amount.toFixed(2)} SC`
+                          : `${isReceived ? '+' : '-'}$${tx.amount.toFixed(2)}`
+                        }
                       </Text>
                     </>
                   );
@@ -352,7 +374,7 @@ export default function HomeScreen() {
                     );
                   }
 
-                  // Transfers are not clickable
+                  // Transfers and SC rewards are not clickable
                   return (
                     <View
                       key={tx.id}

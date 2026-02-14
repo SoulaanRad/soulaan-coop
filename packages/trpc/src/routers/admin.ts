@@ -1248,10 +1248,10 @@ export const adminRouter = router({
         };
 
         // All-time totals
-        const [allTimeOnramp, allTimeP2P, allTimeWithdrawal] = await Promise.all([
+        const [allTimeOnramp, allTimeP2P, allTimeWithdrawal, onrampByProcessor] = await Promise.all([
           context.db.onrampTransaction.aggregate({
             where: { status: 'COMPLETED' },
-            _sum: { amountUSD: true },
+            _sum: { amountUSD: true, amountUC: true },
             _count: true,
           }),
           context.db.p2PTransfer.aggregate({
@@ -1263,6 +1263,17 @@ export const adminRouter = router({
             where: { status: 'COMPLETED' },
             _sum: { amountUSD: true },
             _count: true,
+          }),
+          context.db.onrampTransaction.groupBy({
+            by: ['processor'],
+            where: { status: 'COMPLETED' },
+            _sum: { amountUSD: true, amountUC: true },
+            _count: true,
+            orderBy: {
+              _sum: {
+                amountUSD: 'desc',
+              },
+            },
           }),
         ]);
 
@@ -1303,6 +1314,7 @@ export const adminRouter = router({
           allTime: {
             onramp: {
               volumeUSD: allTimeOnramp._sum.amountUSD || 0,
+              createdUC: allTimeOnramp._sum.amountUC || 0,
               count: allTimeOnramp._count,
             },
             p2p: {
@@ -1315,6 +1327,14 @@ export const adminRouter = router({
             },
             netFlow: (allTimeOnramp._sum.amountUSD || 0) - (allTimeWithdrawal._sum.amountUSD || 0),
           },
+
+          // Completed onramp by processor (transaction-backed)
+          onrampByProcessor: onrampByProcessor.map((entry) => ({
+            processor: entry.processor,
+            volumeUSD: entry._sum.amountUSD || 0,
+            createdUC: entry._sum.amountUC || 0,
+            count: entry._count,
+          })),
 
           // Time-based volumes
           last24h,
