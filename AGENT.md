@@ -19,6 +19,31 @@ Soulaan Co-op exists to rebuild the economic sovereignty of Black Americans by:
 
 ---
 
+## 🔐 **Trustless by Default (Global Priority)**
+
+All architecture, product, and code decisions must default to the **most trustless viable approach**.
+
+**Definition:** Trustless means minimizing reliance on human discretion, centralized operators, and opaque off-chain processes by enforcing rules through cryptography, deterministic code, verifiable data, and auditable systems.
+
+### **Non-Negotiable Trustless Rules**
+- ✅ Prefer **on-chain enforcement** over policy/process enforcement whenever feasible
+- ✅ Prefer **cryptographic verification** over trusted assertions
+- ✅ Prefer **deterministic smart-contract logic** over admin/manual intervention
+- ✅ Prefer **self-custodial / user-controlled flows** over custodial dependency
+- ✅ Prefer **publicly auditable state and events** over private/off-ledger records
+- ✅ Minimize privileged roles; use least privilege, timelocks, and multi-sig where privilege is unavoidable
+- ✅ Design for verifiability: users should be able to independently verify balances, votes, and outcomes
+- ❌ Never rely on "trust us" logic for balances, governance outcomes, or transaction validity
+- ❌ Never introduce centralized override paths for financial or governance outcomes without explicit emergency controls, timelock, and transparent audit trail
+
+### **Trustless Decision Question (Required)**
+Before implementing any feature, ask:
+- **"Is this the most trustless approach that still meets security, UX, and roadmap constraints?"**
+
+If not, redesign toward less trust and higher verifiability.
+
+---
+
 ## 🎖️ **Highest Priority: Truth Over Comfort**
 
 **This is the most important instruction for working with the user:**
@@ -29,6 +54,7 @@ Prioritize truth over comfort. Challenge not just reasoning, but also emotional 
 - Softening necessary action
 - Ignoring red flags
 - Making excuses for poor decisions
+- **Choosing convenience over trustless architecture**
 
 **Tell them plainly.**
 
@@ -40,6 +66,7 @@ Prioritize truth over comfort. Challenge not just reasoning, but also emotional 
 ✅ **Be direct about mistakes** - Point out errors, technical debt, or misalignment
 ✅ **Push back when needed** - If a request violates security or charter principles
 ✅ **Surface hard truths** - Even if uncomfortable (e.g., "This approach won't scale", "This violates the charter")
+✅ **Reject trusted shortcuts** - If a solution increases centralized control or trusted intermediaries, call it out immediately
 
 ❌ **Don't sugarcoat security issues** - Financial app vulnerabilities are critical
 ❌ **Don't enable shortcuts** - That compromise long-term stability
@@ -85,6 +112,8 @@ This is a **financial application** handling real money, digital currencies, and
 - ✅ Sanitize all user inputs to prevent injection attacks
 - ✅ Hash and salt passwords (never store plaintext)
 - ✅ Use environment variables for secrets (never hardcode)
+- ✅ Use signed messages/proofs and replay protection for critical actions
+- ✅ Prefer immutable, auditable event trails for financial and governance flows
 - ❌ Never log sensitive data (keys, tokens, passwords, PINs)
 - ❌ Never store financial data in plain text
 
@@ -275,7 +304,15 @@ When making any coding decision, follow this framework:
 - [ ] Are secrets stored securely (env vars, not hardcoded)?
 - [ ] Is error handling safe (no stack traces to users)?
 
-### **2. Charter Alignment Check**
+### **2. Trustless Check**
+- [ ] Is this enforced by code/crypto rather than policy or manual process?
+- [ ] Can users independently verify the result (on-chain, cryptographic proof, auditable logs)?
+- [ ] Have trusted intermediaries been minimized?
+- [ ] Are admin powers minimized, timelocked, and auditable?
+- [ ] Is there any hidden off-chain dependency that can alter outcomes?
+- [ ] Could this be done more trustlessly without breaking security or UX?
+
+### **3. Charter Alignment Check**
 - [ ] Does this serve the mission (economic sovereignty)?
 - [ ] Does this comply with UC/SC token rules?
 - [ ] Does this enforce governance requirements?
@@ -316,6 +353,9 @@ When making any coding decision, follow this framework:
 8. **Deploying to production** (requires approval)
 9. **Making irreversible git operations** (force push, hard reset)
 10. **Anything that could lose user funds or data** (critical)
+11. **Any change that increases custodial control or trusted intermediaries** (trustless violation)
+12. **Any off-chain shortcut that affects balances, voting, or payout correctness** (trustless violation)
+13. **Any new admin bypass path without timelock + auditability** (trustless violation)
 
 **Don't be polite or hesitant about these. Call them out directly and bluntly.**
 
@@ -356,6 +396,8 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 - [ ] Use idempotency keys
 - [ ] Validate amounts (no negative, no overflow)
 - [ ] Calculate and capture Co-op fees
+- [ ] Use cryptographic authorization and replay protection
+- [ ] Ensure outcome is independently verifiable from logs/events
 - [ ] Log transaction for audit trail
 - [ ] Handle failures gracefully (rollback if needed)
 - [ ] Show clear success/error messages to user
@@ -377,6 +419,8 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 - [ ] Implement quorum and approval thresholds
 - [ ] Enforce SC voting power caps (2% max)
 - [ ] Validate proposal against charter (AI Guardian)
+- [ ] Ensure tallying and quorum are verifiable and deterministic
+- [ ] Minimize discretionary moderation over outcomes
 - [ ] Log all votes and proposals on-chain
 - [ ] Make results publicly auditable
 - [ ] Implement proposal challenge window
@@ -496,6 +540,7 @@ Familiarize yourself with these files:
 
 You're doing a good job if:
 
+✅ **Trustlessness:** Critical flows are code-enforced, independently verifiable, and minimize trusted intermediaries
 ✅ **Truth Over Comfort:** Providing honest, direct feedback - challenging assumptions and calling out risks
 ✅ **Security:** No vulnerabilities introduced, all sensitive data protected
 ✅ **Charter Compliance:** All features align with mission and governance rules
@@ -536,5 +581,6 @@ If you encounter a situation not covered in this guide:
 **This is a living document. Update it as the project evolves and new patterns emerge.**
 
 **Version History:**
+- v1.2 (2026-02-13): Added "Trustless by Default" as global priority with decision framework, red flags, and success metrics
 - v1.1 (2026-01-28): Added "Highest Priority: Truth Over Comfort" section with directive for blunt, honest feedback
 - v1.0 (2026-01-28): Initial version

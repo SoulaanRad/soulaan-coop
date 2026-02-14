@@ -194,9 +194,16 @@ export default function PayScreen() {
     if (!user?.id || !recipient || !transferType) return;
 
     const amountNum = parseFloat(amount);
+    const feeInfo = calculatePartialPaymentFee(amountNum, balance, 'stripe');
 
-    // Biometric authentication
-    const authResult = await authenticateForPayment(`$${amountNum.toFixed(2)}`);
+    // Biometric authentication with fee breakdown
+    const authResult = await authenticateForPayment({
+      amount: `$${amountNum.toFixed(2)}`,
+      processorFee: feeInfo.processorFee,
+      fromBalance: feeInfo.fromBalance,
+      fromCard: feeInfo.fromCard,
+      total: feeInfo.total,
+    });
     if (!authResult.success) {
       if (authResult.error) {
         setErrorMessage(authResult.error);

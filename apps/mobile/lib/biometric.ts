@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { paymentConfirmationService } from './payment-confirmation-service';
+import { paymentConfirmationService, PaymentConfirmationData } from './payment-confirmation-service';
 
 // Only import on native platforms
 let LocalAuthentication: typeof import('expo-local-authentication') | null = null;
@@ -75,15 +75,24 @@ export async function getBiometricName(): Promise<string> {
 
 /**
  * Authenticate user with biometrics for payment confirmation
+ * @param data - Payment amount string or full payment data with fee breakdown
  */
-export async function authenticateForPayment(amount: string): Promise<{
+export async function authenticateForPayment(
+  data: string | PaymentConfirmationData
+): Promise<{
   success: boolean;
   error?: string;
 }> {
+  // Normalize input to PaymentConfirmationData
+  const paymentData: PaymentConfirmationData = 
+    typeof data === 'string' ? { amount: data } : data;
+  
+  const displayAmount = paymentData.amount;
+
   // On web, show a confirmation modal
   if (Platform.OS === 'web' || !LocalAuthentication) {
     try {
-      const confirmed = await paymentConfirmationService.confirm(amount);
+      const confirmed = await paymentConfirmationService.confirm(paymentData);
       if (!confirmed) {
         return { success: false, error: 'Payment cancelled' };
       }
@@ -98,12 +107,21 @@ export async function authenticateForPayment(amount: string): Promise<{
     const isAvailable = await isBiometricAvailable();
 
     if (!isAvailable) {
-      // If biometrics not available, allow the payment (PIN would be separate)
-      return { success: true };
+      // If biometrics not available, show confirmation modal as fallback
+      try {
+        const confirmed = await paymentConfirmationService.confirm(paymentData);
+        if (!confirmed) {
+          return { success: false, error: 'Payment cancelled' };
+        }
+        return { success: true };
+      } catch (error) {
+        console.error('Payment confirmation error:', error);
+        return { success: false, error: 'Confirmation failed' };
+      }
     }
 
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: `Confirm payment of ${amount}`,
+      promptMessage: `Confirm payment of ${displayAmount}`,
       fallbackLabel: 'Use Passcode',
       cancelLabel: 'Cancel',
       disableDeviceFallback: false,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { PaymentConfirmationModal } from './payment-confirmation-modal';
-import { paymentConfirmationService } from '@/lib/payment-confirmation-service';
+import { paymentConfirmationService, PaymentConfirmationData } from '@/lib/payment-confirmation-service';
 
 interface PaymentConfirmationProviderProps {
   children: ReactNode;
@@ -8,14 +8,14 @@ interface PaymentConfirmationProviderProps {
 
 export function PaymentConfirmationProvider({ children }: PaymentConfirmationProviderProps) {
   const [visible, setVisible] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [paymentData, setPaymentData] = useState<PaymentConfirmationData>({ amount: '' });
   const [resolver, setResolver] = useState<((value: boolean) => void) | null>(null);
 
   useEffect(() => {
     // Register the confirmation handler
-    const handler = (paymentAmount: string): Promise<boolean> => {
+    const handler = (data: PaymentConfirmationData): Promise<boolean> => {
       return new Promise((resolve) => {
-        setAmount(paymentAmount);
+        setPaymentData(data);
         setVisible(true);
         setResolver(() => resolve);
       });
@@ -50,7 +50,11 @@ export function PaymentConfirmationProvider({ children }: PaymentConfirmationPro
       {children}
       <PaymentConfirmationModal
         visible={visible}
-        amount={amount}
+        amount={paymentData.amount}
+        processorFee={paymentData.processorFee}
+        fromBalance={paymentData.fromBalance}
+        fromCard={paymentData.fromCard}
+        total={paymentData.total}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
