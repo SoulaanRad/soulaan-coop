@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,6 +18,7 @@ import {
   Check,
   Wallet,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
@@ -44,6 +46,8 @@ export default function FundWalletScreen() {
   const [processing, setProcessing] = useState(false);
   const [currentBalance, setCurrentBalance] = useState<number>(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successAmount, setSuccessAmount] = useState<number>(0);
 
   const getErrorMessage = (error: unknown): string => {
     if (!error) return 'Unable to add funds. Please try again.';
@@ -155,16 +159,16 @@ export default function FundWalletScreen() {
         selectedMethodId
       );
 
-      Alert.alert(
-        'Success',
-        `$${fundAmount.toFixed(2)} has been added to your wallet.`,
-        [
-          {
-            text: 'Done',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      // Show success modal
+      setSuccessAmount(fundAmount);
+      setShowSuccessModal(true);
+      
+      // Reset amount fields
+      setAmount(null);
+      setCustomAmount('');
+      
+      // Reload balance in background
+      loadData();
     } catch (error: any) {
       console.error('Fund wallet error:', error);
       const message = getErrorMessage(error);
@@ -432,6 +436,42 @@ export default function FundWalletScreen() {
           </View>
         )}
       </View>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          router.back();
+        }}
+      >
+        <View className="flex-1 bg-black/50 items-center justify-center p-6">
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
+            <View className="items-center mb-4">
+              <View className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 items-center justify-center mb-3">
+                <CheckCircle size={32} color="#16a34a" />
+              </View>
+              <Text className="text-xl font-bold text-gray-900 dark:text-white text-center">
+                Funds Added!
+              </Text>
+            </View>
+            <Text className="text-gray-600 dark:text-gray-400 text-center mb-6">
+              ${successAmount.toFixed(2)} has been added to your wallet successfully.
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.back();
+              }}
+              className="bg-green-600 py-3 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold">Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

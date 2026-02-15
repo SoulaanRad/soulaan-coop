@@ -13,6 +13,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true, // Enable IR-based compiler to avoid "stack too deep" errors
       evmVersion: "cancun", // Use latest EVM version for Base L2
     },
   },

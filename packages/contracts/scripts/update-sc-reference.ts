@@ -59,9 +59,23 @@ async function main() {
   }
 
   // Update the SC reference
-  const tx = await unityCoin.setSoulaaniCoinAddress(NEW_SC_ADDRESS);
-  console.log("   ⏳ Waiting for transaction...");
-  await tx.wait();
+  try {
+    // Try to estimate gas first to get better error message
+    const gasEstimate = await unityCoin.setSoulaaniCoinAddress.estimateGas(NEW_SC_ADDRESS);
+    console.log(`   Gas estimate: ${gasEstimate}`);
+    
+    const tx = await unityCoin.setSoulaaniCoinAddress(NEW_SC_ADDRESS);
+    console.log("   ⏳ Waiting for transaction...");
+    console.log(`   TX hash: ${tx.hash}`);
+    await tx.wait();
+  } catch (error: any) {
+    console.error("\n❌ Transaction failed:");
+    console.error("   Error:", error.message);
+    if (error.data) {
+      console.error("   Data:", error.data);
+    }
+    throw error;
+  }
   
   // Verify update
   const updatedSC = await unityCoin.soulaaniCoin();

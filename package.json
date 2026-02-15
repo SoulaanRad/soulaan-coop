@@ -16,6 +16,8 @@
     "db:migrate-prod": "turbo db:migrate-prod",
     "db:studio": "turbo db:studio",
     "db:push": "turbo db:push db:generate",
+    "db:clear-blockchain": "tsx packages/db/migrations/clear-blockchain-data.ts",
+    "update-env": "bash scripts/update-all-env-files.sh",
     "dev": "turbo watch dev --continue",
     "dev:api": "pnpm -F @soulaan-coop/api dev",
     "dev:web": "pnpm -F @soulaan-coop/web dev",

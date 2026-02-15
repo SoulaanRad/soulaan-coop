@@ -25,3 +25,4 @@ wallets/
 *.swo
 *~
 
+.test-wallet.json
