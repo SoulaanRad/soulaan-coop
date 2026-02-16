@@ -1213,7 +1213,7 @@ export const adminRouter = router({
 
         // Calculate volumes by time period
         const getVolumeByPeriod = async (since: Date) => {
-          const [onramp, p2p, withdrawal] = await Promise.all([
+          const [onramp, p2p, withdrawal, storePurchases] = await Promise.all([
             context.db.onrampTransaction.aggregate({
               where: { status: 'COMPLETED', completedAt: { gte: since } },
               _sum: { amountUSD: true },
@@ -1227,6 +1227,11 @@ export const adminRouter = router({
             context.db.withdrawal.aggregate({
               where: { status: 'COMPLETED', completedAt: { gte: since } },
               _sum: { amountUSD: true },
+              _count: true,
+            }),
+            context.db.storeOrder.aggregate({
+              where: { status: 'COMPLETED', completedAt: { gte: since } },
+              _sum: { totalUSD: true },
               _count: true,
             }),
           ]);
@@ -1244,11 +1249,15 @@ export const adminRouter = router({
               volumeUSD: withdrawal._sum.amountUSD || 0,
               count: withdrawal._count,
             },
+            storePurchases: {
+              volumeUSD: storePurchases._sum.totalUSD || 0,
+              count: storePurchases._count,
+            },
           };
         };
 
         // All-time totals
-        const [allTimeOnramp, allTimeP2P, allTimeWithdrawal, onrampByProcessor] = await Promise.all([
+        const [allTimeOnramp, allTimeP2P, allTimeWithdrawal, allTimeStorePurchases, onrampByProcessor, storesByVolume] = await Promise.all([
           context.db.onrampTransaction.aggregate({
             where: { status: 'COMPLETED' },
             _sum: { amountUSD: true, amountUC: true },
@@ -1264,6 +1273,11 @@ export const adminRouter = router({
             _sum: { amountUSD: true },
             _count: true,
           }),
+          context.db.storeOrder.aggregate({
+            where: { status: 'COMPLETED' },
+            _sum: { totalUSD: true },
+            _count: true,
+          }),
           context.db.onrampTransaction.groupBy({
             by: ['processor'],
             where: { status: 'COMPLETED' },
@@ -1274,6 +1288,18 @@ export const adminRouter = router({
                 amountUSD: 'desc',
               },
             },
+          }),
+          context.db.storeOrder.groupBy({
+            by: ['storeId'],
+            where: { status: 'COMPLETED' },
+            _sum: { totalUSD: true },
+            _count: true,
+            orderBy: {
+              _sum: {
+                totalUSD: 'desc',
+              },
+            },
+            take: 10, // Top 10 stores
           }),
         ]);
 
@@ -1297,6 +1323,14 @@ export const adminRouter = router({
           context.db.user.count({ where: { status: 'ACTIVE' } }),
           context.db.user.count({ where: { walletAddress: { not: null } } }),
         ]);
+
+        // Get store names for top stores
+        const storeIds = storesByVolume.map(s => s.storeId);
+        const stores = await context.db.store.findMany({
+          where: { id: { in: storeIds } },
+          select: { id: true, name: true, scVerified: true },
+        });
+        const storeMap = new Map(stores.map(s => [s.id, s]));
 
         console.log('✅ getTreasuryOverview - SUCCESS');
 
@@ -1325,6 +1359,10 @@ export const adminRouter = router({
               volumeUSD: allTimeWithdrawal._sum.amountUSD || 0,
               count: allTimeWithdrawal._count,
             },
+            storePurchases: {
+              volumeUSD: allTimeStorePurchases._sum.totalUSD || 0,
+              count: allTimeStorePurchases._count,
+            },
             netFlow: (allTimeOnramp._sum.amountUSD || 0) - (allTimeWithdrawal._sum.amountUSD || 0),
           },
 
@@ -1335,6 +1373,18 @@ export const adminRouter = router({
             createdUC: entry._sum.amountUC || 0,
             count: entry._count,
           })),
+
+          // Top stores by volume
+          topStores: storesByVolume.map((entry) => {
+            const store = storeMap.get(entry.storeId);
+            return {
+              storeId: entry.storeId,
+              storeName: store?.name || 'Unknown Store',
+              scVerified: store?.scVerified || false,
+              volumeUSD: entry._sum.totalUSD || 0,
+              count: entry._count,
+            };
+          }),
 
           // Time-based volumes
           last24h,
@@ -1373,7 +1423,7 @@ export const adminRouter = router({
   getTransactionVolumeChart: privateProcedure
     .input(z.object({
       period: z.enum(['7d', '30d', '90d']).default('30d'),
-      type: z.enum(['onramp', 'p2p', 'withdrawal', 'all']).default('all'),
+      type: z.enum(['onramp', 'p2p', 'withdrawal', 'store', 'all']).default('all'),
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
@@ -1394,7 +1444,7 @@ export const adminRouter = router({
       const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
       // Generate date buckets
-      const buckets: { date: string; onramp: number; p2p: number; withdrawal: number }[] = [];
+      const buckets: { date: string; onramp: number; p2p: number; withdrawal: number; store: number }[] = [];
       for (let i = 0; i < daysBack; i++) {
         const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
         buckets.push({
@@ -1402,6 +1452,7 @@ export const adminRouter = router({
           onramp: 0,
           p2p: 0,
           withdrawal: 0,
+          store: 0,
         });
       }
 
@@ -1453,6 +1504,23 @@ export const adminRouter = router({
             const dateKey = tx.completedAt.toISOString().split('T')[0];
             const bucket = buckets.find(b => b.date === dateKey);
             if (bucket) bucket.withdrawal += tx.amountUSD;
+          }
+        }
+      }
+
+      if (input.type === 'all' || input.type === 'store') {
+        const storeTxs = await context.db.storeOrder.findMany({
+          where: {
+            status: 'COMPLETED',
+            completedAt: { gte: startDate },
+          },
+          select: { completedAt: true, totalUSD: true },
+        });
+        for (const tx of storeTxs) {
+          if (tx.completedAt) {
+            const dateKey = tx.completedAt.toISOString().split('T')[0];
+            const bucket = buckets.find(b => b.date === dateKey);
+            if (bucket) bucket.store += tx.totalUSD;
           }
         }
       }

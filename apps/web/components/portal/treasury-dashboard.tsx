@@ -263,6 +263,18 @@ export default function TreasuryDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-blue-400" />
+                Store Purchases
+              </span>
+              <span className="font-semibold text-blue-400">
+                {formatAmount((data?.last24h as any)?.storePurchases?.volumeUSD || 0)}
+                <span className="text-xs text-slate-400 ml-1">
+                  ({(data?.last24h as any)?.storePurchases?.count || 0})
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 flex items-center gap-2">
                 <ArrowUpRight className="h-4 w-4 text-orange-400" />
                 Withdrawals
               </span>
@@ -311,6 +323,18 @@ export default function TreasuryDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-blue-400" />
+                Store Purchases
+              </span>
+              <span className="font-semibold text-blue-400">
+                {formatAmount((data?.last7d as any)?.storePurchases?.volumeUSD || 0)}
+                <span className="text-xs text-slate-400 ml-1">
+                  ({(data?.last7d as any)?.storePurchases?.count || 0})
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 flex items-center gap-2">
                 <ArrowUpRight className="h-4 w-4 text-orange-400" />
                 Withdrawals
               </span>
@@ -354,6 +378,18 @@ export default function TreasuryDashboard() {
                 {formatAmount(data?.last30d.p2p.volumeUSD || 0)}
                 <span className="text-xs text-slate-400 ml-1">
                   ({data?.last30d.p2p.count || 0})
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-blue-400" />
+                Store Purchases
+              </span>
+              <span className="font-semibold text-blue-400">
+                {formatAmount((data?.last30d as any)?.storePurchases?.volumeUSD || 0)}
+                <span className="text-xs text-slate-400 ml-1">
+                  ({(data?.last30d as any)?.storePurchases?.count || 0})
                 </span>
               </span>
             </div>
@@ -438,6 +474,57 @@ export default function TreasuryDashboard() {
         </CardContent>
       </Card>
 
+      {/* Top Stores by Volume */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-lg text-white flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Top Stores by Volume
+          </CardTitle>
+          <CardDescription className="text-slate-400">
+            Highest revenue generating stores (all-time)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {((data as any)?.topStores || []).length > 0 ? (
+              <div className="space-y-2">
+                {((data as any)?.topStores || []).map((store: any, index: number) => (
+                  <div
+                    key={store.storeId}
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg bg-slate-900/60 border border-slate-700"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className="border-slate-600 text-slate-200 min-w-[2rem] justify-center">
+                        #{index + 1}
+                      </Badge>
+                      <div>
+                        <p className="font-medium text-white">{store.storeName}</p>
+                        {store.scVerified && (
+                          <Badge variant="outline" className="border-green-600 text-green-400 text-xs mt-1">
+                            SC Verified
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <span className="text-sm text-slate-300">
+                        Volume: <span className="font-semibold text-white">{formatAmount(store.volumeUSD)}</span>
+                      </span>
+                      <span className="text-sm text-slate-400">
+                        {store.count} orders
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">No completed store orders yet.</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* All-Time Totals */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
@@ -447,7 +534,7 @@ export default function TreasuryDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="text-center p-4 rounded-lg bg-green-500/10 border border-green-500/20">
               <p className="text-sm text-green-400 mb-1">Total Deposits</p>
               <p className="text-2xl font-bold text-green-400">
@@ -464,6 +551,15 @@ export default function TreasuryDashboard() {
               </p>
               <p className="text-xs text-slate-400 mt-1">
                 {data?.allTime.p2p.count || 0} transfers
+              </p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <p className="text-sm text-blue-400 mb-1">Store Purchases</p>
+              <p className="text-2xl font-bold text-blue-400">
+                {formatAmount((data?.allTime as any)?.storePurchases?.volumeUSD || 0)}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                {(data?.allTime as any)?.storePurchases?.count || 0} orders
               </p>
             </div>
             <div className="text-center p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
