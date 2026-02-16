@@ -192,16 +192,22 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         uint256 actualAmount = calculateDiminishedAmount(recipient, amount);
 
         // Enforce 2% hard cap - cannot mint if it would exceed max voting power
+        // Only apply cap if total supply exists (allows bootstrapping from 0)
         uint256 currentBalance = balanceOf(recipient);
-        uint256 maxBalance = getMaxVotingPower();
-
-        if (currentBalance >= maxBalance) {
-            // Already at or above cap - award nothing
-            actualAmount = 0;
-        } else if (currentBalance + actualAmount > maxBalance) {
-            // Would exceed cap - only award up to the cap
-            actualAmount = maxBalance - currentBalance;
+        uint256 supply = totalSupply();
+        
+        if (supply > 0) {
+            uint256 maxBalance = getMaxVotingPower();
+            
+            if (currentBalance >= maxBalance) {
+                // Already at or above cap - award nothing
+                actualAmount = 0;
+            } else if (currentBalance + actualAmount > maxBalance) {
+                // Would exceed cap - only award up to the cap
+                actualAmount = maxBalance - currentBalance;
+            }
         }
+        // If supply is 0, skip cap check to allow initial minting
 
         // Only mint if there's something to award
         if (actualAmount > 0) {
@@ -227,7 +233,6 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
 
         // Emit diminishing rate event if amount was reduced
         if (actualAmount < amount) {
-            uint256 supply = totalSupply();
             uint256 balancePercent = supply > 0 ? (currentBalance * 10000) / supply : 0;
             emit DiminishingRateApplied(recipient, amount, actualAmount, balancePercent);
         }

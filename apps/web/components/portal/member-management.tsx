@@ -888,7 +888,7 @@ export default function MemberManagement() {
                         </p>
                         <p className="text-xs text-purple-600 dark:text-purple-400">SC</p>
                         <p className="text-[10px] text-purple-500 dark:text-purple-400 mt-1 font-mono">
-                          Raw: {blockchainInfoQuery.data.blockchain.scBalance.formatted}
+                          Raw: {blockchainInfoQuery.data.blockchain.scBalance.balance}
                         </p>
                       </div>
                     </div>

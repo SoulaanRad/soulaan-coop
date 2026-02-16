@@ -96,6 +96,7 @@ function AllStoresTab() {
   const [statusFilter, setStatusFilter] = useState<StoreStatus | undefined>("APPROVED");
   const [search, setSearch] = useState("");
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = api.store.getAllStores.useQuery({
     status: statusFilter,
@@ -107,7 +108,21 @@ function AllStoresTab() {
   });
 
   const toggleScVerification = api.store.toggleScVerification.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: (data) => {
+      if (data.txHash) {
+        setTxHash(data.txHash);
+      }
+      refetch();
+    },
+  });
+
+  const batchVerify = api.store.batchVerifyStoresOnChain.useMutation({
+    onSuccess: (data) => {
+      if (data.txHash) {
+        setTxHash(data.txHash);
+      }
+      refetch();
+    },
   });
 
   const stores = data?.stores ?? [];
@@ -130,6 +145,36 @@ function AllStoresTab() {
 
   return (
     <div className="space-y-4">
+      {/* Transaction Status Banner */}
+      {txHash && (
+        <Card className="bg-green-900/20 border-green-800">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <div>
+                  <p className="text-sm font-medium text-green-400">Transaction Confirmed</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    View on BaseScan:{" "}
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                    </a>
+                  </p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setTxHash(null)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <div className="flex gap-4 items-center">
         <div className="flex gap-2 bg-slate-800 rounded-lg p-1">
@@ -154,6 +199,24 @@ function AllStoresTab() {
             className="pl-10 bg-slate-800 border-slate-700"
           />
         </div>
+        <Button
+          onClick={() => batchVerify.mutate({ limit: 50 })}
+          disabled={batchVerify.isPending}
+          variant="outline"
+          className="border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white"
+        >
+          {batchVerify.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Verifying On-Chain...
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Batch Verify On-Chain
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Stores List */}
@@ -271,10 +334,7 @@ function AllStoresTab() {
                       <div>
                         <h4 className="text-sm font-medium text-gray-400 mb-2">Settings & Stats</h4>
                         <div className="space-y-2 text-sm">
-                          <div>
-                            <span className="text-gray-500">UC Discount: </span>
-                            <span className="text-white">{store.ucDiscountPercent}%</span>
-                          </div>
+    
                           <div>
                             <span className="text-gray-500">Accepts UC: </span>
                             <span className="text-white">{store.acceptsUC ? 'Yes' : 'No'}</span>
@@ -322,8 +382,14 @@ function AllStoresTab() {
                         size="sm"
                         onClick={() => toggleScVerification.mutate({ storeId: store.id, verified: !store.isScVerified })}
                         disabled={toggleScVerification.isPending}
+                        className={store.isScVerified ? "" : "border-green-600 text-green-600 hover:bg-green-600 hover:text-white"}
                       >
-                        {store.isScVerified ? (
+                        {toggleScVerification.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Processing On-Chain...
+                          </>
+                        ) : store.isScVerified ? (
                           <>
                             <XCircle className="h-4 w-4 mr-1" />
                             Remove SC Verification

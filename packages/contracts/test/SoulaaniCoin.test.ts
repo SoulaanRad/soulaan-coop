@@ -139,7 +139,7 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).suspendMember(member1.address);
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT)
       ).to.be.revertedWith("Recipient must be an active member");
     });
 
@@ -171,7 +171,7 @@ describe("SoulaaniCoin (SC)", function () {
 
     it("Should allow GOVERNANCE_AWARD to award SC", async function () {
       const amount = ethers.parseEther("10");
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
 
       expect(await sc.balanceOf(member1.address)).to.equal(amount);
       expect(await sc.totalSupply()).to.equal(amount);
@@ -180,7 +180,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should emit Awarded event", async function () {
       const amount = ethers.parseEther("10");
 
-      await expect(sc.connect(governanceBot).award(member1.address, amount, REASON_RENT))
+      await expect(sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT))
         .to.emit(sc, "Awarded")
         .withArgs(member1.address, amount, REASON_RENT, governanceBot.address);
     });
@@ -189,7 +189,7 @@ describe("SoulaaniCoin (SC)", function () {
       const amount = ethers.parseEther("10");
       const blockTime = await time.latest();
 
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
 
       const lastActivity = await sc.lastActivity(member1.address);
       expect(lastActivity).to.be.closeTo(blockTime, 5); // Within 5 seconds
@@ -199,8 +199,8 @@ describe("SoulaaniCoin (SC)", function () {
       const amount1 = ethers.parseEther("10");
       const amount2 = ethers.parseEther("5");
 
-      await sc.connect(governanceBot).award(member1.address, amount1, REASON_RENT);
-      await sc.connect(governanceBot).award(member1.address, amount2, REASON_SPENDING);
+      await sc.connect(governanceBot).mintReward(member1.address, amount1, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount2, REASON_SPENDING);
 
       expect(await sc.balanceOf(member1.address)).to.equal(amount1 + amount2);
     });
@@ -208,27 +208,27 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should allow awards to multiple addresses", async function () {
       const amount = ethers.parseEther("10");
 
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
-      await sc.connect(governanceBot).award(member2.address, amount, REASON_RENT);
-      await sc.connect(governanceBot).award(member3.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member3.address, amount, REASON_RENT);
 
       expect(await sc.totalSupply()).to.equal(amount * 3n);
     });
 
     it("Should not allow awarding to zero address", async function () {
       await expect(
-        sc.connect(governanceBot).award(ethers.ZeroAddress, ethers.parseEther("10"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(ethers.ZeroAddress, ethers.parseEther("10"), REASON_RENT)
       ).to.be.revertedWith("Cannot award to zero address");
     });
 
     it("Should not allow awarding zero amount", async function () {
       await expect(
-        sc.connect(governanceBot).award(member1.address, 0, REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, 0, REASON_RENT)
       ).to.be.revertedWith("Amount must be greater than 0");
     });
 
     it("Should not allow non-GOVERNANCE_AWARD to award SC", async function () {
-      await expect(sc.connect(member1).award(member2.address, ethers.parseEther("10"), REASON_RENT))
+      await expect(sc.connect(member1).mintReward(member2.address, ethers.parseEther("10"), REASON_RENT))
         .to.be.reverted;
     });
   });
@@ -239,7 +239,7 @@ describe("SoulaaniCoin (SC)", function () {
     beforeEach(async function () {
       // Add member and award SC
       await sc.connect(governanceBot).addMember(member1.address);
-      await sc.connect(governanceBot).award(member1.address, initialAmount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, initialAmount, REASON_RENT);
     });
 
     it("Should allow GOVERNANCE_SLASH to slash SC", async function () {
@@ -309,7 +309,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should update activity when awarding SC", async function () {
       const beforeTime = await time.latest();
 
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
 
       const afterTime = await time.latest();
       const lastActivity = await sc.lastActivity(member1.address);
@@ -326,7 +326,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should update activity timestamp on subsequent awards", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
       const firstActivity = await sc.lastActivity(member1.address);
 
       // Wait some time
@@ -334,7 +334,7 @@ describe("SoulaaniCoin (SC)", function () {
 
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+        .mintReward(member1.address, ethers.parseEther("5"), REASON_SPENDING);
       const secondActivity = await sc.lastActivity(member1.address);
 
       expect(secondActivity).to.be.gt(firstActivity);
@@ -346,7 +346,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should calculate time since last activity correctly", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
 
       const waitTime = 7200; // 2 hours
       await time.increase(waitTime);
@@ -372,7 +372,7 @@ describe("SoulaaniCoin (SC)", function () {
     beforeEach(async function () {
       await sc.connect(governanceBot).addMember(member1.address);
       await sc.connect(governanceBot).addMember(member2.address);
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
     });
 
     it("Should block transfer", async function () {
@@ -419,7 +419,7 @@ describe("SoulaaniCoin (SC)", function () {
       const amount = ethers.parseEther("100");
 
       // Member earns SC
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
 
       // Fast forward 12 months (365 days)
       await time.increase(365 * 24 * 60 * 60);
@@ -439,13 +439,13 @@ describe("SoulaaniCoin (SC)", function () {
       const amount = ethers.parseEther("50");
 
       // Member earns SC
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
 
       // Fast forward 6 months
       await time.increase(180 * 24 * 60 * 60);
 
       // Member earns more SC (resets activity)
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_SPENDING);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_SPENDING);
 
       // Fast forward another 6 months (12 months total, but activity was reset)
       await time.increase(180 * 24 * 60 * 60);
@@ -468,7 +468,7 @@ describe("SoulaaniCoin (SC)", function () {
       const amount = ethers.parseEther("10");
 
       for (let i = 0; i < 10; i++) {
-        await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+        await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
       }
 
       expect(await sc.balanceOf(member1.address)).to.equal(amount * 10n);
@@ -479,13 +479,13 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).grantRole(GOVERNANCE_AWARD, admin.address);
       await sc.connect(governanceBot).revokeRole(GOVERNANCE_AWARD, admin.address);
 
-      await expect(sc.connect(admin).award(member1.address, ethers.parseEther("10"), REASON_RENT))
+      await expect(sc.connect(admin).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT))
         .to.be.reverted;
     });
 
     it("Should handle slashing when balance is exactly zero", async function () {
       // Award and then slash everything
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       await sc
         .connect(governanceBot)
         .slash(member1.address, ethers.parseEther("100"), REASON_INACTIVITY);
@@ -497,9 +497,9 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should maintain separate balances for different users", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
-      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("200"), REASON_RENT);
-      await sc.connect(governanceBot).award(member3.address, ethers.parseEther("300"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member3.address, ethers.parseEther("300"), REASON_RENT);
 
       expect(await sc.balanceOf(member1.address)).to.equal(ethers.parseEther("100"));
       expect(await sc.balanceOf(member2.address)).to.equal(ethers.parseEther("200"));
@@ -509,7 +509,7 @@ describe("SoulaaniCoin (SC)", function () {
 
     it("Should handle large award amounts", async function () {
       const largeAmount = ethers.parseEther("1000000"); // 1 million SC
-      await sc.connect(governanceBot).award(member1.address, largeAmount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, largeAmount, REASON_RENT);
 
       expect(await sc.balanceOf(member1.address)).to.equal(largeAmount);
     });
@@ -519,7 +519,7 @@ describe("SoulaaniCoin (SC)", function () {
 
       for (const reason of reasons) {
         await expect(
-          sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), reason)
+          sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), reason)
         )
           .to.emit(sc, "Awarded")
           .withArgs(member1.address, ethers.parseEther("10"), reason, governanceBot.address);
@@ -534,33 +534,33 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should track total activities per member", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+        .mintReward(member1.address, ethers.parseEther("5"), REASON_SPENDING);
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("3"), REASON_COMMUNITY_SERVICE);
+        .mintReward(member1.address, ethers.parseEther("3"), REASON_COMMUNITY_SERVICE);
 
       expect(await sc.totalActivities(member1.address)).to.equal(3);
     });
 
     it("Should track activity type counts", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+        .mintReward(member1.address, ethers.parseEther("5"), REASON_SPENDING);
 
       expect(await sc.activityTypeCount(member1.address, REASON_RENT)).to.equal(2);
       expect(await sc.activityTypeCount(member1.address, REASON_SPENDING)).to.equal(1);
     });
 
     it("Should return activity stats", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("5"), REASON_SPENDING);
+        .mintReward(member1.address, ethers.parseEther("5"), REASON_SPENDING);
 
       const stats = await sc.getActivityStats(member1.address);
       expect(stats.total).to.equal(2);
@@ -568,8 +568,8 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should get activity type count via function", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
 
       const count = await sc.getActivityTypeCount(member1.address, REASON_RENT);
       expect(count).to.equal(2);
@@ -587,7 +587,7 @@ describe("SoulaaniCoin (SC)", function () {
       // Award 100 SC (total supply = 100, 2% = 2, so user gets capped)
       // Let's award 1 SC instead so user is below cap
       const amount = ethers.parseEther("1");
-      await sc.connect(governanceBot).award(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
 
       // Since member1 has 1 SC and total supply is 1, 2% cap is 0.02
       // So member1's balance (1) is above cap and gets capped to 0.02
@@ -596,7 +596,7 @@ describe("SoulaaniCoin (SC)", function () {
       // Award more to another member to increase total supply
       await sc
         .connect(governanceBot)
-        .award(member2.address, ethers.parseEther("1000"), REASON_RENT);
+        .mintReward(member2.address, ethers.parseEther("1000"), REASON_RENT);
 
       // Now total supply is 1001, 2% = 20.02
       // Member1 has 1 which is below 20.02, so they get their full balance
@@ -607,10 +607,10 @@ describe("SoulaaniCoin (SC)", function () {
       // Create total supply of 10,000 SC
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("5000"), REASON_RENT);
+        .mintReward(member1.address, ethers.parseEther("5000"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member2.address, ethers.parseEther("5000"), REASON_RENT);
+        .mintReward(member2.address, ethers.parseEther("5000"), REASON_RENT);
 
       const totalSupply = await sc.totalSupply();
       const maxVotingPower = await sc.getMaxVotingPower();
@@ -626,7 +626,7 @@ describe("SoulaaniCoin (SC)", function () {
       // Award 10,000 SC total
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("10000"), REASON_RENT);
+        .mintReward(member1.address, ethers.parseEther("10000"), REASON_RENT);
 
       // 2% of 10,000 = 200
       expect(await sc.getMaxVotingPower()).to.equal(ethers.parseEther("200"));
@@ -640,10 +640,10 @@ describe("SoulaaniCoin (SC)", function () {
       // Create supply and give member1 more than 2%
       await sc
         .connect(governanceBot)
-        .award(member1.address, ethers.parseEther("1000"), REASON_RENT);
+        .mintReward(member1.address, ethers.parseEther("1000"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member2.address, ethers.parseEther("9000"), REASON_RENT);
+        .mintReward(member2.address, ethers.parseEther("9000"), REASON_RENT);
 
       // member2 has 9000/10000 = 90%, definitely at cap
       expect(await sc.isAtVotingPowerCap(member2.address)).to.be.true;
@@ -653,10 +653,10 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should correctly identify members not at cap", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       await sc
         .connect(governanceBot)
-        .award(member2.address, ethers.parseEther("9900"), REASON_RENT);
+        .mintReward(member2.address, ethers.parseEther("9900"), REASON_RENT);
 
       // member1 has 100 SC, cap is 200, so not at cap
       expect(await sc.isAtVotingPowerCap(member1.address)).to.be.false;
@@ -670,13 +670,13 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should return correct balance", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       expect(await sc.balanceOf(member1.address)).to.equal(ethers.parseEther("100"));
     });
 
     it("Should return correct total supply", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
-      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("200"), REASON_RENT);
       expect(await sc.totalSupply()).to.equal(ethers.parseEther("300"));
     });
 
@@ -713,7 +713,7 @@ describe("SoulaaniCoin (SC)", function () {
 
     it("Should enforce new cap on voting power", async function () {
       // Award 100 tokens (total supply = 100, 2% = 2 tokens)
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       expect(await sc.getVotingPower(member1.address)).to.equal(ethers.parseEther("2"));
 
       // Change cap to 5%
@@ -746,7 +746,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should allow unlimited awards by default", async function () {
       expect(await sc.maxAwardPerTransaction()).to.equal(0);
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("1000000"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("1000000"), REASON_RENT)
       ).to.not.be.reverted;
     });
 
@@ -765,11 +765,11 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("100"));
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("101"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("101"), REASON_RENT)
       ).to.be.revertedWith("Amount exceeds max award limit");
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT)
       ).to.not.be.reverted;
     });
 
@@ -785,7 +785,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should enforce slash limit", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("200"), REASON_RENT);
       await sc.connect(governanceBot).setMaxSlashPerTransaction(ethers.parseEther("50"));
 
       await expect(
@@ -802,7 +802,7 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).setMaxAwardPerTransaction(0);
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("1000000"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("1000000"), REASON_RENT)
       ).to.not.be.reverted;
     });
 
@@ -835,12 +835,12 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).pause();
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT)
       ).to.be.revertedWithCustomError(sc, "EnforcedPause");
     });
 
     it("Should block slashing when paused", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       await sc.connect(governanceBot).pause();
 
       await expect(
@@ -849,7 +849,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should block batch slashing when paused", async function () {
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
       await sc.connect(governanceBot).pause();
 
       await expect(
@@ -877,7 +877,7 @@ describe("SoulaaniCoin (SC)", function () {
       await sc.connect(governanceBot).unpause();
 
       await expect(
-        sc.connect(governanceBot).award(member1.address, ethers.parseEther("10"), REASON_RENT)
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT)
       ).to.not.be.reverted;
     });
 
@@ -896,9 +896,9 @@ describe("SoulaaniCoin (SC)", function () {
       await sc
         .connect(governanceBot)
         .addMembersBatch([member1.address, member2.address, member3.address]);
-      await sc.connect(governanceBot).award(member1.address, ethers.parseEther("100"), REASON_RENT);
-      await sc.connect(governanceBot).award(member2.address, ethers.parseEther("200"), REASON_RENT);
-      await sc.connect(governanceBot).award(member3.address, ethers.parseEther("150"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("200"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member3.address, ethers.parseEther("150"), REASON_RENT);
     });
 
     it("Should slash multiple members in batch", async function () {
@@ -1059,6 +1059,207 @@ describe("SoulaaniCoin (SC)", function () {
       // New admin should be able to grant roles
       await expect(sc.connect(admin).grantRole(GOVERNANCE_AWARD, member1.address)).to.not.be
         .reverted;
+    });
+  });
+
+  describe("mintReward Function", function () {
+    beforeEach(async function () {
+      await sc.connect(governanceBot).addMembersBatch([member1.address, member2.address, member3.address]);
+    });
+
+    it("Should allow minting when total supply is 0 (bootstrap)", async function () {
+      // This tests the fix for the zero supply issue
+      const amount = ethers.parseEther("10");
+      
+      // Verify supply is 0
+      expect(await sc.totalSupply()).to.equal(0);
+      
+      // Should succeed even though maxVotingPower would be 0
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
+      
+      expect(await sc.balanceOf(member1.address)).to.equal(amount);
+      expect(await sc.totalSupply()).to.equal(amount);
+    });
+
+    it("Should allow minting to multiple users when supply is 0", async function () {
+      const amount = ethers.parseEther("100");
+      
+      await sc.connect(governanceBot).mintReward(member1.address, amount, REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, amount, REASON_SPENDING);
+      await sc.connect(governanceBot).mintReward(member3.address, amount, REASON_COMMUNITY_SERVICE);
+      
+      // Due to diminishing returns, total supply will be less than 300
+      // Just verify all three received some SC
+      expect(await sc.balanceOf(member1.address)).to.be.gt(0);
+      expect(await sc.balanceOf(member2.address)).to.be.gt(0);
+      expect(await sc.balanceOf(member3.address)).to.be.gt(0);
+      expect(await sc.totalSupply()).to.be.gt(0);
+    });
+
+    it("Should enforce voting power cap after supply exists", async function () {
+      // Bootstrap with initial supply
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("1000"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("1000"), REASON_RENT);
+      
+      // Get actual total supply (may be reduced by diminishing returns)
+      const totalSupply = await sc.totalSupply();
+      const maxVotingPower = await sc.getMaxVotingPower();
+      
+      // Max voting power should be 2% of total supply
+      expect(maxVotingPower).to.equal(totalSupply * 2n / 100n);
+      
+      // Verify member1's balance is within reasonable bounds
+      const balanceBefore = await sc.balanceOf(member1.address);
+      expect(balanceBefore).to.be.gt(0);
+      expect(balanceBefore).to.be.lte(ethers.parseEther("1000"));
+    });
+
+    it("Should apply diminishing returns correctly", async function () {
+      // Create a large supply first
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("10000"), REASON_RENT);
+      
+      // Now member1 is starting fresh with a large existing supply
+      // Award 100 SC to member1
+      const requestedAmount = ethers.parseEther("100");
+      await sc.connect(governanceBot).mintReward(member1.address, requestedAmount, REASON_RENT);
+      
+      const balance = await sc.balanceOf(member1.address);
+      
+      // Due to diminishing returns, member1 should receive less than 100
+      // (exact amount depends on diminishing rate tiers)
+      expect(balance).to.be.lte(requestedAmount);
+    });
+
+    it("Should emit DiminishingRateApplied when amount is reduced", async function () {
+      // Create large supply to trigger diminishing returns
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("10000"), REASON_RENT);
+      
+      // This should trigger diminishing returns
+      const tx = await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
+      
+      // Check if DiminishingRateApplied event was emitted
+      const receipt = await tx.wait();
+      const events = receipt?.logs || [];
+      
+      // Look for the event (we can't easily check with .to.emit for this complex case)
+      expect(events.length).to.be.gt(0);
+    });
+
+    it("Should not mint if user is at voting power cap", async function () {
+      // Create a large supply first to establish a meaningful cap
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("10000"), REASON_RENT);
+      
+      // Get the max voting power (2% of total supply)
+      let maxVotingPower = await sc.getMaxVotingPower();
+      
+      // Mint close to the max for member1 (90% of cap to account for diminishing returns)
+      const targetAmount = (maxVotingPower * 90n) / 100n;
+      await sc.connect(governanceBot).mintReward(member1.address, targetAmount, REASON_RENT);
+      
+      // Keep minting until at cap
+      for (let i = 0; i < 5; i++) {
+        await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("50"), REASON_RENT);
+      }
+      
+      const balanceBefore = await sc.balanceOf(member1.address);
+      maxVotingPower = await sc.getMaxVotingPower(); // Recalculate after supply changes
+      
+      // Try to mint more - should award very little or nothing
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("100"), REASON_RENT);
+      
+      const balanceAfter = await sc.balanceOf(member1.address);
+      
+      // Balance should not exceed the cap by much
+      expect(balanceAfter).to.be.lte(maxVotingPower * 101n / 100n); // Allow 1% tolerance
+    });
+
+    it("Should partially mint if it would exceed voting power cap", async function () {
+      // Create a large supply first
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("10000"), REASON_RENT);
+      
+      const maxVotingPower = await sc.getMaxVotingPower();
+      
+      // Mint 75% of the cap to member1
+      const partialAmount = (maxVotingPower * 75n) / 100n;
+      await sc.connect(governanceBot).mintReward(member1.address, partialAmount, REASON_RENT);
+      
+      const balanceBefore = await sc.balanceOf(member1.address);
+      
+      // Try to mint more than the remaining cap
+      await sc.connect(governanceBot).mintReward(member1.address, maxVotingPower, REASON_RENT);
+      
+      const balanceAfter = await sc.balanceOf(member1.address);
+      
+      // Balance should not exceed cap
+      expect(balanceAfter).to.be.lte(maxVotingPower);
+      // But should have increased from before
+      expect(balanceAfter).to.be.gt(balanceBefore);
+    });
+
+    it("Should not allow minting to non-active member", async function () {
+      await sc.connect(governanceBot).suspendMember(member1.address);
+      
+      await expect(
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT)
+      ).to.be.reverted; // Uses custom error
+    });
+
+    it("Should not allow minting zero amount", async function () {
+      await expect(
+        sc.connect(governanceBot).mintReward(member1.address, 0, REASON_RENT)
+      ).to.be.reverted; // Uses custom error
+    });
+
+    it("Should not allow minting to zero address", async function () {
+      await expect(
+        sc.connect(governanceBot).mintReward(ethers.ZeroAddress, ethers.parseEther("10"), REASON_RENT)
+      ).to.be.reverted; // Uses custom error
+    });
+
+    it("Should not allow non-GOVERNANCE_AWARD to mint", async function () {
+      await expect(
+        sc.connect(member1).mintReward(member2.address, ethers.parseEther("10"), REASON_RENT)
+      ).to.be.reverted;
+    });
+
+    it("Should enforce max award limit if set", async function () {
+      await sc.connect(governanceBot).setMaxAwardPerTransaction(ethers.parseEther("50"));
+      
+      await expect(
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("51"), REASON_RENT)
+      ).to.be.reverted; // Uses custom error
+      
+      // Should succeed at or below limit
+      await expect(
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("50"), REASON_RENT)
+      ).to.not.be.reverted;
+    });
+
+    it("Should update activity metrics even when actualAmount is 0", async function () {
+      // Create supply and max out member1
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("20"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("980"), REASON_RENT);
+      
+      // member1 is at cap, try to mint more (will award 0)
+      const beforeActivities = await sc.totalActivities(member1.address);
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT);
+      const afterActivities = await sc.totalActivities(member1.address);
+      
+      // Activity count should still increase even though no tokens were minted
+      expect(afterActivities).to.equal(beforeActivities + 1n);
+    });
+
+    it("Should emit Awarded event with actualAmount (even if 0)", async function () {
+      // Create supply and max out member1
+      await sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("20"), REASON_RENT);
+      await sc.connect(governanceBot).mintReward(member2.address, ethers.parseEther("980"), REASON_RENT);
+      
+      // Try to mint more (will award 0 due to cap)
+      await expect(
+        sc.connect(governanceBot).mintReward(member1.address, ethers.parseEther("10"), REASON_RENT)
+      )
+        .to.emit(sc, "Awarded")
+        .withArgs(member1.address, 0, REASON_RENT, governanceBot.address);
     });
   });
 

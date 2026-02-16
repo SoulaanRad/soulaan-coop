@@ -606,44 +606,7 @@ export async function awardStoreTransactionReward(
     return result;
   }
 
-  // Create database records BEFORE minting
-  let customerRecord;
-  let storeOwnerRecord;
-
-  try {
-    // Create customer reward record
-    customerRecord = await db.sCRewardTransaction.create({
-      data: {
-        userId: customerId,
-        amountSC: scReward,
-        reason: SC_REWARD_REASONS.STORE_PURCHASE,
-        status: 'PENDING',
-        relatedOrderId: orderId,
-        relatedStoreId: storeId,
-      },
-    });
-    result.customerRecordId = customerRecord.id;
-    console.log(`📝 Created customer SC reward record: ${customerRecord.id}`);
-
-    // Create store owner reward record
-    storeOwnerRecord = await db.sCRewardTransaction.create({
-      data: {
-        userId: storeOwnerId,
-        amountSC: scReward,
-        reason: SC_REWARD_REASONS.STORE_SALE,
-        status: 'PENDING',
-        relatedOrderId: orderId,
-        relatedStoreId: storeId,
-      },
-    });
-    result.storeRecordId = storeOwnerRecord.id;
-    console.log(`📝 Created store owner SC reward record: ${storeOwnerRecord.id}`);
-  } catch (error) {
-    console.error(`❌ Failed to create SC reward records:`, error);
-    throw error; // Fail if we can't create records
-  }
-
-  // Mint SC for customer
+  // Mint SC for customer FIRST, then create record only if successful
   try {
     result.customerReward = scReward;
     result.customerTxHash = await mintSCToUser(
@@ -652,30 +615,28 @@ export async function awardStoreTransactionReward(
       SC_REWARD_REASONS.STORE_PURCHASE
     );
     
-    // Update record to COMPLETED
-    await db.sCRewardTransaction.update({
-      where: { id: customerRecord.id },
+    // Only create database record AFTER successful mint
+    const customerRecord = await db.sCRewardTransaction.create({
       data: {
+        userId: customerId,
+        amountSC: scReward,
+        reason: SC_REWARD_REASONS.STORE_PURCHASE,
         status: 'COMPLETED',
         txHash: result.customerTxHash,
+        relatedOrderId: orderId,
+        relatedStoreId: storeId,
         completedAt: new Date(),
       },
     });
-    console.log(`🪙 Awarded ${scReward} SC to customer ${customerId} - Record updated to COMPLETED`);
+    result.customerRecordId = customerRecord.id;
+    console.log(`✅ Minted ${scReward} SC to customer ${customerId} and created record ${customerRecord.id}`);
   } catch (error) {
-    // Update record to FAILED
-    await db.sCRewardTransaction.update({
-      where: { id: customerRecord.id },
-      data: {
-        status: 'FAILED',
-        failedAt: new Date(),
-        failureReason: error instanceof Error ? error.message : 'Unknown error',
-      },
-    });
     console.error(`❌ Failed to mint SC for customer ${customerId}:`, error);
+    // Don't create a database record for failed mints
+    // Log the error but don't throw - we still want to try minting for the store owner
   }
 
-  // Mint SC for store owner
+  // Mint SC for store owner FIRST, then create record only if successful
   try {
     result.storeReward = scReward;
     result.storeTxHash = await mintSCToUser(
@@ -684,27 +645,24 @@ export async function awardStoreTransactionReward(
       SC_REWARD_REASONS.STORE_SALE
     );
     
-    // Update record to COMPLETED
-    await db.sCRewardTransaction.update({
-      where: { id: storeOwnerRecord.id },
+    // Only create database record AFTER successful mint
+    const storeOwnerRecord = await db.sCRewardTransaction.create({
       data: {
+        userId: storeOwnerId,
+        amountSC: scReward,
+        reason: SC_REWARD_REASONS.STORE_SALE,
         status: 'COMPLETED',
         txHash: result.storeTxHash,
+        relatedOrderId: orderId,
+        relatedStoreId: storeId,
         completedAt: new Date(),
       },
     });
-    console.log(`🪙 Awarded ${scReward} SC to store owner ${storeOwnerId} - Record updated to COMPLETED`);
+    result.storeRecordId = storeOwnerRecord.id;
+    console.log(`✅ Minted ${scReward} SC to store owner ${storeOwnerId} and created record ${storeOwnerRecord.id}`);
   } catch (error) {
-    // Update record to FAILED
-    await db.sCRewardTransaction.update({
-      where: { id: storeOwnerRecord.id },
-      data: {
-        status: 'FAILED',
-        failedAt: new Date(),
-        failureReason: error instanceof Error ? error.message : 'Unknown error',
-      },
-    });
     console.error(`❌ Failed to mint SC for store owner ${storeOwnerId}:`, error);
+    // Don't create a database record for failed mints
   }
 
   return result;

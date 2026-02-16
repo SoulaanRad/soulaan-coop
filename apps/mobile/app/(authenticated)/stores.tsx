@@ -103,11 +103,6 @@ export default function StoresScreen() {
         name: product.name,
         imageUrl: product.imageUrl,
         priceUSD: product.priceUSD,
-        store: {
-          id: product.store.id,
-          name: product.store.name,
-          isScVerified: product.store.isScVerified,
-        },
       },
       {
         id: product.store.id,
@@ -515,9 +510,13 @@ export default function StoresScreen() {
                                 <Text className="text-xs text-gray-600 ml-1">
                                   {store.rating?.toFixed(1) || 'New'}
                                 </Text>
-                                {store.isScVerified && (
+                                {store.isScVerified ? (
                                   <View className="bg-green-100 ml-2 px-1 py-0.5 rounded">
-                                    <Text className="text-green-700 text-xs">SC</Text>
+                                    <Text className="text-green-700 text-xs">SC Verified</Text>
+                                  </View>
+                                ) : (
+                                  <View className="bg-gray-100 ml-2 px-1 py-0.5 rounded">
+                                    <Text className="text-gray-600 text-xs">Not SC Verified</Text>
                                   </View>
                                 )}
                               </View>
@@ -528,7 +527,13 @@ export default function StoresScreen() {
                           </Text>
                           <View className="flex-row items-center justify-between">
                             <Text className="text-xs text-gray-400">{store.productCount} products</Text>
-                            <TouchableOpacity className="flex-row items-center border border-amber-600 px-2 py-1 rounded">
+                            <TouchableOpacity 
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                router.push(`/store-detail?id=${store.id}`);
+                              }}
+                              className="flex-row items-center border border-amber-600 px-2 py-1 rounded"
+                            >
                               <Text className="text-amber-700 text-xs font-medium">Visit</Text>
                               <ChevronRight size={12} color="#B45309" />
                             </TouchableOpacity>
@@ -621,9 +626,13 @@ export default function StoresScreen() {
                                   {getCategoryLabel(store.category)}
                                 </Text>
                               </View>
-                              {store.isScVerified && (
+                              {store.isScVerified ? (
                                 <View className="bg-green-100 px-2 py-0.5 rounded">
                                   <Text className="text-green-700 text-xs">SC Verified</Text>
+                                </View>
+                              ) : (
+                                <View className="bg-gray-100 px-2 py-0.5 rounded">
+                                  <Text className="text-gray-600 text-xs">Not SC Verified</Text>
                                 </View>
                               )}
                             </View>
@@ -653,7 +662,13 @@ export default function StoresScreen() {
                         </View>
 
                         {/* Visit Button */}
-                        <TouchableOpacity className="bg-red-700 mt-3 py-3 rounded-xl flex-row items-center justify-center">
+                        <TouchableOpacity 
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            router.push(`/store-detail?id=${store.id}`);
+                          }}
+                          className="bg-red-700 mt-3 py-3 rounded-xl flex-row items-center justify-center"
+                        >
                           <Text className="text-white font-semibold">Visit Store</Text>
                           <ChevronRight size={16} color="white" style={{ marginLeft: 4 }} />
                         </TouchableOpacity>

@@ -76,12 +76,18 @@ export const userRouter = router({
           }),
         ]);
 
-        return {
+        const result = {
           sc: formatUnits(scBalance, 18),
           uc: formatUnits(ucBalance, 18),
           scRaw: scBalance.toString(),
           ucRaw: ucBalance.toString(),
         };
+
+        console.log(`💰 getTokenBalances for ${input.walletAddress}:`);
+        console.log(`   SC: ${result.sc} (raw: ${result.scRaw})`);
+        console.log(`   UC: ${result.uc} (raw: ${result.ucRaw})`);
+
+        return result;
       } catch (error) {
         console.error('Error fetching balances:', error);
         throw new TRPCError({

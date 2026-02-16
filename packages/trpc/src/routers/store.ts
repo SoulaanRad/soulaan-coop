@@ -970,6 +970,54 @@ export const storeRouter = router({
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
 
+      // Get store with owner info
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        include: {
+          owner: {
+            select: {
+              walletAddress: true,
+            },
+          },
+        },
+      });
+
+      if (!store) {
+        throw new Error('Store not found');
+      }
+
+      if (!store.owner.walletAddress) {
+        throw new Error('Store owner does not have a wallet address');
+      }
+
+      let txHash: string | undefined;
+
+      try {
+        // Import the registry service
+        const { verifyStoreOnChain, unverifyStoreOnChain } = await import('../services/verified-store-registry-service');
+
+        // Call smart contract
+        if (input.verified) {
+          txHash = await verifyStoreOnChain(
+            store.owner.walletAddress,
+            store.category,
+            store.id
+          );
+        } else {
+          txHash = await unverifyStoreOnChain(store.owner.walletAddress);
+        }
+
+        console.log(`✅ On-chain verification ${input.verified ? 'granted' : 'removed'}: ${txHash}`);
+      } catch (error) {
+        console.error('❌ On-chain verification failed:', error);
+        throw new Error(
+          `Failed to ${input.verified ? 'verify' : 'unverify'} store on-chain: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        );
+      }
+
+      // Update database to match on-chain state
       await context.db.store.update({
         where: { id: input.storeId },
         data: {
@@ -980,8 +1028,91 @@ export const storeRouter = router({
 
       return {
         success: true,
-        message: input.verified ? "Store SC verified" : "SC verification removed",
+        message: input.verified ? "Store SC verified on-chain" : "SC verification removed on-chain",
+        txHash,
       };
+    }),
+
+  /**
+   * Batch verify existing SC-verified stores on-chain
+   * Used for migrating existing stores to on-chain registry
+   */
+  batchVerifyStoresOnChain: privateProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100).optional().default(50),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      // Get all SC-verified stores that need to be verified on-chain
+      const stores = await context.db.store.findMany({
+        where: {
+          isScVerified: true,
+        },
+        include: {
+          owner: {
+            select: {
+              walletAddress: true,
+            },
+          },
+        },
+        take: input.limit,
+      });
+
+      if (stores.length === 0) {
+        return {
+          success: true,
+          message: 'No stores to verify',
+          count: 0,
+        };
+      }
+
+      // Filter stores with valid wallet addresses
+      const validStores = stores.filter(s => s.owner.walletAddress);
+
+      if (validStores.length === 0) {
+        return {
+          success: false,
+          message: 'No stores have wallet addresses',
+          count: 0,
+        };
+      }
+
+      try {
+        // Import the registry service
+        const { verifyStoresBatchOnChain } = await import('../services/verified-store-registry-service');
+
+        // Prepare batch data
+        const batchData = validStores.map(store => ({
+          ownerAddress: store.owner.walletAddress!,
+          category: store.category,
+          storeId: store.id,
+        }));
+
+        // Call smart contract batch verify
+        const txHash = await verifyStoresBatchOnChain(batchData);
+
+        console.log(`✅ Batch verified ${validStores.length} stores on-chain: ${txHash}`);
+
+        return {
+          success: true,
+          message: `Successfully verified ${validStores.length} stores on-chain`,
+          count: validStores.length,
+          txHash,
+          stores: validStores.map(s => ({
+            id: s.id,
+            name: s.name,
+            ownerAddress: s.owner.walletAddress,
+          })),
+        };
+      } catch (error) {
+        console.error('❌ Batch verification failed:', error);
+        throw new Error(
+          `Failed to batch verify stores on-chain: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        );
+      }
     }),
 
   /**

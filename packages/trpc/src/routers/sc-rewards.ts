@@ -31,22 +31,34 @@ export const scRewardsRouter = router({
     .query(async ({ ctx, input }) => {
       const context = ctx as Context;
       const walletAddress = (ctx as any).walletAddress as string | undefined;
+      
+      console.log(`🔍 getSCRewards - Looking up user with wallet: ${walletAddress}`);
+      
+      // Use case-insensitive search since addresses may have different casing
       const caller = walletAddress
-        ? await context.db.user.findUnique({
-            where: { walletAddress },
-            select: { id: true },
+        ? await context.db.user.findFirst({
+            where: { 
+              walletAddress: {
+                equals: walletAddress,
+                mode: 'insensitive'
+              }
+            },
+            select: { id: true, walletAddress: true },
           })
         : null;
 
       if (!caller) {
+        console.error(`❌ User not found with wallet address: ${walletAddress}`);
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'Authenticated user not found',
+          message: `Authenticated user not found. Wallet address: ${walletAddress?.slice(0, 10)}...`,
         });
       }
+      
+      console.log(`✅ Found user: ${caller.id} with wallet: ${caller.walletAddress}`);
 
-      const isAdmin = walletAddress
-        ? (await checkAdminStatusWithRole(walletAddress as `0x${string}`)).isAdmin
+      const isAdmin = caller.walletAddress
+        ? (await checkAdminStatusWithRole(caller.walletAddress as `0x${string}`)).isAdmin
         : false;
 
       const where: any = {};

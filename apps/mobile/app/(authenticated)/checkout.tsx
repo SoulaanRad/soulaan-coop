@@ -54,6 +54,9 @@ export default function CheckoutScreen() {
   const total = feeInfo ? feeInfo.total : subtotal;
 
   const hasEnoughBalance = balance >= subtotal;
+  
+  // Calculate estimated SC reward (1% of subtotal for SC-verified stores)
+  const estimatedScReward = store?.isScVerified ? subtotal * 0.01 : 0;
 
   const loadData = useCallback(async () => {
     if (!user?.walletAddress || !storeId) return;
@@ -333,6 +336,37 @@ export default function CheckoutScreen() {
                       Add Payment Method
                     </Text>
                   </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* SC Reward Preview */}
+          {store && (
+            <View className="mt-3">
+              {store.isScVerified ? (
+                <View className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <View className="flex-row items-center">
+                    <BadgeCheck size={18} color="#16A34A" />
+                    <Text className="text-green-700 dark:text-green-400 ml-2 font-semibold">
+                      You&apos;ll earn ~${estimatedScReward.toFixed(2)} SC
+                    </Text>
+                  </View>
+                  <Text className="text-green-600 dark:text-green-500 text-xs mt-1 ml-6">
+                    1% reward on SC-verified store purchases
+                  </Text>
+                </View>
+              ) : (
+                <View className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <View className="flex-row items-center">
+                    <AlertCircle size={18} color="#6B7280" />
+                    <Text className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
+                      This store is not SC-verified
+                    </Text>
+                  </View>
+                  <Text className="text-gray-500 dark:text-gray-500 text-xs mt-1 ml-6">
+                    No SC rewards for this purchase
+                  </Text>
                 </View>
               )}
             </View>

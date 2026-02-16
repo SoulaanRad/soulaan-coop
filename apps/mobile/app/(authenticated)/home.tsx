@@ -110,6 +110,9 @@ export default function HomeScreen() {
       if (currentWalletAddress) {
         try {
           const tokenBalances = await api.getTokenBalances(currentWalletAddress);
+          console.log('📊 Token Balances Response:', tokenBalances);
+          console.log('💰 SC Balance:', tokenBalances.sc);
+          console.log('💰 UC Balance:', tokenBalances.uc);
           setScBalance(tokenBalances.sc);
           setUcBalance(tokenBalances.uc);
         } catch (tokenErr) {
