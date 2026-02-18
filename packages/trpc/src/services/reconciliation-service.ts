@@ -5,11 +5,11 @@
  * Provides alerts and reports for operational monitoring.
  */
 
-import { PrismaClient } from "@soulaan/db";
+import { PrismaClient, Prisma } from "@repo/db";
 import { ethers } from "ethers";
 
 // Reconciliation result types
-interface ReconciliationResult {
+export interface ReconciliationResult {
   timestamp: Date;
   period: string;
   checks: ReconciliationCheck[];
@@ -22,7 +22,7 @@ interface ReconciliationResult {
   alerts: Alert[];
 }
 
-interface ReconciliationCheck {
+export interface ReconciliationCheck {
   name: string;
   status: "PASS" | "WARN" | "FAIL";
   expected: number | string;
@@ -32,7 +32,7 @@ interface ReconciliationCheck {
   message: string;
 }
 
-interface Alert {
+export interface Alert {
   severity: "INFO" | "WARNING" | "CRITICAL";
   category: string;
   message: string;
@@ -59,12 +59,12 @@ async function reconcilePurchases(
     // Count on-chain purchase events
     const onChainPurchases = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         createdAt: {
           gte: startDate,
           lte: endDate,
         },
-        sourceTxHash: {
+        txHash: {
           not: null,
         },
       },
@@ -77,9 +77,7 @@ async function reconcilePurchases(
           gte: startDate,
           lte: endDate,
         },
-        status: {
-          in: ["CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"],
-        },
+        paymentStatus: "COMPLETED",
       },
     });
 
@@ -119,7 +117,7 @@ async function reconcileRewardExecution(
   try {
     const totalPurchases = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -129,7 +127,7 @@ async function reconcileRewardExecution(
 
     const completedRewards = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         status: "COMPLETED",
         createdAt: {
           gte: startDate,
@@ -140,7 +138,7 @@ async function reconcileRewardExecution(
 
     const failedRewards = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         status: "FAILED",
         createdAt: {
           gte: startDate,
@@ -194,7 +192,7 @@ async function checkMissingEvents(
     // Find purchases without reward execution
     const pendingRewards = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         status: "PENDING",
         createdAt: {
           gte: startDate,
@@ -206,7 +204,7 @@ async function checkMissingEvents(
     // Find purchases older than 1 hour still pending
     const stalePending = await db.sCRewardTransaction.count({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         status: "PENDING",
         createdAt: {
           lte: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
@@ -256,7 +254,7 @@ async function reconcileRewardAmounts(
     // Sum of SC rewards from completed transactions
     const rewardRecords = await db.sCRewardTransaction.findMany({
       where: {
-        reason: "STORE_PURCHASE",
+        reason: "STORE_PURCHASE_REWARD",
         status: "COMPLETED",
         createdAt: {
           gte: startDate,
@@ -273,11 +271,22 @@ async function reconcileRewardAmounts(
     let onChainTotal = 0;
 
     for (const record of rewardRecords) {
-      dbTotal += parseFloat(record.amountSC);
+      dbTotal += record.amountSC;
       
-      const metadata = record.metadata as any;
-      if (metadata?.buyerReward) {
-        onChainTotal += parseFloat(metadata.buyerReward);
+      if (record.metadata && typeof record.metadata === 'object') {
+        const metadata = record.metadata as Prisma.JsonObject;
+        const buyerReward = metadata.buyerReward;
+        if (typeof buyerReward === 'string') {
+          onChainTotal += parseFloat(buyerReward);
+        } else if (typeof buyerReward === 'number') {
+          onChainTotal += buyerReward;
+        } else {
+          // Fallback to amountSC if metadata doesn't have buyerReward
+          onChainTotal += record.amountSC;
+        }
+      } else {
+        // Fallback to amountSC if no metadata
+        onChainTotal += record.amountSC;
       }
     }
 

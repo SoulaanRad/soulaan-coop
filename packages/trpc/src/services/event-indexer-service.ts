@@ -6,7 +6,7 @@
  */
 
 import { ethers } from "ethers";
-import { PrismaClient } from "@soulaan/db";
+import { PrismaClient, Prisma } from "@repo/db";
 
 // Event interfaces
 interface VerifiedStorePurchaseEvent {
@@ -43,6 +43,47 @@ interface RewardSkippedEvent {
   transactionHash: string;
   blockNumber: number;
   logIndex: number;
+}
+
+// Metadata type definitions for database storage
+// Using Prisma.JsonObject compatible types
+interface PurchaseEventMetadata extends Record<string, Prisma.JsonValue> {
+  eventId: string;
+  buyer: string;
+  storeOwner: string;
+  amount: string;
+  purchaseId: string;
+  orderRef: string;
+  timestamp: string;
+  blockNumber: number;
+}
+
+interface RewardEventMetadata extends Record<string, Prisma.JsonValue> {
+  eventId: string;
+  buyer: string;
+  storeOwner: string;
+  amount: string;
+  purchaseId: string;
+  orderRef: string;
+  timestamp: string;
+  blockNumber: number;
+  rewardEventId: string;
+  buyerReward: string;
+  storeReward: string;
+  policyKey: string;
+  rewardBlockNumber: number;
+}
+
+interface NewRewardMetadata extends Record<string, Prisma.JsonValue> {
+  rewardEventId: string;
+  buyer: string;
+  storeOwner: string;
+  purchaseAmount: string;
+  buyerReward: string;
+  storeReward: string;
+  policyKey: string;
+  purchaseId: string;
+  rewardBlockNumber: number;
 }
 
 // Contract ABIs for event parsing
@@ -143,6 +184,7 @@ export async function indexPurchaseEvents(
     let indexed = 0;
 
     for (const event of events) {
+      if (!('args' in event)) continue;
       const args = event.args;
       if (!args) continue;
 
@@ -155,7 +197,7 @@ export async function indexPurchaseEvents(
 
       // Check if already indexed
       const existing = await db.sCRewardTransaction.findUnique({
-        where: { sourceTxHash: event.transactionHash },
+        where: { txHash: event.transactionHash },
       });
 
       if (existing) {
@@ -167,10 +209,10 @@ export async function indexPurchaseEvents(
       await db.sCRewardTransaction.create({
         data: {
           userId: "", // Will be linked by wallet address lookup
-          amountSC: ethers.formatEther(args.amount),
-          reason: "STORE_PURCHASE",
+          amountSC: parseFloat(ethers.formatEther(args.amount)),
+          reason: "STORE_PURCHASE_REWARD",
           status: "PENDING", // Will be updated when reward event is indexed
-          sourceTxHash: event.transactionHash,
+          txHash: event.transactionHash,
           metadata: {
             eventId,
             buyer: args.buyer,
@@ -220,6 +262,7 @@ export async function indexRewardEvents(
     let indexed = 0;
 
     for (const event of events) {
+      if (!('args' in event)) continue;
       const args = event.args;
       if (!args) continue;
 
@@ -230,7 +273,7 @@ export async function indexRewardEvents(
         event.index
       );
 
-      // Find corresponding purchase record by purchaseId
+      // Find corresponding purchase record by purchaseId in metadata
       const purchaseRecord = await db.sCRewardTransaction.findFirst({
         where: {
           metadata: {
@@ -242,44 +285,50 @@ export async function indexRewardEvents(
 
       if (purchaseRecord) {
         // Update existing record with reward execution details
+        const existingMetadata = (purchaseRecord.metadata as Prisma.JsonObject) || {};
+        const updatedMetadata: Prisma.JsonObject = {
+          ...existingMetadata,
+          rewardEventId: eventId,
+          buyerReward: ethers.formatEther(args.buyerReward),
+          storeReward: ethers.formatEther(args.storeReward),
+          policyKey: args.policyKey,
+          rewardBlockNumber: event.blockNumber,
+        };
+        
         await db.sCRewardTransaction.update({
           where: { id: purchaseRecord.id },
           data: {
             status: "COMPLETED",
-            executionTxHash: event.transactionHash,
-            amountSC: ethers.formatEther(args.buyerReward),
-            metadata: {
-              ...(purchaseRecord.metadata as any),
-              rewardEventId: eventId,
-              buyerReward: ethers.formatEther(args.buyerReward),
-              storeReward: ethers.formatEther(args.storeReward),
-              policyKey: args.policyKey,
-              rewardBlockNumber: event.blockNumber,
-            },
+            amountSC: parseFloat(ethers.formatEther(args.buyerReward)),
+            completedAt: new Date(),
+            metadata: updatedMetadata,
           },
         });
 
         console.log(`   ✅ Updated reward: ${ethers.formatEther(args.buyerReward)} SC`);
       } else {
         // Create new record if purchase wasn't indexed yet
+        const newMetadata: Prisma.JsonObject = {
+          rewardEventId: eventId,
+          buyer: args.buyer,
+          storeOwner: args.storeOwner,
+          purchaseAmount: ethers.formatEther(args.purchaseAmount),
+          buyerReward: ethers.formatEther(args.buyerReward),
+          storeReward: ethers.formatEther(args.storeReward),
+          policyKey: args.policyKey,
+          purchaseId: args.purchaseId,
+          rewardBlockNumber: event.blockNumber,
+        };
+        
         await db.sCRewardTransaction.create({
           data: {
             userId: "", // Will be linked by wallet address lookup
-            amountSC: ethers.formatEther(args.buyerReward),
-            reason: "STORE_PURCHASE",
+            amountSC: parseFloat(ethers.formatEther(args.buyerReward)),
+            reason: "STORE_PURCHASE_REWARD",
             status: "COMPLETED",
-            executionTxHash: event.transactionHash,
-            metadata: {
-              rewardEventId: eventId,
-              buyer: args.buyer,
-              storeOwner: args.storeOwner,
-              purchaseAmount: ethers.formatEther(args.purchaseAmount),
-              buyerReward: ethers.formatEther(args.buyerReward),
-              storeReward: ethers.formatEther(args.storeReward),
-              policyKey: args.policyKey,
-              purchaseId: args.purchaseId,
-              rewardBlockNumber: event.blockNumber,
-            },
+            txHash: event.transactionHash,
+            completedAt: new Date(),
+            metadata: newMetadata,
           },
         });
 
@@ -321,6 +370,7 @@ export async function indexSkippedRewardEvents(
     let indexed = 0;
 
     for (const event of events) {
+      if (!('args' in event)) continue;
       const args = event.args;
       if (!args) continue;
 
@@ -336,15 +386,20 @@ export async function indexSkippedRewardEvents(
 
       if (purchaseRecord) {
         // Update with skip reason
+        const existingMetadata = (purchaseRecord.metadata as Prisma.JsonObject) || {};
+        const updatedMetadata: Prisma.JsonObject = {
+          ...existingMetadata,
+          skipReason: args.reason,
+          skipBlockNumber: event.blockNumber,
+        };
+        
         await db.sCRewardTransaction.update({
           where: { id: purchaseRecord.id },
           data: {
             status: "FAILED",
-            metadata: {
-              ...(purchaseRecord.metadata as any),
-              skipReason: args.reason,
-              skipBlockNumber: event.blockNumber,
-            },
+            failureReason: args.reason,
+            failedAt: new Date(),
+            metadata: updatedMetadata,
           },
         });
 
@@ -375,8 +430,7 @@ export async function getLastIndexedBlock(db: PrismaClient): Promise<number> {
     const latestEvent = await db.sCRewardTransaction.findFirst({
       where: {
         metadata: {
-          path: ["blockNumber"],
-          not: null,
+          not: Prisma.DbNull,
         },
       },
       orderBy: {
@@ -385,10 +439,12 @@ export async function getLastIndexedBlock(db: PrismaClient): Promise<number> {
     });
 
     if (latestEvent && latestEvent.metadata) {
-      const metadata = latestEvent.metadata as any;
+      const metadata = latestEvent.metadata as Prisma.JsonObject;
       const blockNumber = metadata.blockNumber || metadata.rewardBlockNumber;
-      if (blockNumber) {
-        return parseInt(blockNumber.toString());
+      if (typeof blockNumber === 'number') {
+        return blockNumber;
+      } else if (typeof blockNumber === 'string') {
+        return parseInt(blockNumber, 10);
       }
     }
 

@@ -3,7 +3,7 @@ packages:
   - packages/*
   - tooling/*
 catalog:
-  eslint: ^9.28.0
+  eslint: 9.28.0
   prettier: ^3.7.4
   "@trpc/react-query": ^11.8.1
   "vitest": "^4.0.15"

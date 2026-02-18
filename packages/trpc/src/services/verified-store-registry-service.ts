@@ -351,5 +351,5 @@ export async function getAllVerifiedStoresOnChain(): Promise<string[]> {
     functionName: 'getVerifiedStores',
   });
 
-  return addresses;
+  return [...addresses] as string[];
 }

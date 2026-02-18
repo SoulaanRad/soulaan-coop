@@ -1001,6 +1001,9 @@ model SCRewardTransaction {
   relatedOrderId   String?
   relatedOrder     StoreOrder? @relation(fields: [relatedOrderId], references: [id])
   
+  // On-chain event metadata (for trustless system auditability)
+  metadata      Json?
+  
   // Timestamps
   createdAt     DateTime @default(now())
   completedAt   DateTime?
