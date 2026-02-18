@@ -228,7 +228,7 @@ export default function NotificationsScreen() {
             No notifications yet
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-center">
-            You'll see order updates, payment confirmations, and more here.
+            You&apos;ll see order updates, payment confirmations, and more here.
           </Text>
         </View>
       ) : (

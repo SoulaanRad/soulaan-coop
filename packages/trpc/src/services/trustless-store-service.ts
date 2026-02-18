@@ -8,6 +8,18 @@
 import { ethers } from "ethers";
 import { TRPCError } from "@trpc/server";
 
+// Typed contract method interfaces (for type-safe contract calls)
+interface UnityCoinMethods {
+  balanceOf(account: string): Promise<bigint>;
+  allowance(owner: string, spender: string): Promise<bigint>;
+  approve(spender: string, amount: bigint): Promise<ethers.ContractTransactionResponse>;
+  transfer(to: string, amount: bigint): Promise<ethers.ContractTransactionResponse>;
+}
+
+interface StorePaymentRouterMethods {
+  payVerifiedStore(storeOwner: string, amount: bigint, orderRef: string): Promise<ethers.ContractTransactionResponse>;
+}
+
 // Contract ABIs (minimal interfaces)
 const STORE_PAYMENT_ROUTER_ABI = [
   "function payVerifiedStore(address storeOwner, uint256 amount, string calldata orderRef) external",
@@ -201,7 +213,7 @@ export async function payVerifiedStore({
   try {
     initializeContracts();
 
-    if (!provider || !routerContract || !ucContract) {
+    if (!provider || !routerContract || !ucContract || !STORE_PAYMENT_ROUTER_ADDRESS) {
       throw new Error("Contracts not initialized. Check environment variables.");
     }
 
@@ -227,7 +239,7 @@ export async function payVerifiedStore({
     }
 
     // Check buyer's UC balance
-    const ucContractWithBuyer = ucContract.connect(buyerSigner);
+    const ucContractWithBuyer = ucContract.connect(buyerSigner) as unknown as UnityCoinMethods;
     const balance = await ucContractWithBuyer.balanceOf(buyerWallet);
     
     if (balance < amountWei) {
@@ -249,12 +261,19 @@ export async function payVerifiedStore({
 
     // Execute payment through router
     console.log("   Executing payment through router...");
-    const routerWithBuyer = routerContract.connect(buyerSigner);
+    const routerWithBuyer = routerContract.connect(buyerSigner) as unknown as StorePaymentRouterMethods;
     const tx = await routerWithBuyer.payVerifiedStore(storeOwnerWallet, amountWei, orderRef);
     
     console.log("   ⏳ Waiting for transaction confirmation...");
     const receipt = await tx.wait();
     
+    if (!receipt) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Transaction receipt not available",
+      });
+    }
+
     console.log("   ✅ Payment complete!");
     console.log("   Tx Hash:", receipt.hash);
     console.log("   Block:", receipt.blockNumber);
@@ -327,9 +346,13 @@ export async function transferUCPersonal({
       throw new Error("Contracts not initialized. Check environment variables.");
     }
 
+    if (!STORE_PAYMENT_ROUTER_ADDRESS) {
+      throw new Error("STORE_PAYMENT_ROUTER_ADDRESS not configured");
+    }
+
     // Create sender signer
     const senderSigner = new ethers.Wallet(senderPrivateKey, provider);
-    const ucContractWithSender = ucContract.connect(senderSigner);
+    const ucContractWithSender = ucContract.connect(senderSigner) as unknown as UnityCoinMethods;
 
     // Convert amount to wei
     const amountWei = ethers.parseEther(amountUC);
@@ -351,6 +374,13 @@ export async function transferUCPersonal({
     // Execute transfer
     const tx = await ucContractWithSender.transfer(recipientWallet, amountWei);
     const receipt = await tx.wait();
+
+    if (!receipt) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Transaction receipt not available",
+      });
+    }
 
     console.log("   ✅ Transfer complete!");
     console.log("   Tx Hash:", receipt.hash);

@@ -33,12 +33,12 @@ interface Order {
     name: string;
     imageUrl: string | null;
   };
-  items: Array<{
+  items: {
     productName: string;
     productImage: string | null;
     quantity: number;
     priceUSD: number;
-  }>;
+  }[];
   createdAt: string;
 }
 

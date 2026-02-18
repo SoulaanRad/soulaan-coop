@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { Context } from "../context.js";
+import { Context, AuthenticatedContext } from "../context.js";
 import { authenticatedProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { checkAdminStatusWithRole } from "../services/admin-verification.js";
@@ -30,7 +30,7 @@ export const scRewardsRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string | undefined;
+      const { walletAddress } = ctx as AuthenticatedContext;
       
       console.log(`🔍 getSCRewards - Looking up user with wallet: ${walletAddress}`);
       

@@ -62,7 +62,7 @@ export default function StoreDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [productCategories, setProductCategories] = useState<{ key: string; label: string }[]>([]);
 
   const handleAddToCart = (product: ProductData) => {
     if (!store) return;

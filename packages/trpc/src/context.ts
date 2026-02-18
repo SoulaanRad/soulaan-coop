@@ -12,3 +12,10 @@ export const createContext = ({ req, res }: CreateExpressContextOptions) => ({
 });
 
 export type Context = ReturnType<typeof createContext>;
+
+/**
+ * Authenticated context - includes walletAddress from the authenticated middleware
+ */
+export type AuthenticatedContext = Context & {
+  walletAddress: string;
+};

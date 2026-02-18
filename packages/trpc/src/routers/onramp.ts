@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { Context } from "../context.js";
+import { Context, AuthenticatedContext } from "../context.js";
 import { privateProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { paymentService } from "../services/payment/index.js";
@@ -61,7 +61,7 @@ export const onrampRouter = router({
 
       try {
         // Get wallet address from authenticated context
-        const walletAddress = (ctx as any).walletAddress as string;
+        const { walletAddress } = ctx as AuthenticatedContext;
         console.log('👛 Wallet address:', walletAddress);
 
         // Look up user by wallet address
@@ -143,7 +143,7 @@ export const onrampRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       console.log('\n🔷 fundWithSavedCard - START');
       console.log('💰 Amount USD:', input.amountUSD);
@@ -335,7 +335,7 @@ export const onrampRouter = router({
 
       try {
         // Get wallet address from authenticated context
-        const walletAddress = (ctx as any).walletAddress as string;
+        const { walletAddress } = ctx as AuthenticatedContext;
 
         // Look up user by wallet address
         const user = await context.db.user.findUnique({

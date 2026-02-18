@@ -94,7 +94,7 @@ export default function StoresScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [myStore, setMyStore] = useState<any>(null);
-  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
 
   const handleAddToCart = (product: ProductData) => {
     addItem(

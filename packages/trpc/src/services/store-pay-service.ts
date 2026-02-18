@@ -3,7 +3,7 @@
  * Handles store payment requests, QR codes, and quick payments
  */
 
-import { db } from "@repo/db";
+import { db, PaymentRequestStatus } from "@repo/db";
 import { sendToSoulaanUser } from "./p2p-service.js";
 import { awardStoreTransactionReward } from "./wallet-service.js";
 
@@ -505,14 +505,14 @@ export interface PaymentRequestHistoryItem {
 
 export async function getStorePaymentRequests(
   storeId: string,
-  status?: string,
+  status?: PaymentRequestStatus,
   limit: number = 50,
   cursor?: string
 ): Promise<{ requests: PaymentRequestHistoryItem[]; nextCursor: string | null }> {
   const requests = await db.storePaymentRequest.findMany({
     where: {
       storeId,
-      ...(status ? { status: status as any } : {}),
+      ...(status ? { status } : {}),
     },
     orderBy: { createdAt: 'desc' },
     take: limit + 1,

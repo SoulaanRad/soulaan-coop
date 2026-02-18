@@ -27,7 +27,7 @@ export default function AddProductScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string; isAdminOnly: boolean }>>([]);
+  const [productCategories, setProductCategories] = useState<{ key: string; label: string; isAdminOnly: boolean }[]>([]);
 
   // Form data
   const [formData, setFormData] = useState({

@@ -31,7 +31,7 @@ export default function EditProductScreen() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [productCategories, setProductCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [productCategories, setProductCategories] = useState<{ key: string; label: string }[]>([]);
 
   // Form data
   const [formData, setFormData] = useState({

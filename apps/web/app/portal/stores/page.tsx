@@ -565,7 +565,7 @@ function FeaturedProductsTab() {
                     <span className="text-sm text-gray-500">({store.productCount} products)</span>
                   </div>
                   {store.productCount > 0 && (
-                    <StoreProductsForFeaturing storeId={store.id} onToggle={() => {}} />
+                    <StoreProductsForFeaturing storeId={store.id} onToggle={() => { /* empty */ }} />
                   )}
                 </div>
               ))}

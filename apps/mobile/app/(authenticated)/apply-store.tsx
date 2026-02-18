@@ -46,7 +46,7 @@ export default function ApplyStoreScreen() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showRevenuePicker, setShowRevenuePicker] = useState(false);
   const [showCommitmentPicker, setShowCommitmentPicker] = useState(false);
-  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -451,7 +451,7 @@ export default function ApplyStoreScreen() {
           Community Commitment *
         </Text>
         <Text className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          Select the percentage of profits you'll contribute back to the coop
+          Select the percentage of profits you&apos;ll contribute back to the coop
         </Text>
         <TouchableOpacity
           onPress={() => setShowCommitmentPicker(!showCommitmentPicker)}
@@ -547,7 +547,7 @@ export default function ApplyStoreScreen() {
           onChangeText={(v) => updateField('websiteUrl', v)}
         />
         <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          We'll add https:// if needed
+          We&apos;ll add https:// if needed
         </Text>
       </View>
     </View>

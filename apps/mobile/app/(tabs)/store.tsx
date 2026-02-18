@@ -28,7 +28,7 @@ export default function StoreScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
 
   // Load store categories on mount
   useEffect(() => {

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { StoreCategory, ProductCategory, Prisma } from "@repo/db";
 
-import { Context } from "../context.js";
+import { Context, AuthenticatedContext } from "../context.js";
 import { publicProcedure, privateProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { chargePaymentMethod } from "../services/stripe-customer.js";
@@ -329,7 +330,7 @@ export const storeRouter = router({
   getMyStore: authenticatedProcedure
     .query(async ({ ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user by wallet address
       const user = await context.db.user.findUnique({
@@ -427,7 +428,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user by wallet address
       const user = await context.db.user.findUnique({
@@ -469,7 +470,7 @@ export const storeRouter = router({
             ownerId: user.id,
             name: input.storeName,
             description: input.storeDescription,
-            category: input.category as any,
+            category: input.category as StoreCategory,
             communityCommitmentPercent: input.communityCommitmentPercent,
             status: "PENDING",
           },
@@ -517,7 +518,7 @@ export const storeRouter = router({
     }).optional())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user's store
       const user = await context.db.user.findUnique({
@@ -589,7 +590,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user's store
       const user = await context.db.user.findUnique({
@@ -639,7 +640,7 @@ export const storeRouter = router({
           storeId: store.id,
           name: input.name,
           description: input.description,
-          category: input.category as any,
+          category: input.category as ProductCategory,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,
@@ -682,7 +683,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user's store
       const user = await context.db.user.findUnique({
@@ -720,11 +721,14 @@ export const storeRouter = router({
         });
       }
 
-      const { productId, ...updateData } = input;
+      const { productId, category, ...updateData } = input;
 
       const updatedProduct = await context.db.product.update({
         where: { id: productId },
-        data: updateData as any,
+        data: {
+          ...updateData,
+          ...(category && { category: category as ProductCategory }),
+        } as Prisma.ProductUpdateInput,
       });
 
       return {
@@ -745,7 +749,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Find user's store
       const user = await context.db.user.findUnique({
@@ -1432,7 +1436,7 @@ export const storeRouter = router({
           ownerId: input.ownerId,
           name: input.name,
           description: input.description,
-          category: input.category as any,
+          category: input.category as StoreCategory,
           imageUrl: input.imageUrl,
           bannerUrl: input.bannerUrl,
           address: input.address,
@@ -1501,7 +1505,7 @@ export const storeRouter = router({
           storeId: input.storeId,
           name: input.name,
           description: input.description,
-          category: input.category as any,
+          category: input.category as ProductCategory,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,
@@ -1547,7 +1551,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       console.log('\n🛒 createOrder - START');
       console.log('🏪 Store ID:', input.storeId);
@@ -1809,7 +1813,7 @@ export const storeRouter = router({
     }).optional())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
       const { limit, cursor } = input || { limit: 20 };
 
       const buyer = await context.db.user.findUnique({
@@ -1882,7 +1886,7 @@ export const storeRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
@@ -1985,7 +1989,7 @@ export const storeRouter = router({
     }).optional())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
       const { status, limit, cursor } = input || { limit: 20 };
 
       const user = await context.db.user.findUnique({
@@ -2061,7 +2065,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },

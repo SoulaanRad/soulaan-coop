@@ -52,7 +52,7 @@ export default function MyStoreScreen() {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [storeCategories, setStoreCategories] = useState<Array<{ key: string; label: string }>>([]);
+  const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
 
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
@@ -192,7 +192,7 @@ export default function MyStoreScreen() {
             No Store Yet
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-center mt-2">
-            You haven't applied to become a store yet.
+            You haven&apos;t applied to become a store yet.
             Apply now to start selling on Soulaan!
           </Text>
           <TouchableOpacity
@@ -471,8 +471,8 @@ export default function MyStoreScreen() {
                 What happens next?
               </Text>
               <Text className="text-amber-700 dark:text-amber-300 text-sm text-center mt-2">
-                Once your application is approved, you'll be able to add products
-                and start selling on the Soulaan marketplace. We'll notify you by email
+                Once your application is approved, you&apos;ll be able to add products
+                and start selling on the Soulaan marketplace. We&apos;ll notify you by email
                 when your store is ready!
               </Text>
             </View>

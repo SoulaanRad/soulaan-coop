@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
-import type { Context } from "../context.js";
+import type { Context, AuthenticatedContext } from "../context.js";
 
 export const notificationRouter = router({
   /**
@@ -16,7 +16,7 @@ export const notificationRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
@@ -74,7 +74,7 @@ export const notificationRouter = router({
   getUnreadCount: authenticatedProcedure
     .query(async ({ ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
@@ -104,7 +104,7 @@ export const notificationRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
@@ -135,7 +135,7 @@ export const notificationRouter = router({
   markAllAsRead: authenticatedProcedure
     .mutation(async ({ ctx }) => {
       const context = ctx as Context;
-      const walletAddress = (ctx as any).walletAddress as string;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
