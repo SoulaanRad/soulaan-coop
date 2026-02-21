@@ -71,6 +71,7 @@ export const ProposalInputZ = z.object({
   }).optional().nullable(), // Make proposer optional
   // All other fields are optional and can be inferred by AI
   region: RegionZ.optional().nullable(),
+  coopId: z.string().optional(),
 });
 
 // ── OUTPUT ────────────────────────────────────────────
@@ -162,6 +163,90 @@ export const ProposalOutputZ = z.object({
 });
 
 
+// ── Coop Config Schemas ──────────────────────────────────────────────────────
+
+export const GoalDefinitionZ = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  weight: z.number().min(0).max(1),
+  description: z.string().optional(),
+});
+
+export const ProposalCategoryConfigZ = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  isActive: z.boolean(),
+});
+
+export const ScoringWeightsZ = z.object({
+  selfReliance: z.number().min(0).max(1),
+  communityJobs: z.number().min(0).max(1),
+  assetRetention: z.number().min(0).max(1),
+  transparency: z.number().min(0).max(1),
+  culturalValue: z.number().min(0).max(1),
+});
+
+export const CoopConfigInputZ = z.object({
+  coopId: z.string().min(1),
+  charterText: z.string().min(10).optional(),
+  goalDefinitions: z.array(GoalDefinitionZ).optional(),
+  quorumPercent: z.number().min(0).max(100).optional(),
+  approvalThresholdPercent: z.number().min(0).max(100).optional(),
+  votingWindowDays: z.number().int().min(1).max(90).optional(),
+  scVotingCapPercent: z.number().min(0).max(100).optional(),
+  proposalCategories: z.array(ProposalCategoryConfigZ).optional(),
+  sectorExclusions: z.array(z.string()).optional(),
+  minScBalanceToSubmit: z.number().min(0).optional(),
+  scoringWeights: ScoringWeightsZ.optional(),
+  reason: z.string().min(3).max(500),
+});
+
+export const CoopConfigOutputZ = z.object({
+  id: z.string(),
+  coopId: z.string(),
+  version: z.number(),
+  isActive: z.boolean(),
+  charterText: z.string(),
+  goalDefinitions: z.array(GoalDefinitionZ),
+  quorumPercent: z.number(),
+  approvalThresholdPercent: z.number(),
+  votingWindowDays: z.number(),
+  scVotingCapPercent: z.number(),
+  proposalCategories: z.array(ProposalCategoryConfigZ),
+  sectorExclusions: z.array(z.string()),
+  minScBalanceToSubmit: z.number(),
+  scoringWeights: ScoringWeightsZ,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  createdBy: z.string(),
+});
+
+// ── Comment Schemas ──────────────────────────────────────────────────────
+
+export const CommentAlignmentZ = z.enum(["ALIGNED", "NEUTRAL", "MISALIGNED"]);
+
+export const CommentInputZ = z.object({
+  proposalId: z.string().min(1),
+  content: z.string().min(5).max(5000),
+});
+
+export const CommentAIEvaluationZ = z.object({
+  alignment: CommentAlignmentZ,
+  score: z.number().min(0).max(1),
+  analysis: z.string().min(1),
+  goalsImpacted: z.array(z.string()),
+});
+
+export const CommentOutputZ = z.object({
+  id: z.string(),
+  proposalId: z.string(),
+  authorWallet: z.string(),
+  authorName: z.string().optional().nullable(),
+  content: z.string(),
+  createdAt: z.string(),
+  aiEvaluation: CommentAIEvaluationZ.optional().nullable(),
+});
+
 // ── tiny helper: build output from input + computed values ────────────────────
 export function buildOutput(params: {
   id: string;
@@ -214,3 +299,12 @@ export type Goals = z.infer<typeof GoalsZ>;
 export type Alternative = z.infer<typeof AlternativeZ>;
 export type Decision = z.infer<typeof DecisionZ>;
 export type MissingData = z.infer<typeof MissingDataZ>;
+export type GoalDefinition = z.infer<typeof GoalDefinitionZ>;
+export type ProposalCategoryConfig = z.infer<typeof ProposalCategoryConfigZ>;
+export type ScoringWeights = z.infer<typeof ScoringWeightsZ>;
+export type CoopConfigInput = z.infer<typeof CoopConfigInputZ>;
+export type CoopConfigOutput = z.infer<typeof CoopConfigOutputZ>;
+export type CommentAlignment = z.infer<typeof CommentAlignmentZ>;
+export type CommentInput = z.infer<typeof CommentInputZ>;
+export type CommentAIEvaluation = z.infer<typeof CommentAIEvaluationZ>;
+export type CommentOutput = z.infer<typeof CommentOutputZ>;

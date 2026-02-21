@@ -14,6 +14,20 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 /**
+ * Config data from CoopConfig DB record, passed to engine methods.
+ */
+export interface CoopConfigData {
+  charterText: string;
+  goalDefinitions: { key: string; label: string; weight: number; description?: string }[];
+  scoringWeights: Record<string, number>;
+  proposalCategories: { key: string; label: string; isActive: boolean }[];
+  sectorExclusions: string[];
+  quorumPercent: number;
+  approvalThresholdPercent: number;
+  votingWindowDays: number;
+}
+
+/**
  * ProposalEngine: Multi-agent orchestration using @openai/agents
  *
  * Agents:
@@ -26,30 +40,42 @@ import path from "node:path";
  * - Decision Agent → advance/revise/block based on dominance and missing data
  * - Compliance checks → local rules + charter read
  */
+function normalizeCurrency(val: unknown): "UC" | "USD" | "mixed" {
+  const s = String(val).toUpperCase();
+  if (s === "UC") return "UC";
+  if (s === "MIXED") return "mixed";
+  return "USD";
+}
+
 export class ProposalEngine {
   private readonly version = "proposal-engine@agents-1.0.0";
 
-  async processProposal(input: ProposalInput): Promise<ProposalOutput> {
+  async processProposal(input: ProposalInput, config?: CoopConfigData): Promise<ProposalOutput> {
     // Validate input
     const validated = ProposalInputZ.parse(input);
 
+    // Build category list from config or use defaults
+    const categoryKeys = config?.proposalCategories
+      ?.filter(c => c.isActive)
+      .map(c => c.key) ?? undefined;
+
     // Extract all structured fields from the text input using AI agents
-    const extractedFields = await this.runExtractionAgent(validated);
+    const extractedFields = await this.runExtractionAgent(validated, config);
 
     const [scores, governance, _kpis, checks] = await Promise.all([
-      this.runImpactAgent(validated, extractedFields),
-      this.runGovernanceAgent(validated, extractedFields),
+      this.runImpactAgent(validated, extractedFields, config),
+      this.runGovernanceAgent(validated, extractedFields, config),
       this.runKPIAgent(validated, extractedFields),
-      this.runComplianceChecks(validated, extractedFields),
+      this.runComplianceChecks(validated, extractedFields, config),
     ]);
 
     // V0.2: Compute charter goal scores and run new agents
-    const goalScores = this.estimateGoals(extractedFields);
+    const goalScores = this.estimateGoals(extractedFields, config);
     const [alternatives, missing_data] = await Promise.all([
-      this.runAlternativeAgent(extractedFields),
+      this.runAlternativeAgent(extractedFields, config),
       this.runMissingDataAgent(extractedFields),
     ]);
-    
+
     const { decision, reasons, bestAlt } = this.decideWithAlternatives(goalScores, alternatives, missing_data);
     const status = this.statusFromDecision(decision);
 
@@ -82,19 +108,78 @@ export class ProposalEngine {
       decisionReasons: reasons,
       missing_data,
     };
-    
+
     return ProposalOutputZ.parse(enhancedOutput);
+  }
+
+  /**
+   * Evaluate a comment's alignment with charter goals.
+   */
+  async evaluateComment(
+    commentText: string,
+    proposalContext: { title: string; summary: string; category: string },
+    config?: CoopConfigData,
+  ): Promise<{ alignment: "ALIGNED" | "NEUTRAL" | "MISALIGNED"; score: number; analysis: string; goalsImpacted: string[] }> {
+    const charterSummary = config?.charterText
+      ? config.charterText.substring(0, 2000)
+      : await this.readCharter().then(t => t.substring(0, 2000));
+
+    const goalKeys = config?.goalDefinitions?.map(g => g.key)
+      ?? ["LeakageReduction", "MemberBenefit", "EquityGrowth", "LocalJobs", "CommunityVitality", "Resilience"];
+
+    const EvalSchema = z.object({
+      alignment: z.enum(["ALIGNED", "NEUTRAL", "MISALIGNED"]),
+      score: z.number().min(0).max(1),
+      analysis: z.string().min(5),
+      goalsImpacted: z.array(z.string()),
+    });
+
+    const agent = new Agent({
+      name: "Comment Evaluation Agent",
+      instructions: [
+        "Evaluate whether a community comment on a proposal aligns with the co-op charter goals.",
+        "Charter summary:",
+        charterSummary,
+        "",
+        `Valid goal keys: ${goalKeys.join(", ")}`,
+        "",
+        "Score 0-1 where 1 = perfectly aligned with charter goals.",
+        "ALIGNED = score >= 0.6, NEUTRAL = 0.3-0.6, MISALIGNED = < 0.3.",
+        "goalsImpacted should list only goal keys that the comment touches.",
+        "Return ONLY valid JSON matching the schema.",
+      ].join("\n"),
+      model: "gpt-4.1-mini",
+      outputType: EvalSchema,
+    });
+
+    const result = await run(agent, [
+      `Proposal: ${proposalContext.title} — ${proposalContext.summary}`,
+      `Category: ${proposalContext.category}`,
+      `Comment: ${commentText}`,
+    ].join("\n"));
+
+    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    const score = this.clamp01(out.score ?? 0.5);
+    const alignment = out.alignment ?? (score >= 0.6 ? "ALIGNED" : score >= 0.3 ? "NEUTRAL" : "MISALIGNED");
+    const goalsImpacted = (out.goalsImpacted ?? []).filter((g: string) => goalKeys.includes(g));
+
+    return {
+      alignment,
+      score,
+      analysis: out.analysis || "No analysis available.",
+      goalsImpacted,
+    };
   }
 
   // ── Helper Functions ──────────────────────────────────────────────────────
 
-  private estimateGoals(extracted: any): Goals {
+  private estimateGoals(extracted: any, config?: CoopConfigData): Goals {
     // Estimate charter goal scores based on extracted fields
     const budget = extracted.budget?.amountRequested || 10000;
     const category = extracted.category || "other";
-    
+
     // Base scores with category-specific adjustments
-    const baseScores = {
+    const baseScores: Record<string, number> = {
       LeakageReduction: 0.5,
       MemberBenefit: 0.5,
       EquityGrowth: 0.4,
@@ -105,28 +190,28 @@ export class ProposalEngine {
 
     // Category bonuses
     if (category === "infrastructure") {
-      baseScores.Resilience += 0.2;
-      baseScores.CommunityVitality += 0.1;
+      baseScores.Resilience = (baseScores.Resilience ?? 0) + 0.2;
+      baseScores.CommunityVitality = (baseScores.CommunityVitality ?? 0) + 0.1;
     } else if (category === "business_funding") {
-      baseScores.LeakageReduction += 0.2;
-      baseScores.LocalJobs += 0.2;
-      baseScores.MemberBenefit += 0.1;
+      baseScores.LeakageReduction = (baseScores.LeakageReduction ?? 0) + 0.2;
+      baseScores.LocalJobs = (baseScores.LocalJobs ?? 0) + 0.2;
+      baseScores.MemberBenefit = (baseScores.MemberBenefit ?? 0) + 0.1;
     } else if (category === "transport") {
-      baseScores.CommunityVitality += 0.2;
-      baseScores.MemberBenefit += 0.1;
+      baseScores.CommunityVitality = (baseScores.CommunityVitality ?? 0) + 0.2;
+      baseScores.MemberBenefit = (baseScores.MemberBenefit ?? 0) + 0.1;
     }
 
     // Budget impact (larger budgets can have more impact but also more risk)
     const budgetFactor = Math.min(budget / 100000, 2); // Cap at 2x for $100k+
-    (Object.keys(baseScores) as (keyof typeof baseScores)[]).forEach(key => {
+    for (const key of Object.keys(baseScores)) {
       baseScores[key] = Math.min(
-        baseScores[key] * (0.8 + budgetFactor * 0.2), 
+        (baseScores[key] ?? 0) * (0.8 + budgetFactor * 0.2),
         1.0
       );
-    });
+    }
 
-    // Calculate composite as weighted average
-    const weights = {
+    // Use config goal definitions for weights if provided, otherwise use defaults
+    const defaultWeights: Record<string, number> = {
       LeakageReduction: 0.25,
       MemberBenefit: 0.20,
       EquityGrowth: 0.15,
@@ -135,19 +220,35 @@ export class ProposalEngine {
       Resilience: 0.10,
     };
 
-    const composite = (Object.entries(weights) as [keyof typeof baseScores, number][]).reduce((sum, [key, weight]) => {
-      return sum + baseScores[key] * weight;
-    }, 0);
+    const weights: Record<string, number> = {};
+    if (config?.goalDefinitions && config.goalDefinitions.length > 0) {
+      for (const gd of config.goalDefinitions) {
+        weights[gd.key] = gd.weight;
+      }
+    } else {
+      Object.assign(weights, defaultWeights);
+    }
+
+    // Calculate composite as weighted average
+    let composite = 0;
+    for (const [key, weight] of Object.entries(weights)) {
+      composite += (baseScores[key] ?? 0) * weight;
+    }
 
     return {
-      ...baseScores,
+      LeakageReduction: baseScores.LeakageReduction ?? 0,
+      MemberBenefit: baseScores.MemberBenefit ?? 0,
+      EquityGrowth: baseScores.EquityGrowth ?? 0,
+      LocalJobs: baseScores.LocalJobs ?? 0,
+      CommunityVitality: baseScores.CommunityVitality ?? 0,
+      Resilience: baseScores.Resilience ?? 0,
       composite: Math.min(Math.max(composite, 0), 1)
     };
   }
 
   private applyChangesShallow(original: any, changes: {field: string, from?: any, to: any}[]): any {
     const result = { ...original };
-    
+
     changes.forEach(change => {
       const parts = change.field.split('.');
       if (parts.length === 1 && parts[0]) {
@@ -156,15 +257,14 @@ export class ProposalEngine {
         if (!result[parts[0]]) result[parts[0]] = {};
         result[parts[0]] = { ...result[parts[0]], [parts[1]]: change.to };
       }
-      // Could extend for deeper nesting if needed
     });
-    
+
     return result;
   }
 
   // ── Agents ────────────────────────────────────────────────────────────
 
-  async runExtractionAgent(input: ProposalInput): Promise<{
+  async runExtractionAgent(input: ProposalInput, config?: CoopConfigData): Promise<{
     title: string;
     summary: string;
     proposer: { wallet: string; role: "member" | "merchant" | "anchor" | "bot"; displayName: string };
@@ -174,6 +274,14 @@ export class ProposalEngine {
     treasuryPlan: { localPercent: number; nationalPercent: number; acceptUC: true };
     impact: { leakageReductionUSD: number; jobsCreated: number; timeHorizonMonths: number };
   }> {
+    // Build category enum from config or use defaults
+    const categoryKeys = config?.proposalCategories
+      ?.filter(c => c.isActive)
+      .map(c => c.key) ?? [
+        "business_funding", "procurement", "infrastructure",
+        "transport", "wallet_incentive", "governance", "other",
+      ];
+
     const ExtractionSchema = z.object({
       title: z.string().min(5).max(140),
       summary: z.string().min(20).max(1000),
@@ -188,7 +296,7 @@ export class ProposalEngine {
       }),
       category: z.enum([
         "business_funding",
-        "procurement", 
+        "procurement",
         "infrastructure",
         "transport",
         "wallet_incentive",
@@ -211,10 +319,16 @@ export class ProposalEngine {
       }),
     });
 
+    const charterContext = config?.charterText
+      ? `Charter context: ${config.charterText.substring(0, 500)}`
+      : "";
+
     const agent = new Agent({
       name: "Text Extraction Agent",
       instructions: [
         "Extract ALL structured information from raw proposal text.",
+        charterContext,
+        `Valid categories: ${categoryKeys.join(", ")}`,
         "ALL FIELDS ARE REQUIRED - provide reasonable defaults if information is missing:",
         "- title: Extract clear title (5-140 chars) or create one from the proposal",
         "- summary: Create concise summary (20-1000 chars) of the proposal",
@@ -249,7 +363,9 @@ export class ProposalEngine {
       proposer: out.proposer || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
       region: out.region || { code: "US", name: "United States" },
       category: out.category || "other" as const,
-      budget: out.budget || { currency: "USD" as const, amountRequested: 10000 },
+      budget: out.budget
+        ? { ...out.budget, currency: normalizeCurrency(out.budget.currency) }
+        : { currency: "USD" as const, amountRequested: 10000 },
       treasuryPlan: out.treasuryPlan || { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
       impact: out.impact || { leakageReductionUSD: 5000, jobsCreated: 2, timeHorizonMonths: 12 },
     };
@@ -261,8 +377,8 @@ export class ProposalEngine {
     scores: { alignment: number; feasibility: number; composite: number },
     checks: { name: string; passed: boolean; note?: string }[],
   ): Promise<z.infer<typeof ProposalStatusZ>> {
-    const DecisionSchema = z.object({ 
-      status: ProposalStatusZ 
+    const DecisionSchema = z.object({
+      status: ProposalStatusZ
     });
 
     const failing = checks.some((c) => c.passed === false);
@@ -299,7 +415,7 @@ export class ProposalEngine {
     return out.status ?? "draft";
   }
 
-  private async runImpactAgent(input: ProposalInput, extractedFields: any): Promise<{
+  private async runImpactAgent(input: ProposalInput, extractedFields: any, config?: CoopConfigData): Promise<{
     alignment: number;
     feasibility: number;
     composite: number;
@@ -309,10 +425,14 @@ export class ProposalEngine {
       feasibility: z.number().min(0).max(1),
     });
 
+    const charterContext = config?.charterText
+      ? `Evaluate against this charter: ${config.charterText.substring(0, 800)}`
+      : "Score alignment and feasibility (0..1) for Soulaan Co-op proposals.";
+
     const agent = new Agent({
       name: "Economic Impact Agent",
       instructions: [
-        "Score alignment and feasibility (0..1) for Soulaan Co-op proposals.",
+        charterContext,
         "Alignment reflects mission fit and surplus-driven potential.",
         "Feasibility reflects execution risk and delivery capacity.",
         "Use web_search to research market data, sector benchmarks, and economic outcomes for similar projects.",
@@ -343,11 +463,15 @@ export class ProposalEngine {
     return { alignment, feasibility, composite };
   }
 
-  private async runGovernanceAgent(input: ProposalInput, extractedFields: any): Promise<{
+  private async runGovernanceAgent(input: ProposalInput, extractedFields: any, config?: CoopConfigData): Promise<{
     quorumPercent: number;
     approvalThresholdPercent: number;
     votingWindowDays: number;
   }> {
+    const defaultQuorum = config?.quorumPercent ?? 20;
+    const defaultApproval = config?.approvalThresholdPercent ?? 60;
+    const defaultWindow = config?.votingWindowDays ?? 7;
+
     const GovernanceSchema = z.object({
       quorumPercent: z.number().min(0).max(100),
       approvalThresholdPercent: z.number().min(0).max(100),
@@ -357,8 +481,8 @@ export class ProposalEngine {
     const agent = new Agent({
       name: "Governance Policy Agent",
       instructions: [
-        "Recommend governance parameters for Soulaan proposals.",
-        "Defaults: quorum=20, approval=60, window=7. Adjust slightly by budget/category, but stay within bounds.",
+        "Recommend governance parameters for cooperative proposals.",
+        `Defaults: quorum=${defaultQuorum}, approval=${defaultApproval}, window=${defaultWindow}. Adjust slightly by budget/category, but stay within bounds.`,
         "Use web_search to research cooperative governance precedents and best practices when uncertain.",
         "Return ONLY valid JSON matching the schema.",
       ].join("\n"),
@@ -377,9 +501,9 @@ export class ProposalEngine {
     );
     const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
     return {
-      quorumPercent: this.boundPercent(out.quorumPercent ?? 20),
-      approvalThresholdPercent: this.boundPercent(out.approvalThresholdPercent ?? 60),
-      votingWindowDays: Math.max(1, Math.min(30, Math.trunc(out.votingWindowDays ?? 7))),
+      quorumPercent: this.boundPercent(out.quorumPercent ?? defaultQuorum),
+      approvalThresholdPercent: this.boundPercent(out.approvalThresholdPercent ?? defaultApproval),
+      votingWindowDays: Math.max(1, Math.min(30, Math.trunc(out.votingWindowDays ?? defaultWindow))),
     };
   }
 
@@ -421,19 +545,22 @@ export class ProposalEngine {
   }
 
 
-  private async runAlternativeAgent(extracted: any): Promise<Alternative[]> {
+  private async runAlternativeAgent(extracted: any, config?: CoopConfigData): Promise<Alternative[]> {
+    const goalKeys = config?.goalDefinitions?.map(g => `${g.key} (${g.label})`)
+      ?? ["LeakageReduction", "MemberBenefit", "EquityGrowth", "LocalJobs", "CommunityVitality", "Resilience"];
+
     const AltWrapperSchema = z.object({
       alternatives: z.array(AlternativeZ).max(3)
     });
-    
+
     const agent = new Agent({
       name: "Alternative Generator",
       instructions: [
-        "Generate 1–3 concrete counterfactual designs that may better satisfy Soulaan charter goals.",
+        "Generate 1–3 concrete counterfactual designs that may better satisfy charter goals.",
         "- Provide CHANGES as [{field, from, to}] where 'from' and 'to' are string, number, or boolean values.",
         "- Set 'from' to null if original value is unknown, 'dataNeeds' to null if no additional data needed.",
         "- Example change: {field: 'budget.amountRequested', from: 25000, to: 15000}",
-        "- Focus on charter goals: LeakageReduction, MemberBenefit, EquityGrowth, LocalJobs, CommunityVitality, Resilience.",
+        `- Focus on charter goals: ${goalKeys.join(", ")}.`,
         "- Prefer a low-cost improvement first; optionally include a high-impact, higher-cost option.",
         "- Rationale must reference only charter goals, avoid UC-density terminology.",
         "Return ONLY a JSON object with 'alternatives' array matching the schema."
@@ -456,7 +583,7 @@ export class ProposalEngine {
     const altsRaw: any[] = output.alternatives ?? [];
     const scored = altsRaw.slice(0,3).map((alt) => {
       const applied = this.applyChangesShallow(extracted, alt.changes);
-      const goals = this.estimateGoals(applied);
+      const goals = this.estimateGoals(applied, config);
       return { ...alt, scores: goals };
     });
     return scored;
@@ -466,7 +593,7 @@ export class ProposalEngine {
     const MDWrapperSchema = z.object({
       missing_data: z.array(MissingDataZ).max(10)
     });
-    
+
     const agent = new Agent({
       name: "Data Needs Agent",
       instructions: [
@@ -497,6 +624,7 @@ export class ProposalEngine {
   private async runComplianceChecks(
     input: ProposalInput,
     extractedFields: any,
+    config?: CoopConfigData,
   ): Promise<{ name: string; passed: boolean; note?: string }[]> {
     const checks: { name: string; passed: boolean; note?: string }[] = [];
 
@@ -518,8 +646,8 @@ export class ProposalEngine {
       });
     }
 
-    // Sector exclusions (heuristic)
-    const excludedKeywords = ["fashion", "restaurant", "cafe", "food truck"];
+    // Sector exclusions — use config or hardcoded defaults
+    const excludedKeywords = config?.sectorExclusions ?? ["fashion", "restaurant", "cafe", "food truck"];
     const lower = `${extractedFields.title} ${input.text}`.toLowerCase();
     const excludedHit = excludedKeywords.some((k) => lower.includes(k));
     checks.push({
@@ -531,7 +659,7 @@ export class ProposalEngine {
     // Prompt injection / agent manipulation detection
     const manipulationPatterns = [
       "ignore previous instructions",
-      "do not research", 
+      "do not research",
       "fast track",
       "approve regardless",
       "bypass checks",
@@ -564,12 +692,16 @@ export class ProposalEngine {
       note: unrealisticHit ? "Detected unrealistic or overly optimistic claims" : undefined,
     });
 
-    // Charter loaded sanity (optional)
-    try {
-      const charter = await this.readCharter();
-      checks.push({ name: "charter_loaded", passed: Boolean(charter && charter.length > 50) });
-    } catch {
-      checks.push({ name: "charter_loaded", passed: false, note: "read_error" });
+    // Charter loaded sanity — use config charter or read from file
+    if (config?.charterText) {
+      checks.push({ name: "charter_loaded", passed: config.charterText.length > 50 });
+    } else {
+      try {
+        const charter = await this.readCharter();
+        checks.push({ name: "charter_loaded", passed: Boolean(charter && charter.length > 50) });
+      } catch {
+        checks.push({ name: "charter_loaded", passed: false, note: "read_error" });
+      }
     }
 
     return checks;

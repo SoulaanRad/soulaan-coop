@@ -17,6 +17,8 @@ import { storePayRouter } from "./store-pay.js";
 import { categoriesRouter } from "./categories.js";
 import { notificationRouter } from "./notification.js";
 import { scRewardsRouter } from "./sc-rewards.js";
+import { coopConfigRouter } from "./coop-config.js";
+import { proposalCommentRouter } from "./proposal-comment.js";
 
 
 export const appRouter = router({
@@ -37,6 +39,8 @@ export const appRouter = router({
   categories: categoriesRouter,
   notification: notificationRouter,
   scRewards: scRewardsRouter,
+  coopConfig: coopConfigRouter,
+  proposalComment: proposalCommentRouter,
 });
 
 export type AppRouter = typeof appRouter;

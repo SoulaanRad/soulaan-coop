@@ -118,57 +118,109 @@ model Application {
   @@schema("public")
 }
 
+// ── Coop Configuration Models ────────────────────────────
+model CoopConfig {
+  id                        String   @id @default(cuid())
+  coopId                    String
+  version                   Int
+  isActive                  Boolean  @default(true)
+  charterText               String   @db.Text
+  goalDefinitions           Json     // [{ key, label, weight, description? }]
+  quorumPercent             Float    @default(15)
+  approvalThresholdPercent  Float    @default(51)
+  votingWindowDays          Int      @default(7)
+  scVotingCapPercent        Float    @default(2)
+  proposalCategories        Json     // [{ key, label, isActive }]
+  sectorExclusions          Json     // ["fashion", "restaurant", ...]
+  minScBalanceToSubmit      Float    @default(0)
+  scoringWeights            Json     // { selfReliance, communityJobs, assetRetention, transparency, culturalValue }
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  createdBy                 String   // wallet address
+
+  // Relations
+  audits                    CoopConfigAudit[]
+
+  @@unique([coopId, version])
+  @@index([coopId, isActive])
+  @@schema("public")
+}
+
+model CoopConfigAudit {
+  id            String     @id @default(cuid())
+  coopConfigId  String
+  coopConfig    CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
+  changedBy     String     // wallet address
+  changedAt     DateTime   @default(now())
+  reason        String
+  diff          Json       // [{ field, before, after }]
+
+  @@index([coopConfigId])
+  @@schema("public")
+}
+
 // ── Proposal Engine Models ────────────────────────────
 model Proposal {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   status      ProposalStatus @default(DRAFT)
-  
+
   // Core proposal data
   title       String
   summary     String
   category    ProposalCategory
-  
+
   // Proposer information
   proposerWallet     String
   proposerRole       ProposerRole
   proposerDisplayName String?
-  
+
   // Region and budget
   regionCode         String
   regionName         String
   budgetCurrency     Currency
   budgetAmount       Float
-  
+
   // Treasury plan
   localPercent       Float
   nationalPercent    Float
   acceptUC           Boolean @default(true)
-  
+
   // Impact metrics
   leakageReductionUSD Float @default(0)
   jobsCreated        Int @default(0)
   timeHorizonMonths  Int @default(12)
-  
+
   // AI scores
   alignmentScore     Float
   feasibilityScore   Float
   compositeScore     Float
-  
+
   // Governance settings
   quorumPercent              Float @default(20)
   approvalThresholdPercent   Float @default(60)
   votingWindowDays           Int @default(7)
-  
+
   // Audit trail
   engineVersion      String
-  
+
+  // Enhanced engine output (v0.2)
+  coopId             String?         // links to CoopConfig.coopId
+  categoryKey        String?         // dynamic category from CoopConfig
+  goalScores         Json?           // persisted Goals object
+  alternatives       Json?           // persisted Alternative[]
+  bestAlternative    Json?           // top Alternative
+  decision           String?         // "advance" | "revise" | "block"
+  decisionReasons    String[]        // reason strings
+  missingData        Json?           // MissingData[]
+
   // Relations
   kpis               ProposalKPI[]
   auditChecks        ProposalAuditCheck[]
   votes              ProposalVote[]
-  
+  comments           ProposalComment[]
+
   @@schema("public")
 }
 
@@ -206,6 +258,36 @@ model ProposalVote {
   proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   
   @@unique([proposalId, voterWallet])
+  @@schema("public")
+}
+
+model ProposalComment {
+  id            String   @id @default(cuid())
+  proposalId    String
+  proposal      Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  authorWallet  String
+  authorName    String?
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  aiEvaluation  CommentAIEvaluation?
+
+  @@index([proposalId, createdAt])
+  @@schema("public")
+}
+
+model CommentAIEvaluation {
+  id            String           @id @default(cuid())
+  commentId     String           @unique
+  comment       ProposalComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  alignment     CommentAlignment
+  score         Float            // 0-1
+  analysis      String           @db.Text
+  goalsImpacted String[]
+  createdAt     DateTime         @default(now())
+
   @@schema("public")
 }
 
@@ -337,6 +419,14 @@ enum VoteType {
   FOR
   AGAINST
   ABSTAIN
+
+  @@schema("public")
+}
+
+enum CommentAlignment {
+  ALIGNED
+  NEUTRAL
+  MISALIGNED
 
   @@schema("public")
 }
