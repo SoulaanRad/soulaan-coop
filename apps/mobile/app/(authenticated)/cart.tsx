@@ -1,0 +1,290 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import {
+  ArrowLeft,
+  Trash2,
+  Minus,
+  Plus,
+  ShoppingBag,
+  Store,
+  BadgeCheck,
+} from 'lucide-react-native';
+import { useCart, CartItem } from '@/contexts/cart-context';
+
+function CartItemCard({
+  item,
+  onUpdateQuantity,
+  onRemove,
+}: {
+  item: CartItem;
+  onUpdateQuantity: (quantity: number) => void;
+  onRemove: () => void;
+}) {
+  const formatPrice = (price: number) => `$${price.toFixed(2)}`;
+
+  return (
+    <View className="flex-row bg-white dark:bg-gray-800 rounded-xl p-4 mb-3">
+      {/* Product Image */}
+      <View className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden">
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            className="w-full h-full"
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="w-full h-full items-center justify-center">
+            <ShoppingBag size={32} color="#9CA3AF" />
+          </View>
+        )}
+      </View>
+
+      {/* Product Info */}
+      <View className="flex-1 ml-4">
+        <Text
+          className="text-base font-medium text-gray-900 dark:text-white"
+          numberOfLines={2}
+        >
+          {item.name}
+        </Text>
+        <Text className="text-lg font-bold text-amber-600 mt-1">
+          {formatPrice(item.priceUSD)}
+        </Text>
+
+        {/* Quantity Controls */}
+        <View className="flex-row items-center justify-between mt-2">
+          <View className="flex-row items-center bg-gray-100 dark:bg-gray-700 rounded-full">
+            <TouchableOpacity
+              onPress={() => onUpdateQuantity(item.quantity - 1)}
+              className="p-2"
+            >
+              <Minus size={16} color="#6B7280" />
+            </TouchableOpacity>
+            <Text className="text-base font-semibold text-gray-900 dark:text-white mx-3">
+              {item.quantity}
+            </Text>
+            <TouchableOpacity
+              onPress={() => onUpdateQuantity(item.quantity + 1)}
+              className="p-2"
+            >
+              <Plus size={16} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity onPress={onRemove} className="p-2">
+            <Trash2 size={18} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function StoreSection({
+  storeId,
+  storeName,
+  isScVerified,
+  items,
+  onUpdateQuantity,
+  onRemoveItem,
+  onCheckout,
+}: {
+  storeId: string;
+  storeName: string;
+  isScVerified: boolean;
+  items: CartItem[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemoveItem: (productId: string) => void;
+  onCheckout: () => void;
+}) {
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.priceUSD * item.quantity,
+    0
+  );
+
+  return (
+    <View className="mb-6">
+      {/* Store Header */}
+      <TouchableOpacity
+        onPress={() => router.push(`/store-detail?id=${storeId}`)}
+        className="flex-row items-center mb-3"
+      >
+        <Store size={18} color="#6B7280" />
+        <Text className="text-base font-semibold text-gray-900 dark:text-white ml-2">
+          {storeName}
+        </Text>
+        {isScVerified && (
+          <View className="flex-row items-center ml-2">
+            <BadgeCheck size={14} color="#B45309" />
+            <Text className="text-amber-600 text-xs ml-1">SC Verified</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Cart Items */}
+      {items.map((item) => (
+        <CartItemCard
+          key={item.productId}
+          item={item}
+          onUpdateQuantity={(qty) => onUpdateQuantity(item.productId, qty)}
+          onRemove={() => onRemoveItem(item.productId)}
+        />
+      ))}
+
+      {/* Subtotal & Checkout */}
+      <View className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 mt-2">
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-gray-600 dark:text-gray-400">Subtotal</Text>
+          <Text className="text-lg font-bold text-gray-900 dark:text-white">
+            ${subtotal.toFixed(2)}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={onCheckout}
+          className="bg-amber-500 py-3 rounded-xl items-center"
+        >
+          <Text className="text-white font-bold text-base">
+            Checkout
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export default function CartScreen() {
+  const {
+    items,
+    isLoading,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    getStoreIds,
+    getStoreItems,
+    totalItems,
+    totalUSD,
+  } = useCart();
+
+  const handleCheckout = (storeId: string) => {
+    router.push(`/checkout?storeId=${storeId}`);
+  };
+
+  const handleClearCart = () => {
+    Alert.alert(
+      'Clear Cart',
+      'Are you sure you want to remove all items from your cart?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => clearCart(),
+        },
+      ]
+    );
+  };
+
+  const storeIds = getStoreIds();
+
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-gray-500 dark:text-gray-400">Loading cart...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <View className="flex-row items-center">
+          <TouchableOpacity onPress={() => router.back()}>
+            <ArrowLeft size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-gray-900 dark:text-white ml-4">
+            Cart
+          </Text>
+          {totalItems > 0 && (
+            <View className="bg-amber-500 px-2 py-0.5 rounded-full ml-2">
+              <Text className="text-white text-xs font-bold">{totalItems}</Text>
+            </View>
+          )}
+        </View>
+        {items.length > 0 && (
+          <TouchableOpacity onPress={handleClearCart}>
+            <Text className="text-red-500 font-medium">Clear All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {items.length === 0 ? (
+        /* Empty Cart State */
+        <View className="flex-1 items-center justify-center px-8">
+          <View className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full items-center justify-center mb-6">
+            <ShoppingBag size={48} color="#9CA3AF" />
+          </View>
+          <Text className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
+            Your cart is empty
+          </Text>
+          <Text className="text-gray-500 dark:text-gray-400 text-center mb-6">
+            Browse our stores and add some products to get started.
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push('/stores')}
+            className="bg-amber-500 px-8 py-3 rounded-xl"
+          >
+            <Text className="text-white font-bold text-base">Browse Stores</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView className="flex-1 px-5 py-4" showsVerticalScrollIndicator={false}>
+          {storeIds.map((storeId) => {
+            const storeItems = getStoreItems(storeId);
+            const firstItem = storeItems[0];
+            return (
+              <StoreSection
+                key={storeId}
+                storeId={storeId}
+                storeName={firstItem.storeName}
+                isScVerified={firstItem.storeIsScVerified}
+                items={storeItems}
+                onUpdateQuantity={updateQuantity}
+                onRemoveItem={removeItem}
+                onCheckout={() => handleCheckout(storeId)}
+              />
+            );
+          })}
+
+          {/* Total Summary */}
+          {storeIds.length > 1 && (
+            <View className="bg-white dark:bg-gray-800 rounded-xl p-4 mt-2 mb-8">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-gray-600 dark:text-gray-400 font-medium">
+                  Cart Total ({totalItems} items)
+                </Text>
+                <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                  ${totalUSD.toFixed(2)}
+                </Text>
+              </View>
+              <Text className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+                Note: You can only checkout from one store at a time.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}

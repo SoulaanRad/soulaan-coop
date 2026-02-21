@@ -207,7 +207,7 @@ const governorWallet = new ethers.Wallet(
 
 // SC contract instance
 const scContract = new ethers.Contract(
-  process.env.SC_CONTRACT_ADDRESS,
+  process.env.SOULAANI_COIN_ADDRESS,
   scABI,
   governorWallet
 );
@@ -345,7 +345,7 @@ const onrampWallet = new ethers.Wallet(
 );
 
 const ucContract = new ethers.Contract(
-  process.env.UC_CONTRACT_ADDRESS,
+  process.env.UNITY_COIN_ADDRESS,
   ucABI,
   onrampWallet
 );

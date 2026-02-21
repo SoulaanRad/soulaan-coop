@@ -32,9 +32,9 @@ async function main() {
   console.log("Time:", new Date().toISOString());
   console.log("");
 
-  const SC_ADDRESS = process.env.SC_CONTRACT_ADDRESS || "";
+  const SC_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || "";
   if (!SC_ADDRESS) {
-    console.log("❌ Please set SC_CONTRACT_ADDRESS in .env");
+    console.log("❌ Please set SOULAANI_COIN_ADDRESS in .env");
     process.exit(1);
   }
 

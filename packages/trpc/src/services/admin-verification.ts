@@ -4,7 +4,7 @@ import { recoverMessageAddress } from 'viem';
 
 // Contract addresses
 const UNITY_COIN_ADDRESS = (process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9') as Address;
-const SOULAANI_COIN_ADDRESS = (process.env.SOULAANI_COIN_ADDRESS || '0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542') as Address;
+const SOULAANI_COIN_ADDRESS = (process.env.SOULAANI_COIN_ADDRESS || '') as Address;
 const TREASURY_SAFE_ADDRESS = (process.env.TREASURY_SAFE_ADDRESS || '0x89590b9173d8166fccc3d77ca133a295c4d5b6cd') as Address;
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 

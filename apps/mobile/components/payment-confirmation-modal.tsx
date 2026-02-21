@@ -4,6 +4,10 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface PaymentConfirmationModalProps {
   visible: boolean;
   amount: string;
+  processorFee?: number;
+  fromBalance?: number;
+  fromCard?: number;
+  total?: number;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -11,9 +15,16 @@ interface PaymentConfirmationModalProps {
 export function PaymentConfirmationModal({
   visible,
   amount,
+  processorFee,
+  fromBalance,
+  fromCard,
+  total,
   onConfirm,
   onCancel,
 }: PaymentConfirmationModalProps) {
+  const hasFeeBreakdown = processorFee !== undefined && processorFee > 0;
+  const hasPartialPayment = fromBalance !== undefined && fromBalance > 0;
+
   return (
     <Modal
       visible={visible}
@@ -25,8 +36,40 @@ export function PaymentConfirmationModal({
         <View style={styles.modalContainer}>
           <Text style={styles.title}>Confirm Payment</Text>
           <Text style={styles.amount}>{amount}</Text>
+
+          {hasFeeBreakdown && (
+            <View style={styles.feeBreakdown}>
+              {hasPartialPayment && (
+                <>
+                  <View style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>From wallet:</Text>
+                    <Text style={styles.feeValue}>-${fromBalance!.toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>From card:</Text>
+                    <Text style={styles.feeValue}>${fromCard!.toFixed(2)}</Text>
+                  </View>
+                </>
+              )}
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>Processing fee:</Text>
+                <Text style={styles.feeValue}>${processorFee.toFixed(2)}</Text>
+              </View>
+              <View style={[styles.feeRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>
+                  {hasPartialPayment ? 'Card charge:' : 'Total:'}
+                </Text>
+                <Text style={styles.totalValue}>
+                  ${(total || parseFloat(amount.replace(/[^0-9.]/g, '')) + processorFee).toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <Text style={styles.message}>
-            Click confirm to proceed with this payment.
+            {hasFeeBreakdown
+              ? 'Review the breakdown and confirm to proceed.'
+              : 'Click confirm to proceed with this payment.'}
           </Text>
 
           <View style={styles.buttonContainer}>
@@ -85,6 +128,45 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     marginBottom: 12,
     textAlign: 'center',
+  },
+  feeBreakdown: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  feeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  feeLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  feeValue: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  totalRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  totalLabel: {
+    fontSize: 15,
+    color: '#1f2937',
+    fontWeight: '600',
+  },
+  totalValue: {
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '700',
   },
   message: {
     fontSize: 14,

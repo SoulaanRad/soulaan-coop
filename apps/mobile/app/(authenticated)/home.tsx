@@ -2,11 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus } from 'lucide-react-native';
+import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
@@ -25,6 +24,8 @@ export default function HomeScreen() {
   const config = coopConfig();
   const [balance, setBalance] = useState<number>(0);
   const [balanceFormatted, setBalanceFormatted] = useState<string>('$0.00');
+  const [scBalance, setScBalance] = useState<string>('0');
+  const [ucBalance, setUcBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
@@ -58,13 +59,65 @@ export default function HomeScreen() {
       setBalance(balanceResult.balance);
       setBalanceFormatted(balanceResult.formatted);
 
-      // Fetch history separately so it doesn't block balance display
+      // Fetch history, orders, and SC rewards separately so they don't block balance display
       try {
-        const historyResult = await api.getP2PHistory(user.id, 5, 0, currentWalletAddress);
-        setRecentTransactions(historyResult.transfers);
+        const [historyResult, ordersResult, scRewardsResult] = await Promise.all([
+          api.getP2PHistory(user.id, 10, 0, currentWalletAddress),
+          currentWalletAddress 
+            ? api.getMyOrders(currentWalletAddress, 10).catch(() => ({ orders: [] }))
+            : Promise.resolve({ orders: [] }),
+          api.getUserSCRewards(user.id, 10, currentWalletAddress).catch(() => ({ rewards: [] }))
+        ]);
+
+        // Merge and sort by date
+        const transfers = historyResult.transfers.map((t: any) => ({ 
+          ...t, 
+          activityType: 'transfer' 
+        }));
+        
+        const orders = (ordersResult?.orders || []).map((o: any) => ({ 
+          ...o, 
+          activityType: 'order',
+          counterparty: o.store?.name || 'Store Purchase',
+          amount: o.totalUSD,
+          type: 'sent' // Orders are always outgoing
+        }));
+
+        const scRewards = (scRewardsResult?.rewards || []).map((r: any) => ({
+          ...r,
+          activityType: 'scReward',
+          counterparty: r.reason === 'STORE_PURCHASE_REWARD' 
+            ? `SC Reward from ${r.relatedStore?.name || 'Store'}`
+            : r.reason === 'STORE_SALE_REWARD'
+            ? `SC Reward - Sale`
+            : 'SC Reward',
+          amount: r.amountSC,
+          type: 'received', // SC rewards are always incoming
+          createdAt: r.completedAt || r.createdAt,
+        }));
+
+        const combined = [...transfers, ...orders, ...scRewards]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+
+        setRecentTransactions(combined);
       } catch (historyErr) {
         console.error('Error loading history:', historyErr);
         // Don't fail the whole load if history fails
+      }
+
+      // Fetch token balances (SC and UC)
+      if (currentWalletAddress) {
+        try {
+          const tokenBalances = await api.getTokenBalances(currentWalletAddress);
+          console.log('📊 Token Balances Response:', tokenBalances);
+          console.log('💰 SC Balance:', tokenBalances.sc);
+          console.log('💰 UC Balance:', tokenBalances.uc);
+          setScBalance(tokenBalances.sc);
+          setUcBalance(tokenBalances.uc);
+        } catch (tokenErr) {
+          console.error('Error loading token balances:', tokenErr);
+        }
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -157,50 +210,76 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Balance Card */}
-          <View className="mb-6 rounded-3xl overflow-hidden shadow-lg" style={{ shadowColor: '#B45309', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 12 }}>
-            <LinearGradient
-              colors={['#D97706', '#B45309', '#78350F']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ padding: 24, borderRadius: 24 }}
-            >
-              <View className="mb-6">
-                <Text className="text-amber-200 text-sm font-medium tracking-wide uppercase">Available Balance</Text>
+          {/* Balance Cards - USD and SC side by side */}
+          <View className="flex-row gap-3 mb-4">
+            {/* Available Balance (USD) */}
+            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+              <LinearGradient
+                colors={['#DC2626', '#B91C1C', '#991B1B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 20, borderRadius: 16 }}
+              >
+                <View className="flex-row items-center mb-3">
+                  <Wallet size={18} color="white" />
+                  <Text className="text-white/90 text-xs font-medium ml-2">Available Balance</Text>
+                </View>
                 {isLoading ? (
-                  <ActivityIndicator size="large" color="white" style={{ marginTop: 8 }} />
+                  <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-white text-5xl font-bold mt-2" style={{ letterSpacing: -1 }}>{balanceFormatted}</Text>
+                  <Text className="text-white text-2xl font-bold">{balanceFormatted}</Text>
                 )}
-              </View>
+              </LinearGradient>
+            </View>
 
-              {/* Quick Action Buttons */}
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/pay' as any)}
-                  className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center"
-                  style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}
-                >
-                  <Send size={20} color="#B45309" />
-                  <Text className="text-amber-700 font-bold ml-2">Send</Text>
-                </TouchableOpacity>
+            {/* Soulaan Coin */}
+            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+              <LinearGradient
+                colors={['#F59E0B', '#D97706', '#B45309']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ padding: 20, borderRadius: 16 }}
+              >
+                <View className="flex-row items-center mb-3">
+                  <TrendingUp size={18} color="white" />
+                  <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
+                </View>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white text-2xl font-bold">{parseFloat(scBalance).toFixed(2)} SC</Text>
+                )}
+              </LinearGradient>
+            </View>
+          </View>
 
-                <TouchableOpacity
-                  onPress={() => router.push('/withdraw' as any)}
-                  className="flex-1 bg-white/20 rounded-2xl py-4 flex-row items-center justify-center border border-white/30"
-                >
-                  <Landmark size={20} color="white" />
-                  <Text className="text-white font-bold ml-2">Withdraw</Text>
-                </TouchableOpacity>
+          {/* Quick Action Buttons */}
+          <View className="flex-row gap-3 mb-6">
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/pay' as any)}
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Send size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Send</Text>
+            </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-                  className="bg-white/20 rounded-2xl py-4 px-5 items-center justify-center border border-white/30"
-                >
-                  <Plus size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
+            <TouchableOpacity
+              onPress={() => router.push('/withdraw' as any)}
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Landmark size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Withdraw</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/payment-methods' as any)}
+              className="bg-white rounded-2xl py-4 px-5 items-center justify-center border border-gray-100"
+              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+            >
+              <Plus size={20} color="#B45309" />
+            </TouchableOpacity>
           </View>
 
 
@@ -232,39 +311,84 @@ export default function HomeScreen() {
               </View>
             ) : (
               <View className="bg-white rounded-2xl overflow-hidden">
-                {recentTransactions.map((tx, index) => (
-                  <View
-                    key={tx.id}
-                    className={`flex-row items-center p-4 ${
-                      index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
-                    }`}
-                  >
-                    <View
-                      className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${
-                        tx.type === 'received' ? 'bg-green-100' : 'bg-gray-100'
-                      }`}
-                    >
-                      {tx.type === 'received' ? (
-                        <ArrowDownLeft size={22} color="#16A34A" />
-                      ) : (
-                        <ArrowUpRight size={22} color="#6B7280" />
-                      )}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-gray-900 font-semibold">{tx.counterparty}</Text>
-                      <Text className="text-gray-400 text-xs mt-0.5">
-                        {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                {recentTransactions.map((tx, index) => {
+                  // Determine icon and background color based on activity type
+                  const isOrder = tx.activityType === 'order';
+                  const isSCReward = tx.activityType === 'scReward';
+                  const isReceived = tx.type === 'received';
+                  
+                  const bgColor = isOrder 
+                    ? 'bg-amber-100' 
+                    : isSCReward
+                      ? 'bg-amber-100'
+                    : isReceived 
+                      ? 'bg-green-100' 
+                      : 'bg-gray-100';
+                  
+                  const icon = isOrder ? (
+                    <Store size={22} color="#D97706" />
+                  ) : isSCReward ? (
+                    <Coins size={22} color="#F59E0B" />
+                  ) : isReceived ? (
+                    <ArrowDownLeft size={22} color="#16A34A" />
+                  ) : (
+                    <ArrowUpRight size={22} color="#6B7280" />
+                  );
+
+                  const content = (
+                    <>
+                      <View
+                        className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${bgColor}`}
+                      >
+                        {icon}
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-gray-900 font-semibold">{tx.counterparty}</Text>
+                        <Text className="text-gray-400 text-xs mt-0.5">
+                          {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </Text>
+                      </View>
+                      <Text
+                        className={`font-bold text-lg ${
+                          isSCReward ? 'text-amber-600' : isReceived ? 'text-green-600' : 'text-gray-900'
+                        }`}
+                      >
+                        {isSCReward 
+                          ? `+${tx.amount.toFixed(2)} SC`
+                          : `${isReceived ? '+' : '-'}$${tx.amount.toFixed(2)}`
+                        }
                       </Text>
-                    </View>
-                    <Text
-                      className={`font-bold text-lg ${
-                        tx.type === 'received' ? 'text-green-600' : 'text-gray-900'
+                    </>
+                  );
+
+                  // Only make orders clickable
+                  if (isOrder) {
+                    return (
+                      <TouchableOpacity
+                        key={tx.id}
+                        onPress={() => router.push(`/(authenticated)/order-detail?id=${tx.id}` as any)}
+                        className={`flex-row items-center p-4 ${
+                          index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
+                        }`}
+                        activeOpacity={0.7}
+                      >
+                        {content}
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  // Transfers and SC rewards are not clickable
+                  return (
+                    <View
+                      key={tx.id}
+                      className={`flex-row items-center p-4 ${
+                        index < recentTransactions.length - 1 ? 'border-b border-gray-50' : ''
                       }`}
                     >
-                      {tx.type === 'received' ? '+' : '-'}${tx.amount.toFixed(2)}
-                    </Text>
-                  </View>
-                ))}
+                      {content}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>

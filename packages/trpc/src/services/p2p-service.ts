@@ -1,5 +1,5 @@
 import { db } from '@repo/db';
-import { encodeFunctionData, type Address } from 'viem';
+import { encodeFunctionData, formatUnits, type Address } from 'viem';
 import { sendTransaction, createWalletForUser, ensureWalletHasGas, mintUCToUser } from './wallet-service.js';
 import {
   getUCBalance,
@@ -11,9 +11,7 @@ import {
 import { chargePaymentMethod, refundPayment } from './stripe-customer.js';
 import { sendClaimSMS } from './sms.js';
 import { coopConfig } from '../config/coop.js';
-
-// Exchange rate: 1 UC = 1 USD (fixed for now, can be made dynamic later)
-const UC_USD_RATE = 1.0;
+import { convertUCToUSD, convertUSDToUC, createParityAmounts } from '../utils/currency-converter.js';
 
 /**
  * Get user's balance in USD (converts from UC)
@@ -44,7 +42,7 @@ export async function getUSDBalance(userId: string): Promise<{
   const { balance, formatted } = await getUCBalance(user.walletAddress);
   console.log(`   UC balance from blockchain: ${formatted} UC (raw: ${balance})`);
 
-  const balanceUSD = parseFloat(formatted) * UC_USD_RATE;
+  const balanceUSD = convertUCToUSD(parseFloat(formatted));
   console.log(`   USD balance: $${balanceUSD.toFixed(2)}`);
 
   return {
@@ -55,6 +53,29 @@ export async function getUSDBalance(userId: string): Promise<{
 }
 
 /**
+ * Transfer type for labeled transfers
+ */
+export type TransferType = 'PERSONAL' | 'RENT' | 'SERVICE' | 'STORE';
+
+/**
+ * Transfer metadata based on type
+ */
+export interface TransferMetadata {
+  [key: string]: string | undefined;  // Index signature for Prisma Json
+  // For RENT
+  rentMonth?: string;  // e.g., "2026-02"
+  // For SERVICE
+  providerRole?: string;  // e.g., "contractor", "individual"
+  // For STORE
+  storeName?: string;
+  storeCode?: string;           // Store's short code
+  paymentRequestId?: string;    // If paid via payment request
+  referenceId?: string;         // Store's internal reference
+  // Personal note (≤50 chars)
+  personalNote?: string;
+}
+
+/**
  * Send payment to another Soulaan user
  */
 export async function sendToSoulaanUser(params: {
@@ -62,13 +83,16 @@ export async function sendToSoulaanUser(params: {
   recipientId: string;
   amountUSD: number;
   note?: string;
+  transferType?: TransferType;
+  transferMetadata?: TransferMetadata;
 }): Promise<{
   transferId: string;
   transactionHash: string;
   fundingSource: 'BALANCE' | 'CARD';
+  receiptId: string;
 }> {
-  const { senderId, recipientId, amountUSD, note } = params;
-  const amountUC = amountUSD / UC_USD_RATE;
+  const { senderId, recipientId, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
+  const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer: ${amountUSD} USD (${amountUC} UC)`);
   console.log(`   From: ${senderId} → To: ${recipientId}`);
@@ -92,16 +116,36 @@ export async function sendToSoulaanUser(params: {
     throw new Error('Recipient not found');
   }
 
+  const senderWalletAddress = sender.walletAddress; // TypeScript now knows this is a string
+
   // If recipient doesn't have a wallet, create one for them
-  let recipientWalletAddress = recipient.walletAddress;
+  let recipientWalletAddress: string = recipient.walletAddress || '';
   if (!recipientWalletAddress) {
     console.log(`   Creating wallet for recipient ${recipientId}...`);
     recipientWalletAddress = await createWalletForUser(recipientId);
     console.log(`   ✅ Created wallet: ${recipientWalletAddress}`);
   }
 
+  // Check if sender is an active SC member (required for UC transfers)
+  const { isActiveMember: isSenderActive } = await import('./blockchain.js').then(m => 
+    m.isActiveMember(senderWalletAddress).then(active => ({ isActiveMember: active }))
+  );
+  
+  if (!isSenderActive) {
+    throw new Error('You must be an active Soulaan Co-op member to send payments. Please complete your membership application.');
+  }
+
+  // Check if recipient is an active SC member
+  const { isActiveMember: isRecipientActive } = await import('./blockchain.js').then(m => 
+    m.isActiveMember(recipientWalletAddress).then(active => ({ isActiveMember: active }))
+  );
+  
+  if (!isRecipientActive) {
+    throw new Error('Recipient must be an active Soulaan Co-op member to receive payments.');
+  }
+
   // Check sender's balance
-  const { balance } = await getUCBalance(sender.walletAddress);
+  const { balance } = await getUCBalance(senderWalletAddress);
   const amountInWei = parseUCAmount(amountUC.toString());
   const hasBalance = balance >= amountInWei;
 
@@ -112,28 +156,45 @@ export async function sendToSoulaanUser(params: {
   // If insufficient balance, do JIT charging
   if (!hasBalance) {
     console.log('   Insufficient balance, initiating JIT charge...');
+    console.log(`   Current balance: ${formatUnits(balance, 18)} UC, Need: ${amountUC} UC, Deficit: ${amountUC - parseFloat(formatUnits(balance, 18))} UC`);
 
     if (!sender.defaultPaymentMethodId) {
       throw new Error('Insufficient balance and no payment method on file');
     }
 
-    // Charge the card
-    const amountCents = Math.ceil(amountUSD * 100);
+    // Calculate exact amount to mint (only the deficit)
+    const deficit = amountInWei - balance;
+    const deficitUC = parseFloat(formatUnits(deficit, 18));
+    
+    // Charge the card for the deficit amount
+    const deficitUSD = convertUCToUSD(deficitUC);
+    const amountCents = Math.ceil(deficitUSD * 100);
+    console.log(`   Charging card for deficit: $${deficitUSD.toFixed(2)} (${deficitUC} UC)`);
+    
     const chargeResult = await chargePaymentMethod(
       senderId,
       amountCents,
       `Payment to ${recipient.name || 'Soulaan user'}`,
-      { recipientId, amountUSD: amountUSD.toString() }
+      { recipientId, amountUSD: deficitUSD.toString() }
     );
 
     stripePaymentIntentId = chargeResult.paymentIntentId;
     stripeChargeId = chargeResult.chargeId;
     fundingSource = 'CARD';
 
-    // Mint UC to sender's wallet after card charge
-    console.log('   Minting UC to sender wallet...');
-    await mintUCToUser(senderId, amountUC);
+    // Mint only the deficit to sender's wallet after card charge
+    console.log(`   Minting ${deficitUC} UC to sender wallet (to cover deficit)...`);
+    await mintUCToUser(senderId, deficitUC);
     console.log('   Card charged and UC minted successfully');
+    
+    // IMPORTANT: Re-check balance after minting to confirm it's available
+    console.log('   Verifying balance after mint...');
+    const { balance: newBalance } = await getUCBalance(senderWalletAddress);
+    if (newBalance < amountInWei) {
+      const currentUSD = convertUCToUSD(parseFloat(formatUnits(newBalance, 18)));
+      throw new Error(`Payment processed but funds not yet available in your balance. Please try again in a moment. (Expected: $${amountUSD.toFixed(2)}, Current: $${currentUSD.toFixed(2)})`);
+    }
+    console.log(`   ✅ Balance confirmed: ${formatUnits(newBalance, 18)} UC`);
   }
 
   // Create transfer record first (PENDING)
@@ -148,13 +209,15 @@ export async function sendToSoulaanUser(params: {
       stripeChargeId,
       note,
       status: 'PROCESSING',
+      transferType,
+      transferMetadata: transferMetadata ? transferMetadata : undefined,
     },
   });
 
   try {
     // Ensure sender has gas for the transaction
     console.log('   Ensuring sender has gas...');
-    const hasGas = await ensureWalletHasGas(sender.walletAddress);
+    const hasGas = await ensureWalletHasGas(senderWalletAddress);
     if (!hasGas) {
       throw new Error('Failed to fund wallet with gas');
     }
@@ -183,14 +246,29 @@ export async function sendToSoulaanUser(params: {
       },
     });
 
+    // Create immutable receipt
+    const receipt = await db.receipt.create({
+      data: {
+        p2pTransferId: transfer.id,
+        senderId,
+        recipientId,
+        amountUSD,
+        transferType,
+        metadata: transferMetadata ? transferMetadata : undefined,
+        verificationStatus: 'UNVERIFIED',
+      },
+    });
+
     // Create notifications
-    await createPaymentNotifications(transfer.id, senderId, recipientId, amountUSD);
+    await createPaymentNotifications(transfer.id, senderId, recipientId, amountUSD, transferType);
 
     console.log(`   ✅ Transfer complete: ${txHash}`);
+    console.log(`   📝 Receipt created: ${receipt.id}`);
     return {
       transferId: transfer.id,
       transactionHash: txHash,
       fundingSource,
+      receiptId: receipt.id,
     };
   } catch (error) {
     console.error('   ❌ Transfer failed:', error);
@@ -259,13 +337,16 @@ export async function sendToNonUser(params: {
   recipientEmail?: string;
   amountUSD: number;
   note?: string;
+  transferType?: TransferType;
+  transferMetadata?: TransferMetadata;
 }): Promise<{
   pendingTransferId: string;
   claimToken: string;
   fundingSource: 'BALANCE' | 'CARD';
+  receiptId: string;
 }> {
-  const { senderId, recipientPhone, recipientEmail, amountUSD, note } = params;
-  const amountUC = amountUSD / UC_USD_RATE;
+  const { senderId, recipientPhone, recipientEmail, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
+  const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer to non-user: ${amountUSD} USD`);
   console.log(`   From: ${senderId} → To: ${recipientPhone}`);
@@ -333,6 +414,21 @@ export async function sendToNonUser(params: {
       note,
       expiresAt,
       status: 'PENDING_CLAIM',
+      transferType,
+      transferMetadata: transferMetadata ? transferMetadata : undefined,
+    },
+  });
+
+  // Create immutable receipt
+  const receipt = await db.receipt.create({
+    data: {
+      pendingTransferId: pendingTransfer.id,
+      senderId,
+      recipientPhone,
+      amountUSD,
+      transferType,
+      metadata: transferMetadata ? transferMetadata : undefined,
+      verificationStatus: 'UNVERIFIED',
     },
   });
 
@@ -373,10 +469,13 @@ export async function sendToNonUser(params: {
     console.warn(`   ⚠️ SMS not sent: ${smsResult.error}`);
   }
 
+  console.log(`   📝 Receipt created: ${receipt.id}`);
+
   return {
     pendingTransferId: pendingTransfer.id,
     claimToken: pendingTransfer.claimToken,
     fundingSource,
+    receiptId: receipt.id,
   };
 }
 
@@ -439,18 +538,34 @@ export async function processExpiredTransfers(): Promise<number> {
 }
 
 /**
+ * Get transfer type label for display
+ */
+function getTransferTypeLabel(type: TransferType): string {
+  switch (type) {
+    case 'PERSONAL': return 'Personal';
+    case 'RENT': return 'Rent';
+    case 'SERVICE': return 'Service';
+    case 'STORE': return 'Store';
+    default: return 'Personal';
+  }
+}
+
+/**
  * Create payment notifications for both parties
  */
 async function createPaymentNotifications(
   transferId: string,
   senderId: string,
   recipientId: string,
-  amountUSD: number
+  amountUSD: number,
+  transferType: TransferType = 'PERSONAL'
 ): Promise<void> {
   const [sender, recipient] = await Promise.all([
     db.user.findUnique({ where: { id: senderId }, select: { name: true } }),
     db.user.findUnique({ where: { id: recipientId }, select: { name: true } }),
   ]);
+
+  const typeLabel = getTransferTypeLabel(transferType);
 
   // Notification for sender
   await db.notification.create({
@@ -458,8 +573,8 @@ async function createPaymentNotifications(
       userId: senderId,
       type: 'PAYMENT_SENT',
       title: 'Payment Sent',
-      body: `You sent $${amountUSD.toFixed(2)} to ${recipient?.name || 'a user'}`,
-      data: { transferId, amountUSD },
+      body: `You sent $${amountUSD.toFixed(2)} to ${recipient?.name || 'a user'} — ${typeLabel}`,
+      data: { transferId, amountUSD, transferType },
     },
   });
 
@@ -469,8 +584,8 @@ async function createPaymentNotifications(
       userId: recipientId,
       type: 'PAYMENT_RECEIVED',
       title: 'Payment Received',
-      body: `${sender?.name || 'Someone'} sent you $${amountUSD.toFixed(2)}`,
-      data: { transferId, amountUSD },
+      body: `${sender?.name || 'Someone'} sent you $${amountUSD.toFixed(2)} — ${typeLabel}`,
+      data: { transferId, amountUSD, transferType },
     },
   });
 }
@@ -489,6 +604,7 @@ export async function getTransferHistory(
     amount: number;
     counterparty: string;
     status: string;
+    transferType: TransferType;
     note?: string;
     createdAt: Date;
   }>;
@@ -529,6 +645,7 @@ export async function getTransferHistory(
       amount: t.amountUSD,
       counterparty: t.recipient.name || t.recipient.phone || 'Unknown',
       status: t.status,
+      transferType: (t.transferType || 'PERSONAL') as TransferType,
       note: t.note || undefined,
       createdAt: t.createdAt,
     })),
@@ -538,6 +655,7 @@ export async function getTransferHistory(
       amount: t.amountUSD,
       counterparty: t.sender.name || t.sender.phone || 'Unknown',
       status: t.status,
+      transferType: (t.transferType || 'PERSONAL') as TransferType,
       note: t.note || undefined,
       createdAt: t.createdAt,
     })),
@@ -547,6 +665,7 @@ export async function getTransferHistory(
       amount: t.amountUSD,
       counterparty: t.recipientPhone,
       status: t.status,
+      transferType: (t.transferType || 'PERSONAL') as TransferType,
       note: t.note || undefined,
       createdAt: t.createdAt,
     })),

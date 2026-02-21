@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router } from "../trpc.js";
 import { privateProcedure, publicProcedure } from "../procedures/index.js";
 import { ProposalInputZ, ProposalOutputZ, proposalEngine, type ProposalOutput} from "@repo/validators";
+import { ProposalCategory, ProposalStatus, ProposerRole, Currency } from "@repo/db";
 
 export const proposalRouter = router({
   /**
@@ -20,13 +21,13 @@ export const proposalRouter = router({
           id: processedProposal.id,
           title: processedProposal.title,
           summary: processedProposal.summary,
-          category: processedProposal.category.toUpperCase() as any,
+          category: processedProposal.category.toUpperCase() as ProposalCategory,
           proposerWallet: processedProposal.proposer.wallet,
-          proposerRole: processedProposal.proposer.role.toUpperCase() as any,
+          proposerRole: processedProposal.proposer.role.toUpperCase() as ProposerRole,
           proposerDisplayName: processedProposal.proposer.displayName,
           regionCode: processedProposal.region.code,
           regionName: processedProposal.region.name,
-          budgetCurrency: processedProposal.budget.currency.toUpperCase() as any,
+          budgetCurrency: processedProposal.budget.currency.toUpperCase() as Currency,
           budgetAmount: processedProposal.budget.amountRequested,
           localPercent: processedProposal.treasuryPlan.localPercent,
           nationalPercent: processedProposal.treasuryPlan.nationalPercent,
@@ -41,7 +42,7 @@ export const proposalRouter = router({
           approvalThresholdPercent: processedProposal.governance.approvalThresholdPercent,
           votingWindowDays: processedProposal.governance.votingWindowDays,
           engineVersion: processedProposal.audit.engineVersion,
-          status: processedProposal.status.toUpperCase() as any,
+          status: processedProposal.status.toUpperCase() as ProposalStatus,
           auditChecks: {
             createMany: {
               data: processedProposal.audit.checks.map((check: any) => ({
@@ -109,14 +110,14 @@ export const proposalRouter = router({
       offset: z.number().min(0).default(0)
     }))
     .output(z.object({
-      proposals: z.array(ProposalOutputZ as any),
+      proposals: z.array(ProposalOutputZ),
       total: z.number(),
       hasMore: z.boolean()
     }))
     .query(async ({ input, ctx }) => {
       const where = {
-        ...(input.status && { status: input.status.toUpperCase() as any }),
-        ...(input.category && { category: input.category.toUpperCase() as any }),
+        ...(input.status && { status: input.status.toUpperCase() as ProposalStatus }),
+        ...(input.category && { category: input.category.toUpperCase() as ProposalCategory }),
         ...(input.region && { regionCode: input.region })
       };
       
@@ -168,7 +169,7 @@ export const proposalRouter = router({
       offset: z.number().min(0).default(0)
     }))
     .output(z.object({
-      proposals: z.array(ProposalOutputZ as any),
+      proposals: z.array(ProposalOutputZ),
       total: z.number()
     }))
     .query(async ({ input, ctx }) => {
@@ -204,7 +205,7 @@ export const proposalRouter = router({
       offset: z.number().min(0).default(0)
     }))
     .output(z.object({
-      proposals: z.array(ProposalOutputZ as any),
+      proposals: z.array(ProposalOutputZ),
       total: z.number()
     }))
     .query(async ({ input, ctx }) => {

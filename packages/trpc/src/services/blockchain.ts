@@ -5,7 +5,7 @@ import { baseSepolia } from 'viem/chains';
 // Environment configuration
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9';
-const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542';
+const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
 
 /**
  * Create a public client for reading from the blockchain
@@ -155,6 +155,28 @@ export const soulaaniCoinAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  // Minting function for rewards
+  {
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'mintReward',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Transfer function
+  {
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'transfer',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
 ] as const;
 
 // MemberStatus enum matching the contract
@@ -221,9 +243,12 @@ export async function getSCBalance(address: string): Promise<{ balance: bigint; 
     args: [address as Address],
   });
 
+  const formatted = formatUnits(balance, 18);
+  console.log(`💰 SC Balance for ${address}: ${balance} wei = ${formatted} SC`);
+
   return {
     balance,
-    formatted: formatUnits(balance, 18),
+    formatted,
   };
 }
 

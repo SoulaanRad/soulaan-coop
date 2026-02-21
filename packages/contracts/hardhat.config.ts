@@ -13,6 +13,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true, // Enable IR-based compiler to avoid "stack too deep" errors
       evmVersion: "cancun", // Use latest EVM version for Base L2
     },
   },
@@ -26,6 +27,10 @@ const config: HardhatUserConfig = {
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],
       chainId: 84532,
+      gasPrice: "auto",
+      // Increase gas settings to avoid "replacement transaction underpriced" errors
+      gas: "auto",
+      timeout: 60000, // 60 seconds
     },
     base: {
       url: process.env.BASE_MAINNET_RPC_URL || "https://mainnet.base.org",

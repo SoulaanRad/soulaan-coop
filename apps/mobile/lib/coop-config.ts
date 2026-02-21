@@ -40,6 +40,12 @@ export interface CoopConfig {
   // Features
   enableWithdrawals: boolean;
   enableP2P: boolean;
+  enableStores: boolean;
+
+  // Store settings
+  storeCommitmentOptions: number[]; // Available community commitment percentages (e.g., [5, 10, 15, 20])
+  defaultStoreCommitment: number;   // Default percentage
+  minStoreCommitment: number;       // Minimum allowed
 }
 
 // Default config for unauthenticated state
@@ -68,6 +74,12 @@ const defaultConfig: CoopConfig = {
 
   enableWithdrawals: true,
   enableP2P: true,
+  enableStores: true,
+
+  // Store settings - community commitment percentage of profits that go back to the coop
+  storeCommitmentOptions: [5, 10, 15, 20, 25],
+  defaultStoreCommitment: 10,
+  minStoreCommitment: 5,
 };
 
 // Active coop config - set when user authenticates

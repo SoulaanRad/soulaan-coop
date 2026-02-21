@@ -175,7 +175,7 @@ export const applicationRouter = router({
         console.error('Full error:', error);
         
         if (error instanceof Error && 'code' in error) {
-          console.error('Error code:', (error as any).code);
+          console.error('Error code:', (error as Error & { code: unknown }).code);
         }
         
         if (error instanceof TRPCError) {

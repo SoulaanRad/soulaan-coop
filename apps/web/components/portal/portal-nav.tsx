@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Landmark } from "lucide-react";
+import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
 import BackendWalletStatus from "./backend-wallet-status";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   title: string;
@@ -15,32 +21,47 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
+interface NavGroup {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href?: string; // Single item groups can have direct href
+  items?: NavItem[]; // Multi-item groups have dropdown
+  adminOnly?: boolean;
+}
+
+const navGroups: NavGroup[] = [
   {
     title: "Dashboard",
-    href: "/portal",
     icon: BarChart3,
+    href: "/portal",
+  },
+  {
+    title: "People",
+    icon: Users,
+    items: [
+      { title: "Members", href: "/portal/members", icon: Users },
+      { title: "Applications", href: "/portal/applications", icon: FileText },
+    ],
+  },
+  {
+    title: "Commerce",
+    icon: Store,
+    adminOnly: true,
+    items: [
+      { title: "Stores", href: "/portal/stores", icon: Store },
+      { title: "SC Rewards", href: "/portal/sc-rewards", icon: Coins },
+    ],
   },
   {
     title: "Treasury",
-    href: "/portal/treasury",
     icon: Landmark,
+    href: "/portal/treasury",
     adminOnly: true,
   },
   {
-    title: "Members",
-    href: "/portal/members",
-    icon: Users,
-  },
-  {
-    title: "Applications",
-    href: "/portal/applications",
-    icon: FileText,
-  },
-  {
     title: "Settings",
-    href: "/portal/settings",
     icon: Settings,
+    href: "/portal/settings",
   },
 ];
 
@@ -62,6 +83,17 @@ export function PortalNav() {
     }
   };
 
+  // Check if any item in a group is active
+  const isGroupActive = (group: NavGroup) => {
+    if (group.href) {
+      return pathname === group.href;
+    }
+    if (group.items) {
+      return group.items.some(item => pathname === item.href);
+    }
+    return false;
+  };
+
   return (
     <div className="border-b border-slate-700 bg-slate-900">
       <div className="container mx-auto px-6">
@@ -77,29 +109,78 @@ export function PortalNav() {
 
             {/* Navigation */}
             <nav className="flex items-center gap-1">
-              {navItems.map((item) => {
-                // Skip admin-only items for non-admins
-                if (item.adminOnly && !isAdmin) {
+              {navGroups.map((group) => {
+                // Skip admin-only groups for non-admins
+                if (group.adminOnly && !isAdmin) {
                   return null;
                 }
 
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
+                const Icon = group.icon;
+                const isActive = isGroupActive(group);
 
+                // Single item - render as link
+                if (group.href) {
+                  return (
+                    <Link
+                      key={group.href}
+                      href={group.href}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-slate-800 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-slate-800/50"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {group.title}
+                    </Link>
+                  );
+                }
+
+                // Group with items - render as dropdown
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-slate-800 text-white"
-                        : "text-gray-400 hover:text-white hover:bg-slate-800/50"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.title}
-                  </Link>
+                  <DropdownMenu key={group.title}>
+                    <DropdownMenuTrigger
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors outline-none",
+                        isActive
+                          ? "bg-slate-800 text-white"
+                          : "text-gray-400 hover:text-white hover:bg-slate-800/50"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {group.title}
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="start" 
+                      className="bg-slate-900 border-slate-700"
+                    >
+                      {group.items?.map((item) => {
+                        const ItemIcon = item.icon;
+                        const isItemActive = pathname === item.href;
+                        
+                        return (
+                          <DropdownMenuItem
+                            key={item.href}
+                            asChild
+                            className={cn(
+                              "cursor-pointer text-gray-300 hover:text-white hover:bg-slate-800 focus:bg-slate-800 focus:text-white",
+                              isItemActive && "bg-slate-800 text-white"
+                            )}
+                          >
+                            <Link
+                              href={item.href}
+                              className="flex items-center gap-2 px-2 py-2"
+                            >
+                              <ItemIcon className="h-4 w-4" />
+                              {item.title}
+                            </Link>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 );
               })}
             </nav>

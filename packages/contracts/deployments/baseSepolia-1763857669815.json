@@ -5,7 +5,7 @@
   "deployer": "0x89590b9173d8166FCCc3D77ca133a295c4d5b6Cd",
   "contracts": {
     "SoulaaniCoin": {
-      "address": "0x7E59d1F33F4efF9563544B2cc90B9Cc7516E2542",
+      "address": "0x5125035DA40376E9Ca0376DDDA9C92F7C84d341F",
       "admin": "0x89590b9173d8166fccc3d77ca133a295c4d5b6cd"
     },
     "MockUSDC": {

@@ -6,6 +6,16 @@ import * as path from "path";
 dotenv.config();
 
 /**
+ * Helper function to wait between transactions
+ */
+async function waitForTx(tx: any, description: string) {
+  console.log(`   ⏳ Waiting for: ${description}...`);
+  const receipt = await tx.wait();
+  await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between txs
+  return receipt;
+}
+
+/**
  * Deploy all Soulaan Co-op contracts to Base Sepolia
  *
  * This script deploys:
@@ -57,20 +67,45 @@ async function main() {
   // Step 1: Add deployer as a member
   console.log("   Adding deployer as member...");
   const addMemberTx = await soulaaniCoin.addMember(deployer.address);
-  await addMemberTx.wait();
+  await waitForTx(addMemberTx, "addMember");
   console.log("   ✅ Deployer added as member");
 
   // Step 2: Award 1 SC to deployer
   console.log("   Awarding 1 SC to deployer...");
   const oneToken = ethers.parseEther("1"); // 1 SC
   const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_ADMIN_ALLOCATION"));
-  const awardTx = await soulaaniCoin.award(deployer.address, oneToken, reason);
-  await awardTx.wait();
+  const awardTx = await soulaaniCoin["mintReward(address,uint256,bytes32)"](deployer.address, oneToken, reason);
+  await waitForTx(awardTx, "mintReward");
   console.log("   ✅ 1 SC awarded to deployer");
 
   // Verify the balance
   const deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
   console.log("   💰 Deployer SC balance:", ethers.formatEther(deployerBalance), "SC");
+
+  // ========== GRANT ROLES TO GOVERNANCE BOT ==========
+  console.log("\n2.5️⃣  Granting roles to governance bot...");
+  const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
+  const MEMBER_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("MEMBER_MANAGER"));
+  
+  if (governanceBot !== deployer.address) {
+    console.log("   Granting GOVERNANCE_AWARD to:", governanceBot);
+    const grantAwardTx = await soulaaniCoin.grantRole(GOVERNANCE_AWARD, governanceBot);
+    await waitForTx(grantAwardTx, "grantRole(GOVERNANCE_AWARD)");
+    console.log("   ✅ Governance bot can now mint SC rewards");
+    
+    console.log("   Granting MEMBER_MANAGER to:", governanceBot);
+    const grantManagerTx = await soulaaniCoin.grantRole(MEMBER_MANAGER, governanceBot);
+    await waitForTx(grantManagerTx, "grantRole(MEMBER_MANAGER)");
+    console.log("   ✅ Governance bot can now manage members");
+    
+    // Add governance bot as a member so it can receive SC if needed
+    console.log("   Adding governance bot as member...");
+    const addBotMemberTx = await soulaaniCoin.addMember(governanceBot);
+    await waitForTx(addBotMemberTx, "addMember(governanceBot)");
+    console.log("   ✅ Governance bot added as member");
+  } else {
+    console.log("   ⚠️  Governance bot is deployer - skipping (already has admin role)");
+  }
 
   // ========== DEPLOY MOCK USDC FOR TESTING ==========
   console.log("\n3️⃣  Deploying Mock USDC (for testing)...");
@@ -106,9 +141,9 @@ async function main() {
 
   // ========== GRANT VAULT PERMISSION TO MINT UC ==========
   console.log("\n6️⃣  Granting RedemptionVault permission to mint UC...");
-  const TREASURER_MINT = await unityCoin.TREASURER_MINT();
+  const TREASURER_MINT = ethers.keccak256(ethers.toUtf8Bytes("TREASURER_MINT"));
   const grantMintTx = await unityCoin.grantRole(TREASURER_MINT, vaultAddress);
-  await grantMintTx.wait();
+  await waitForTx(grantMintTx, "grantRole");
   console.log("✅ RedemptionVault can now mint UC for USDC onboarding");
 
   // ========== SETUP COMPLETE ==========
@@ -124,9 +159,11 @@ async function main() {
   console.log("");
   console.log("🔑 ROLE ASSIGNMENTS:");
   console.log("=".repeat(60));
-  console.log("UC Admin/Treasurer/Pauser:", treasurySafe);
-  console.log("SC Admin/Governance:      ", governanceBot);
-  console.log("Vault Admin/Treasurer:    ", treasurySafe);
+  console.log("UC Admin/Treasurer/Pauser:     ", treasurySafe);
+  console.log("SC Admin:                      ", governanceBot);
+  console.log("SC GOVERNANCE_AWARD (minting): ", governanceBot);
+  console.log("SC MEMBER_MANAGER (add members):", governanceBot);
+  console.log("Vault Admin/Treasurer:         ", treasurySafe);
   console.log("=".repeat(60));
   console.log("");
   console.log("📝 NEXT STEPS:");

@@ -30,7 +30,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@openai/agents": "^0.3.7",
+    "@openai/agents": "^0.3.9",
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",

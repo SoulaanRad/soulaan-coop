@@ -10,6 +10,18 @@ interface ICoopClearing {
     function recordCrossCoopActivity(uint256 fromCoopId, uint256 toCoopId, address member, bytes32 activityType) external;
 }
 
+// Custom errors for better debugging
+error NotActiveMember(address account, uint8 currentStatus);
+error ZeroAddress();
+error ZeroAmount();
+error ExceedsMaxAward(uint256 amount, uint256 maxAllowed);
+error InsufficientBalance(address account, uint256 requested, uint256 available);
+error AlreadyMember(address account);
+error StatusAlreadySet(address account, uint8 status);
+error MemberNotActive(address account);
+error MemberNotSuspended(address account);
+error AlreadyBanned(address account);
+
 /**
  * @title SoulaaniCoin (SC)
  * @notice Non-transferable, soulbound governance and yield token for Soulaan Co-op
@@ -81,6 +93,21 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     uint256 public maxAwardPerTransaction = 0; // 0 = unlimited by default
     uint256 public maxSlashPerTransaction = 0; // 0 = unlimited by default
 
+    // Diminishing returns thresholds and multipliers (in basis points, 10000 = 100%)
+    uint256 public tier1Threshold = 50; // 0.5% of total supply (in basis points)
+    uint256 public tier1Multiplier = 5000; // 50% earning rate (10000 = 100%)
+
+    uint256 public tier2Threshold = 100; // 1.0% of total supply
+    uint256 public tier2Multiplier = 2500; // 25% earning rate
+
+    uint256 public tier3Threshold = 200; // 2.0% of total supply (hard cap)
+    uint256 public tier3Multiplier = 100; // 1% earning rate (near-zero)
+
+    // Time-based decay settings
+    uint256 public decayInactivityPeriod = 365 days; // 12 months
+    uint256 public decayRatePerMonth = 200; // 2% per month (in basis points)
+    uint256 public lastDecayCheck; // Timestamp of last decay execution
+
     // Multi-coop foundation (minimal)
     uint256 public coopId = 1; // Default to Soulaan Co-op
     address public clearingContract = address(0); // Future cross-coop clearing
@@ -116,6 +143,12 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
     event CrossCoopActivity(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed member, bytes32 activityType);
 
+    // Diminishing returns and decay events
+    event DiminishingRateApplied(address indexed recipient, uint256 requestedAmount, uint256 actualAmount, uint256 currentBalancePercent);
+    event DiminishingRatesUpdated(address indexed updatedBy);
+    event DecayExecuted(address indexed account, uint256 amount, uint256 monthsInactive);
+    event DecayParametersUpdated(uint256 newInactivityPeriod, uint256 newDecayRate, address indexed updatedBy);
+
     /**
      * @notice Constructor - initializes SC token
      * @param admin Address that will have admin role (can grant other roles)
@@ -133,31 +166,55 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     }
 
     /**
-     * @notice Award SC tokens to a member for completing an activity
+     * @notice Mint SC reward tokens to a member for completing an activity
      * @param recipient Address to receive SC
-     * @param amount Amount of SC to award
+     * @param amount Amount of SC to mint (before diminishing returns)
      * @param reason Reason code for the award (e.g., keccak256("RENT_PAYMENT"), keccak256("BUSINESS_PURCHASE"), keccak256("COMMUNITY_SERVICE"))
      * @dev Only callable by GOVERNANCE_AWARD role (governance bot/backend)
-     * @dev Tracks activity counts to enable activity-based features
+     * @dev Applies diminishing returns and enforces 2% hard cap
      * @dev Recipient must be an active member to receive SC
      */
-    function award(
+    function mintReward(
         address recipient,
         uint256 amount,
         bytes32 reason
     ) external onlyRole(GOVERNANCE_AWARD) whenNotPaused {
-        require(recipient != address(0), "Cannot award to zero address");
-        require(amount > 0, "Amount must be greater than 0");
-        require(isActiveMember(recipient), "Recipient must be an active member");
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (!isActiveMember(recipient)) revert NotActiveMember(recipient, uint8(memberStatus[recipient]));
 
         // Check award limit if set (0 = unlimited)
         if (maxAwardPerTransaction > 0) {
-            require(amount <= maxAwardPerTransaction, "Amount exceeds max award limit");
+            if (amount > maxAwardPerTransaction) revert ExceedsMaxAward(amount, maxAwardPerTransaction);
         }
 
-        _mint(recipient, amount);
+        // Apply diminishing returns based on current balance
+        uint256 actualAmount = calculateDiminishedAmount(recipient, amount);
 
-        // Track activity metrics
+        // Enforce 2% hard cap - cannot mint if it would exceed max voting power
+        // Only apply cap if total supply exists (allows bootstrapping from 0)
+        uint256 currentBalance = balanceOf(recipient);
+        uint256 supply = totalSupply();
+        
+        if (supply > 0) {
+            uint256 maxBalance = getMaxVotingPower();
+            
+            if (currentBalance >= maxBalance) {
+                // Already at or above cap - award nothing
+                actualAmount = 0;
+            } else if (currentBalance + actualAmount > maxBalance) {
+                // Would exceed cap - only award up to the cap
+                actualAmount = maxBalance - currentBalance;
+            }
+        }
+        // If supply is 0, skip cap check to allow initial minting
+
+        // Only mint if there's something to award
+        if (actualAmount > 0) {
+            _mint(recipient, actualAmount);
+        }
+
+        // Track activity metrics (even if actualAmount is 0, activity still counts)
         lastActivity[recipient] = block.timestamp;
         totalActivities[recipient] += 1;
         activityTypeCount[recipient][reason] += 1;
@@ -171,8 +228,52 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
             }
         }
 
-        emit Awarded(recipient, amount, reason, msg.sender);
+        emit Awarded(recipient, actualAmount, reason, msg.sender);
         emit ActivityRecorded(recipient, reason, block.timestamp);
+
+        // Emit diminishing rate event if amount was reduced
+        if (actualAmount < amount) {
+            uint256 balancePercent = supply > 0 ? (currentBalance * 10000) / supply : 0;
+            emit DiminishingRateApplied(recipient, amount, actualAmount, balancePercent);
+        }
+    }
+
+    // 2-parameter version removed - use 3-parameter version with explicit reason for better gas efficiency
+
+    /**
+     * @notice Calculate earning multiplier based on current balance
+     * @param recipient Address receiving the award
+     * @param baseAmount Base amount before applying diminishing returns
+     * @return actualAmount Amount after applying diminishing returns multiplier
+     * @dev Implements tiered earning rates to prevent concentration
+     */
+    function calculateDiminishedAmount(address recipient, uint256 baseAmount) 
+        public view returns (uint256 actualAmount) {
+        uint256 currentBalance = balanceOf(recipient);
+        uint256 supply = totalSupply();
+        
+        if (supply == 0) return baseAmount;
+        
+        // Calculate current balance as basis points of total supply
+        uint256 balanceBasisPoints = (currentBalance * 10000) / supply;
+        
+        uint256 multiplier = 10000; // Default 100%
+        
+        // Apply tiered multipliers
+        if (balanceBasisPoints >= tier3Threshold) {
+            // At or above 2%: near-zero earning (1%)
+            multiplier = tier3Multiplier;
+        } else if (balanceBasisPoints >= tier2Threshold) {
+            // At or above 1%: 25% earning rate
+            multiplier = tier2Multiplier;
+        } else if (balanceBasisPoints >= tier1Threshold) {
+            // At or above 0.5%: 50% earning rate
+            multiplier = tier1Multiplier;
+        }
+        // else: below 0.5%, full 100% earning rate
+        
+        actualAmount = (baseAmount * multiplier) / 10000;
+        return actualAmount;
     }
 
     /**
@@ -403,6 +504,76 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         return activityTypeCount[account][activityType];
     }
 
+    // ========== TIME-BASED DECAY ==========
+
+    /**
+     * @notice Calculate decay amount for an inactive account
+     * @param account Address to check
+     * @return decayAmount Amount of SC that should be decayed
+     * @dev Returns 0 if account is still active or has no balance
+     */
+    function calculateDecayAmount(address account) public view returns (uint256 decayAmount) {
+        uint256 balance = balanceOf(account);
+        if (balance == 0) return 0;
+        
+        uint256 lastActive = lastActivity[account];
+        if (lastActive == 0) return 0;
+        
+        uint256 inactiveDuration = block.timestamp - lastActive;
+        
+        // No decay if inactive period hasn't been reached
+        if (inactiveDuration < decayInactivityPeriod) {
+            return 0;
+        }
+        
+        // Calculate months of inactivity beyond the threshold
+        uint256 monthsInactive = (inactiveDuration - decayInactivityPeriod) / 30 days;
+        
+        if (monthsInactive == 0) return 0;
+        
+        // Calculate decay: balance * months * rate
+        // decayRatePerMonth is in basis points (200 = 2%)
+        decayAmount = (balance * monthsInactive * decayRatePerMonth) / 10000;
+        
+        // Cap at total balance
+        if (decayAmount > balance) {
+            decayAmount = balance;
+        }
+        
+        return decayAmount;
+    }
+
+    /**
+     * @notice Execute decay for inactive members in batch
+     * @param accounts Array of addresses to check and decay
+     * @dev Can be called by GOVERNANCE_SLASH role (backend cron job)
+     * @dev Only decays accounts that meet inactivity criteria
+     */
+    function executeDecayBatch(address[] calldata accounts) 
+        external 
+        onlyRole(GOVERNANCE_SLASH) 
+        whenNotPaused 
+    {
+        bytes32 decayReason = keccak256("INACTIVITY_DECAY");
+        
+        for (uint256 i = 0; i < accounts.length; i++) {
+            address account = accounts[i];
+            uint256 decayAmount = calculateDecayAmount(account);
+            
+            if (decayAmount > 0) {
+                // Calculate months for event
+                uint256 inactiveDuration = block.timestamp - lastActivity[account];
+                uint256 monthsInactive = (inactiveDuration - decayInactivityPeriod) / 30 days;
+                
+                _burn(account, decayAmount);
+                emit Slashed(account, decayAmount, decayReason, msg.sender);
+                emit DecayExecuted(account, decayAmount, monthsInactive);
+            }
+        }
+        
+        lastDecayCheck = block.timestamp;
+    }
+
     // ========== VOTING POWER ==========
 
     /**
@@ -511,6 +682,59 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         require(getRoleMemberCount(DEFAULT_ADMIN_ROLE) > 1, "Would leave contract without admin");
         renounceRole(DEFAULT_ADMIN_ROLE, msg.sender);
         emit OwnershipTransferCompleted(msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Update diminishing returns tier thresholds and multipliers
+     * @param newTier1Threshold Threshold for tier 1 in basis points (e.g., 50 = 0.5%)
+     * @param newTier1Multiplier Multiplier for tier 1 in basis points (e.g., 5000 = 50%)
+     * @param newTier2Threshold Threshold for tier 2 in basis points
+     * @param newTier2Multiplier Multiplier for tier 2 in basis points
+     * @param newTier3Threshold Threshold for tier 3 in basis points
+     * @param newTier3Multiplier Multiplier for tier 3 in basis points
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     */
+    function setDiminishingRates(
+        uint256 newTier1Threshold,
+        uint256 newTier1Multiplier,
+        uint256 newTier2Threshold,
+        uint256 newTier2Multiplier,
+        uint256 newTier3Threshold,
+        uint256 newTier3Multiplier
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newTier1Threshold < newTier2Threshold, "Tier 1 must be < Tier 2");
+        require(newTier2Threshold < newTier3Threshold, "Tier 2 must be < Tier 3");
+        require(newTier1Multiplier <= 10000, "Multiplier cannot exceed 100%");
+        require(newTier2Multiplier <= 10000, "Multiplier cannot exceed 100%");
+        require(newTier3Multiplier <= 10000, "Multiplier cannot exceed 100%");
+        
+        tier1Threshold = newTier1Threshold;
+        tier1Multiplier = newTier1Multiplier;
+        tier2Threshold = newTier2Threshold;
+        tier2Multiplier = newTier2Multiplier;
+        tier3Threshold = newTier3Threshold;
+        tier3Multiplier = newTier3Multiplier;
+
+        emit DiminishingRatesUpdated(msg.sender);
+    }
+
+    /**
+     * @notice Update decay parameters
+     * @param newInactivityPeriod Time period before decay starts (in seconds)
+     * @param newDecayRatePerMonth Monthly decay rate in basis points (e.g., 200 = 2%)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     */
+    function setDecayParameters(
+        uint256 newInactivityPeriod,
+        uint256 newDecayRatePerMonth
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newInactivityPeriod >= 180 days, "Inactivity period too short");
+        require(newDecayRatePerMonth <= 1000, "Decay rate too high (max 10%)");
+        
+        decayInactivityPeriod = newInactivityPeriod;
+        decayRatePerMonth = newDecayRatePerMonth;
+
+        emit DecayParametersUpdated(newInactivityPeriod, newDecayRatePerMonth, msg.sender);
     }
 
     // ========== SOULBOUND ENFORCEMENT ==========

@@ -5,14 +5,13 @@
   "description": "",
   "scripts": {
     "build": "rm -rf ./dist && tsup",
-    "dev": "nodemon --watch src --ext ts --exec tsx -r dotenv/config src/index.ts",
+    "dev": "nodemon --watch src --ext ts --exec tsx --import ./dotenv.config.js src/index.ts",
     "tsc": "tsc --noEmit",
-    "start": "node -r dotenv/config dist/index.js"
+    "start": "node --import ./dotenv.config.js dist/index.js"
   },
   "dependencies": {
     "@repo/db": "workspace:*",
     "@repo/trpc": "workspace:*",
-    "@sashimo/lib": "^9.0.0",
     "@trpc/server": "catalog:",
     "@types/multer": "^2.0.0",
     "body-parser": "^2.2.2",
