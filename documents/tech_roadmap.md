@@ -36,7 +36,6 @@
   - [ ] Add logging for proposal submissions and their outcomes to monitor usage and detect issues. � �
   - [ ] Document the proposal submission process and the criteria for approval. � �
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Create performance benchmarks for profile retrieval and updates to ensure scalability. � �
 
 ---
@@ -72,5 +71,8 @@
   - [ ] Implement error handling for payment processing failures and provide user feedback. � �
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Add automated tests to validate the onboarding flow under various scenarios. � �
+
 ---
-*🤖 Roadmap updated 2026-01-31 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-02-21 - AI-generated sub-items added based on completed work analysis*
