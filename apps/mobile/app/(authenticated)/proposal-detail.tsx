@@ -185,8 +185,9 @@ export default function ProposalDetailScreen() {
       setComment('');
       const c = await api.listProposalComments(id!, user.walletAddress);
       setComments(c?.comments ?? []);
-    } catch {
-      // ignore
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to post comment';
+      Alert.alert('Could not post comment', msg);
     } finally {
       setPosting(false);
     }
@@ -277,6 +278,140 @@ export default function ProposalDetailScreen() {
   const isAdmin = (user as any)?.roles?.includes('admin') || (user as any)?.role === 'admin';
   const canWithdraw = isProposer && (proposal.status === 'submitted' || proposal.status === 'votable');
   const councilRequired = proposal.councilRequired;
+
+  // Build a dynamic process timeline that reflects actual routing logic:
+  //   • AI scoring is synchronous — proposal never sits in "pending" unless engine returned revise
+  //   • advance + budget < threshold  → auto-approved (no council)
+  //   • advance + budget >= threshold → council vote required
+  //   • block / revise               → proposal closed at AI stage
+  const processSteps = (() => {
+    const st = proposal.status as string;
+    const aiAdvanced = proposal.decision === 'advance';
+    const isTerminal = ['rejected', 'failed', 'withdrawn'].includes(st);
+    const isApproved = st === 'approved' || st === 'funded';
+    const isVotable  = st === 'votable';
+    const isFunded   = st === 'funded';
+    const isSubmitted = st === 'submitted';
+
+    type Step = { icon: React.ReactNode; bg: string; label: string; detail: string; done: boolean };
+    const steps: Step[] = [];
+
+    // ── Step 1: Submitted (always complete) ─────────────────────────────────
+    steps.push({
+      icon: <CheckCircle size={18} color="#16A34A" />,
+      bg: '#DCFCE7',
+      label: 'Proposal Submitted',
+      detail: formatDate(proposal.createdAt),
+      done: true,
+    });
+
+    // ── Step 2: AI Scoring ──────────────────────────────────────────────────
+    if (isSubmitted) {
+      // Engine returned "revise" — needs more information before it can advance
+      steps.push({
+        icon: <Clock size={18} color="#B45309" />,
+        bg: '#FEF3C7',
+        label: 'AI Scoring',
+        detail: 'Checking alignment with co-op goals & charter',
+        done: false,
+      });
+      return steps;
+    }
+
+    const decisionTag = aiAdvanced
+      ? 'Advanced'
+      : proposal.decision === 'block' ? 'Not aligned' : 'Needs revision';
+    steps.push({
+      icon: <Sparkles size={18} color={aiAdvanced ? '#16A34A' : '#DC2626'} />,
+      bg: aiAdvanced ? '#DCFCE7' : '#FEF2F2',
+      label: 'AI Scoring Complete',
+      detail: `Score: ${composite}% · ${decisionTag}`,
+      done: aiAdvanced,
+    });
+
+    // ── AI did not advance → proposal is closed ─────────────────────────────
+    if (!aiAdvanced) {
+      steps.push({
+        icon: <XCircle size={18} color="#DC2626" />,
+        bg: '#FEF2F2',
+        label: 'Proposal Closed',
+        detail: proposal.decision === 'block'
+          ? 'Not aligned with co-op goals — see AI notes below'
+          : 'Requires significant revision — see AI notes below',
+        done: true,
+      });
+      return steps;
+    }
+
+    // ── AI advanced ─────────────────────────────────────────────────────────
+    if (councilRequired) {
+      // Large-budget path — council vote required
+
+      steps.push({
+        icon: <MessageCircle size={18} color={isVotable ? '#2563EB' : isApproved ? '#16A34A' : '#9CA3AF'} />,
+        bg: isVotable ? '#DBEAFE' : isApproved ? '#DCFCE7' : '#F3F4F6',
+        label: 'Community Input',
+        detail: isVotable
+          ? 'Members can react & comment — council reviews sentiment'
+          : isApproved ? 'Input received by council'
+          : isTerminal ? 'Closed before vote'
+          : 'Pending',
+        done: isApproved || isTerminal,
+      });
+
+      if (isTerminal) {
+        steps.push({
+          icon: <XCircle size={18} color={st === 'withdrawn' ? '#6B7280' : '#DC2626'} />,
+          bg: st === 'withdrawn' ? '#F3F4F6' : '#FEF2F2',
+          label: st === 'withdrawn' ? 'Withdrawn' : 'Rejected by Council',
+          detail: st === 'withdrawn' ? 'Withdrawn by proposer' : 'Council voted to reject',
+          done: true,
+        });
+        return steps;
+      }
+
+      steps.push({
+        icon: <Shield size={18} color={isVotable ? '#7C3AED' : '#16A34A'} />,
+        bg: isVotable ? '#F5F3FF' : '#DCFCE7',
+        label: isVotable ? 'Council Vote (open)' : 'Council Approved',
+        detail: isVotable
+          ? 'Council members casting votes — majority decides'
+          : 'Approved by council ✓',
+        done: isApproved,
+      });
+    } else {
+      // Small-budget path — auto-approved by AI, no council vote
+      steps.push({
+        icon: <CheckCircle size={18} color="#16A34A" />,
+        bg: '#DCFCE7',
+        label: 'Auto-Approved',
+        detail: 'Budget under review threshold — no council vote required',
+        done: true,
+      });
+
+      if (isTerminal) {
+        steps.push({
+          icon: <XCircle size={18} color="#6B7280" />,
+          bg: '#F3F4F6',
+          label: 'Withdrawn',
+          detail: 'Withdrawn by proposer after approval',
+          done: true,
+        });
+        return steps;
+      }
+    }
+
+    // ── Final: Funding ───────────────────────────────────────────────────────
+    steps.push({
+      icon: <TrendingUp size={18} color={isFunded ? '#16A34A' : '#9CA3AF'} />,
+      bg: isFunded ? '#DCFCE7' : '#F3F4F6',
+      label: 'Funding',
+      detail: isFunded ? 'Funds disbursed ✓' : 'Pending disbursement',
+      done: isFunded,
+    });
+
+    return steps;
+  })();
 
   return (
     <SafeAreaView className="flex-1 bg-cream-100">
@@ -541,14 +676,17 @@ export default function ProposalDetailScreen() {
             </View>
           )}
 
-          {/* ── Community sentiment / reactions ── */}
+          {/* ── Community reactions ── */}
           <View className="bg-white rounded-2xl p-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-charcoal-800 font-semibold text-base">Community Sentiment</Text>
+              <View>
+                <Text className="text-charcoal-800 font-semibold text-base">Community Reactions</Text>
+                <Text className="text-charcoal-400 text-xs mt-0.5">Let the council know how members feel</Text>
+              </View>
               {proposal.status === 'votable' && (
                 <View className="bg-blue-100 rounded-full px-3 py-1 flex-row items-center gap-1">
                   <Clock size={12} color="#2563EB" />
-                  <Text className="text-blue-700 text-xs font-semibold">Open for comments</Text>
+                  <Text className="text-blue-700 text-xs font-semibold">Open</Text>
                 </View>
               )}
             </View>
@@ -611,7 +749,7 @@ export default function ProposalDetailScreen() {
                 {[
                   { label: 'Category', value: proposal.category },
                   { label: 'Region', value: `${proposal.region?.name} (${proposal.region?.code})` },
-                  { label: 'Governance', value: `Quorum ${proposal.governance?.quorumPercent}% · Approval ${proposal.governance?.approvalThresholdPercent}% · ${proposal.governance?.votingWindowDays}d window` },
+                  { label: 'Council Required', value: proposal.councilRequired ? 'Yes — pending council vote' : 'No — auto-approved if AI advances' },
                 ].map(row => (
                   <View key={row.label} className="mb-3">
                     <Text className="text-charcoal-400 text-xs">{row.label}</Text>
@@ -647,9 +785,12 @@ export default function ProposalDetailScreen() {
                   textAlignVertical="top"
                   className="text-charcoal-800 text-sm bg-white border border-cream-300 rounded-xl px-3 py-2 mb-2"
                   style={{ minHeight: 72 }}
+                  maxLength={5000}
                 />
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-charcoal-400 text-xs">Visible to all members</Text>
+                  <Text className="text-charcoal-400 text-xs">
+                    {comment.length > 0 ? `${comment.length}/5000` : 'Visible to all members'}
+                  </Text>
                   <TouchableOpacity
                     onPress={postComment}
                     disabled={!comment.trim() || posting}
@@ -697,36 +838,7 @@ export default function ProposalDetailScreen() {
           {/* ── Process timeline ── */}
           <View className="bg-white rounded-2xl p-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
             <Text className="text-charcoal-800 font-semibold text-base mb-4">Proposal Process</Text>
-            {[
-              {
-                icon: <CheckCircle size={18} color="#16A34A" />,
-                bg: '#DCFCE7',
-                label: 'Proposal Submitted',
-                detail: formatDate(proposal.createdAt),
-                done: true,
-              },
-              {
-                icon: <Sparkles size={18} color={proposal.status !== 'submitted' ? '#16A34A' : '#B45309'} />,
-                bg: proposal.status !== 'submitted' ? '#DCFCE7' : '#FEF3C7',
-                label: proposal.status === 'submitted' ? 'AI Review (in progress)' : 'AI Review Complete',
-                detail: `Score: ${composite}%`,
-                done: proposal.status !== 'submitted',
-              },
-              {
-                icon: <MessageCircle size={18} color={['votable', 'approved', 'funded'].includes(proposal.status) ? '#2563EB' : '#9CA3AF'} />,
-                bg: ['votable', 'approved', 'funded'].includes(proposal.status) ? '#DBEAFE' : '#F3F4F6',
-                label: 'Community Deliberation',
-                detail: proposal.status === 'votable' ? 'Open for comments' : proposal.status === 'approved' ? 'Complete' : 'Pending',
-                done: ['approved', 'funded'].includes(proposal.status),
-              },
-              {
-                icon: <Shield size={18} color={['approved', 'funded'].includes(proposal.status) ? '#16A34A' : '#9CA3AF'} />,
-                bg: ['approved', 'funded'].includes(proposal.status) ? '#DCFCE7' : '#F3F4F6',
-                label: 'Admin Decision',
-                detail: proposal.status === 'approved' ? 'Approved ✓' : proposal.status === 'rejected' ? 'Rejected' : proposal.status === 'failed' ? 'Failed' : 'Pending',
-                done: ['approved', 'funded'].includes(proposal.status),
-              },
-            ].map((step, i, arr) => (
+            {processSteps.map((step, i, arr) => (
               <View key={i} className="flex-row gap-3">
                 <View className="items-center">
                   <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: step.bg }}>

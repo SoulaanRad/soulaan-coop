@@ -489,5 +489,6 @@ function mapDbToOutput(dbRecord: any): ProposalOutput {
     decision: dbRecord.decision ?? "advance",
     decisionReasons: dbRecord.decisionReasons ?? [],
     missing_data: dbRecord.missingData ?? [],
+    councilRequired: dbRecord.councilRequired ?? false,
   };
 }

@@ -169,7 +169,8 @@ export const ProposalOutputZ = z.object({
   bestAlternative: AlternativeZ.optional().nullable(),          // top-scoring viable alt
   decision: DecisionZ.default("advance"),            // advance|revise|block
   decisionReasons: z.array(z.string()).default([]),  // human-readable rationale
-  missing_data: z.array(MissingDataZ).default([]), 
+  missing_data: z.array(MissingDataZ).default([]),
+  councilRequired: z.boolean().default(false),       // true when budget >= threshold
 });
 
 
@@ -239,7 +240,7 @@ export const CommentAlignmentZ = z.enum(["ALIGNED", "NEUTRAL", "MISALIGNED"]);
 
 export const CommentInputZ = z.object({
   proposalId: z.string().min(1),
-  content: z.string().min(5).max(5000),
+  content: z.string().min(1).max(5000),
 });
 
 export const CommentAIEvaluationZ = z.object({

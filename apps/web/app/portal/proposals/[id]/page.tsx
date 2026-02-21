@@ -116,7 +116,7 @@ export default function ProposalDetailPage() {
   const transitions = adminTransitions[proposal.status] ?? [];
   const isProposer = walletAddress && proposal.proposer.wallet === walletAddress;
   const canWithdraw = isProposer && (proposal.status === "submitted" || proposal.status === "votable");
-  const councilRequired = (proposal as any).councilRequired;
+  const councilRequired = proposal.councilRequired;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -424,9 +424,9 @@ export default function ProposalDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Comments */}
+          {/* Community Discussion */}
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader><CardTitle className="text-white text-lg">Comments</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white text-lg">Community Discussion</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <CommentForm
                 onSubmit={handleCommentSubmit}
@@ -446,21 +446,23 @@ export default function ProposalDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Governance */}
+          {/* Review Parameters */}
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader><CardTitle className="text-white text-sm">Governance</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-white text-sm">Review Parameters</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Quorum</span>
-                <span className="text-white">{proposal.governance.quorumPercent}%</span>
+                <span className="text-gray-400">Council Vote</span>
+                <span className={councilRequired ? "text-purple-400 font-semibold" : "text-white"}>
+                  {councilRequired ? "Required" : "Not required"}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Approval</span>
+                <span className="text-gray-400">Deliberation Window</span>
+                <span className="text-white">{proposal.governance.votingWindowDays}d</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Approval Threshold</span>
                 <span className="text-white">{proposal.governance.approvalThresholdPercent}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Voting Window</span>
-                <span className="text-white">{proposal.governance.votingWindowDays} days</span>
               </div>
             </CardContent>
           </Card>
