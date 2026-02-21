@@ -3,6 +3,7 @@ import { router } from "../trpc.js";
 import { authenticatedProcedure, publicProcedure } from "../procedures/index.js";
 import { CommentInputZ, CommentOutputZ, proposalEngine } from "@repo/validators";
 import type { CommentAlignment } from "@repo/db";
+import type { AuthenticatedContext } from "../context.js";
 
 function mapCommentToOutput(record: any): {
   id: string;
@@ -39,7 +40,7 @@ export const proposalCommentRouter = router({
     .input(CommentInputZ)
     .output(CommentOutputZ)
     .mutation(async ({ input, ctx }) => {
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Verify proposal exists
       const proposal = await ctx.db.proposal.findUnique({

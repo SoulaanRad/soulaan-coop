@@ -6,11 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ProposalDecisionBadge } from "./proposal-decision-badge";
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  submitted: "bg-gray-500/20 text-gray-400 border-gray-500/30",
   votable: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   approved: "bg-green-500/20 text-green-400 border-green-500/30",
   funded: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   rejected: "bg-red-500/20 text-red-400 border-red-500/30",
+  failed: "bg-orange-500/20 text-orange-400 border-orange-500/30",
 };
 
 const categoryLabels: Record<string, string> = {
@@ -39,7 +40,7 @@ interface ProposalCardProps {
 }
 
 export function ProposalCard({ proposal }: ProposalCardProps) {
-  const statusClass = statusColors[proposal.status] ?? statusColors.draft;
+  const statusClass = statusColors[proposal.status] ?? statusColors.submitted;
   const catLabel = categoryLabels[proposal.category] ?? proposal.category;
   const date = new Date(proposal.createdAt).toLocaleDateString();
   const scorePct = Math.round(proposal.scores.composite * 100);

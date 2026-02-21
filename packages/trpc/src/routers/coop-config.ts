@@ -1,34 +1,37 @@
 import { z } from "zod";
 import { router } from "../trpc.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
-import { CoopConfigInputZ, CoopConfigOutputZ } from "@repo/validators";
+import { CoopConfigInputZ, CoopConfigOutputZ, type CoopConfigOutput } from "@repo/validators";
+import type { CoopConfig, Prisma } from "@repo/db";
+import type { AuthenticatedContext } from "../context.js";
 
-function mapDbToConfigOutput(record: any) {
+function mapDbToConfigOutput(record: CoopConfig): CoopConfigOutput {
   return {
     id: record.id,
     coopId: record.coopId,
     version: record.version,
     isActive: record.isActive,
     charterText: record.charterText,
-    goalDefinitions: record.goalDefinitions as any[],
+    goalDefinitions: record.goalDefinitions as Array<{ key: string; label: string; weight: number; description?: string }>,
     quorumPercent: record.quorumPercent,
     approvalThresholdPercent: record.approvalThresholdPercent,
     votingWindowDays: record.votingWindowDays,
     scVotingCapPercent: record.scVotingCapPercent,
-    proposalCategories: record.proposalCategories as any[],
+    proposalCategories: record.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
     sectorExclusions: record.sectorExclusions as string[],
     minScBalanceToSubmit: record.minScBalanceToSubmit,
-    scoringWeights: record.scoringWeights as any,
+    scoringWeights: record.scoringWeights as { selfReliance: number; communityJobs: number; assetRetention: number; transparency: number; culturalValue: number },
+    councilVoteThresholdUSD: record.councilVoteThresholdUSD ?? 5000,
     createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
     createdBy: record.createdBy,
   };
 }
 
-function computeDiff(oldConfig: any, newFields: Record<string, any>): { field: string; before: any; after: any }[] {
-  const diff: { field: string; before: any; after: any }[] = [];
+function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>): { field: string; before: unknown; after: unknown }[] {
+  const diff: { field: string; before: unknown; after: unknown }[] = [];
   for (const [field, after] of Object.entries(newFields)) {
-    const before = oldConfig[field];
+    const before = (oldConfig as Record<string, unknown>)[field];
     if (JSON.stringify(before) !== JSON.stringify(after)) {
       diff.push({ field, before, after });
     }
@@ -101,7 +104,7 @@ export const coopConfigRouter = router({
     .output(CoopConfigOutputZ)
     .mutation(async ({ input, ctx }) => {
       const { coopId, reason, ...updates } = input;
-      const walletAddress = (ctx as any).walletAddress || "admin";
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       // Fetch current active config
       const current = await ctx.db.coopConfig.findFirst({
@@ -125,6 +128,7 @@ export const coopConfigRouter = router({
       if (updates.sectorExclusions !== undefined) newFields.sectorExclusions = updates.sectorExclusions;
       if (updates.minScBalanceToSubmit !== undefined) newFields.minScBalanceToSubmit = updates.minScBalanceToSubmit;
       if (updates.scoringWeights !== undefined) newFields.scoringWeights = updates.scoringWeights;
+      if (updates.councilVoteThresholdUSD !== undefined) newFields.councilVoteThresholdUSD = updates.councilVoteThresholdUSD;
 
       // Compute diff
       const diff = computeDiff(current, newFields);
@@ -150,6 +154,7 @@ export const coopConfigRouter = router({
             sectorExclusions: newFields.sectorExclusions ?? current.sectorExclusions,
             minScBalanceToSubmit: newFields.minScBalanceToSubmit ?? current.minScBalanceToSubmit,
             scoringWeights: newFields.scoringWeights ?? current.scoringWeights,
+            councilVoteThresholdUSD: newFields.councilVoteThresholdUSD ?? current.councilVoteThresholdUSD ?? 5000,
             createdBy: walletAddress,
           },
         }),
@@ -161,7 +166,7 @@ export const coopConfigRouter = router({
           coopConfigId: newConfig.id,
           changedBy: walletAddress,
           reason,
-          diff: diff as any,
+          diff: diff as Prisma.InputJsonValue,
         },
       });
 

@@ -224,11 +224,8 @@ export async function sendTransaction(
 
   // Clear decrypted private key from memory (security best practice)
   // Note: This doesn't guarantee immediate garbage collection but helps
-  Object.keys(wallet).forEach(key => {
-    if (key === 'privateKey') {
-      (wallet as any)[key] = null;
-    }
-  });
+  const mutableWallet = wallet as { -readonly [K in keyof typeof wallet]: (typeof wallet)[K] | null };
+  mutableWallet.privateKey = null;
 
   return txHash;
 }

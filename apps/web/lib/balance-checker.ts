@@ -1,5 +1,5 @@
-import { createPublicClient, http  } from 'viem';
-import type {Address} from 'viem';
+import { createPublicClient, http } from 'viem';
+import type { Address, Chain } from 'viem';
 import { PrismaClient } from '@prisma/client';
 import { config, chainConfig } from './config';
 import { env } from '~/env';
@@ -73,7 +73,7 @@ const accessControlAbi = [
 // Create a public client for reading from the blockchain
 function createClient() {
   return createPublicClient({
-    chain: chainConfig as any,
+    chain: chainConfig as Chain,
     transport: http(config.chain.rpcUrl),
   });
 }

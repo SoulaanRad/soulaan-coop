@@ -31,7 +31,7 @@ describe('ProposalEngine (Agents)', () => {
         id: expect.stringMatching(/^prop_[a-zA-Z0-9]{6}$/),
         createdAt: expect.any(String),
         // status decided by Decision Agent, allow any valid enum
-        status: expect.stringMatching(/^(draft|votable|approved|funded|rejected)$/),
+        status: expect.stringMatching(/^(submitted|votable|approved|funded|rejected|failed)$/),
         title: expect.any(String),
         summary: expect.any(String),
         category: expect.any(String),
@@ -82,7 +82,7 @@ describe('ProposalEngine (Agents)', () => {
       const result = await proposalEngine.processProposal(input);
       
       expect(result.id).toBeDefined();
-      expect(result.status).toMatch(/^(draft|votable|approved|funded|rejected)$/);
+      expect(result.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
       expect(result.scores.alignment).toBeGreaterThanOrEqual(0);
       expect(result.scores.alignment).toBeLessThanOrEqual(1);
     });

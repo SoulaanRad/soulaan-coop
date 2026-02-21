@@ -156,17 +156,17 @@ export class ProposalEngine {
       `Proposal: ${proposalContext.title} — ${proposalContext.summary}`,
       `Category: ${proposalContext.category}`,
       `Comment: ${commentText}`,
-    ].join("\n"));
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    const score = this.clamp01(out.score ?? 0.5);
-    const alignment = out.alignment ?? (score >= 0.6 ? "ALIGNED" : score >= 0.3 ? "NEUTRAL" : "MISALIGNED");
-    const goalsImpacted = (out.goalsImpacted ?? []).filter((g: string) => goalKeys.includes(g));
+    const out = result.finalOutput ?? result.output ?? {};
+    const score = this.clamp01((out.score as number | undefined) ?? 0.5);
+    const alignment = (out.alignment as "ALIGNED" | "NEUTRAL" | "MISALIGNED" | undefined) ?? (score >= 0.6 ? "ALIGNED" : score >= 0.3 ? "NEUTRAL" : "MISALIGNED");
+    const goalsImpacted = ((out.goalsImpacted as string[] | undefined) ?? []).filter((g: string) => goalKeys.includes(g));
 
     return {
       alignment,
       score,
-      analysis: out.analysis || "No analysis available.",
+      analysis: (out.analysis as string | undefined) || "No analysis available.",
       goalsImpacted,
     };
   }
@@ -353,21 +353,21 @@ export class ProposalEngine {
       [
         `Proposal text to analyze: ${input.text}`,
       ].join("\n"),
-    );
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    const out = result.finalOutput ?? result.output ?? {};
 
     return {
-      title: out.title || "Untitled Proposal",
-      summary: out.summary || input.text.substring(0, 500),
-      proposer: out.proposer || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
-      region: out.region || { code: "US", name: "United States" },
-      category: out.category || "other" as const,
+      title: (out.title as string | undefined) || "Untitled Proposal",
+      summary: (out.summary as string | undefined) || input.text.substring(0, 500),
+      proposer: (out.proposer as { wallet: string; role: "member" | "merchant" | "anchor" | "bot"; displayName: string } | undefined) || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
+      region: (out.region as { code: string; name: string } | undefined) || { code: "US", name: "United States" },
+      category: (out.category as "business_funding" | "procurement" | "infrastructure" | "transport" | "wallet_incentive" | "governance" | "other" | undefined) || "other" as const,
       budget: out.budget
-        ? { ...out.budget, currency: normalizeCurrency(out.budget.currency) }
+        ? { ...(out.budget as Record<string, unknown>), currency: normalizeCurrency((out.budget as { currency?: unknown }).currency), amountRequested: ((out.budget as { amountRequested?: number }).amountRequested ?? 10000) }
         : { currency: "USD" as const, amountRequested: 10000 },
-      treasuryPlan: out.treasuryPlan || { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
-      impact: out.impact || { leakageReductionUSD: 5000, jobsCreated: 2, timeHorizonMonths: 12 },
+      treasuryPlan: (out.treasuryPlan as { localPercent: number; nationalPercent: number; acceptUC: true } | undefined) || { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
+      impact: (out.impact as { leakageReductionUSD: number; jobsCreated: number; timeHorizonMonths: number } | undefined) || { leakageReductionUSD: 5000, jobsCreated: 2, timeHorizonMonths: 12 },
     };
   }
 
@@ -386,11 +386,11 @@ export class ProposalEngine {
     const agent = new Agent({
       name: "Decision Agent",
       instructions: [
-        "Decide the proposal status as one of: draft, votable, approved, funded, rejected.",
+        "Decide the proposal status as one of: submitted, votable, approved, funded, rejected.",
         "Rules:",
         "- If any critical compliance check fails → rejected.",
         "- Else if composite score is high and feasibility solid → votable or approved depending on confidence.",
-        "- Default conservatively to draft when uncertain.",
+        "- Default conservatively to submitted when uncertain.",
         "Use web_search to verify key claims and check for negative precedents or risks.",
         "Output ONLY JSON matching the schema.",
       ].join("\n"),
@@ -409,10 +409,10 @@ export class ProposalEngine {
         `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
         `Summary: ${extractedFields.summary}`,
       ].join("\n"),
-    );
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    return out.status ?? "draft";
+    const out = result.finalOutput ?? result.output ?? {};
+    return (out.status as "submitted" | "votable" | "approved" | "funded" | "rejected" | "failed" | "withdrawn" | undefined) ?? "submitted";
   }
 
   private async runImpactAgent(input: ProposalInput, extractedFields: any, config?: CoopConfigData): Promise<{
@@ -454,11 +454,11 @@ export class ProposalEngine {
         `Title: ${extractedFields.title}`,
         `Summary: ${extractedFields.summary}`,
       ].join("\n"),
-    );
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    const alignment = this.clamp01(out.alignment);
-    const feasibility = this.clamp01(out.feasibility);
+    const out = result.finalOutput ?? result.output ?? {};
+    const alignment = this.clamp01((out.alignment as number | undefined) ?? 0);
+    const feasibility = this.clamp01((out.feasibility as number | undefined) ?? 0);
     const composite = this.clamp01((alignment + feasibility) / 2);
     return { alignment, feasibility, composite };
   }
@@ -498,12 +498,12 @@ export class ProposalEngine {
         `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
         `Category: ${extractedFields.category}`,
       ].join("\n"),
-    );
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
+    const out = result.finalOutput ?? result.output ?? {};
     return {
-      quorumPercent: this.boundPercent(out.quorumPercent ?? defaultQuorum),
-      approvalThresholdPercent: this.boundPercent(out.approvalThresholdPercent ?? defaultApproval),
-      votingWindowDays: Math.max(1, Math.min(30, Math.trunc(out.votingWindowDays ?? defaultWindow))),
+      quorumPercent: this.boundPercent((out.quorumPercent as number | undefined) ?? defaultQuorum),
+      approvalThresholdPercent: this.boundPercent((out.approvalThresholdPercent as number | undefined) ?? defaultApproval),
+      votingWindowDays: Math.max(1, Math.min(30, Math.trunc((out.votingWindowDays as number | undefined) ?? defaultWindow))),
     };
   }
 
@@ -577,14 +577,14 @@ export class ProposalEngine {
       `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
       `Summary: ${extracted.summary}`,
       `Title: ${extracted.title}`
-    ].join("\n"));
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    const altsRaw: any[] = output.alternatives ?? [];
-    const scored = altsRaw.slice(0,3).map((alt) => {
-      const applied = this.applyChangesShallow(extracted, alt.changes);
+    const output = result.finalOutput ?? result.output ?? {};
+    const altsRaw = (output.alternatives as Array<Record<string, unknown>> | undefined) ?? [];
+    const scored = altsRaw.slice(0,3).map((alt: Record<string, unknown>) => {
+      const applied = this.applyChangesShallow(extracted, alt.changes as Array<{ field: string; from?: string | number | boolean | null; to: string | number | boolean }>);
       const goals = this.estimateGoals(applied, config);
-      return { ...alt, scores: goals };
+      return { ...alt, scores: goals } as { scores: { composite: number; LeakageReduction: number; MemberBenefit: number; EquityGrowth: number; LocalJobs: number; CommunityVitality: number; Resilience: number }; label: string; changes: { field: string; from?: string | number | boolean | null; to: string | number | boolean }[]; rationale: string; dataNeeds?: string[] | undefined };
     });
     return scored;
   }
@@ -615,10 +615,10 @@ export class ProposalEngine {
       `Region: ${extracted.region?.code}`,
       `Summary: ${extracted.summary}`,
       `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
-    ].join("\n"));
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    return output.missing_data ?? [];
+    const output = result.finalOutput ?? result.output ?? {};
+    return (output.missing_data as Array<{ field: string; question: string; why_needed: string; blocking: boolean }> | undefined) ?? [];
   }
 
   private async runComplianceChecks(
@@ -717,7 +717,7 @@ export class ProposalEngine {
     missing: MissingData[],
   ): { decision: Decision, reasons: string[], bestAlt?: Alternative } {
 
-    // Blocking data forces 'block' (maps to legacy status 'draft' → no vote)
+    // Blocking data forces 'block' (maps to status 'submitted' → needs revision before voting)
     const hasBlocking = missing.some(m => m.blocking);
     const best = alts.slice().sort((a,b)=> b.scores.composite - a.scores.composite)[0];
 
@@ -740,9 +740,9 @@ export class ProposalEngine {
     return { decision: "revise", reasons: [`Improvement available: '${best.label}' (+${diff}).`], bestAlt: best };
   }
 
-  // Map decision → legacy status
+  // Map decision → status
   private statusFromDecision(d: Decision): z.infer<typeof ProposalStatusZ> {
-    return d === "advance" ? "votable" : (d === "revise" ? "votable" : "draft");
+    return d === "advance" ? "votable" : (d === "revise" ? "votable" : "submitted");
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────

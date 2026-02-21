@@ -3,12 +3,22 @@ import { z } from "zod";
 // ── enums ──────────────────────────────────────────────
 export const ProposerRoleZ = z.enum(["member", "merchant", "anchor", "bot"]);
 export const ProposalStatusZ = z.enum([
-  "draft",
+  "submitted",
   "votable",
   "approved",
   "funded",
   "rejected",
+  "failed",
+  "withdrawn",
 ]);
+
+export const ReactionTypeZ = z.enum(["SUPPORT", "CONCERN"]);
+
+export const ProposalReactionOutputZ = z.object({
+  support: z.number(),
+  concern: z.number(),
+  myReaction: ReactionTypeZ.nullable(),
+});
 export const ProposalCategoryZ = z.enum([
   "business_funding",
   "procurement",
@@ -198,6 +208,7 @@ export const CoopConfigInputZ = z.object({
   sectorExclusions: z.array(z.string()).optional(),
   minScBalanceToSubmit: z.number().min(0).optional(),
   scoringWeights: ScoringWeightsZ.optional(),
+  councilVoteThresholdUSD: z.number().min(0).optional(),
   reason: z.string().min(3).max(500),
 });
 
@@ -216,6 +227,7 @@ export const CoopConfigOutputZ = z.object({
   sectorExclusions: z.array(z.string()),
   minScBalanceToSubmit: z.number(),
   scoringWeights: ScoringWeightsZ,
+  councilVoteThresholdUSD: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.string(),
@@ -308,3 +320,5 @@ export type CommentAlignment = z.infer<typeof CommentAlignmentZ>;
 export type CommentInput = z.infer<typeof CommentInputZ>;
 export type CommentAIEvaluation = z.infer<typeof CommentAIEvaluationZ>;
 export type CommentOutput = z.infer<typeof CommentOutputZ>;
+export type ReactionType = z.infer<typeof ReactionTypeZ>;
+export type ProposalReactionOutput = z.infer<typeof ProposalReactionOutputZ>;

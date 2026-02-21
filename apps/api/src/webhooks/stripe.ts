@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { db } from '@repo/db';
 import { mintUCToUser } from '@repo/trpc/services/wallet-service';
 import crypto from 'crypto';
+import type Stripe from 'stripe';
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const HOOKDECK_SIGNATURE_KEY = process.env.HOOKDECK_SIGNATURE_KEY;
@@ -103,7 +104,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
     // Handle payment_intent.succeeded event
     if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object as any;
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
       console.log('💳 Payment succeeded:', paymentIntent.id);
       console.log('💰 Amount:', paymentIntent.amount / 100, 'USD');
@@ -215,7 +216,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
     // Handle payment_intent.payment_failed event
     else if (event.type === 'payment_intent.payment_failed') {
-      const paymentIntent = event.data.object as any;
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
       console.log('❌ Payment failed:', paymentIntent.id);
 

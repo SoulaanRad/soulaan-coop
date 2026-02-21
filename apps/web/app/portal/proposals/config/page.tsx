@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +27,7 @@ export default function CoopConfigPage() {
   const [editApproval, setEditApproval] = useState("");
   const [editWindow, setEditWindow] = useState("");
   const [editMinSc, setEditMinSc] = useState("");
+  const [editCouncilThreshold, setEditCouncilThreshold] = useState("");
 
   if (!isAdmin) {
     return (
@@ -216,6 +216,33 @@ export default function CoopConfigPage() {
             type="number"
             defaultValue={config.minScBalanceToSubmit}
             onChange={(e) => setEditMinSc(e.target.value)}
+            className="bg-slate-900 border-slate-600 text-white mt-1 max-w-xs"
+          />
+        </div>
+      </ConfigSectionEditor>
+
+      {/* Council Vote Threshold */}
+      <ConfigSectionEditor
+        title="Council Review"
+        onSave={async (reason) => {
+          await updateConfig.mutateAsync({
+            coopId: config.coopId,
+            councilVoteThresholdUSD: editCouncilThreshold ? parseFloat(editCouncilThreshold) : undefined,
+            reason,
+          });
+        }}
+        isSaving={updateConfig.isPending}
+      >
+        <div className="text-sm space-y-1">
+          <span className="text-gray-500">Council Review Threshold (USD)</span>
+          <p className="text-xs text-gray-600">
+            Proposals with AI "advance" decision AND budget ≥ this amount require council vote before approval.
+            Proposals under this amount are auto-approved.
+          </p>
+          <Input
+            type="number"
+            defaultValue={(config as any).councilVoteThresholdUSD ?? 5000}
+            onChange={(e) => setEditCouncilThreshold(e.target.value)}
             className="bg-slate-900 border-slate-600 text-white mt-1 max-w-xs"
           />
         </div>

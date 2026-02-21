@@ -4,21 +4,25 @@ import { router } from "../trpc.js";
 import { authenticatedProcedure, publicProcedure, privateProcedure } from "../procedures/index.js";
 import { ProposalInputZ, ProposalOutputZ, proposalEngine, type ProposalOutput } from "@repo/validators";
 import type { CoopConfigData } from "@repo/validators";
-import { ProposalCategory, ProposalStatus, ProposerRole, Currency } from "@repo/db";
+import { ProposalCategory, ProposalStatus, ProposerRole, Currency, VoteType } from "@repo/db";
+import type { AuthenticatedContext } from "../context.js";
 
 export const proposalRouter = router({
   /**
    * Create a new proposal (authenticated — any wallet holder)
+   * Auto-approves if AI says "advance" AND budget < councilVoteThresholdUSD
+   * Sets councilRequired=true if AI says "advance" AND budget >= threshold
    */
   create: authenticatedProcedure
     .input(ProposalInputZ)
     .output(ProposalOutputZ)
     .mutation(async ({ input, ctx }) => {
-      const walletAddress = (ctx as any).walletAddress;
+      const { walletAddress } = ctx as AuthenticatedContext;
       const coopId = input.coopId || "soulaan";
 
       // Fetch active CoopConfig
       let configData: CoopConfigData | undefined;
+      let threshold = 5000;
       const coopConfig = await ctx.db.coopConfig.findFirst({
         where: { coopId, isActive: true },
         orderBy: { version: "desc" },
@@ -28,15 +32,15 @@ export const proposalRouter = router({
         // Check SC balance against minScBalanceToSubmit
         if (coopConfig.minScBalanceToSubmit > 0) {
           // For now we skip actual on-chain balance check — just validate the rule exists
-          // In production, call blockchain service to check SC balance
-          // throw new TRPCError({ code: "FORBIDDEN", message: "Insufficient SC balance to submit proposals" });
         }
+
+        threshold = coopConfig.councilVoteThresholdUSD ?? 5000;
 
         configData = {
           charterText: coopConfig.charterText,
-          goalDefinitions: coopConfig.goalDefinitions as any[],
+          goalDefinitions: coopConfig.goalDefinitions as Array<{ key: string; label: string; weight: number; description?: string }>,
           scoringWeights: coopConfig.scoringWeights as Record<string, number>,
-          proposalCategories: coopConfig.proposalCategories as any[],
+          proposalCategories: coopConfig.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
           sectorExclusions: coopConfig.sectorExclusions as string[],
           quorumPercent: coopConfig.quorumPercent,
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
@@ -46,6 +50,22 @@ export const proposalRouter = router({
 
       // Process proposal through engine with config
       const processedProposal = await proposalEngine.processProposal(input, configData);
+
+      // Determine final status and councilRequired based on auto-approve logic
+      const budget = processedProposal.budget.amountRequested;
+      let finalStatus: ProposalStatus;
+      let councilRequired = false;
+
+      if (processedProposal.decision === "advance") {
+        if (budget < threshold) {
+          finalStatus = ProposalStatus.APPROVED; // auto-approve
+        } else {
+          finalStatus = ProposalStatus.VOTABLE;
+          councilRequired = true;
+        }
+      } else {
+        finalStatus = processedProposal.status.toUpperCase() as ProposalStatus;
+      }
 
       // Save to database with enhanced fields
       const savedProposal = await ctx.db.proposal.create({
@@ -74,7 +94,8 @@ export const proposalRouter = router({
           approvalThresholdPercent: processedProposal.governance.approvalThresholdPercent,
           votingWindowDays: processedProposal.governance.votingWindowDays,
           engineVersion: processedProposal.audit.engineVersion,
-          status: processedProposal.status.toUpperCase() as ProposalStatus,
+          status: finalStatus,
+          councilRequired,
           // Enhanced fields
           coopId,
           categoryKey: processedProposal.category,
@@ -137,7 +158,7 @@ export const proposalRouter = router({
    */
   list: publicProcedure
     .input(z.object({
-      status: z.enum(["draft", "votable", "approved", "funded", "rejected"]).optional(),
+      status: z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"]).optional(),
       category: z.enum([
         "business_funding", "procurement", "infrastructure", "transport",
         "wallet_incentive", "governance", "other"
@@ -182,20 +203,145 @@ export const proposalRouter = router({
     }),
 
   /**
-   * Update proposal status (admin/system only)
+   * Update proposal status (admin only)
    */
   updateStatus: privateProcedure
     .input(z.object({
       id: z.string(),
-      status: z.enum(["draft", "votable", "approved", "funded", "rejected"])
+      status: z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"])
     }))
     .output(ProposalOutputZ)
     .mutation(async ({ input, ctx }) => {
-      // TODO: Implement authorization check
-      // TODO: Update database
-      // TODO: Return updated proposal
+      const proposal = await ctx.db.proposal.findUnique({ where: { id: input.id } });
+      if (!proposal) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Proposal not found" });
+      }
 
-      throw new Error("Not implemented");
+      const newStatus = input.status.toUpperCase() as ProposalStatus;
+      const updateData: Record<string, any> = { status: newStatus };
+
+      if (newStatus === ProposalStatus.WITHDRAWN) {
+        const { walletAddress: adminWallet } = ctx as AuthenticatedContext;
+        updateData.withdrawnAt = new Date();
+        updateData.withdrawnBy = adminWallet;
+      }
+
+      const updated = await ctx.db.proposal.update({
+        where: { id: input.id },
+        data: updateData,
+        include: { kpis: true, auditChecks: true }
+      });
+
+      return mapDbToOutput(updated);
+    }),
+
+  /**
+   * Withdraw a proposal (proposer only)
+   */
+  withdraw: authenticatedProcedure
+    .input(z.object({ id: z.string() }))
+    .output(ProposalOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const proposal = await ctx.db.proposal.findUnique({ where: { id: input.id } });
+      if (!proposal) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Proposal not found" });
+      }
+
+      if (proposal.proposerWallet !== walletAddress) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the proposer can withdraw this proposal" });
+      }
+
+      const withdrawableStatuses: ProposalStatus[] = [ProposalStatus.SUBMITTED, ProposalStatus.VOTABLE];
+      if (!withdrawableStatuses.includes(proposal.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot withdraw a proposal with status ${proposal.status.toLowerCase()}`
+        });
+      }
+
+      const updated = await ctx.db.proposal.update({
+        where: { id: input.id },
+        data: {
+          status: ProposalStatus.WITHDRAWN,
+          withdrawnAt: new Date(),
+          withdrawnBy: walletAddress,
+        },
+        include: { kpis: true, auditChecks: true }
+      });
+
+      return mapDbToOutput(updated);
+    }),
+
+  /**
+   * Council vote on a proposal (admin only, councilRequired proposals)
+   */
+  councilVote: privateProcedure
+    .input(z.object({
+      proposalId: z.string(),
+      vote: z.enum(["FOR", "AGAINST", "ABSTAIN"]),
+    }))
+    .output(z.object({
+      vote: z.enum(["FOR", "AGAINST", "ABSTAIN"]),
+      forCount: z.number(),
+      againstCount: z.number(),
+      abstainCount: z.number(),
+      newStatus: z.string().nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const proposal = await ctx.db.proposal.findUnique({ where: { id: input.proposalId } });
+      if (!proposal) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Proposal not found" });
+      }
+
+      if (!proposal.councilRequired) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Council vote not required for this proposal" });
+      }
+
+      // Upsert vote
+      await ctx.db.proposalVote.upsert({
+        where: { proposalId_voterWallet: { proposalId: input.proposalId, voterWallet: walletAddress } },
+        create: {
+          proposalId: input.proposalId,
+          voterWallet: walletAddress,
+          vote: input.vote as VoteType,
+        },
+        update: {
+          vote: input.vote as VoteType,
+        },
+      });
+
+      // Count votes
+      const [forCount, againstCount, abstainCount] = await Promise.all([
+        ctx.db.proposalVote.count({ where: { proposalId: input.proposalId, vote: "FOR" } }),
+        ctx.db.proposalVote.count({ where: { proposalId: input.proposalId, vote: "AGAINST" } }),
+        ctx.db.proposalVote.count({ where: { proposalId: input.proposalId, vote: "ABSTAIN" } }),
+      ]);
+
+      const totalVotes = forCount + againstCount + abstainCount;
+      let newStatus: string | null = null;
+
+      // Auto-decide if enough votes
+      if (totalVotes >= 2) {
+        if (forCount > againstCount) {
+          await ctx.db.proposal.update({
+            where: { id: input.proposalId },
+            data: { status: ProposalStatus.APPROVED },
+          });
+          newStatus = "approved";
+        } else if (againstCount > forCount) {
+          await ctx.db.proposal.update({
+            where: { id: input.proposalId },
+            data: { status: ProposalStatus.REJECTED },
+          });
+          newStatus = "rejected";
+        }
+      }
+
+      return { vote: input.vote, forCount, againstCount, abstainCount, newStatus };
     }),
 
   /**
@@ -276,7 +422,6 @@ export const proposalRouter = router({
   testEngine: publicProcedure
     .output(ProposalOutputZ)
     .query(async () => {
-      // Test data using the new simplified text-only input
       const testInput = {
         text: "Hampton Grocery Anchor: Fund a small-format grocery to reduce external food spend and increase UC usage. Budget needed: $150,000 USD. Located in Hampton Roads, VA. Expected to reduce economic leakage by $1,000,000 annually and create 12 jobs over 12 months. Target 750,000 USD in local spend retained and 200,000 UC in transactions.",
         proposer: { wallet: "0xabc123", role: "bot" as const, displayName: "SuggestionBot" },

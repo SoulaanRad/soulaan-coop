@@ -120,11 +120,11 @@ describe("ProposalEngine Features", () => {
       const input = createInput("Test proposal for status mapping.");
       const result = await engine.processProposal(input);
 
-      // advance|revise → votable, block → draft
+      // advance|revise → votable, block → submitted
       if (result.decision === 'advance' || result.decision === 'revise') {
         expect(result.status).toBe('votable');
       } else {
-        expect(result.status).toBe('draft');
+        expect(result.status).toBe('submitted');
       }
     });
   });

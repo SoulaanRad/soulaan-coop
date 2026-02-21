@@ -4,14 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Info, Send } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Send, MapPin } from "lucide-react";
 import Link from "next/link";
 
 export default function SubmitProposalPage() {
   const router = useRouter();
   const [text, setText] = useState("");
+  const [location, setLocation] = useState("");
 
   const { data: config } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
 
@@ -25,8 +27,12 @@ export default function SubmitProposalPage() {
     e.preventDefault();
     if (text.length < 20) return;
 
+    const fullText = location.trim()
+      ? `Location: ${location.trim()}\n\n${text}`
+      : text;
+
     await createProposal.mutateAsync({
-      text,
+      text: fullText,
       coopId: "soulaan",
     });
   };
@@ -71,6 +77,29 @@ export default function SubmitProposalPage() {
 
       {/* Submit Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Location */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-amber-400" />
+              Location <span className="text-sm font-normal text-gray-400">(optional)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Atlanta, GA or South Side Chicago"
+              className="bg-slate-900 border-slate-700 text-white placeholder:text-gray-500"
+              maxLength={200}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Where will this proposal primarily operate or benefit?
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Proposal Text */}
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-white text-lg">Proposal Text</CardTitle>
@@ -79,7 +108,7 @@ export default function SubmitProposalPage() {
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Describe your proposal in detail. Include what you want to build/fund, the budget needed, location, expected impact (jobs, revenue, leakage reduction), and how it serves the co-op mission..."
+              placeholder="Describe your proposal in detail. Include what you want to build/fund, the budget needed, expected impact (jobs, revenue, leakage reduction), and how it serves the co-op mission..."
               className="bg-slate-900 border-slate-700 text-white placeholder:text-gray-500 min-h-[250px]"
               maxLength={10000}
             />

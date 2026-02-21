@@ -49,7 +49,7 @@ vi.mock("@openai/agents", () => {
             blocking: true,
           },
         ],
-        status: "draft",
+        status: "submitted",
       },
     }),
     webSearchTool: vi.fn().mockReturnValue({}),
@@ -115,7 +115,7 @@ describe("ProposalEngine with CoopConfig", () => {
           impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
           alignment: 0.5,
           feasibility: 0.5,
-          status: "draft",
+          status: "submitted",
         },
       });
 
@@ -138,7 +138,7 @@ describe("ProposalEngine with CoopConfig", () => {
           impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
           alignment: 0.5,
           feasibility: 0.5,
-          status: "draft",
+          status: "submitted",
         },
       });
 
@@ -161,7 +161,7 @@ describe("ProposalEngine with CoopConfig", () => {
           impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
           alignment: 0.5,
           feasibility: 0.5,
-          status: "draft",
+          status: "submitted",
         },
       });
 
@@ -184,7 +184,7 @@ describe("ProposalEngine with CoopConfig", () => {
           impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
           alignment: 0.5,
           feasibility: 0.5,
-          status: "draft",
+          status: "submitted",
         },
       });
 

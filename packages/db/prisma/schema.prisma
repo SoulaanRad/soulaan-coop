@@ -134,6 +134,7 @@ model CoopConfig {
   sectorExclusions          Json     // ["fashion", "restaurant", ...]
   minScBalanceToSubmit      Float    @default(0)
   scoringWeights            Json     // { selfReliance, communityJobs, assetRetention, transparency, culturalValue }
+  councilVoteThresholdUSD   Float    @default(5000)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   createdBy                 String   // wallet address
@@ -164,7 +165,7 @@ model Proposal {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  status      ProposalStatus @default(DRAFT)
+  status      ProposalStatus @default(SUBMITTED)
 
   // Core proposal data
   title       String
@@ -215,11 +216,17 @@ model Proposal {
   decisionReasons    String[]        // reason strings
   missingData        Json?           // MissingData[]
 
+  // Governance additions
+  councilRequired    Boolean         @default(false)
+  withdrawnAt        DateTime?
+  withdrawnBy        String?         // wallet address
+
   // Relations
   kpis               ProposalKPI[]
   auditChecks        ProposalAuditCheck[]
   votes              ProposalVote[]
   comments           ProposalComment[]
+  reactions          ProposalReaction[]
 
   @@schema("public")
 }
@@ -275,6 +282,19 @@ model ProposalComment {
   aiEvaluation  CommentAIEvaluation?
 
   @@index([proposalId, createdAt])
+  @@schema("public")
+}
+
+model ProposalReaction {
+  id          String       @id @default(cuid())
+  proposalId  String
+  proposal    Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  voterWallet String
+  reaction    ReactionType
+  createdAt   DateTime     @default(now())
+
+  @@unique([proposalId, voterWallet])
+  @@index([proposalId])
   @@schema("public")
 }
 
@@ -367,12 +387,21 @@ enum ApplicationStatus {
 }
 
 enum ProposalStatus {
-  DRAFT
+  SUBMITTED
   VOTABLE
   APPROVED
   FUNDED
   REJECTED
-  
+  FAILED
+  WITHDRAWN
+
+  @@schema("public")
+}
+
+enum ReactionType {
+  SUPPORT
+  CONCERN
+
   @@schema("public")
 }
 

@@ -22,7 +22,7 @@ describe("ProposalEngine", () => {
 
     expect(out.id).toMatch(/^prop_/);
     expect(new Date(out.createdAt).toString()).not.toBe("Invalid Date");
-    expect(out.status).toMatch(/^(draft|votable|approved|funded|rejected)$/);
+    expect(out.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
 
     // Scores are within [0,1]
     expect(out.scores.alignment).toBeGreaterThanOrEqual(0);
