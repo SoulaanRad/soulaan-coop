@@ -219,7 +219,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const config = createConfig();
 
     // Access private method via any
-    const goals = (engine as any).estimateGoals(
+    const goals = (engine).estimateGoals(
       { budget: { amountRequested: 50000 }, category: "business_funding" },
       config,
     );
@@ -233,7 +233,7 @@ describe("ProposalEngine with CoopConfig", () => {
   it("estimateGoals uses default weights when config absent", () => {
     const engine = new ProposalEngine();
 
-    const goals = (engine as any).estimateGoals(
+    const goals = (engine).estimateGoals(
       { budget: { amountRequested: 50000 }, category: "business_funding" },
     );
 
@@ -246,7 +246,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const config = createConfig();
     config.sectorExclusions = ["gambling", "tobacco"];
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "This is about a gambling business", proposer: null, region: null },
       { title: "Gambling Proposal", summary: "..." },
       config,
@@ -261,7 +261,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "Community solar panel installation project" },
       { title: "Solar Panels", summary: "Green energy project" },
       config,
@@ -275,7 +275,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "Test proposal text for community project" },
       { title: "Test", summary: "test" },
       config,

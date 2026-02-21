@@ -580,9 +580,9 @@ export class ProposalEngine {
     ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
     const output = result.finalOutput ?? result.output ?? {};
-    const altsRaw = (output.alternatives as Array<Record<string, unknown>> | undefined) ?? [];
+    const altsRaw = (output.alternatives as Record<string, unknown>[] | undefined) ?? [];
     const scored = altsRaw.slice(0,3).map((alt: Record<string, unknown>) => {
-      const applied = this.applyChangesShallow(extracted, alt.changes as Array<{ field: string; from?: string | number | boolean | null; to: string | number | boolean }>);
+      const applied = this.applyChangesShallow(extracted, alt.changes as { field: string; from?: string | number | boolean | null; to: string | number | boolean }[]);
       const goals = this.estimateGoals(applied, config);
       return { ...alt, scores: goals } as { scores: { composite: number; LeakageReduction: number; MemberBenefit: number; EquityGrowth: number; LocalJobs: number; CommunityVitality: number; Resilience: number }; label: string; changes: { field: string; from?: string | number | boolean | null; to: string | number | boolean }[]; rationale: string; dataNeeds?: string[] | undefined };
     });
@@ -618,7 +618,7 @@ export class ProposalEngine {
     ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
     const output = result.finalOutput ?? result.output ?? {};
-    return (output.missing_data as Array<{ field: string; question: string; why_needed: string; blocking: boolean }> | undefined) ?? [];
+    return (output.missing_data as { field: string; question: string; why_needed: string; blocking: boolean }[] | undefined) ?? [];
   }
 
   private async runComplianceChecks(
