@@ -545,22 +545,36 @@ export default function ProposalDetailPage() {
             <Card className="bg-slate-800/50 border-slate-700">
               <CardHeader><CardTitle className="text-white text-lg">Missing Data</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {proposal.missing_data.map((item: any, i: number) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    {item.blocking ? (
-                      <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <p className="text-white">{item.field}: {item.question}</p>
-                      <p className="text-xs text-gray-500">{item.why_needed}</p>
-                      <Badge variant="outline" className={item.blocking ? "text-red-400 border-red-500/30" : "text-amber-400 border-amber-500/30"}>
-                        {item.blocking ? "Blocking" : "Non-blocking"}
-                      </Badge>
+                {proposal.missing_data.map((item: any, i: number) => {
+                  const sev: string = item.severity ?? (item.blocking ? "BLOCKER" : "SOFT");
+                  const isBlocker = sev === "BLOCKER";
+                  const isInfo = sev === "INFO";
+                  const iconColor = isBlocker ? "text-red-400" : isInfo ? "text-blue-400" : "text-amber-400";
+                  const badgeStyle = isBlocker
+                    ? "text-red-400 border-red-500/30"
+                    : isInfo
+                      ? "text-blue-400 border-blue-500/30"
+                      : "text-amber-400 border-amber-500/30";
+                  return (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <AlertTriangle className={`h-4 w-4 ${iconColor} shrink-0 mt-0.5`} />
+                      <div>
+                        <p className="text-white">{item.field}: {item.question}</p>
+                        <p className="text-xs text-gray-500">{item.why_needed}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className={badgeStyle}>
+                            {sev}
+                          </Badge>
+                          {item.affectedGoalIds?.length > 0 && (
+                            <span className="text-xs text-gray-500">
+                              affects: {item.affectedGoalIds.join(", ")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

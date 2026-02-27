@@ -28,6 +28,9 @@ function mapDbToConfigOutput(record: CoopConfig): CoopConfigOutput {
     minScBalanceToSubmit: record.minScBalanceToSubmit,
     aiAutoApproveThresholdUSD: record.aiAutoApproveThresholdUSD ?? 500,
     councilVoteThresholdUSD: record.councilVoteThresholdUSD ?? 5000,
+    strongGoalThreshold: record.strongGoalThreshold,
+    missionMinThreshold: record.missionMinThreshold,
+    structuralGate: record.structuralGate,
     createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
     createdBy: record.createdBy,
@@ -166,6 +169,9 @@ export const coopConfigRouter = router({
           minScBalanceToSubmit: fields.minScBalanceToSubmit ?? 0,
           aiAutoApproveThresholdUSD: fields.aiAutoApproveThresholdUSD ?? 500,
           councilVoteThresholdUSD: fields.councilVoteThresholdUSD ?? 5000,
+          strongGoalThreshold: fields.strongGoalThreshold ?? 0.70,
+          missionMinThreshold: fields.missionMinThreshold ?? 0.50,
+          structuralGate: fields.structuralGate ?? 0.65,
           createdBy: walletAddress,
         },
       });
@@ -207,6 +213,9 @@ export const coopConfigRouter = router({
       if (updates.minScBalanceToSubmit !== undefined) newFields.minScBalanceToSubmit = updates.minScBalanceToSubmit;
       if (updates.aiAutoApproveThresholdUSD !== undefined) newFields.aiAutoApproveThresholdUSD = updates.aiAutoApproveThresholdUSD;
       if (updates.councilVoteThresholdUSD !== undefined) newFields.councilVoteThresholdUSD = updates.councilVoteThresholdUSD;
+      if (updates.strongGoalThreshold !== undefined) newFields.strongGoalThreshold = updates.strongGoalThreshold;
+      if (updates.missionMinThreshold !== undefined) newFields.missionMinThreshold = updates.missionMinThreshold;
+      if (updates.structuralGate !== undefined) newFields.structuralGate = updates.structuralGate;
 
       const diff = computeDiff(current, newFields);
 
@@ -235,6 +244,9 @@ export const coopConfigRouter = router({
             minScBalanceToSubmit: newFields.minScBalanceToSubmit ?? current.minScBalanceToSubmit,
             aiAutoApproveThresholdUSD: newFields.aiAutoApproveThresholdUSD ?? current.aiAutoApproveThresholdUSD ?? 500,
             councilVoteThresholdUSD: newFields.councilVoteThresholdUSD ?? current.councilVoteThresholdUSD ?? 5000,
+            strongGoalThreshold: (newFields as any).strongGoalThreshold ?? (current as any).strongGoalThreshold ?? 0.70,
+            missionMinThreshold: (newFields as any).missionMinThreshold ?? (current as any).missionMinThreshold ?? 0.50,
+            structuralGate: (newFields as any).structuralGate ?? (current as any).structuralGate ?? 0.65,
             createdBy: walletAddress,
           },
         }),
@@ -392,6 +404,9 @@ export const coopConfigRouter = router({
             minScBalanceToSubmit: current.minScBalanceToSubmit,
             aiAutoApproveThresholdUSD: current.aiAutoApproveThresholdUSD,
             councilVoteThresholdUSD: current.councilVoteThresholdUSD,
+            strongGoalThreshold: (current as any).strongGoalThreshold ?? 0.70,
+            missionMinThreshold: (current as any).missionMinThreshold ?? 0.50,
+            structuralGate: (current as any).structuralGate ?? 0.65,
             createdBy: walletAddress,
           },
         }),
@@ -579,6 +594,9 @@ export const coopConfigRouter = router({
             minScBalanceToSubmit:      (changes.minScBalanceToSubmit      as number  | undefined) ?? current.minScBalanceToSubmit,
             aiAutoApproveThresholdUSD: (changes.aiAutoApproveThresholdUSD as number  | undefined) ?? (current.aiAutoApproveThresholdUSD ?? 500),
             councilVoteThresholdUSD:   (changes.councilVoteThresholdUSD   as number  | undefined) ?? (current.councilVoteThresholdUSD   ?? 5000),
+            strongGoalThreshold: (changes.strongGoalThreshold as number | undefined) ?? ((current as any).strongGoalThreshold ?? 0.70),
+            missionMinThreshold: (changes.missionMinThreshold as number | undefined) ?? ((current as any).missionMinThreshold ?? 0.50),
+            structuralGate:      (changes.structuralGate      as number | undefined) ?? ((current as any).structuralGate      ?? 0.65),
             createdBy: walletAddress,
           },
         }),

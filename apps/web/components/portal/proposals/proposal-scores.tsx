@@ -40,6 +40,8 @@ interface MissionImpactScore {
   goal_id: string;
   impact_score: number;
   goal_priority_weight: number;
+  score_reason?: string;
+  evidenceRefs?: string[];
 }
 
 interface ComputedScores {
@@ -47,6 +49,24 @@ interface ComputedScores {
   structural_weighted_score: number;
   overall_score: number;
   passes_threshold: boolean;
+  passFailReasons?: string[];
+  expert_adjusted?: boolean;
+}
+
+interface StructuralBreakdownItem {
+  factor: string;
+  score: number;
+  weight: number;
+  rationale?: string;
+  evidenceRefs?: string[];
+}
+
+interface MissionGoalBreakdownItem {
+  goal_id: string;
+  score: number;
+  weight: number;
+  rationale?: string;
+  evidenceRefs?: string[];
 }
 
 interface Evaluation {
@@ -56,7 +76,15 @@ interface Evaluation {
   violations?: string[];
   risk_flags?: string[];
   llm_summary?: string;
+  structural_breakdown?: StructuralBreakdownItem[];
+  mission_goal_breakdown?: MissionGoalBreakdownItem[];
 }
+
+const FAIL_REASON_LABELS: Record<string, string> = {
+  FAIL_STRUCTURAL_GATE: "Structural score too low",
+  FAIL_MISSION_MIN_THRESHOLD: "Mission impact score too low",
+  FAIL_NO_STRONG_MISSION_GOAL: "No single goal scored strongly",
+};
 
 interface GoalScoreRecord {
   goalId: string;
@@ -78,10 +106,21 @@ export function ProposalScores({ evaluation, goalScores }: ProposalScoresProps) 
   const [showRiskFlags, setShowRiskFlags] = useState(false);
   const [showViolations, setShowViolations] = useState(false);
 
-  const { structural_scores, mission_impact_scores, computed_scores, violations = [], risk_flags = [], llm_summary } = evaluation;
+  const {
+    structural_scores, mission_impact_scores, computed_scores,
+    violations = [], risk_flags = [], llm_summary,
+    structural_breakdown = [], mission_goal_breakdown = [],
+  } = evaluation;
   const overall = computed_scores.overall_score;
   const overallPct = Math.round(overall * 100);
   const passes = computed_scores.passes_threshold;
+  const failReasons = computed_scores.passFailReasons ?? [];
+
+  // Build structural rationale lookup by factor name
+  const structuralRationaleMap = new Map(structural_breakdown.map(b => [b.factor, b]));
+
+  // Build mission breakdown lookup for evidenceRefs (richer source than mission_impact_scores)
+  const missionBreakdownMap = new Map(mission_goal_breakdown.map(b => [b.goal_id, b]));
 
   return (
     <div className="space-y-5">
@@ -103,9 +142,17 @@ export function ProposalScores({ evaluation, goalScores }: ProposalScoresProps) 
               <CheckCircle2 className="h-3 w-3" /> Passed
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-red-500/20 text-red-400">
-              <XCircle className="h-3 w-3" /> Below Threshold
-            </span>
+            <div className="flex flex-col items-end gap-1">
+              {failReasons.length > 0 ? failReasons.map(r => (
+                <span key={r} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-red-500/20 text-red-400">
+                  <XCircle className="h-3 w-3" /> {FAIL_REASON_LABELS[r] ?? r}
+                </span>
+              )) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-red-500/20 text-red-400">
+                  <XCircle className="h-3 w-3" /> Below Threshold
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -126,7 +173,12 @@ export function ProposalScores({ evaluation, goalScores }: ProposalScoresProps) 
             Goal mapping {structural_scores.goal_mapping_valid ? "valid" : "invalid"}
           </span>
         </div>
-        <ScoreBar label="Feasibility" value={structural_scores.feasibility_score} />
+        <div className="space-y-1">
+          <ScoreBar label="Feasibility" value={structural_scores.feasibility_score} />
+          {structuralRationaleMap.get("feasibility")?.rationale && (
+            <p className="text-xs text-gray-500 italic pl-0.5">{structuralRationaleMap.get("feasibility")!.rationale}</p>
+          )}
+        </div>
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-gray-300">Risk</span>
@@ -139,8 +191,16 @@ export function ProposalScores({ evaluation, goalScores }: ProposalScoresProps) 
             />
           </div>
           <p className="text-xs text-gray-500">Lower is better — higher values indicate greater risk</p>
+          {structuralRationaleMap.get("risk")?.rationale && (
+            <p className="text-xs text-gray-500 italic pl-0.5">{structuralRationaleMap.get("risk")!.rationale}</p>
+          )}
         </div>
-        <ScoreBar label="Accountability" value={structural_scores.accountability_score} />
+        <div className="space-y-1">
+          <ScoreBar label="Accountability" value={structural_scores.accountability_score} />
+          {structuralRationaleMap.get("accountability")?.rationale && (
+            <p className="text-xs text-gray-500 italic pl-0.5">{structuralRationaleMap.get("accountability")!.rationale}</p>
+          )}
+        </div>
       </div>
 
       {/* Mission Impact */}
@@ -179,6 +239,18 @@ export function ProposalScores({ evaluation, goalScores }: ProposalScoresProps) 
                     {s.score_reason}
                   </p>
                 )}
+                {(() => {
+                  const refs = missionBreakdownMap.get(s.goal_id)?.evidenceRefs ?? s.evidenceRefs ?? [];
+                  return refs.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 pl-0.5 mt-0.5">
+                      {refs.map((ref, i) => (
+                        <span key={i} className="text-xs bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono">
+                          "{ref}"
+                        </span>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             );
           })}

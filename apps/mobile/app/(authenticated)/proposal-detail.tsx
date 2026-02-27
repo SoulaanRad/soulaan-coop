@@ -311,6 +311,13 @@ export default function ProposalDetailScreen() {
   const dc = decisionColor(proposal.decision);
   const overallScore = Math.round((proposal.evaluation?.computed_scores?.overall_score ?? 0) * 100);
   const passesThreshold = proposal.evaluation?.computed_scores?.passes_threshold ?? false;
+  const failReasons: string[] = proposal.evaluation?.computed_scores?.passFailReasons ?? [];
+  const FAIL_LABELS: Record<string, string> = {
+    FAIL_STRUCTURAL_GATE: 'Structural score too low',
+    FAIL_MISSION_MIN_THRESHOLD: 'Mission impact score too low',
+    FAIL_NO_STRONG_MISSION_GOAL: 'No single goal scored strongly',
+  };
+  const structuralBreakdown: { factor: string; rationale?: string }[] = proposal.evaluation?.structural_breakdown ?? [];
   const visibleComments = showAll ? comments : comments.slice(0, 3);
 
   // Proposer + admin role checks
@@ -623,20 +630,26 @@ export default function ProposalDetailScreen() {
             </View>
 
             <View className="p-4 gap-1">
-              {/* Pass/fail badge */}
-              <View className="flex-row mb-2">
-                <View
-                  className="self-start rounded-full px-3 py-1 flex-row items-center gap-1"
-                  style={{ backgroundColor: passesThreshold ? '#DCFCE7' : '#FEF2F2' }}
-                >
-                  {passesThreshold
-                    ? <CheckCircle size={12} color="#16A34A" />
-                    : <XCircle size={12} color="#DC2626" />
-                  }
-                  <Text style={{ color: passesThreshold ? '#16A34A' : '#DC2626', fontSize: 11, fontWeight: '600' }}>
-                    {passesThreshold ? 'Passed Threshold' : 'Below Threshold'}
-                  </Text>
-                </View>
+              {/* Pass/fail badge(s) */}
+              <View className="flex-row flex-wrap gap-1 mb-2">
+                {passesThreshold ? (
+                  <View className="self-start rounded-full px-3 py-1 flex-row items-center gap-1" style={{ backgroundColor: '#DCFCE7' }}>
+                    <CheckCircle size={12} color="#16A34A" />
+                    <Text style={{ color: '#16A34A', fontSize: 11, fontWeight: '600' }}>Passed</Text>
+                  </View>
+                ) : failReasons.length > 0 ? (
+                  failReasons.map(r => (
+                    <View key={r} className="self-start rounded-full px-3 py-1 flex-row items-center gap-1" style={{ backgroundColor: '#FEF2F2' }}>
+                      <XCircle size={12} color="#DC2626" />
+                      <Text style={{ color: '#DC2626', fontSize: 11, fontWeight: '600' }}>{FAIL_LABELS[r] ?? r}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View className="self-start rounded-full px-3 py-1 flex-row items-center gap-1" style={{ backgroundColor: '#FEF2F2' }}>
+                    <XCircle size={12} color="#DC2626" />
+                    <Text style={{ color: '#DC2626', fontSize: 11, fontWeight: '600' }}>Below Threshold</Text>
+                  </View>
+                )}
               </View>
 
               {/* LLM Summary */}
@@ -666,9 +679,18 @@ export default function ProposalDetailScreen() {
                     </Text>
                   </View>
                   <ScoreBar label="Feasibility" value={proposal.evaluation.structural_scores.feasibility_score} icon={<CheckCircle size={13} color="#B45309" />} />
+                  {structuralBreakdown.find(b => b.factor === 'feasibility')?.rationale ? (
+                    <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1 italic">{structuralBreakdown.find(b => b.factor === 'feasibility')!.rationale}</Text>
+                  ) : null}
                   <ScoreBar label="Risk" value={proposal.evaluation.structural_scores.risk_score} icon={<Shield size={13} color="#B45309" />} />
-                  <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1">Lower risk is better</Text>
+                  <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-0.5">Lower risk is better</Text>
+                  {structuralBreakdown.find(b => b.factor === 'risk')?.rationale ? (
+                    <Text className="text-charcoal-400 text-xs ml-5 mb-1 italic">{structuralBreakdown.find(b => b.factor === 'risk')!.rationale}</Text>
+                  ) : null}
                   <ScoreBar label="Accountability" value={proposal.evaluation.structural_scores.accountability_score} icon={<Users size={13} color="#B45309" />} />
+                  {structuralBreakdown.find(b => b.factor === 'accountability')?.rationale ? (
+                    <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1 italic">{structuralBreakdown.find(b => b.factor === 'accountability')!.rationale}</Text>
+                  ) : null}
                 </View>
               )}
 
@@ -688,9 +710,12 @@ export default function ProposalDetailScreen() {
                         value={s.impact_score}
                         icon={<TrendingUp size={11} color="#B45309" />}
                       />
-                      <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1">
+                      <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-0.5">
                         {Math.round(s.goal_priority_weight * 100)}% priority weight
                       </Text>
+                      {s.score_reason ? (
+                        <Text className="text-charcoal-400 text-xs ml-5 mb-1 italic">{s.score_reason}</Text>
+                      ) : null}
                     </View>
                   ))}
                 </View>
@@ -770,21 +795,34 @@ export default function ProposalDetailScreen() {
           {proposal.missing_data?.length > 0 && (
             <View className="bg-white rounded-2xl p-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
               <Text className="text-charcoal-800 font-semibold text-base mb-3">Missing Data</Text>
-              {proposal.missing_data.map((item: any, i: number) => (
-                <View key={i} className="flex-row gap-2 mb-3">
-                  <AlertCircle size={16} color={item.blocking ? '#DC2626' : '#B45309'} style={{ marginTop: 1 }} />
-                  <View className="flex-1">
-                    <Text className="text-charcoal-800 text-sm font-medium">{item.field}</Text>
-                    <Text className="text-charcoal-500 text-xs mt-0.5">{item.question}</Text>
-                    <Text className="text-charcoal-400 text-xs">{item.why_needed}</Text>
-                    <View className="mt-1 self-start rounded-full px-2 py-0.5" style={{ backgroundColor: item.blocking ? '#FEF2F2' : '#FFFBEB' }}>
-                      <Text style={{ color: item.blocking ? '#DC2626' : '#B45309', fontSize: 10, fontWeight: '600' }}>
-                        {item.blocking ? 'Blocking' : 'Non-blocking'}
-                      </Text>
+              {proposal.missing_data.map((item: any, i: number) => {
+                const sev: string = item.severity ?? (item.blocking ? 'BLOCKER' : 'SOFT');
+                const isBlocker = sev === 'BLOCKER';
+                const isInfo = sev === 'INFO';
+                const iconColor = isBlocker ? '#DC2626' : isInfo ? '#2563EB' : '#B45309';
+                const bgColor = isBlocker ? '#FEF2F2' : isInfo ? '#EFF6FF' : '#FFFBEB';
+                const textColor = isBlocker ? '#DC2626' : isInfo ? '#2563EB' : '#B45309';
+                return (
+                  <View key={i} className="flex-row gap-2 mb-3">
+                    <AlertCircle size={16} color={iconColor} style={{ marginTop: 1 }} />
+                    <View className="flex-1">
+                      <Text className="text-charcoal-800 text-sm font-medium">{item.field}</Text>
+                      <Text className="text-charcoal-500 text-xs mt-0.5">{item.question}</Text>
+                      <Text className="text-charcoal-400 text-xs">{item.why_needed}</Text>
+                      <View className="flex-row flex-wrap items-center gap-1 mt-1">
+                        <View className="self-start rounded-full px-2 py-0.5" style={{ backgroundColor: bgColor }}>
+                          <Text style={{ color: textColor, fontSize: 10, fontWeight: '600' }}>{sev}</Text>
+                        </View>
+                        {item.affectedGoalIds?.length > 0 && (
+                          <Text style={{ fontSize: 10, color: '#9CA3AF' }}>
+                            affects: {item.affectedGoalIds.join(', ')}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 

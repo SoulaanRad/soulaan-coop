@@ -1,6 +1,6 @@
 import { Agent, run, webSearchTool } from "@openai/agents";
 import { z } from "zod";
-import type { ProposalInput, ProposalOutput, Alternative, MissingData, Decision, Evaluation, MissionImpactScore, ScorerAgent } from "./proposal.js";
+import type { ProposalInput, ProposalOutput, Alternative, MissingData, Decision, Evaluation, MissionImpactScore, MissionGoalBreakdownItem, StructuralBreakdownItem, ScorerAgent } from "./proposal.js";
 import {
   ProposalInputZ,
   ProposalOutputZ,
@@ -8,6 +8,7 @@ import {
   ProposalStatusZ,
   AlternativeZ,
   MissingDataZ,
+  MissingSeverityZ,
   EvaluationZ,
 } from "./proposal.js";
 import type { KPIz } from "./proposal.js";
@@ -46,6 +47,16 @@ export interface CoopConfigData {
     expertScore: number;
     reason: string;
   }>>;
+  /** A single mission goal must reach this score (0..1) for mission alignment. Default 0.70. */
+  strongGoalThreshold?: number;
+  /** Weighted average mission score must meet this floor (0..1). Default 0.50. */
+  missionMinThreshold?: number;
+  /** Structural score must clear this gate (0..1) or proposal fails outright. Default 0.65. */
+  structuralGate?: number;
+  /** Budget below this USD amount is auto-approved (Tier 1). */
+  aiAutoApproveThresholdUSD?: number;
+  /** Budget at/above this USD amount requires a council vote (Tier 3). */
+  councilVoteThresholdUSD?: number;
 }
 
 // ── Default config values ──────────────────────────────────────────────────
@@ -98,6 +109,9 @@ const DEFAULT_MISSION_GOALS: { key: string; label: string; priorityWeight: numbe
 const DEFAULT_STRUCTURAL_WEIGHTS = { feasibility: 0.40, risk: 0.35, accountability: 0.25 };
 const DEFAULT_SCORE_MIX = { missionWeight: 0.6, structuralWeight: 0.4 };
 const DEFAULT_PASS_THRESHOLD = 0.6;
+const DEFAULT_STRONG_GOAL_THRESHOLD = 0.70;
+const DEFAULT_MISSION_MIN_THRESHOLD = 0.50;
+const DEFAULT_STRUCTURAL_GATE = 0.65;
 
 function normalizeCurrency(val: unknown): "UC" | "USD" | "mixed" {
   const s = String(val).toUpperCase();
@@ -132,12 +146,15 @@ export class ProposalEngine {
     ]);
 
     // Backend computes all totals — no LLM pass/fail
-    const evaluation = this.computeEvaluation(rawEval, config);
+    const prelimEvaluation = this.computeEvaluation(rawEval, config);
 
     const [alternatives, missing_data] = await Promise.all([
-      this.runAlternativeAgent(extractedFields, evaluation, config),
-      this.runMissingDataAgent(extractedFields, evaluation, config),
+      this.runAlternativeAgent(extractedFields, prelimEvaluation, config),
+      this.runMissingDataAgent(extractedFields, prelimEvaluation, config),
     ]);
+
+    // Apply SOFT missing-data penalties to structural and mission goal scores
+    const evaluation = this.applyMissingDataPenalties(prelimEvaluation, missing_data, config);
 
     const { decision, reasons, bestAlt } = this.decideWithAlternatives(evaluation, alternatives, missing_data);
     const status = this.statusFromDecision(decision);
@@ -240,11 +257,27 @@ export class ProposalEngine {
   /**
    * Combine raw LLM structural/mission scores with config weights to produce
    * the final Evaluation object. All pass/fail logic lives here.
+   *
+   * Pass/fail gates (in evaluation order):
+   *  1. FAIL_STRUCTURAL_GATE       — structural_weighted_score < structuralGate (default 0.65)
+   *  2. FAIL_MISSION_MIN_THRESHOLD — mission_weighted_score < missionMinThreshold (default 0.50)
+   *  3. FAIL_NO_STRONG_MISSION_GOAL — no single goal reaches strongGoalThreshold (default 0.70)
    */
   computeEvaluation(
     rawEval: {
-      structural_scores: { goal_mapping_valid: boolean; feasibility_score: number; risk_score: number; accountability_score: number };
-      mission_impact_scores: { goal_id: string; impact_score: number; score_reason?: string }[];
+      structural_scores: {
+        goal_mapping_valid: boolean;
+        feasibility_score: number;
+        risk_score: number;
+        accountability_score: number;
+        feasibility_rationale?: string;
+        feasibility_evidence_refs?: string[];
+        risk_rationale?: string;
+        risk_evidence_refs?: string[];
+        accountability_rationale?: string;
+        accountability_evidence_refs?: string[];
+      };
+      mission_impact_scores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[];
       violations: string[];
       risk_flags: string[];
       llm_summary: string;
@@ -254,25 +287,39 @@ export class ProposalEngine {
     const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
     const sw = config?.structuralWeights ?? DEFAULT_STRUCTURAL_WEIGHTS;
     const mix = config?.scoreMix ?? DEFAULT_SCORE_MIX;
-    const threshold = config?.screeningPassThreshold ?? DEFAULT_PASS_THRESHOLD;
 
-    // Build mission impact scores with priority weights from config
+    // ── Thresholds (configurable) ──────────────────────────────────────────────
+    const strongGoalThreshold = config?.strongGoalThreshold ?? DEFAULT_STRONG_GOAL_THRESHOLD;
+    const missionMinThreshold = config?.missionMinThreshold ?? DEFAULT_MISSION_MIN_THRESHOLD;
+    const structuralGate = config?.structuralGate ?? DEFAULT_STRUCTURAL_GATE;
+
+    // ── Normalize mission goal weights to sum to 1.0 ───────────────────────────
+    const totalWeight = missionGoals.reduce((s, g) => s + g.priorityWeight, 0);
+    const normWeight = (w: number) => totalWeight > 0 ? w / totalWeight : 1 / missionGoals.length;
+
+    // Build mission impact scores with normalized priority weights
     const mission_impact_scores: MissionImpactScore[] = missionGoals.map(goal => {
       const found = rawEval.mission_impact_scores.find(s => s.goal_id === goal.key);
       return {
         goal_id: goal.key,
         impact_score: this.clamp01(found?.impact_score ?? 0.5),
-        goal_priority_weight: goal.priorityWeight,
+        goal_priority_weight: normWeight(goal.priorityWeight),
         ...(found?.score_reason ? { score_reason: found.score_reason } : {}),
+        ...(found?.evidenceRefs?.length ? { evidenceRefs: found.evidenceRefs } : {}),
       };
     });
 
-    // mission_weighted_score = Σ impact_score * priority_weight
+    // MissionImpactScore = Σ(impact_score * normalized_weight)
     const mission_weighted_score = this.clamp01(
       mission_impact_scores.reduce((acc, s) => acc + s.impact_score * s.goal_priority_weight, 0)
     );
 
-    // structural_weighted_score: risk inverted (lower risk = better)
+    // maxGoalScore: highest individual mission goal score
+    const maxGoalScore = mission_impact_scores.length > 0
+      ? Math.max(...mission_impact_scores.map(s => s.impact_score))
+      : 0;
+
+    // ── StructuralScore: risk inverted (lower risk = better) ───────────────────
     const { feasibility_score, risk_score, accountability_score } = rawEval.structural_scores;
     const structural_weighted_score = this.clamp01(
       feasibility_score * sw.feasibility +
@@ -280,28 +327,83 @@ export class ProposalEngine {
       accountability_score * sw.accountability
     );
 
-    // overall_score = weighted blend of mission and structural
+    // FinalScore = weighted blend of mission and structural
     const overall_score = this.clamp01(
       mission_weighted_score * mix.missionWeight +
       structural_weighted_score * mix.structuralWeight
     );
 
-    const passes_threshold =
-      overall_score >= threshold &&
+    // ── Pass/fail gates ────────────────────────────────────────────────────────
+    const passFailReasons: string[] = [];
+    if (structural_weighted_score < structuralGate) {
+      passFailReasons.push("FAIL_STRUCTURAL_GATE");
+    }
+    if (mission_weighted_score < missionMinThreshold) {
+      passFailReasons.push("FAIL_MISSION_MIN_THRESHOLD");
+    }
+    if (maxGoalScore < strongGoalThreshold) {
+      passFailReasons.push("FAIL_NO_STRONG_MISSION_GOAL");
+    }
+
+    const passes_threshold = passFailReasons.length === 0 &&
       rawEval.structural_scores.goal_mapping_valid;
 
+    // ── Build missionGoalBreakdown ─────────────────────────────────────────────
+    const mission_goal_breakdown: MissionGoalBreakdownItem[] = mission_impact_scores.map(s => ({
+      goal_id: s.goal_id,
+      score: s.impact_score,
+      weight: s.goal_priority_weight,
+      rationale: s.score_reason ?? "",
+      evidenceRefs: s.evidenceRefs ?? [],
+    }));
+
+    // ── Build structuralBreakdown ──────────────────────────────────────────────
+    const structural_breakdown: StructuralBreakdownItem[] = [
+      {
+        factor: "feasibility",
+        score: this.clamp01(feasibility_score),
+        weight: sw.feasibility,
+        rationale: rawEval.structural_scores.feasibility_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.feasibility_evidence_refs ?? [],
+      },
+      {
+        factor: "risk",
+        score: this.clamp01(1 - risk_score),
+        weight: sw.risk,
+        rationale: rawEval.structural_scores.risk_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.risk_evidence_refs ?? [],
+      },
+      {
+        factor: "accountability",
+        score: this.clamp01(accountability_score),
+        weight: sw.accountability,
+        rationale: rawEval.structural_scores.accountability_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.accountability_evidence_refs ?? [],
+      },
+    ];
+
+    // Destructure only the base structural fields (rationale/refs live in breakdown)
+    const { feasibility_score: _f, risk_score: _r, accountability_score: _a, goal_mapping_valid,
+      feasibility_rationale: _fr, feasibility_evidence_refs: _fer,
+      risk_rationale: _rr, risk_evidence_refs: _rer,
+      accountability_rationale: _ar, accountability_evidence_refs: _aer,
+    } = rawEval.structural_scores;
+
     return EvaluationZ.parse({
-      structural_scores: rawEval.structural_scores,
+      structural_scores: { goal_mapping_valid, feasibility_score, risk_score, accountability_score },
       mission_impact_scores,
       computed_scores: {
         mission_weighted_score,
         structural_weighted_score,
         overall_score,
         passes_threshold,
+        passFailReasons,
       },
       violations: rawEval.violations,
       risk_flags: rawEval.risk_flags,
       llm_summary: rawEval.llm_summary,
+      mission_goal_breakdown,
+      structural_breakdown,
     });
   }
 
@@ -396,16 +498,27 @@ export class ProposalEngine {
   /**
    * Evaluation orchestrator: groups mission goals by domain, runs one specialist
    * agent per domain (falling back to the 'general' agent for unmapped goals),
-   * and also runs the structural scorer.  All results are merged and returned in
-   * the same shape as the old single-agent path so computeEvaluation() is unchanged.
+   * and also runs the structural scorer.  All results are merged and returned
+   * to computeEvaluation(), which builds the final Evaluation object.
    */
   private async runEvaluationAgent(
     input: ProposalInput,
     extractedFields: any,
     config?: CoopConfigData,
   ): Promise<{
-    structural_scores: { goal_mapping_valid: boolean; feasibility_score: number; risk_score: number; accountability_score: number };
-    mission_impact_scores: { goal_id: string; impact_score: number }[];
+    structural_scores: {
+      goal_mapping_valid: boolean;
+      feasibility_score: number;
+      risk_score: number;
+      accountability_score: number;
+      feasibility_rationale?: string;
+      feasibility_evidence_refs?: string[];
+      risk_rationale?: string;
+      risk_evidence_refs?: string[];
+      accountability_rationale?: string;
+      accountability_evidence_refs?: string[];
+    };
+    mission_impact_scores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[];
     violations: string[];
     risk_flags: string[];
     llm_summary: string;
@@ -456,6 +569,8 @@ export class ProposalEngine {
       impact_score: z.number().min(0).max(1),
       /** Why this specific score was given and what the proposal would need to score higher. */
       score_reason: z.string().min(5),
+      /** Short direct quotes or references from the proposal text that support the score. */
+      evidenceRefs: z.array(z.string()).optional(),
     });
 
     const DomainScorerOutputZ = z.object({
@@ -510,13 +625,16 @@ export class ProposalEngine {
           "- 0.7–0.9: Strong evidence and direct contribution.",
           "- 0.9–1.0: Exceptional, primary purpose of the proposal.",
           "",
-          "For EVERY goal you score, you MUST also provide a score_reason field.",
+          "For EVERY goal you score, you MUST also provide score_reason and evidenceRefs fields.",
           "score_reason rules:",
           "- 1–2 plain sentences explaining exactly why this score was given.",
           "- Explicitly state what evidence IS present (justifying the score).",
           "- Explicitly state what is MISSING or would need to change to score higher.",
           "- Example: 'The proposal describes two new jobs for members but gives no wage details (current: 52%). To score above 70%, it should specify living-wage rates and show income is sustained beyond the first year.'",
           "- Write directly to the proposer. No jargon.",
+          "evidenceRefs rules:",
+          "- Array of short direct quotes (≤15 words each) from the proposal text that justify the score.",
+          "- Use empty array [] if no direct evidence exists in the proposal text.",
           "",
           "Be consistent. Use the same rubric bands every time.",
           "Return ONLY valid JSON matching the schema.",
@@ -536,7 +654,7 @@ export class ProposalEngine {
           output?: Record<string, unknown>;
         };
         const out = result.finalOutput ?? result.output ?? {};
-        const scores = (out.mission_impact_scores as { goal_id: string; impact_score: number; score_reason?: string }[] | undefined) ?? [];
+        const scores = (out.mission_impact_scores as { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[] | undefined) ?? [];
         return { domain, goals, scores };
       }
     );
@@ -548,6 +666,12 @@ export class ProposalEngine {
         feasibility_score: z.number().min(0).max(1),
         risk_score: z.number().min(0).max(1),
         accountability_score: z.number().min(0).max(1),
+        feasibility_rationale: z.string().optional(),
+        feasibility_evidence_refs: z.array(z.string()).optional(),
+        risk_rationale: z.string().optional(),
+        risk_evidence_refs: z.array(z.string()).optional(),
+        accountability_rationale: z.string().optional(),
+        accountability_evidence_refs: z.array(z.string()).optional(),
       }),
       violations: z.array(z.string()),
       risk_flags: z.array(z.string()),
@@ -562,8 +686,17 @@ export class ProposalEngine {
         "Score these STRUCTURAL dimensions (0..1) — universal for all co-op proposals:",
         "- goal_mapping_valid: true if the proposal clearly maps to at least one mission goal",
         "- feasibility_score: execution realism (team, timeline, market fit)",
-        "- risk_score: 0 = low risk, 1 = very high risk",
+        "- risk_score: 0 = low risk, 1 = very high risk (inverted — lower is better)",
         "- accountability_score: clarity of milestones, reporting, and verification",
+        "",
+        "For EACH of the three scored dimensions, also provide a rationale and evidenceRefs:",
+        "- feasibility_rationale: 1 sentence explaining the feasibility score.",
+        "- feasibility_evidence_refs: array of short direct quotes (≤15 words) from the proposal supporting the score.",
+        "- risk_rationale: 1 sentence explaining the risk score.",
+        "- risk_evidence_refs: array of short direct quotes.",
+        "- accountability_rationale: 1 sentence explaining the accountability score.",
+        "- accountability_evidence_refs: array of short direct quotes.",
+        "Use empty array [] when no direct evidence exists.",
         "",
         categoryContext,
         exclusionContext,
@@ -592,7 +725,7 @@ export class ProposalEngine {
     ]);
 
     // ── Merge domain scores into flat mission_impact_scores ───────────────────
-    const allMissionScores: { goal_id: string; impact_score: number; score_reason?: string }[] = [];
+    const allMissionScores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[] = [];
     for (const { goals, scores } of domainResults) {
       for (const goal of goals) {
         const found = scores.find(s => s.goal_id === goal.key);
@@ -600,6 +733,7 @@ export class ProposalEngine {
           goal_id: goal.key,
           impact_score: this.clamp01(found?.impact_score ?? 0.5),
           score_reason: found?.score_reason,
+          evidenceRefs: found?.evidenceRefs,
         });
       }
     }
@@ -613,6 +747,12 @@ export class ProposalEngine {
         feasibility_score: this.clamp01((structural.feasibility_score as number | undefined) ?? 0.5),
         risk_score: this.clamp01((structural.risk_score as number | undefined) ?? 0.5),
         accountability_score: this.clamp01((structural.accountability_score as number | undefined) ?? 0.5),
+        feasibility_rationale: (structural.feasibility_rationale as string | undefined),
+        feasibility_evidence_refs: (structural.feasibility_evidence_refs as string[] | undefined),
+        risk_rationale: (structural.risk_rationale as string | undefined),
+        risk_evidence_refs: (structural.risk_evidence_refs as string[] | undefined),
+        accountability_rationale: (structural.accountability_rationale as string | undefined),
+        accountability_evidence_refs: (structural.accountability_evidence_refs as string[] | undefined),
       },
       mission_impact_scores: allMissionScores,
       violations: (sOut.violations as string[] | undefined) ?? [],
@@ -764,19 +904,70 @@ export class ProposalEngine {
       }));
   }
 
+  /**
+   * Classifies a proposal's budget into one of three review tiers:
+   *   Tier 1 — below aiAutoApproveThreshold: minimal scrutiny
+   *   Tier 2 — below councilVoteThreshold:   moderate scrutiny
+   *   Tier 3 — at/above councilVoteThreshold: strict scrutiny (procurement, escrow, milestones)
+   */
+  determineBudgetTier(amountUSD: number, config?: CoopConfigData): 1 | 2 | 3 {
+    const autoApprove = config?.aiAutoApproveThresholdUSD ?? 500;
+    const council = config?.councilVoteThresholdUSD ?? 5000;
+    if (amountUSD < autoApprove) return 1;
+    if (amountUSD < council) return 2;
+    return 3;
+  }
+
   private async runMissingDataAgent(
     extracted: any,
     evaluation: Evaluation,
     config?: CoopConfigData,
   ): Promise<MissingData[]> {
+    const MDItemSchema = MissingDataZ;
     const MDWrapperSchema = z.object({
-      missing_data: z.array(MissingDataZ).max(10),
+      missing_data: z.array(MDItemSchema).max(10),
     });
 
     const passThreshold = config?.screeningPassThreshold ?? DEFAULT_PASS_THRESHOLD;
     const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
 
-    // ── Option 2: Current score context so the agent knows exactly where the proposal is weak ──
+    const budgetAmount: number = extracted.budget?.amountRequested ?? 0;
+    const tier = this.determineBudgetTier(budgetAmount, config);
+    const autoApprove = config?.aiAutoApproveThresholdUSD ?? 500;
+    const council = config?.councilVoteThresholdUSD ?? 5000;
+
+    const tierLabel = tier === 1
+      ? `Tier 1 (< $${autoApprove} — low-value, fast-track)`
+      : tier === 2
+        ? `Tier 2 ($${autoApprove}–$${council} — standard review)`
+        : `Tier 3 (≥ $${council} — large spend, council review)`;
+
+    const tierBlockerRules = tier === 1
+      ? [
+          "TIER 1 — minimal blockers. Only set severity=BLOCKER if truly nothing can be scored:",
+          "  - No description at all, OR no dollar amount, OR proposer identity completely missing.",
+          "  - Everything else should be SOFT or INFO.",
+        ]
+      : tier === 2
+        ? [
+            "TIER 2 — moderate blockers. Set severity=BLOCKER when a required dimension cannot be scored:",
+            "  - Completely missing financial plan or budget breakdown.",
+            "  - No team or responsible person named.",
+            "  - No timeline or milestones.",
+            "  - Missing accountability/oversight plan.",
+            "  - Set severity=SOFT for gaps that reduce confidence but don't prevent scoring.",
+          ]
+        : [
+            "TIER 3 — strict blockers (large spend requires council vote). Set severity=BLOCKER for:",
+            "  - No detailed procurement plan (how vendors/contractors will be selected).",
+            "  - No escrow or milestone-release schedule for funds.",
+            "  - No named project manager or oversight committee.",
+            "  - No risk register or contingency budget.",
+            "  - Incomplete or vague budget breakdown (line items required).",
+            "  - Missing accountability metrics and reporting cadence.",
+            "  - Set severity=SOFT for gaps that are present but insufficiently detailed.",
+          ];
+
     const overallPct = Math.round(evaluation.computed_scores.overall_score * 100);
     const passesPct = Math.round(passThreshold * 100);
     const feasPct = Math.round(evaluation.structural_scores.feasibility_score * 100);
@@ -784,6 +975,7 @@ export class ProposalEngine {
     const acctPct = Math.round(evaluation.structural_scores.accountability_score * 100);
 
     const scoreContext = [
+      `BUDGET TIER: ${tierLabel}`,
       `CURRENT SCORES (out of 100):`,
       `  Overall: ${overallPct}% (pass threshold: ${passesPct}%)${overallPct >= passesPct ? " ✓ passes" : " ✗ does not pass"}`,
       `  Feasibility: ${feasPct}%`,
@@ -791,7 +983,6 @@ export class ProposalEngine {
       `  Accountability: ${acctPct}%`,
     ].join("\n");
 
-    // ── Option 3: Per-goal rubric context for goals scoring below threshold ──
     const WEAK_GOAL_THRESHOLD = 0.55;
     const weakGoalLines: string[] = [];
     for (const ms of evaluation.mission_impact_scores) {
@@ -800,14 +991,14 @@ export class ProposalEngine {
         if (!goalDef) continue;
         const rubric = goalDef.scoringRubric ?? goalDef.description ?? `How well the proposal advances ${goalDef.label}`;
         weakGoalLines.push(
-          `  • ${goalDef.label} (${ms.goal_id}): scored ${Math.round(ms.impact_score * 100)}% — low because: ${rubric}`
+          `  • ${goalDef.label} (${ms.goal_id}): scored ${Math.round(ms.impact_score * 100)}% — rubric: ${rubric}`
         );
       }
     }
     const weakGoalContext = weakGoalLines.length > 0
       ? [
           "",
-          "MISSION GOALS WITH WEAK SCORES — focus your missing-data questions on what's needed to improve these:",
+          "MISSION GOALS WITH WEAK SCORES — focus missing-data questions on what would improve these:",
           ...weakGoalLines,
         ].join("\n")
       : "";
@@ -816,23 +1007,22 @@ export class ProposalEngine {
       name: "Data Needs Agent",
       instructions: [
         "You are reviewing a co-op proposal against its scoring rubric.",
-        "List ONLY missing information that would materially improve scoring outcomes (mission alignment, feasibility, risk, accountability).",
-        "Do NOT ask for generic completeness data unless it changes the score or funding decision.",
-        "Prioritise gaps that affect the weakest-scoring areas shown below.",
+        "List ONLY missing information that would materially change the score or funding decision.",
+        "Do NOT ask for generic completeness data unless it affects a specific score.",
+        "Prioritise gaps in the weakest-scoring areas.",
         "",
         scoreContext,
         weakGoalContext,
         "",
-        "RULES:",
-        "- Only list information that is genuinely absent from the proposal — don't flag things that were already addressed.",
-        "- Focus on gaps that would raise a low score: missing budget breakdown, absent timeline, unclear team, unverified market claim, no accountability plan, etc.",
-        "- Set blocking=true if the gap makes it impossible to score that dimension at all (e.g. no budget, no team, no plan).",
-        "- Set blocking=false for gaps that would improve the score but aren't showstoppers.",
+        "SEVERITY RULES (use exactly one of: BLOCKER, SOFT, INFO):",
+        ...tierBlockerRules,
+        "  - Use severity=INFO for contextual improvements that won't move the score.",
         "",
-        "WRITING RULES:",
+        "FIELD RULES:",
         "- field: short plain label, e.g. 'Budget breakdown' or 'Team qualifications'.",
-        "- question: direct question to the proposer, e.g. 'How will the $25,000 be split between equipment and labour?'",
-        "- why_needed: one plain sentence linking the gap to the score, e.g. 'An itemised budget would improve the feasibility score by showing the co-op the money will be spent responsibly.'",
+        "- question: direct question to the proposer.",
+        "- why_needed: one plain sentence linking the gap to its impact on the score.",
+        "- affectedGoalIds: optional array of mission goal keys (from the config) whose scores this evidence would improve.",
         "- No jargon. Write as if leaving a note for the person who submitted the proposal.",
         "",
         "Return ONLY a JSON object with 'missing_data' array.",
@@ -852,7 +1042,12 @@ export class ProposalEngine {
     ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
     const output = result.finalOutput ?? result.output ?? {};
-    return (output.missing_data as { field: string; question: string; why_needed: string; blocking: boolean }[] | undefined) ?? [];
+    const rawItems = (output.missing_data as unknown[]) ?? [];
+    return rawItems.map((item: unknown) => {
+      const parsed = MDItemSchema.parse(item);
+      // Backfill legacy blocking field from severity
+      return { ...parsed, blocking: parsed.severity === "BLOCKER" };
+    });
   }
 
   private async runComplianceChecks(
@@ -927,18 +1122,89 @@ export class ProposalEngine {
 
   // ── Decision logic ────────────────────────────────────────────────────────
 
+  /**
+   * Applies a structural-score penalty for each SOFT missing-data item (−5% each, capped at −20%).
+   * If a SOFT item specifies affectedGoalIds, the mission goal scores for those goals are capped
+   * at their current value minus a small per-item deduction (−5 pts each, minimum 0).
+   * BLOCKER and INFO items do not trigger penalties here — BLOCKER is handled in decideWithAlternatives.
+   */
+  applyMissingDataPenalties(evaluation: Evaluation, missingData: MissingData[], config?: CoopConfigData): Evaluation {
+    const softItems = missingData.filter(m => m.severity === "SOFT" || (m.severity == null && m.blocking === false));
+    if (softItems.length === 0) return evaluation;
+
+    const PENALTY_PER_SOFT = 0.05;
+    const MAX_STRUCTURAL_PENALTY = 0.20;
+    const totalStructuralPenalty = Math.min(softItems.length * PENALTY_PER_SOFT, MAX_STRUCTURAL_PENALTY);
+
+    const rawStructural = evaluation.computed_scores.structural_weighted_score;
+    const penalizedStructural = Math.max(0, rawStructural - totalStructuralPenalty);
+
+    // Cap mission goal scores for goals whose evidence is flagged as missing
+    let penalizedMissionScores = evaluation.mission_impact_scores.map(ms => ({ ...ms }));
+    for (const item of softItems) {
+      if (!item.affectedGoalIds?.length) continue;
+      for (const goalId of item.affectedGoalIds) {
+        penalizedMissionScores = penalizedMissionScores.map(ms =>
+          ms.goal_id === goalId
+            ? { ...ms, impact_score: Math.max(0, ms.impact_score - PENALTY_PER_SOFT) }
+            : ms
+        );
+      }
+    }
+
+    // Recompute mission_impact_score and FinalScore using the same logic as computeEvaluation
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+    const totalWeight = missionGoals.reduce((s, g) => s + (g.priorityWeight ?? 1), 0) || 1;
+    const penalizedMissionWeighted = penalizedMissionScores.reduce((sum, ms) => {
+      const goalDef = missionGoals.find(g => g.key === ms.goal_id);
+      const w = (goalDef?.priorityWeight ?? 1) / totalWeight;
+      return sum + ms.impact_score * w;
+    }, 0);
+
+    const mix = config?.scoreMix ?? { missionWeight: 0.6, structuralWeight: 0.4 };
+    const mW = mix.missionWeight ?? 0.6;
+    const sW = mix.structuralWeight ?? 0.4;
+    const newOverall = Math.min(1, Math.max(0, penalizedMissionWeighted * mW + penalizedStructural * sW));
+
+    const structuralGate = (config?.structuralGate ?? DEFAULT_STRUCTURAL_GATE);
+    const missionMinThreshold = (config?.missionMinThreshold ?? DEFAULT_MISSION_MIN_THRESHOLD);
+    const strongGoalThreshold = (config?.strongGoalThreshold ?? DEFAULT_STRONG_GOAL_THRESHOLD);
+    const maxGoalScore = Math.max(0, ...penalizedMissionScores.map(m => m.impact_score));
+
+    const passFailReasons: string[] = [];
+    if (penalizedStructural < structuralGate) passFailReasons.push("FAIL_STRUCTURAL_GATE");
+    if (penalizedMissionWeighted < missionMinThreshold) passFailReasons.push("FAIL_MISSION_MIN_THRESHOLD");
+    if (maxGoalScore < strongGoalThreshold) passFailReasons.push("FAIL_NO_STRONG_MISSION_GOAL");
+
+    const goalMappingValid = evaluation.structural_scores.goal_mapping_valid ?? true;
+    const newPasses = passFailReasons.length === 0 && goalMappingValid;
+
+    return {
+      ...evaluation,
+      mission_impact_scores: penalizedMissionScores,
+      computed_scores: {
+        ...evaluation.computed_scores,
+        structural_weighted_score: penalizedStructural,
+        mission_weighted_score: penalizedMissionWeighted,
+        overall_score: newOverall,
+        passes_threshold: newPasses,
+        passFailReasons,
+      },
+    };
+  }
+
   private decideWithAlternatives(
     evaluation: Evaluation,
     alts: Alternative[],
     missing: MissingData[],
   ): { decision: Decision; reasons: string[]; bestAlt?: Alternative } {
-    const hasBlocking = missing.some(m => m.blocking);
+    const hasBlocker = missing.some(m => m.severity === "BLOCKER" || (m.severity == null && m.blocking === true));
     const best = alts.slice().sort((a, b) => (b.overallScore ?? 0) - (a.overallScore ?? 0))[0];
     const overallScore = evaluation.computed_scores.overall_score;
 
-    if (hasBlocking) {
+    if (hasBlocker) {
       return {
-        decision: "block",
+        decision: "needs_info",
         reasons: ["This proposal is missing critical information needed before it can be reviewed — see the 'Missing Data' section below for what's needed."],
         bestAlt: best,
       };
@@ -973,7 +1239,9 @@ export class ProposalEngine {
   }
 
   private statusFromDecision(d: Decision): z.infer<typeof ProposalStatusZ> {
-    return d === "advance" ? "votable" : (d === "revise" ? "votable" : "submitted");
+    if (d === "advance" || d === "revise") return "votable";
+    // "needs_info" and "block" both land as "submitted" (not yet votable)
+    return "submitted";
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────────

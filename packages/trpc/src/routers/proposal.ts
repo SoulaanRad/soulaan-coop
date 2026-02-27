@@ -52,6 +52,9 @@ export const proposalRouter = router({
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
           votingWindowDays: coopConfig.votingWindowDays,
           scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
+          strongGoalThreshold: (coopConfig as any).strongGoalThreshold ?? 0.70,
+          missionMinThreshold: (coopConfig as any).missionMinThreshold ?? 0.50,
+          structuralGate: (coopConfig as any).structuralGate ?? 0.65,
         };
 
         // Attach historical expert calibration so domain agents learn from past corrections
@@ -483,6 +486,9 @@ export const proposalRouter = router({
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
           votingWindowDays: coopConfig.votingWindowDays,
           scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
+          strongGoalThreshold: (coopConfig as any).strongGoalThreshold ?? 0.70,
+          missionMinThreshold: (coopConfig as any).missionMinThreshold ?? 0.50,
+          structuralGate: (coopConfig as any).structuralGate ?? 0.65,
         };
 
         configData.expertCalibration = await fetchExpertCalibration(ctx.db, coopId);
@@ -630,6 +636,9 @@ export const proposalRouter = router({
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
           votingWindowDays: coopConfig.votingWindowDays,
           scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
+          strongGoalThreshold: (coopConfig as any).strongGoalThreshold ?? 0.70,
+          missionMinThreshold: (coopConfig as any).missionMinThreshold ?? 0.50,
+          structuralGate: (coopConfig as any).structuralGate ?? 0.65,
         };
 
         configData.expertCalibration = await fetchExpertCalibration(ctx.db, coopId);

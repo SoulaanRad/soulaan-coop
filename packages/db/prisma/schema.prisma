@@ -139,6 +139,9 @@ model CoopConfig {
   minScBalanceToSubmit      Float    @default(0)
   aiAutoApproveThresholdUSD Float    @default(500)
   councilVoteThresholdUSD   Float    @default(5000)
+  strongGoalThreshold       Float    @default(0.70)
+  missionMinThreshold       Float    @default(0.50)
+  structuralGate            Float    @default(0.65)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   createdBy                 String   // wallet address

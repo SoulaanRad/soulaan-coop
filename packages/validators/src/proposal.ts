@@ -86,6 +86,32 @@ export const MissionImpactScoreZ = z.object({
   goal_priority_weight: z.number().min(0).max(1),
   /** Plain-English explanation of why this score was given and what would raise it. */
   score_reason: z.string().optional(),
+  /** Short text references to evidence in the proposal text that support this score. */
+  evidenceRefs: z.array(z.string()).optional(),
+});
+
+/**
+ * Per-goal breakdown entry in the evaluation output.
+ * `weight` is the normalized weight (sums to 1.0 across all goals).
+ */
+export const MissionGoalBreakdownItemZ = z.object({
+  goal_id: z.string(),
+  score: z.number().min(0).max(1),
+  weight: z.number().min(0).max(1),
+  rationale: z.string().default(""),
+  evidenceRefs: z.array(z.string()).default([]),
+});
+
+/**
+ * Per-factor breakdown entry for the structural evaluation.
+ * `score` is the effective score (risk is inverted so higher = better).
+ */
+export const StructuralBreakdownItemZ = z.object({
+  factor: z.string(),
+  score: z.number().min(0).max(1),
+  weight: z.number().min(0).max(1),
+  rationale: z.string().default(""),
+  evidenceRefs: z.array(z.string()).default([]),
 });
 
 /** Backend-computed totals — LLM does NOT decide these */
@@ -94,6 +120,13 @@ export const ComputedScoresZ = z.object({
   structural_weighted_score: z.number().min(0).max(1),
   overall_score: z.number().min(0).max(1),
   passes_threshold: z.boolean(),
+  /**
+   * Machine-readable reasons why the proposal failed the scoring gates.
+   * Stable keys: FAIL_STRUCTURAL_GATE | FAIL_MISSION_MIN_THRESHOLD | FAIL_NO_STRONG_MISSION_GOAL
+   */
+  passFailReasons: z.array(z.string()).default([]),
+  /** True when at least one human expert has overridden a mission goal score. */
+  expert_adjusted: z.boolean().optional(),
 });
 
 /** Full evaluation block stored on each proposal */
@@ -104,6 +137,10 @@ export const EvaluationZ = z.object({
   violations: z.array(z.string()).default([]),
   risk_flags: z.array(z.string()).default([]),
   llm_summary: z.string().default(""),
+  /** Per-goal breakdown with normalized weights and AI rationale. */
+  mission_goal_breakdown: z.array(MissionGoalBreakdownItemZ).default([]),
+  /** Per-structural-factor breakdown with effective scores and AI rationale. */
+  structural_breakdown: z.array(StructuralBreakdownItemZ).default([]),
 });
 
 // ── OUTPUT ────────────────────────────────────────────
@@ -140,13 +177,28 @@ export const AlternativeZ = z.object({
   dataNeeds: z.array(z.string()).optional().nullable(),
 });
 
-export const DecisionZ = z.enum(["advance", "revise", "block"]);
+export const DecisionZ = z.enum(["advance", "revise", "block", "needs_info"]);
+
+/**
+ * How severe the missing information is:
+ * - BLOCKER: proposal cannot advance without this — triggers decision="needs_info"
+ * - SOFT:    proposal can advance but the structural score is penalized
+ * - INFO:    nice-to-have context; no scoring impact
+ */
+export const MissingSeverityZ = z.enum(["BLOCKER", "SOFT", "INFO"]);
 
 export const MissingDataZ = z.object({
   field: z.string(),
   question: z.string(),
   why_needed: z.string(),
-  blocking: z.boolean().default(false),
+  severity: MissingSeverityZ.default("SOFT"),
+  /**
+   * Optional list of mission goal keys whose scores should be capped
+   * because this piece of evidence is needed to score them fairly.
+   */
+  affectedGoalIds: z.array(z.string()).optional(),
+  /** @deprecated use severity === "BLOCKER" instead */
+  blocking: z.boolean().optional(),
 });
 
 export const ProposalOutputZ = z.object({
@@ -253,6 +305,12 @@ export const CoopConfigInputZ = z.object({
   councilVoteThresholdUSD: z.number().min(0).optional(),
   /** Configurable domain scorer-agent registry; admins manage without code changes */
   scorerAgents: z.array(ScorerAgentZ).optional(),
+  /** A single mission goal must reach this score (0..1) for the proposal to be mission-aligned. Default 0.70. */
+  strongGoalThreshold: z.number().min(0).max(1).optional(),
+  /** The weighted average of all mission goal scores must meet this floor. Default 0.50. */
+  missionMinThreshold: z.number().min(0).max(1).optional(),
+  /** The structural score must clear this gate or the proposal fails regardless of mission scores. Default 0.65. */
+  structuralGate: z.number().min(0).max(1).optional(),
   reason: z.string().min(3).max(500),
 });
 
@@ -276,6 +334,9 @@ export const CoopConfigOutputZ = z.object({
   aiAutoApproveThresholdUSD: z.number(),
   councilVoteThresholdUSD: z.number(),
   scorerAgents: z.array(ScorerAgentZ).default([]),
+  strongGoalThreshold: z.number(),
+  missionMinThreshold: z.number(),
+  structuralGate: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.string(),
@@ -354,11 +415,14 @@ export type Governance = z.infer<typeof GovernanceZ>;
 export type Audit = z.infer<typeof AuditZ>;
 export type StructuralScores = z.infer<typeof StructuralScoresZ>;
 export type MissionImpactScore = z.infer<typeof MissionImpactScoreZ>;
+export type MissionGoalBreakdownItem = z.infer<typeof MissionGoalBreakdownItemZ>;
+export type StructuralBreakdownItem = z.infer<typeof StructuralBreakdownItemZ>;
 export type ComputedScores = z.infer<typeof ComputedScoresZ>;
 export type Evaluation = z.infer<typeof EvaluationZ>;
 export type Alternative = z.infer<typeof AlternativeZ>;
 export type Decision = z.infer<typeof DecisionZ>;
 export type MissingData = z.infer<typeof MissingDataZ>;
+export type MissingSeverity = z.infer<typeof MissingSeverityZ>;
 export type MissionGoal = z.infer<typeof MissionGoalZ>;
 export type ScorerAgent = z.infer<typeof ScorerAgentZ>;
 export type StructuralWeights = z.infer<typeof StructuralWeightsZ>;
