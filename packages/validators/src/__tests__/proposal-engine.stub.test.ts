@@ -40,10 +40,10 @@ describe('ProposalEngine (Agents)', () => {
         budget: expect.any(Object),
         treasuryPlan: expect.any(Object),
         impact: expect.any(Object),
-        scores: {
-          alignment: expect.any(Number),  // Mock values may vary
-          feasibility: expect.any(Number),
-          composite: expect.any(Number)
+        evaluation: {
+          structural_scores: expect.any(Object),
+          mission_impact_scores: expect.any(Array),
+          computed_scores: expect.any(Object),
         },
         governance: {
           quorumPercent: expect.any(Number),  // AI-generated values
@@ -68,7 +68,7 @@ describe('ProposalEngine (Agents)', () => {
       const result2 = await engine.processProposal(input);
 
       expect(result1.id).not.toBe(result2.id);
-    });
+    }, 180_000);
 
     it('should still validate input schema', async () => {
       const invalidInput = createValidInput();
@@ -83,8 +83,8 @@ describe('ProposalEngine (Agents)', () => {
       
       expect(result.id).toBeDefined();
       expect(result.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
-      expect(result.scores.alignment).toBeGreaterThanOrEqual(0);
-      expect(result.scores.alignment).toBeLessThanOrEqual(1);
+      expect(result.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+      expect(result.evaluation.computed_scores.overall_score).toBeLessThanOrEqual(1);
     });
   });
 

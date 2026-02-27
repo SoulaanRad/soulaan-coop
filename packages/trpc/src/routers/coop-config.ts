@@ -12,15 +12,21 @@ function mapDbToConfigOutput(record: CoopConfig): CoopConfigOutput {
     version: record.version,
     isActive: record.isActive,
     charterText: record.charterText,
-    goalDefinitions: record.goalDefinitions as Array<{ key: string; label: string; weight: number; description?: string }>,
+    missionGoals: record.missionGoals as Array<{ key: string; label: string; priorityWeight: number; description?: string; domain?: string; expertRequired?: boolean; scoringRubric?: string }>,
+    structuralWeights: record.structuralWeights as { feasibility: number; risk: number; accountability: number },
+    scoreMix: record.scoreMix as { missionWeight: number; structuralWeight: number },
+    screeningPassThreshold: record.screeningPassThreshold,
     quorumPercent: record.quorumPercent,
     approvalThresholdPercent: record.approvalThresholdPercent,
     votingWindowDays: record.votingWindowDays,
     scVotingCapPercent: record.scVotingCapPercent,
     proposalCategories: record.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
-    sectorExclusions: record.sectorExclusions as string[],
+    // Normalize legacy string[] → { value, description? }[] transparently
+    sectorExclusions: (record.sectorExclusions as Array<string | { value: string; description?: string }>)
+      .map(e => typeof e === "string" ? { value: e } : e),
+    scorerAgents: ((record as any).scorerAgents as Array<{ agentKey: string; label: string; enabled: boolean; promptTemplate?: string; model?: string }> | undefined) ?? [],
     minScBalanceToSubmit: record.minScBalanceToSubmit,
-    scoringWeights: record.scoringWeights as { selfReliance: number; communityJobs: number; assetRetention: number; transparency: number; culturalValue: number },
+    aiAutoApproveThresholdUSD: record.aiAutoApproveThresholdUSD ?? 500,
     councilVoteThresholdUSD: record.councilVoteThresholdUSD ?? 5000,
     createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
@@ -97,6 +103,77 @@ export const coopConfigRouter = router({
     }),
 
   /**
+   * Create initial config for a coopId (only when none exists)
+   */
+  create: privateProcedure
+    .input(CoopConfigInputZ)
+    .output(CoopConfigOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { coopId, reason, ...fields } = input;
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const existing = await ctx.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+      });
+
+      if (existing) {
+        throw new Error(`Active config already exists for coopId: ${coopId}. Use update instead.`);
+      }
+
+      const defaultMissionGoals = [
+        { key: "income_stability",  label: "Income Stability",  priorityWeight: 0.35 },
+        { key: "asset_creation",    label: "Asset Creation",    priorityWeight: 0.25 },
+        { key: "leakage_reduction", label: "Leakage Reduction", priorityWeight: 0.20 },
+        { key: "export_expansion",  label: "Export Expansion",  priorityWeight: 0.20 },
+      ];
+
+      const newConfig = await ctx.db.coopConfig.create({
+        data: {
+          coopId,
+          version: 1,
+          isActive: true,
+          charterText: fields.charterText ?? `${coopId} Co-op Charter`,
+          missionGoals: fields.missionGoals ?? defaultMissionGoals,
+          structuralWeights: fields.structuralWeights ?? { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+          scoreMix: fields.scoreMix ?? { missionWeight: 0.60, structuralWeight: 0.40 },
+          screeningPassThreshold: fields.screeningPassThreshold ?? 0.6,
+          quorumPercent: fields.quorumPercent ?? 15,
+          approvalThresholdPercent: fields.approvalThresholdPercent ?? 51,
+          votingWindowDays: fields.votingWindowDays ?? 7,
+          scVotingCapPercent: fields.scVotingCapPercent ?? 2,
+          proposalCategories: fields.proposalCategories ?? [
+            { key: "business_funding", label: "Business Funding", isActive: true, description: "Capital requests to start, expand, or stabilise a member-owned business. Includes equipment, working capital, licensing, and growth investment." },
+            { key: "procurement",      label: "Procurement",      isActive: true, description: "Proposals to establish or formalise collective purchasing agreements, supplier contracts, or bulk-buying arrangements that reduce costs for members." },
+            { key: "infrastructure",   label: "Infrastructure",   isActive: true, description: "Investment in shared physical or digital infrastructure — facilities, tools, platforms, or systems that multiple members or the coop as a whole relies on." },
+            { key: "governance",       label: "Governance",       isActive: true, description: "Changes to coop rules, policies, bylaws, voting structures, or operational procedures. Requires heightened scrutiny and broad member input." },
+            { key: "other",            label: "Other",            isActive: true, description: "Proposals that don't fit an existing category. AI will apply general screening; the council may re-categorise before voting." },
+          ],
+          sectorExclusions: fields.sectorExclusions ?? [
+            { value: "fashion",           description: "Clothing, apparel, or personal style businesses — excluded due to low community multiplier and high individual-brand risk." },
+            { value: "restaurant",        description: "Dine-in food service establishments — excluded due to high failure rate and limited scalability within the coop model." },
+            { value: "cafe",              description: "Coffee shops and casual eateries — excluded for the same reasons as restaurants." },
+            { value: "food truck",        description: "Mobile food vending — excluded due to logistical complexity and thin margins that rarely generate shared returns." },
+            { value: "personality brand", description: "Businesses built around a single individual's public profile — excluded because they cannot be collectively owned or scaled cooperatively." },
+            { value: "lifestyle brand",   description: "Consumer identity or aspirational brands — excluded as they prioritise aesthetics over productive economic impact." },
+          ],
+          scorerAgents: fields.scorerAgents ?? [
+            { agentKey: "finance",   label: "Finance & Treasury",       enabled: true },
+            { agentKey: "market",    label: "Market & Revenue",         enabled: true },
+            { agentKey: "community", label: "Community Economy",        enabled: true },
+            { agentKey: "ops",       label: "Operations & Execution",   enabled: true },
+            { agentKey: "general",   label: "General (Fallback)",       enabled: true },
+          ],
+          minScBalanceToSubmit: fields.minScBalanceToSubmit ?? 0,
+          aiAutoApproveThresholdUSD: fields.aiAutoApproveThresholdUSD ?? 500,
+          councilVoteThresholdUSD: fields.councilVoteThresholdUSD ?? 5000,
+          createdBy: walletAddress,
+        },
+      });
+
+      return mapDbToConfigOutput(newConfig);
+    }),
+
+  /**
    * Update config — creates new version, deactivates old, creates audit record
    */
   update: privateProcedure
@@ -106,7 +183,6 @@ export const coopConfigRouter = router({
       const { coopId, reason, ...updates } = input;
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Fetch current active config
       const current = await ctx.db.coopConfig.findFirst({
         where: { coopId, isActive: true },
         orderBy: { version: "desc" },
@@ -116,24 +192,24 @@ export const coopConfigRouter = router({
         throw new Error(`No active config found for coopId: ${coopId}`);
       }
 
-      // Build new config fields (merge with current)
       const newFields: Record<string, any> = {};
-      if (updates.charterText !== undefined) newFields.charterText = updates.charterText;
-      if (updates.goalDefinitions !== undefined) newFields.goalDefinitions = updates.goalDefinitions;
+      if (updates.missionGoals !== undefined) newFields.missionGoals = updates.missionGoals;
+      if (updates.structuralWeights !== undefined) newFields.structuralWeights = updates.structuralWeights;
+      if (updates.scoreMix !== undefined) newFields.scoreMix = updates.scoreMix;
+      if (updates.screeningPassThreshold !== undefined) newFields.screeningPassThreshold = updates.screeningPassThreshold;
       if (updates.quorumPercent !== undefined) newFields.quorumPercent = updates.quorumPercent;
       if (updates.approvalThresholdPercent !== undefined) newFields.approvalThresholdPercent = updates.approvalThresholdPercent;
       if (updates.votingWindowDays !== undefined) newFields.votingWindowDays = updates.votingWindowDays;
       if (updates.scVotingCapPercent !== undefined) newFields.scVotingCapPercent = updates.scVotingCapPercent;
       if (updates.proposalCategories !== undefined) newFields.proposalCategories = updates.proposalCategories;
       if (updates.sectorExclusions !== undefined) newFields.sectorExclusions = updates.sectorExclusions;
+      if (updates.scorerAgents !== undefined) newFields.scorerAgents = updates.scorerAgents;
       if (updates.minScBalanceToSubmit !== undefined) newFields.minScBalanceToSubmit = updates.minScBalanceToSubmit;
-      if (updates.scoringWeights !== undefined) newFields.scoringWeights = updates.scoringWeights;
+      if (updates.aiAutoApproveThresholdUSD !== undefined) newFields.aiAutoApproveThresholdUSD = updates.aiAutoApproveThresholdUSD;
       if (updates.councilVoteThresholdUSD !== undefined) newFields.councilVoteThresholdUSD = updates.councilVoteThresholdUSD;
 
-      // Compute diff
       const diff = computeDiff(current, newFields);
 
-      // Transaction: deactivate old → create new → create audit
       const [, newConfig] = await ctx.db.$transaction([
         ctx.db.coopConfig.update({
           where: { id: current.id },
@@ -145,22 +221,25 @@ export const coopConfigRouter = router({
             version: current.version + 1,
             isActive: true,
             charterText: newFields.charterText ?? current.charterText,
-            goalDefinitions: newFields.goalDefinitions ?? current.goalDefinitions,
+            missionGoals: newFields.missionGoals ?? current.missionGoals,
+            structuralWeights: newFields.structuralWeights ?? current.structuralWeights,
+            scoreMix: newFields.scoreMix ?? current.scoreMix,
+            screeningPassThreshold: newFields.screeningPassThreshold ?? current.screeningPassThreshold,
             quorumPercent: newFields.quorumPercent ?? current.quorumPercent,
             approvalThresholdPercent: newFields.approvalThresholdPercent ?? current.approvalThresholdPercent,
             votingWindowDays: newFields.votingWindowDays ?? current.votingWindowDays,
             scVotingCapPercent: newFields.scVotingCapPercent ?? current.scVotingCapPercent,
             proposalCategories: newFields.proposalCategories ?? current.proposalCategories,
             sectorExclusions: newFields.sectorExclusions ?? current.sectorExclusions,
+            scorerAgents: newFields.scorerAgents ?? (current as any).scorerAgents ?? [],
             minScBalanceToSubmit: newFields.minScBalanceToSubmit ?? current.minScBalanceToSubmit,
-            scoringWeights: newFields.scoringWeights ?? current.scoringWeights,
+            aiAutoApproveThresholdUSD: newFields.aiAutoApproveThresholdUSD ?? current.aiAutoApproveThresholdUSD ?? 500,
             councilVoteThresholdUSD: newFields.councilVoteThresholdUSD ?? current.councilVoteThresholdUSD ?? 5000,
             createdBy: walletAddress,
           },
         }),
       ]);
 
-      // Create audit record
       await ctx.db.coopConfigAudit.create({
         data: {
           coopConfigId: newConfig.id,
@@ -171,6 +250,462 @@ export const coopConfigRouter = router({
       });
 
       return mapDbToConfigOutput(newConfig);
+    }),
+
+  /**
+   * Propose a charter text change — creates a PENDING CharterAmendment.
+   * The current charter is NOT changed until acknowledged.
+   */
+  proposeCharterChange: privateProcedure
+    .input(z.object({
+      coopId: z.string().min(1),
+      proposedText: z.string().min(10),
+      reason: z.string().min(3).max(500),
+    }))
+    .output(z.object({
+      id: z.string(),
+      status: z.string(),
+      proposedAt: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      // Cancel any existing pending amendment first (only one can be pending)
+      await ctx.db.charterAmendment.updateMany({
+        where: { coopId: input.coopId, status: "PENDING" },
+        data: { status: "SUPERSEDED", reviewedBy: walletAddress, reviewedAt: new Date() },
+      });
+
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+
+      const amendment = await ctx.db.charterAmendment.create({
+        data: {
+          coopId: input.coopId,
+          proposedText: input.proposedText,
+          currentText: current?.charterText ?? "",
+          reason: input.reason,
+          status: "PENDING",
+          proposedBy: walletAddress,
+        },
+      });
+
+      return {
+        id: amendment.id,
+        status: amendment.status,
+        proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+      };
+    }),
+
+  /**
+   * Get the current pending charter amendment for a coopId, if any.
+   */
+  getPendingCharterAmendment: privateProcedure
+    .input(z.object({ coopId: z.string().min(1) }))
+    .output(z.object({
+      amendment: z.object({
+        id: z.string(),
+        proposedText: z.string(),
+        currentText: z.string(),
+        reason: z.string(),
+        status: z.string(),
+        proposedBy: z.string(),
+        proposedAt: z.string(),
+      }).nullable(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const amendment = await ctx.db.charterAmendment.findFirst({
+        where: { coopId: input.coopId, status: "PENDING" },
+        orderBy: { proposedAt: "desc" },
+      });
+
+      if (!amendment) return { amendment: null };
+
+      return {
+        amendment: {
+          id: amendment.id,
+          proposedText: amendment.proposedText,
+          currentText: amendment.currentText,
+          reason: amendment.reason,
+          status: amendment.status,
+          proposedBy: amendment.proposedBy,
+          proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+        },
+      };
+    }),
+
+  /**
+   * Acknowledge a pending charter amendment — applies the change as a new config version.
+   */
+  acknowledgeCharterAmendment: privateProcedure
+    .input(z.object({
+      amendmentId: z.string().min(1),
+      coopId: z.string().min(1),
+    }))
+    .output(CoopConfigOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const amendment = await ctx.db.charterAmendment.findUnique({
+        where: { id: input.amendmentId },
+      });
+
+      if (!amendment || amendment.status !== "PENDING") {
+        throw new Error("Amendment not found or is no longer pending.");
+      }
+
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+
+      if (!current) {
+        throw new Error(`No active config found for coopId: ${input.coopId}`);
+      }
+
+      const [, newConfig] = await ctx.db.$transaction([
+        // Mark old config inactive
+        ctx.db.coopConfig.update({
+          where: { id: current.id },
+          data: { isActive: false },
+        }),
+        // Create new config version with the acknowledged charter text
+        ctx.db.coopConfig.create({
+          data: {
+            coopId: input.coopId,
+            version: current.version + 1,
+            isActive: true,
+            charterText: amendment.proposedText,
+            missionGoals: current.missionGoals as Prisma.InputJsonValue,
+            structuralWeights: current.structuralWeights as Prisma.InputJsonValue,
+            scoreMix: current.scoreMix as Prisma.InputJsonValue,
+            screeningPassThreshold: current.screeningPassThreshold,
+            quorumPercent: current.quorumPercent,
+            approvalThresholdPercent: current.approvalThresholdPercent,
+            votingWindowDays: current.votingWindowDays,
+            scVotingCapPercent: current.scVotingCapPercent,
+            proposalCategories: current.proposalCategories as Prisma.InputJsonValue,
+            sectorExclusions: current.sectorExclusions as Prisma.InputJsonValue,
+            scorerAgents: ((current as any).scorerAgents ?? []) as Prisma.InputJsonValue,
+            minScBalanceToSubmit: current.minScBalanceToSubmit,
+            aiAutoApproveThresholdUSD: current.aiAutoApproveThresholdUSD,
+            councilVoteThresholdUSD: current.councilVoteThresholdUSD,
+            createdBy: walletAddress,
+          },
+        }),
+      ]);
+
+      // Mark amendment as acknowledged and record audit
+      await Promise.all([
+        ctx.db.charterAmendment.update({
+          where: { id: amendment.id },
+          data: { status: "ACKNOWLEDGED", reviewedBy: walletAddress, reviewedAt: new Date() },
+        }),
+        ctx.db.coopConfigAudit.create({
+          data: {
+            coopConfigId: newConfig.id,
+            changedBy: walletAddress,
+            reason: `Charter amendment acknowledged: ${amendment.reason}`,
+            diff: [{ field: "charterText", before: amendment.currentText.substring(0, 200), after: amendment.proposedText.substring(0, 200) }] as Prisma.InputJsonValue,
+          },
+        }),
+      ]);
+
+      return mapDbToConfigOutput(newConfig);
+    }),
+
+  /**
+   * Reject a pending charter amendment — marks it rejected without changing the charter.
+   */
+  rejectCharterAmendment: privateProcedure
+    .input(z.object({
+      amendmentId: z.string().min(1),
+      reason: z.string().min(3).max(500),
+    }))
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const amendment = await ctx.db.charterAmendment.findUnique({
+        where: { id: input.amendmentId },
+      });
+
+      if (!amendment || amendment.status !== "PENDING") {
+        throw new Error("Amendment not found or is no longer pending.");
+      }
+
+      await ctx.db.charterAmendment.update({
+        where: { id: input.amendmentId },
+        data: { status: "REJECTED", reviewedBy: walletAddress, reviewedAt: new Date() },
+      });
+
+      return { success: true };
+    }),
+
+  // ── Generic Config Amendments ─────────────────────────────────────────────
+
+  /**
+   * Propose a change to any config section.
+   * One pending amendment per section; proposing supersedes the existing one.
+   */
+  proposeConfigChange: privateProcedure
+    .input(z.object({
+      coopId: z.string().min(1),
+      section: z.string().min(1),
+      proposedChanges: z.record(z.unknown()),
+      currentSnapshot: z.record(z.unknown()),
+      reason: z.string().min(3).max(500),
+    }))
+    .output(z.object({
+      id: z.string(),
+      section: z.string(),
+      status: z.string(),
+      proposedAt: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      await ctx.db.configAmendment.updateMany({
+        where: { coopId: input.coopId, section: input.section, status: "PENDING" },
+        data: { status: "SUPERSEDED", reviewedBy: walletAddress, reviewedAt: new Date() },
+      });
+
+      const amendment = await ctx.db.configAmendment.create({
+        data: {
+          coopId: input.coopId,
+          section: input.section,
+          proposedChanges: input.proposedChanges as Prisma.InputJsonValue,
+          currentSnapshot: input.currentSnapshot as Prisma.InputJsonValue,
+          reason: input.reason,
+          status: "PENDING",
+          proposedBy: walletAddress,
+        },
+      });
+
+      return {
+        id: amendment.id,
+        section: amendment.section,
+        status: amendment.status,
+        proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+      };
+    }),
+
+  /**
+   * Return all pending ConfigAmendments for a coopId.
+   */
+  getPendingConfigAmendments: privateProcedure
+    .input(z.object({ coopId: z.string().min(1) }))
+    .output(z.array(z.object({
+      id: z.string(),
+      section: z.string(),
+      proposedChanges: z.record(z.unknown()),
+      currentSnapshot: z.record(z.unknown()),
+      reason: z.string(),
+      status: z.string(),
+      proposedBy: z.string(),
+      proposedAt: z.string(),
+    })))
+    .query(async ({ input, ctx }) => {
+      const amendments = await ctx.db.configAmendment.findMany({
+        where: { coopId: input.coopId, status: "PENDING" },
+        orderBy: { proposedAt: "asc" },
+      });
+
+      return amendments.map(a => ({
+        id: a.id,
+        section: a.section,
+        proposedChanges: a.proposedChanges as Record<string, unknown>,
+        currentSnapshot: a.currentSnapshot as Record<string, unknown>,
+        reason: a.reason,
+        status: a.status,
+        proposedBy: a.proposedBy,
+        proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
+      }));
+    }),
+
+  /**
+   * Acknowledge a pending ConfigAmendment — applies the change as a new config version.
+   */
+  acknowledgeConfigAmendment: privateProcedure
+    .input(z.object({
+      amendmentId: z.string().min(1),
+      coopId: z.string().min(1),
+    }))
+    .output(CoopConfigOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const amendment = await ctx.db.configAmendment.findUnique({
+        where: { id: input.amendmentId },
+      });
+
+      if (!amendment || amendment.status !== "PENDING") {
+        throw new Error("Amendment not found or is no longer pending.");
+      }
+
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+
+      if (!current) throw new Error(`No active config found for coopId: ${input.coopId}`);
+
+      const changes = amendment.proposedChanges as Record<string, unknown>;
+
+      const [, newConfig] = await ctx.db.$transaction([
+        ctx.db.coopConfig.update({
+          where: { id: current.id },
+          data: { isActive: false },
+        }),
+        ctx.db.coopConfig.create({
+          data: {
+            coopId: input.coopId,
+            version: current.version + 1,
+            isActive: true,
+            charterText:               (changes.charterText               as string   | undefined) ?? current.charterText,
+            missionGoals:              (changes.missionGoals              ?? current.missionGoals)              as Prisma.InputJsonValue,
+            structuralWeights:         (changes.structuralWeights         ?? current.structuralWeights)         as Prisma.InputJsonValue,
+            scoreMix:                  (changes.scoreMix                  ?? current.scoreMix)                  as Prisma.InputJsonValue,
+            screeningPassThreshold:    (changes.screeningPassThreshold    as number  | undefined) ?? current.screeningPassThreshold,
+            quorumPercent:             (changes.quorumPercent             as number  | undefined) ?? current.quorumPercent,
+            approvalThresholdPercent:  (changes.approvalThresholdPercent  as number  | undefined) ?? current.approvalThresholdPercent,
+            votingWindowDays:          (changes.votingWindowDays          as number  | undefined) ?? current.votingWindowDays,
+            scVotingCapPercent:        (changes.scVotingCapPercent        as number  | undefined) ?? current.scVotingCapPercent,
+            proposalCategories:        (changes.proposalCategories        ?? current.proposalCategories)        as Prisma.InputJsonValue,
+            sectorExclusions:          (changes.sectorExclusions          ?? current.sectorExclusions)          as Prisma.InputJsonValue,
+            scorerAgents:              ((changes.scorerAgents              ?? (current as any).scorerAgents ?? []))  as Prisma.InputJsonValue,
+            minScBalanceToSubmit:      (changes.minScBalanceToSubmit      as number  | undefined) ?? current.minScBalanceToSubmit,
+            aiAutoApproveThresholdUSD: (changes.aiAutoApproveThresholdUSD as number  | undefined) ?? (current.aiAutoApproveThresholdUSD ?? 500),
+            councilVoteThresholdUSD:   (changes.councilVoteThresholdUSD   as number  | undefined) ?? (current.councilVoteThresholdUSD   ?? 5000),
+            createdBy: walletAddress,
+          },
+        }),
+      ]);
+
+      await Promise.all([
+        ctx.db.configAmendment.update({
+          where: { id: amendment.id },
+          data: { status: "ACKNOWLEDGED", reviewedBy: walletAddress, reviewedAt: new Date() },
+        }),
+        ctx.db.coopConfigAudit.create({
+          data: {
+            coopConfigId: newConfig.id,
+            changedBy: walletAddress,
+            reason: `[${amendment.section}] ${amendment.reason}`,
+            diff: Object.keys(changes).map(field => ({
+              field,
+              before: (amendment.currentSnapshot as Record<string, unknown>)[field],
+              after: changes[field],
+            })) as Prisma.InputJsonValue,
+          },
+        }),
+      ]);
+
+      return mapDbToConfigOutput(newConfig);
+    }),
+
+  /**
+   * Reject a pending ConfigAmendment.
+   */
+  rejectConfigAmendment: privateProcedure
+    .input(z.object({
+      amendmentId: z.string().min(1),
+      reason: z.string().min(3).max(500),
+    }))
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const amendment = await ctx.db.configAmendment.findUnique({
+        where: { id: input.amendmentId },
+      });
+
+      if (!amendment || amendment.status !== "PENDING") {
+        throw new Error("Amendment not found or is no longer pending.");
+      }
+
+      await ctx.db.configAmendment.update({
+        where: { id: input.amendmentId },
+        data: { status: "REJECTED", reviewedBy: walletAddress, reviewedAt: new Date() },
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Return all ConfigAmendments + CharterAmendments for a coopId, newest first.
+   * Used for the dedicated amendments review page.
+   */
+  getAllAmendments: privateProcedure
+    .input(z.object({ coopId: z.string().min(1) }))
+    .output(z.object({
+      config: z.array(z.object({
+        id: z.string(),
+        type: z.literal("config"),
+        section: z.string(),
+        reason: z.string(),
+        status: z.string(),
+        proposedBy: z.string(),
+        proposedAt: z.string(),
+        reviewedBy: z.string().nullable(),
+        reviewedAt: z.string().nullable(),
+        proposedChanges: z.record(z.unknown()),
+        currentSnapshot: z.record(z.unknown()),
+      })),
+      charter: z.array(z.object({
+        id: z.string(),
+        type: z.literal("charter"),
+        reason: z.string(),
+        status: z.string(),
+        proposedBy: z.string(),
+        proposedAt: z.string(),
+        reviewedBy: z.string().nullable(),
+        reviewedAt: z.string().nullable(),
+        proposedText: z.string(),
+        currentText: z.string(),
+      })),
+    }))
+    .query(async ({ input, ctx }) => {
+      const [configAmendments, charterAmendments] = await Promise.all([
+        ctx.db.configAmendment.findMany({
+          where: { coopId: input.coopId },
+          orderBy: { proposedAt: "desc" },
+        }),
+        ctx.db.charterAmendment.findMany({
+          where: { coopId: input.coopId },
+          orderBy: { proposedAt: "desc" },
+        }),
+      ]);
+
+      return {
+        config: configAmendments.map(a => ({
+          id: a.id,
+          type: "config" as const,
+          section: a.section,
+          reason: a.reason,
+          status: a.status,
+          proposedBy: a.proposedBy,
+          proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
+          reviewedBy: a.reviewedBy ?? null,
+          reviewedAt: a.reviewedAt instanceof Date ? a.reviewedAt.toISOString() : (a.reviewedAt ?? null),
+          proposedChanges: a.proposedChanges as Record<string, unknown>,
+          currentSnapshot: a.currentSnapshot as Record<string, unknown>,
+        })),
+        charter: charterAmendments.map(a => ({
+          id: a.id,
+          type: "charter" as const,
+          reason: a.reason,
+          status: a.status,
+          proposedBy: a.proposedBy,
+          proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
+          reviewedBy: a.reviewedBy ?? null,
+          reviewedAt: a.reviewedAt instanceof Date ? a.reviewedAt.toISOString() : (a.reviewedAt ?? null),
+          proposedText: a.proposedText,
+          currentText: a.currentText,
+        })),
+      };
     }),
 
   /**
@@ -194,7 +729,6 @@ export const coopConfigRouter = router({
       total: z.number(),
     }))
     .query(async ({ input, ctx }) => {
-      // Find all config IDs for this coop
       const configs = await ctx.db.coopConfig.findMany({
         where: { coopId: input.coopId },
         select: { id: true, version: true },

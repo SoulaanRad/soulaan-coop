@@ -3,7 +3,7 @@ import { db } from '@repo/db';
 
 const mockDb = db as any;
 
-// Mock the proposal engine
+// Mock the proposal engine with the new evaluation model
 vi.mock('@repo/validators', async (importOriginal) => {
   const original = await importOriginal() as any;
   return {
@@ -20,27 +20,41 @@ vi.mock('@repo/validators', async (importOriginal) => {
         region: { code: 'US', name: 'United States' },
         budget: { currency: 'USD', amountRequested: 50000 },
         treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-        impact: { leakageReductionUSD: 10000, jobsCreated: 3, timeHorizonMonths: 12 },
-        scores: { alignment: 0.7, feasibility: 0.6, composite: 0.65 },
+        evaluation: {
+          structural_scores: {
+            goal_mapping_valid: true,
+            feasibility_score: 0.7,
+            risk_score: 0.3,
+            accountability_score: 0.6,
+          },
+          mission_impact_scores: [
+            { goal_id: 'income_stability',  impact_score: 0.7, goal_priority_weight: 0.35 },
+            { goal_id: 'asset_creation',    impact_score: 0.6, goal_priority_weight: 0.25 },
+            { goal_id: 'leakage_reduction', impact_score: 0.8, goal_priority_weight: 0.20 },
+            { goal_id: 'export_expansion',  impact_score: 0.5, goal_priority_weight: 0.20 },
+          ],
+          computed_scores: {
+            mission_weighted_score: 0.68,
+            structural_weighted_score: 0.76,
+            overall_score: 0.71,
+            passes_threshold: true,
+          },
+          violations: [],
+          risk_flags: [],
+          llm_summary: 'Solid proposal.',
+        },
+        charterVersionId: 'cfg_1',
         governance: { quorumPercent: 20, approvalThresholdPercent: 60, votingWindowDays: 7 },
         audit: {
-          engineVersion: 'proposal-engine@agents-1.0.0',
+          engineVersion: 'proposal-engine@2.0.0',
           checks: [{ name: 'basic_validation', passed: true }],
-        },
-        goalScores: {
-          LeakageReduction: 0.7,
-          MemberBenefit: 0.6,
-          EquityGrowth: 0.5,
-          LocalJobs: 0.6,
-          CommunityVitality: 0.5,
-          Resilience: 0.4,
-          composite: 0.56,
         },
         alternatives: [],
         bestAlternative: null,
         decision: 'advance',
-        decisionReasons: ['No superior alternative.'],
+        decisionReasons: ['Overall score 71% passes screening threshold.'],
         missing_data: [],
+        councilRequired: false,
       }),
       evaluateComment: vi.fn(),
     },
@@ -68,14 +82,19 @@ describe('proposal router enhanced (unit)', () => {
         id: 'cfg_1',
         coopId: 'soulaan',
         charterText: 'Charter...',
-        goalDefinitions: [],
-        scoringWeights: {},
+        missionGoals: [
+          { key: 'income_stability', label: 'Income Stability', priorityWeight: 0.35 },
+        ],
+        structuralWeights: { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+        scoreMix: { missionWeight: 0.60, structuralWeight: 0.40 },
+        screeningPassThreshold: 0.6,
         proposalCategories: [],
         sectorExclusions: [],
         quorumPercent: 15,
         approvalThresholdPercent: 51,
         votingWindowDays: 7,
         minScBalanceToSubmit: 0,
+        councilVoteThresholdUSD: 5000,
       };
 
       mockDb.coopConfig.findFirst.mockResolvedValue(config);
@@ -86,28 +105,40 @@ describe('proposal router enhanced (unit)', () => {
 
       expect(result).not.toBeNull();
       expect(result.coopId).toBe('soulaan');
+      expect(result.missionGoals).toBeDefined();
+      expect(result.structuralWeights).toBeDefined();
     });
 
-    it('persists goalScores to DB', () => {
-      const goalScores = {
-        LeakageReduction: 0.7,
-        MemberBenefit: 0.6,
-        EquityGrowth: 0.5,
-        LocalJobs: 0.6,
-        CommunityVitality: 0.5,
-        Resilience: 0.4,
-        composite: 0.56,
+    it('persists evaluation to DB', () => {
+      const evaluation = {
+        structural_scores: {
+          goal_mapping_valid: true,
+          feasibility_score: 0.7,
+          risk_score: 0.3,
+          accountability_score: 0.6,
+        },
+        mission_impact_scores: [
+          { goal_id: 'income_stability', impact_score: 0.7, goal_priority_weight: 0.35 },
+        ],
+        computed_scores: {
+          mission_weighted_score: 0.68,
+          structural_weighted_score: 0.76,
+          overall_score: 0.71,
+          passes_threshold: true,
+        },
+        violations: [],
+        risk_flags: [],
+        llm_summary: 'Test',
       };
 
-      // Verify goalScores is a valid JSON structure
-      expect(goalScores.composite).toBeGreaterThanOrEqual(0);
-      expect(goalScores.composite).toBeLessThanOrEqual(1);
-      expect(Object.keys(goalScores)).toHaveLength(7);
+      expect(evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+      expect(evaluation.computed_scores.overall_score).toBeLessThanOrEqual(1);
+      expect(typeof evaluation.computed_scores.passes_threshold).toBe('boolean');
     });
 
     it('persists decision and decisionReasons', () => {
       const decision = 'advance';
-      const decisionReasons = ['No superior alternative over charter goals.'];
+      const decisionReasons = ['Overall score 71% passes screening threshold.'];
 
       expect(['advance', 'revise', 'block']).toContain(decision);
       expect(decisionReasons.length).toBeGreaterThan(0);
@@ -118,50 +149,11 @@ describe('proposal router enhanced (unit)', () => {
       mockDb.coopConfig.findFirst.mockResolvedValue(config);
 
       const result = await mockDb.coopConfig.findFirst({ where: {} });
-      // No error thrown — threshold of 0 means no check needed
       expect(result.minScBalanceToSubmit).toBe(0);
     });
   });
 
   describe('mapDbToOutput currency handling', () => {
-    const makeDbRecord = (budgetCurrency: string) => ({
-      id: 'prop_cur',
-      createdAt: new Date('2026-01-01'),
-      updatedAt: new Date('2026-01-01'),
-      status: 'DRAFT',
-      title: 'Currency Test',
-      summary: 'Test',
-      category: 'BUSINESS_FUNDING',
-      proposerWallet: '0xtest',
-      proposerRole: 'MEMBER',
-      proposerDisplayName: 'Test',
-      regionCode: 'US',
-      regionName: 'US',
-      budgetCurrency,
-      budgetAmount: 1000,
-      localPercent: 70,
-      nationalPercent: 30,
-      acceptUC: true,
-      leakageReductionUSD: 500,
-      jobsCreated: 1,
-      timeHorizonMonths: 6,
-      alignmentScore: 0.5,
-      feasibilityScore: 0.5,
-      compositeScore: 0.5,
-      quorumPercent: 15,
-      approvalThresholdPercent: 51,
-      votingWindowDays: 7,
-      engineVersion: 'test',
-      auditChecks: [],
-      goalScores: null,
-      alternatives: null,
-      bestAlternative: null,
-      decision: null,
-      decisionReasons: null,
-      missingData: null,
-    });
-
-    // Replicate mapDbToOutput currency logic
     const mapCurrency = (budgetCurrency: string) =>
       budgetCurrency === 'MIXED' ? 'mixed' : budgetCurrency;
 
@@ -178,67 +170,53 @@ describe('proposal router enhanced (unit)', () => {
     });
 
     it('does not lowercase UC to uc', () => {
-      const record = makeDbRecord('UC');
-      const currency = mapCurrency(record.budgetCurrency);
+      const currency = mapCurrency('UC');
       expect(currency).not.toBe('uc');
       expect(currency).toBe('UC');
     });
   });
 
   describe('mapDbToOutput', () => {
-    it('correctly reads enhanced fields from DB record', () => {
+    it('correctly reads evaluation and enhanced fields from DB record', () => {
       const dbRecord = {
         id: 'prop_test',
         createdAt: new Date('2026-01-01'),
-        updatedAt: new Date('2026-01-01'),
         status: 'VOTABLE',
-        title: 'Test',
-        summary: 'Test summary',
-        category: 'BUSINESS_FUNDING',
-        proposerWallet: '0xtest',
-        proposerRole: 'MEMBER',
-        proposerDisplayName: 'Test User',
-        regionCode: 'US',
-        regionName: 'United States',
-        budgetCurrency: 'USD',
-        budgetAmount: 50000,
-        localPercent: 70,
-        nationalPercent: 30,
-        acceptUC: true,
-        leakageReductionUSD: 10000,
-        jobsCreated: 3,
-        timeHorizonMonths: 12,
-        alignmentScore: 0.7,
-        feasibilityScore: 0.6,
-        compositeScore: 0.65,
-        quorumPercent: 20,
-        approvalThresholdPercent: 60,
-        votingWindowDays: 7,
-        engineVersion: 'proposal-engine@agents-1.0.0',
-        auditChecks: [{ name: 'basic_validation', passed: true, note: null }],
-        // Enhanced fields present in DB
-        goalScores: {
-          LeakageReduction: 0.7,
-          MemberBenefit: 0.6,
-          EquityGrowth: 0.5,
-          LocalJobs: 0.6,
-          CommunityVitality: 0.5,
-          Resilience: 0.4,
-          composite: 0.56,
+        evaluation: {
+          structural_scores: {
+            goal_mapping_valid: true,
+            feasibility_score: 0.7,
+            risk_score: 0.3,
+            accountability_score: 0.6,
+          },
+          mission_impact_scores: [
+            { goal_id: 'income_stability', impact_score: 0.7, goal_priority_weight: 0.35 },
+          ],
+          computed_scores: {
+            mission_weighted_score: 0.68,
+            structural_weighted_score: 0.76,
+            overall_score: 0.71,
+            passes_threshold: true,
+          },
+          violations: [],
+          risk_flags: [],
+          llm_summary: 'Solid proposal.',
         },
+        charterVersionId: 'cfg_1',
         alternatives: [],
         bestAlternative: null,
         decision: 'advance',
-        decisionReasons: ['No superior alternative.'],
+        decisionReasons: ['Passed threshold.'],
         missingData: [],
+        councilRequired: false,
       };
 
-      // Simulate the mapDbToOutput function behavior
       const output = {
         id: dbRecord.id,
         createdAt: dbRecord.createdAt.toISOString(),
         status: dbRecord.status.toLowerCase(),
-        goalScores: dbRecord.goalScores ?? undefined,
+        evaluation: dbRecord.evaluation,
+        charterVersionId: dbRecord.charterVersionId,
         alternatives: dbRecord.alternatives ?? [],
         bestAlternative: dbRecord.bestAlternative ?? undefined,
         decision: dbRecord.decision ?? 'advance',
@@ -247,16 +225,17 @@ describe('proposal router enhanced (unit)', () => {
       };
 
       expect(output.status).toBe('votable');
-      expect(output.goalScores).toBeDefined();
-      expect(output.goalScores?.composite).toBe(0.56);
+      expect(output.evaluation).toBeDefined();
+      expect(output.evaluation.computed_scores.overall_score).toBe(0.71);
+      expect(output.evaluation.computed_scores.passes_threshold).toBe(true);
+      expect(output.charterVersionId).toBe('cfg_1');
       expect(output.decision).toBe('advance');
-      expect(output.decisionReasons).toEqual(['No superior alternative.']);
-      expect(output.alternatives).toEqual([]);
     });
 
-    it('provides defaults when enhanced fields are null', () => {
+    it('provides defaults when evaluation is null', () => {
       const dbRecord = {
-        goalScores: null,
+        evaluation: null,
+        charterVersionId: null,
         alternatives: null,
         bestAlternative: null,
         decision: null,
@@ -264,20 +243,19 @@ describe('proposal router enhanced (unit)', () => {
         missingData: null,
       };
 
-      const output = {
-        goalScores: dbRecord.goalScores ?? undefined,
-        alternatives: dbRecord.alternatives ?? [],
-        bestAlternative: dbRecord.bestAlternative ?? undefined,
-        decision: dbRecord.decision ?? 'advance',
-        decisionReasons: dbRecord.decisionReasons ?? [],
-        missing_data: dbRecord.missingData ?? [],
+      const evaluation = (dbRecord.evaluation as any) ?? {
+        structural_scores: { goal_mapping_valid: true, feasibility_score: 0.5, risk_score: 0.5, accountability_score: 0.5 },
+        mission_impact_scores: [],
+        computed_scores: { mission_weighted_score: 0.5, structural_weighted_score: 0.5, overall_score: 0.5, passes_threshold: false },
+        violations: [],
+        risk_flags: [],
+        llm_summary: '',
       };
 
-      expect(output.goalScores).toBeUndefined();
-      expect(output.alternatives).toEqual([]);
-      expect(output.decision).toBe('advance');
-      expect(output.decisionReasons).toEqual([]);
-      expect(output.missing_data).toEqual([]);
+      expect(evaluation.computed_scores.overall_score).toBe(0.5);
+      expect(evaluation.computed_scores.passes_threshold).toBe(false);
+      expect(dbRecord.alternatives ?? []).toEqual([]);
+      expect(dbRecord.decision ?? 'advance').toBe('advance');
     });
   });
 

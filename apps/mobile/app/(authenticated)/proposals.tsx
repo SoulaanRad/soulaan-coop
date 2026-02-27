@@ -138,7 +138,7 @@ interface ProposalSummary {
   status: string;
   category: string;
   decision?: string | null;
-  scores?: { composite?: number } | null;
+  evaluation?: { computed_scores?: { overall_score?: number } } | null;
   proposer?: { displayName?: string | null; wallet?: string | null } | null;
   region?: { name?: string | null } | null;
   commentCount?: number;
@@ -149,7 +149,7 @@ interface ProposalSummary {
 
 function ProposalCard({ proposal }: { proposal: ProposalSummary }) {
   const sc = statusColor(proposal.status);
-  const score = Math.round((proposal.scores?.composite ?? 0) * 100);
+  const score = Math.round((proposal.evaluation?.computed_scores?.overall_score ?? 0) * 100);
   const db = decisionStyle(proposal.decision);
 
   return (
@@ -253,17 +253,13 @@ function EmptyState({ tab }: { tab: TabKey }) {
 
 // ── Submit modal ─────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  { id: 'business_funding',  label: 'Business Funding',   icon: '💼', description: 'Business funding, job creation, micro-loans' },
-  { id: 'procurement',       label: 'Procurement',         icon: '🛒', description: 'Local purchasing, supplier agreements, bulk buying' },
-  { id: 'infrastructure',    label: 'Infrastructure',      icon: '🏗️', description: 'Housing, community spaces, facilities, home repair' },
-  { id: 'transport',         label: 'Transportation',      icon: '🚌', description: 'Ride programs, transit access, mobility infrastructure' },
-  { id: 'wallet_incentive',  label: 'Wallet Incentive',   icon: '💰', description: 'UC rewards, member incentive programs, loyalty schemes' },
-  { id: 'governance',        label: 'Governance',          icon: '🏛️', description: 'Co-op rules, voting policies, decision-making processes' },
-  { id: 'other',             label: 'Other',               icon: '✨', description: 'Education, health, arts, safety, or any other initiative' },
-] as const;
+interface Category {
+  id: string;
+  label: string;
+  description: string;
+}
 
-type CategoryId = (typeof CATEGORIES)[number]['id'];
+type CategoryId = string;
 
 const BUDGET_RANGES = [
   { min: 0,    max: 500,   label: '$0 - $500'   },
@@ -304,7 +300,20 @@ function SubmitModal({ visible, onClose, walletAddress }: {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const TOTAL = 4;
+
+  useEffect(() => {
+    api.getCoopConfig('soulaan').then(cfg => {
+      if (cfg?.proposalCategories) {
+        setCategories(
+          cfg.proposalCategories
+            .filter((c: { key: string; label: string; isActive: boolean }) => c.isActive)
+            .map((c: { key: string; label: string; isActive: boolean }) => ({ id: c.key, label: c.label, description: '' }))
+        );
+      }
+    }).catch(() => {/* silently ignore — user can still type category into proposal text */});
+  }, []);
 
   function set<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -322,7 +331,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
     setSubmitting(true);
     setError(null);
     try {
-      const cat = CATEGORIES.find(c => c.id === form.category);
+      const cat = categories.find(c => c.id === form.category);
       const text = [
         `Proposal Title: ${form.title}`,
         `Category: ${cat?.label ?? form.category}`,
@@ -431,7 +440,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontWeight: '600', color: C.charcoal800, fontSize: 14 }}>{form.title}</Text>
                       <Text style={{ color: C.charcoal500, fontSize: 12, marginTop: 2 }}>
-                        {CATEGORIES.find(c => c.id === form.category)?.label}
+                        {categories.find(c => c.id === form.category)?.label ?? form.category}
                       </Text>
                     </View>
                     <View style={{ backgroundColor: C.blue50, borderColor: '#93C5FD', borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -515,20 +524,24 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                 <View style={{ gap: 8 }}>
                   <Text style={styles.label}>Category *</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {CATEGORIES.map(cat => {
+                    {categories.map(cat => {
                       const selected = form.category === cat.id;
                       return (
                         <TouchableOpacity
                           key={cat.id}
-                          onPress={() => set('category', cat.id as CategoryId)}
+                          onPress={() => set('category', cat.id)}
                           style={{ borderWidth: 2, borderColor: selected ? C.gold600 : C.cream200, backgroundColor: selected ? C.gold50 : C.white, borderRadius: 12, padding: 12, width: '47%' }}
                         >
-                          <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
                           <Text style={{ color: C.charcoal800, fontSize: 12, fontWeight: '600', marginTop: 4 }}>{cat.label}</Text>
-                          <Text style={{ color: C.charcoal400, fontSize: 11, marginTop: 2, lineHeight: 15 }}>{cat.description}</Text>
+                          {cat.description ? (
+                            <Text style={{ color: C.charcoal400, fontSize: 11, marginTop: 2, lineHeight: 15 }}>{cat.description}</Text>
+                          ) : null}
                         </TouchableOpacity>
                       );
                     })}
+                    {categories.length === 0 && (
+                      <Text style={{ color: C.charcoal400, fontSize: 12 }}>Loading categories…</Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -668,7 +681,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                   <Text style={{ color: C.charcoal400, fontSize: 11, marginTop: 4 }}>Category</Text>
                   <View style={{ backgroundColor: C.gold100, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 2 }}>
                     <Text style={{ color: C.gold700, fontSize: 11, fontWeight: '600' }}>
-                      {CATEGORIES.find(c => c.id === form.category)?.label}
+                      {categories.find(c => c.id === form.category)?.label ?? form.category}
                     </Text>
                   </View>
                   {form.location !== '' && (
@@ -824,10 +837,15 @@ export default function ProposalsScreen() {
 
       {/* How it works banner */}
       <View style={{ backgroundColor: C.gold50, borderBottomWidth: 1, borderBottomColor: C.gold200, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-        <Sparkles size={14} color={C.gold700} style={{ marginTop: 1 }} />
-        <Text style={{ color: C.gold800, fontSize: 12, lineHeight: 18, flex: 1 }}>
-          Submit → AI review for charter alignment → Community deliberation → Admin decision → Funding from transaction fees
-        </Text>
+        <Sparkles size={14} color={C.gold700} style={{ marginTop: 2 }} />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={{ color: C.gold800, fontSize: 12, lineHeight: 18 }}>
+            Submit → AI scores mission goals → Funding
+          </Text>
+          <Text style={{ color: C.gold600, fontSize: 11, lineHeight: 16 }}>
+            Large budgets may also require expert review, community deliberation, and an admin decision before funding is released.
+          </Text>
+        </View>
       </View>
 
       {/* Tab bar */}

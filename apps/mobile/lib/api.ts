@@ -1786,6 +1786,24 @@ export const api = {
     return result.result?.data;
   },
 
+  // ── Coop Config ────────────────────────────────────────────────────────────
+
+  /**
+   * Get the active CoopConfig (includes proposalCategories for label lookup)
+   */
+  async getCoopConfig(coopId = 'soulaan') {
+    const input = encodeURIComponent(JSON.stringify({ coopId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/coopConfig.getActive?input=${input}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const result = await response.json();
+    if (result.error) return null;
+    return result.result?.data as {
+      proposalCategories: { key: string; label: string; isActive: boolean }[];
+    } | null;
+  },
+
   // ── Proposals ──────────────────────────────────────────────────────────────
 
   /**
@@ -1932,6 +1950,45 @@ export const api = {
     const result = await response.json();
     if (result.error) throw new Error(result.error.message || 'Failed to cast council vote');
     return result.result?.data as { vote: string; forCount: number; againstCount: number; abstainCount: number; newStatus: string | null };
+  },
+
+  /**
+   * Resubmit / edit a proposal (proposer only, status must be submitted or votable)
+   */
+  async resubmitProposal(proposalId: string, text: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.resubmit`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ proposalId, text }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to resubmit proposal');
+    return result.result?.data;
+  },
+
+  /**
+   * Get the full submission audit trail for a proposal (all revisions)
+   */
+  async getProposalRevisions(proposalId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ proposalId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.getRevisions?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load revision history');
+    return result.result?.data as Array<{
+      id: string;
+      revisionNumber: number;
+      submittedAt: string;
+      rawText?: string;
+      evaluation?: any;
+      decision?: string;
+      decisionReasons: string[];
+      auditChecks: any[];
+      status: string;
+      engineVersion: string;
+    }>;
   },
 
   /**

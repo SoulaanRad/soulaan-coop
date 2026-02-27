@@ -1,88 +1,103 @@
 import { describe, it, expect } from "vitest";
 import {
-  GoalDefinitionZ,
+  MissionGoalZ,
+  StructuralWeightsZ,
+  ScoreMixZ,
   ProposalCategoryConfigZ,
-  ScoringWeightsZ,
   CoopConfigInputZ,
   CommentInputZ,
   CommentOutputZ,
   CommentAIEvaluationZ,
 } from "../proposal.js";
 
-describe("GoalDefinitionZ", () => {
-  it("accepts valid goal definition", () => {
-    const result = GoalDefinitionZ.safeParse({
-      key: "LeakageReduction",
-      label: "Leakage Reduction",
-      weight: 0.25,
-      description: "Reduce external economic leakage",
+describe("MissionGoalZ", () => {
+  it("accepts valid mission goal", () => {
+    const result = MissionGoalZ.safeParse({
+      key: "income_stability",
+      label: "Income Stability",
+      priorityWeight: 0.35,
+      description: "Create reliable income for members",
     });
     expect(result.success).toBe(true);
   });
 
   it("accepts without description", () => {
-    const result = GoalDefinitionZ.safeParse({
-      key: "LocalJobs",
-      label: "Local Jobs",
-      weight: 0.15,
+    const result = MissionGoalZ.safeParse({
+      key: "leakage_reduction",
+      label: "Leakage Reduction",
+      priorityWeight: 0.20,
     });
     expect(result.success).toBe(true);
   });
 
-  it("rejects weight > 1", () => {
-    const result = GoalDefinitionZ.safeParse({
+  it("rejects priorityWeight > 1", () => {
+    const result = MissionGoalZ.safeParse({
       key: "test",
       label: "Test",
-      weight: 1.5,
+      priorityWeight: 1.5,
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects weight < 0", () => {
-    const result = GoalDefinitionZ.safeParse({
+  it("rejects priorityWeight < 0", () => {
+    const result = MissionGoalZ.safeParse({
       key: "test",
       label: "Test",
-      weight: -0.1,
+      priorityWeight: -0.1,
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects empty key", () => {
-    const result = GoalDefinitionZ.safeParse({
+    const result = MissionGoalZ.safeParse({
       key: "",
       label: "Test",
-      weight: 0.5,
+      priorityWeight: 0.5,
     });
     expect(result.success).toBe(false);
   });
 });
 
-describe("ScoringWeightsZ", () => {
-  it("accepts valid scoring weights", () => {
-    const result = ScoringWeightsZ.safeParse({
-      selfReliance: 0.25,
-      communityJobs: 0.20,
-      assetRetention: 0.20,
-      transparency: 0.15,
-      culturalValue: 0.20,
+describe("StructuralWeightsZ", () => {
+  it("accepts valid structural weights", () => {
+    const result = StructuralWeightsZ.safeParse({
+      feasibility: 0.40,
+      risk: 0.35,
+      accountability: 0.25,
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects weight > 1", () => {
-    const result = ScoringWeightsZ.safeParse({
-      selfReliance: 1.5,
-      communityJobs: 0.20,
-      assetRetention: 0.20,
-      transparency: 0.15,
-      culturalValue: 0.20,
+    const result = StructuralWeightsZ.safeParse({
+      feasibility: 1.5,
+      risk: 0.35,
+      accountability: 0.25,
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects missing fields", () => {
-    const result = ScoringWeightsZ.safeParse({
-      selfReliance: 0.25,
+    const result = StructuralWeightsZ.safeParse({
+      feasibility: 0.40,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("ScoreMixZ", () => {
+  it("accepts valid score mix", () => {
+    const result = ScoreMixZ.safeParse({
+      missionWeight: 0.60,
+      structuralWeight: 0.40,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects weight > 1", () => {
+    const result = ScoreMixZ.safeParse({
+      missionWeight: 1.5,
+      structuralWeight: 0.40,
     });
     expect(result.success).toBe(false);
   });
@@ -120,25 +135,22 @@ describe("CoopConfigInputZ", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts full config update", () => {
+  it("accepts full config update with new fields", () => {
     const result = CoopConfigInputZ.safeParse({
       coopId: "soulaan",
       charterText: "Updated charter text with at least 10 chars",
-      goalDefinitions: [
-        { key: "LeakageReduction", label: "LR", weight: 0.3 },
+      missionGoals: [
+        { key: "income_stability", label: "Income Stability", priorityWeight: 0.35 },
+        { key: "leakage_reduction", label: "Leakage Reduction", priorityWeight: 0.65 },
       ],
+      structuralWeights: { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+      scoreMix: { missionWeight: 0.60, structuralWeight: 0.40 },
+      screeningPassThreshold: 0.65,
       quorumPercent: 25,
       approvalThresholdPercent: 60,
       votingWindowDays: 14,
-      sectorExclusions: ["fashion"],
+      sectorExclusions: [{ value: "fashion" }],
       minScBalanceToSubmit: 10,
-      scoringWeights: {
-        selfReliance: 0.2,
-        communityJobs: 0.2,
-        assetRetention: 0.2,
-        transparency: 0.2,
-        culturalValue: 0.2,
-      },
       reason: "Full config update for testing",
     });
     expect(result.success).toBe(true);
@@ -154,10 +166,10 @@ describe("CommentInputZ", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects too short content", () => {
+  it("rejects empty content", () => {
     const result = CommentInputZ.safeParse({
       proposalId: "prop_abc123",
-      content: "Hi",
+      content: "",
     });
     expect(result.success).toBe(false);
   });
@@ -177,7 +189,7 @@ describe("CommentAIEvaluationZ", () => {
       alignment: "ALIGNED",
       score: 0.85,
       analysis: "This comment supports the charter goals.",
-      goalsImpacted: ["LeakageReduction", "LocalJobs"],
+      goalsImpacted: ["income_stability", "leakage_reduction"],
     });
     expect(result.success).toBe(true);
   });

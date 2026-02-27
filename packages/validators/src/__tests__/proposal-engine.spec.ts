@@ -17,20 +17,19 @@ describe("ProposalEngine", () => {
     vi.resetModules();
   });
 
-  it("returns ProposalOutputV0 from agents path", async () => {
+  it("returns ProposalOutput with evaluation from agents path", async () => {
     const out = await proposalEngine.processProposal(makeInput());
 
     expect(out.id).toMatch(/^prop_/);
     expect(new Date(out.createdAt).toString()).not.toBe("Invalid Date");
     expect(out.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
 
-    // Scores are within [0,1]
-    expect(out.scores.alignment).toBeGreaterThanOrEqual(0);
-    expect(out.scores.alignment).toBeLessThanOrEqual(1);
-    expect(out.scores.feasibility).toBeGreaterThanOrEqual(0);
-    expect(out.scores.feasibility).toBeLessThanOrEqual(1);
-    expect(out.scores.composite).toBeGreaterThanOrEqual(0);
-    expect(out.scores.composite).toBeLessThanOrEqual(1);
+    // Evaluation scores are within [0,1]
+    expect(out.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+    expect(out.evaluation.computed_scores.overall_score).toBeLessThanOrEqual(1);
+    expect(out.evaluation.structural_scores.feasibility_score).toBeGreaterThanOrEqual(0);
+    expect(out.evaluation.structural_scores.feasibility_score).toBeLessThanOrEqual(1);
+    expect(typeof out.evaluation.computed_scores.passes_threshold).toBe("boolean");
 
     // Governance defaults / heuristic
     expect(out.governance.quorumPercent).toBeGreaterThan(0);
@@ -39,7 +38,6 @@ describe("ProposalEngine", () => {
 
     // Checks include basic validation and treasury sum
     const checkNames = new Set(out.audit.checks.map((c: any) => c.name));
-    // Support either location if buildOutputV0 later nests checks under audit
     expect(checkNames.has("basic_validation")).toBe(true);
     expect(checkNames.has("treasury_allocation_sum")).toBe(true);
   });
@@ -58,13 +56,11 @@ describe("ProposalEngine", () => {
 
   it("governance adjusts for large budgets in fallback path", async () => {
     const out = await proposalEngine.processProposal(
-      makeInput({ 
-        text: "Large Infrastructure Project: Build a major transportation hub. Budget needed: $2,000,000 USD." 
+      makeInput({
+        text: "Large Infrastructure Project: Build a major transportation hub. Budget needed: $2,000,000 USD.",
       }),
     );
     expect(out.governance.quorumPercent).toBeGreaterThanOrEqual(15);
     expect(out.governance.approvalThresholdPercent).toBeGreaterThanOrEqual(50);
   });
 });
-
-

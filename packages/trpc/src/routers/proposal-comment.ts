@@ -72,10 +72,13 @@ export const proposalCommentRouter = router({
         const configData = coopConfig
           ? {
               charterText: coopConfig.charterText,
-              goalDefinitions: coopConfig.goalDefinitions as any[],
-              scoringWeights: coopConfig.scoringWeights as Record<string, number>,
+              missionGoals: coopConfig.missionGoals as any[],
+              structuralWeights: coopConfig.structuralWeights as { feasibility: number; risk: number; accountability: number },
+              scoreMix: coopConfig.scoreMix as { missionWeight: number; structuralWeight: number },
+              screeningPassThreshold: coopConfig.screeningPassThreshold,
               proposalCategories: coopConfig.proposalCategories as any[],
-              sectorExclusions: coopConfig.sectorExclusions as string[],
+              sectorExclusions: (coopConfig.sectorExclusions as Array<string | { value: string; description?: string }>)
+                .map(e => typeof e === "string" ? { value: e } : e),
               quorumPercent: coopConfig.quorumPercent,
               approvalThresholdPercent: coopConfig.approvalThresholdPercent,
               votingWindowDays: coopConfig.votingWindowDays,

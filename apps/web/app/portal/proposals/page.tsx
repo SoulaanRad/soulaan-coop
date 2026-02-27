@@ -8,17 +8,19 @@ import Link from "next/link";
 import { ProposalCard } from "@/components/portal/proposals/proposal-card";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 
-type StatusFilter = "all" | "submitted" | "votable" | "approved" | "funded" | "rejected" | "failed" | "withdrawn";
+type StatusFilter = "active" | "all" | "submitted" | "votable" | "approved" | "funded" | "rejected" | "failed" | "withdrawn";
 
-const statusTabs: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "submitted", label: "Submitted" },
-  { value: "votable", label: "Votable" },
-  { value: "approved", label: "Approved" },
-  { value: "funded", label: "Funded" },
-  { value: "rejected", label: "Rejected" },
-  { value: "failed", label: "Failed" },
-  { value: "withdrawn", label: "Withdrawn" },
+// Statuses that represent live, in-flight work
+const ACTIVE_STATUSES = ["submitted", "votable", "approved", "funded"] as const;
+
+const statusTabs: { value: StatusFilter; label: string; description: string }[] = [
+  { value: "active",    label: "Active",    description: "Proposals in review or currently being funded" },
+  { value: "submitted", label: "New",       description: "Freshly submitted, awaiting AI review" },
+  { value: "votable",   label: "Voting",    description: "Passed AI review, open for community deliberation" },
+  { value: "approved",  label: "Approved",  description: "Approved by the coop, awaiting funding" },
+  { value: "funded",    label: "Funded",    description: "Funded and in progress" },
+  { value: "rejected",  label: "Rejected",  description: "Did not pass review or vote" },
+  { value: "all",       label: "Archive",   description: "All proposals including withdrawn and failed" },
 ];
 
 const PAGE_SIZE = 20;
@@ -27,7 +29,7 @@ const ALL_STATUSES: StatusFilter[] = ["submitted", "votable", "approved", "funde
 
 export default function ProposalsPage() {
   const { isAdmin } = useWeb3Auth();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [offset, setOffset] = useState(0);
   const [allProposals, setAllProposals] = useState<any[]>([]);
 
@@ -38,10 +40,20 @@ export default function ProposalsPage() {
   const [bulkApplying, setBulkApplying] = useState(false);
 
   const { data, isLoading, error, refetch } = api.proposal.list.useQuery({
-    status: statusFilter === "all" ? undefined : statusFilter,
+    statuses: statusFilter === "active"
+      ? [...ACTIVE_STATUSES]
+      : undefined,
+    status: statusFilter !== "active" && statusFilter !== "all"
+      ? statusFilter
+      : undefined,
     limit: PAGE_SIZE,
     offset,
   });
+
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+  const categoryLabels: Record<string, string> = Object.fromEntries(
+    (coopConfig?.proposalCategories ?? []).map((c: { key: string; label: string }) => [c.key, c.label])
+  );
 
   // Accumulate proposals for "load more"
   useEffect(() => {
@@ -140,8 +152,9 @@ export default function ProposalsPage() {
             key={tab.value}
             onClick={() => handleTabChange(tab.value)}
             variant={statusFilter === tab.value ? "default" : "ghost"}
-            className={statusFilter === tab.value ? "bg-amber-600 hover:bg-amber-700" : ""}
+            className={statusFilter === tab.value ? "bg-amber-600 hover:bg-amber-700" : "text-gray-400 hover:text-white"}
             size="sm"
+            title={tab.description}
           >
             {tab.label}
           </Button>
@@ -212,9 +225,9 @@ export default function ProposalsPage() {
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <FileText className="h-12 w-12 mb-3 opacity-50" />
               <p>No proposals found</p>
-              {statusFilter !== "all" && (
-                <Button variant="ghost" size="sm" className="mt-2" onClick={() => handleTabChange("all")}>
-                  Clear filter
+              {statusFilter !== "active" && (
+                <Button variant="ghost" size="sm" className="mt-2" onClick={() => handleTabChange("active")}>
+                  Show active proposals
                 </Button>
               )}
             </div>
@@ -233,7 +246,7 @@ export default function ProposalsPage() {
                       )}
                     </button>
                   )}
-                  <ProposalCard proposal={proposal} />
+                  <ProposalCard proposal={proposal} categoryLabels={categoryLabels} />
                 </div>
               ))}
             </div>

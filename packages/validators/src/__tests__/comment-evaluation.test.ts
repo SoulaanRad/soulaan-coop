@@ -39,12 +39,15 @@ describe("ProposalEngine.evaluateComment", () => {
 
   const config: CoopConfigData = {
     charterText: "Soulaan Co-op exists to rebuild economic sovereignty through internal investment and local production.",
-    goalDefinitions: [
-      { key: "LeakageReduction", label: "Leakage Reduction", weight: 0.25 },
-      { key: "MemberBenefit", label: "Member Benefit", weight: 0.20 },
-      { key: "LocalJobs", label: "Local Jobs", weight: 0.15 },
+    missionGoals: [
+      { key: "income_stability",  label: "Income Stability",  priorityWeight: 0.35 },
+      { key: "leakage_reduction", label: "Leakage Reduction", priorityWeight: 0.20 },
+      { key: "asset_creation",    label: "Asset Creation",    priorityWeight: 0.25 },
+      { key: "export_expansion",  label: "Export Expansion",  priorityWeight: 0.20 },
     ],
-    scoringWeights: { selfReliance: 0.2, communityJobs: 0.2, assetRetention: 0.2, transparency: 0.2, culturalValue: 0.2 },
+    structuralWeights: { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+    scoreMix: { missionWeight: 0.60, structuralWeight: 0.40 },
+    screeningPassThreshold: 0.6,
     proposalCategories: [{ key: "business_funding", label: "BF", isActive: true }],
     sectorExclusions: [],
     quorumPercent: 15,
@@ -109,7 +112,7 @@ describe("ProposalEngine.evaluateComment", () => {
       config,
     );
 
-    const validKeys = config.goalDefinitions.map(g => g.key);
+    const validKeys = config.missionGoals.map(g => g.key);
     for (const goal of result.goalsImpacted) {
       expect(validKeys).toContain(goal);
     }

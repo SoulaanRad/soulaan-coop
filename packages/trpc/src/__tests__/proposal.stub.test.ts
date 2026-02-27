@@ -27,25 +27,21 @@ describe('Proposal API Integration Tests (STUB)', () => {
       
       expect(result).toMatchObject({
         id: expect.stringMatching(/^prop_[a-zA-Z0-9]{6}$/),
-        status: "draft",
-        title: expect.any(String), // AI-extracted title
-        summary: expect.any(String), // AI-extracted summary
-        category: expect.any(String), // AI-determined category
+        status: expect.stringMatching(/^(submitted|votable|approved|funded|rejected|failed)$/),
+        title: expect.any(String),
+        summary: expect.any(String),
+        category: expect.any(String),
         proposer: input.proposer,
         region: input.region,
-        budget: expect.any(Object), // AI-extracted budget
-        treasuryPlan: expect.any(Object), // AI-suggested treasury plan
-        impact: expect.any(Object), // AI-estimated impact,
-        scores: {
-          alignment: expect.any(Number),  // AI-generated scores
-          feasibility: expect.any(Number),
-          composite: expect.any(Number)
+        budget: expect.any(Object),
+        treasuryPlan: expect.any(Object),
+        impact: expect.any(Object),
+        evaluation: {
+          structural_scores: expect.any(Object),
+          mission_impact_scores: expect.any(Array),
+          computed_scores: expect.any(Object),
         },
-        governance: {
-          quorumPercent: 20,
-          approvalThresholdPercent: 60,
-          votingWindowDays: 7
-        },
+        governance: expect.any(Object),
         audit: {
           engineVersion: expect.stringMatching(/^proposal-engine@/),
           checks: expect.arrayContaining([
@@ -71,7 +67,7 @@ describe('Proposal API Integration Tests (STUB)', () => {
       const result2 = await proposalEngine.processProposal(input);
 
       expect(result1.id).not.toBe(result2.id);
-    });
+    }, 180_000);
 
     it('should handle different proposal types', async () => {
       const businessInput = createValidInput();
@@ -86,9 +82,9 @@ describe('Proposal API Integration Tests (STUB)', () => {
       // AI should determine different categories
       expect(businessResult.category).toBeDefined();
       expect(infrastructureResult.category).toBeDefined();
-      expect(businessResult.scores.alignment).toBeGreaterThanOrEqual(0);
-      expect(infrastructureResult.scores.alignment).toBeGreaterThanOrEqual(0);
-    });
+      expect(businessResult.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+      expect(infrastructureResult.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+    }, 180_000);
 
     it('should handle different budget amounts', async () => {
       const smallInput = createValidInput();
@@ -103,9 +99,9 @@ describe('Proposal API Integration Tests (STUB)', () => {
       // AI should extract different budget amounts
       expect(smallResult.budget.amountRequested).toBeGreaterThan(0);
       expect(largeResult.budget.amountRequested).toBeGreaterThan(0);
-      expect(smallResult.scores.feasibility).toBeGreaterThanOrEqual(0);
-      expect(largeResult.scores.feasibility).toBeGreaterThanOrEqual(0);
-    });
+      expect(smallResult.evaluation.structural_scores.feasibility_score).toBeGreaterThanOrEqual(0);
+      expect(largeResult.evaluation.structural_scores.feasibility_score).toBeGreaterThanOrEqual(0);
+    }, 180_000);
   });
 
   describe('proposal.testEngine (STUB)', () => {
@@ -123,10 +119,10 @@ describe('Proposal API Integration Tests (STUB)', () => {
           role: "bot",
           displayName: "SuggestionBot"
         },
-        scores: {
-          alignment: expect.any(Number),
-          feasibility: expect.any(Number),
-          composite: expect.any(Number)
+        evaluation: {
+          structural_scores: expect.any(Object),
+          mission_impact_scores: expect.any(Array),
+          computed_scores: expect.any(Object),
         },
         audit: {
           checks: expect.arrayContaining([

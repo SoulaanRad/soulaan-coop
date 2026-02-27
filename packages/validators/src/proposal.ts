@@ -19,15 +19,11 @@ export const ProposalReactionOutputZ = z.object({
   concern: z.number(),
   myReaction: ReactionTypeZ.nullable(),
 });
-export const ProposalCategoryZ = z.enum([
-  "business_funding",
-  "procurement",
-  "infrastructure",
-  "transport",
-  "wallet_incentive",
-  "governance",
-  "other",
-]);
+/**
+ * Proposal category key.
+ * Categories are coop-configurable (see CoopConfig.proposalCategories).
+ */
+export const ProposalCategoryZ = z.string().min(1).max(64);
 
 // ── shared blocks ─────────────────────────────────────
 export const RegionZ = z.object({
@@ -55,14 +51,6 @@ export const TreasuryPlanZ = z
     }
   });
 
-export const ImpactZ = z
-  .object({
-    leakageReductionUSD: z.number().nonnegative().default(0),
-    jobsCreated: z.number().int().nonnegative().default(0),
-    timeHorizonMonths: z.number().int().positive().default(12),
-  })
-  .default({ leakageReductionUSD: 0, jobsCreated: 0, timeHorizonMonths: 12 });
-
 export const KPIz = z.object({
   name: z.string().min(2),
   target: z.number().nonnegative(),
@@ -70,27 +58,55 @@ export const KPIz = z.object({
 });
 
 // ── INPUT ─────────────────────────────────────────────
-// Simplified schema allows users to provide minimal text-based input
-// and lets AI infer structured fields like region, category, budget, etc.
 export const ProposalInputZ = z.object({
   text: z.string().min(20).max(10000),
   proposer: z.object({
     wallet: z.string().min(3),
     role: ProposerRoleZ,
     displayName: z.string().optional().nullable(),
-  }).optional().nullable(), // Make proposer optional
-  // All other fields are optional and can be inferred by AI
+  }).optional().nullable(),
   region: RegionZ.optional().nullable(),
   coopId: z.string().optional(),
 });
 
-// ── OUTPUT ────────────────────────────────────────────
-export const ScoresZ = z.object({
-  alignment: z.number().min(0).max(1),
-  feasibility: z.number().min(0).max(1),
-  composite: z.number().min(0).max(1),
+// ── EVALUATION SCHEMAS (new scoring model) ────────────────────────────────────
+
+/** Universal structural seriousness checks — same for all coops */
+export const StructuralScoresZ = z.object({
+  goal_mapping_valid: z.boolean(),
+  feasibility_score: z.number().min(0).max(1),
+  risk_score: z.number().min(0).max(1),
+  accountability_score: z.number().min(0).max(1),
 });
 
+/** Per-mission-goal impact score (coop-specific goals from missionGoals config) */
+export const MissionImpactScoreZ = z.object({
+  goal_id: z.string(),
+  impact_score: z.number().min(0).max(1),
+  goal_priority_weight: z.number().min(0).max(1),
+  /** Plain-English explanation of why this score was given and what would raise it. */
+  score_reason: z.string().optional(),
+});
+
+/** Backend-computed totals — LLM does NOT decide these */
+export const ComputedScoresZ = z.object({
+  mission_weighted_score: z.number().min(0).max(1),
+  structural_weighted_score: z.number().min(0).max(1),
+  overall_score: z.number().min(0).max(1),
+  passes_threshold: z.boolean(),
+});
+
+/** Full evaluation block stored on each proposal */
+export const EvaluationZ = z.object({
+  structural_scores: StructuralScoresZ,
+  mission_impact_scores: z.array(MissionImpactScoreZ),
+  computed_scores: ComputedScoresZ,
+  violations: z.array(z.string()).default([]),
+  risk_flags: z.array(z.string()).default([]),
+  llm_summary: z.string().default(""),
+});
+
+// ── OUTPUT ────────────────────────────────────────────
 export const GovernanceZ = z.object({
   quorumPercent: z.number().min(0).max(100).default(20),
   approvalThresholdPercent: z.number().min(0).max(100).default(60),
@@ -108,39 +124,29 @@ export const AuditZ = z.object({
   ),
 });
 
-// ── V0.2 SCHEMAS ──────────────────────────────────────────────────────────
-
-// Charter goal vector
-export const GoalsZ = z.object({
-  LeakageReduction: z.number().min(0).max(1),
-  MemberBenefit: z.number().min(0).max(1),
-  EquityGrowth: z.number().min(0).max(1),
-  LocalJobs: z.number().min(0).max(1),
-  CommunityVitality: z.number().min(0).max(1),
-  Resilience: z.number().min(0).max(1),
-  composite: z.number().min(0).max(1),
-});
-
 // Engine-generated alternative
+// overallScore is null when not yet verified by the full scoring pipeline.
+// UI should show 'Score pending' rather than displaying the raw AI estimate.
 export const AlternativeZ = z.object({
   label: z.string().min(3),
   changes: z.array(z.object({
-    field: z.string(),     // dot-path e.g., "budget.amountRequested"
+    field: z.string(),
     from: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
     to: z.union([z.string(), z.number(), z.boolean()])
   })).max(10),
-  scores: GoalsZ,          // charter goals for this alt
+  /** Null means the verified pipeline has not scored this alternative yet. */
+  overallScore: z.number().min(0).max(1).nullable().default(null),
   rationale: z.string().min(10),
-  dataNeeds: z.array(z.string()).optional().nullable()
+  dataNeeds: z.array(z.string()).optional().nullable(),
 });
 
-export const DecisionZ = z.enum(["advance","revise","block"]);
+export const DecisionZ = z.enum(["advance", "revise", "block"]);
 
 export const MissingDataZ = z.object({
   field: z.string(),
   question: z.string(),
   why_needed: z.string(),
-  blocking: z.boolean().default(false)
+  blocking: z.boolean().default(false),
 });
 
 export const ProposalOutputZ = z.object({
@@ -158,58 +164,95 @@ export const ProposalOutputZ = z.object({
   region: RegionZ,
   category: ProposalCategoryZ,
   budget: BudgetZ,
-  treasuryPlan: TreasuryPlanZ,
-  impact: ImpactZ, // required after engine normalization
+  treasuryPlan: TreasuryPlanZ.nullable().optional(),
 
-  scores: ScoresZ,
+  evaluation: EvaluationZ,
+  charterVersionId: z.string().optional().nullable(),
   governance: GovernanceZ,
   audit: AuditZ,
-  goalScores: GoalsZ.optional().nullable(),                     // original proposal in goal-space
-  alternatives: z.array(AlternativeZ).default([]),   // engine-generated
-  bestAlternative: AlternativeZ.optional().nullable(),          // top-scoring viable alt
-  decision: DecisionZ.default("advance"),            // advance|revise|block
-  decisionReasons: z.array(z.string()).default([]),  // human-readable rationale
+  alternatives: z.array(AlternativeZ).default([]),
+  bestAlternative: AlternativeZ.optional().nullable(),
+  decision: DecisionZ.default("advance"),
+  decisionReasons: z.array(z.string()).default([]),
   missing_data: z.array(MissingDataZ).default([]),
-  councilRequired: z.boolean().default(false),       // true when budget >= threshold
+  councilRequired: z.boolean().default(false),
+  rawText: z.string().optional().nullable(),
 });
 
 
 // ── Coop Config Schemas ──────────────────────────────────────────────────────
 
-export const GoalDefinitionZ = z.object({
+/** A single coop-specific mission goal with its scoring priority weight */
+export const MissionGoalZ = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
-  weight: z.number().min(0).max(1),
+  priorityWeight: z.number().min(0).max(1),
   description: z.string().optional(),
+  /** Which scorer-agent domain is responsible for scoring this goal.
+   *  If omitted or no matching enabled agent exists, the 'general' fallback is used. */
+  domain: z.string().optional(),
+  /** Plain-English rubric shown to both the AI scorer and human experts. */
+  scoringRubric: z.string().optional(),
+});
+
+/** A single domain scorer-agent definition stored in coop config.
+ *  Admins can add/enable/disable agents without code changes. */
+export const ScorerAgentZ = z.object({
+  /** Stable identifier, e.g. 'finance', 'market', 'community', 'ops', 'general' */
+  agentKey: z.string().min(1),
+  /** Human-readable label, e.g. 'Finance & Treasury Expert' */
+  label: z.string().min(1),
+  /** Whether this agent is active; inactive agents fall through to 'general' */
+  enabled: z.boolean().default(true),
+  /** Optional override prompt appended to the base scoring instructions */
+  promptTemplate: z.string().optional(),
+  /** Optional model override, e.g. 'gpt-4o'. Defaults to engine default. */
+  model: z.string().optional(),
+});
+
+/** Universal structural scoring weights (all coops share the same categories) */
+export const StructuralWeightsZ = z.object({
+  feasibility: z.number().min(0).max(1),
+  risk: z.number().min(0).max(1),
+  accountability: z.number().min(0).max(1),
+});
+
+/** How to blend mission vs structural into overall_score */
+export const ScoreMixZ = z.object({
+  missionWeight: z.number().min(0).max(1),
+  structuralWeight: z.number().min(0).max(1),
 });
 
 export const ProposalCategoryConfigZ = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   isActive: z.boolean(),
+  description: z.string().optional(),
 });
 
-export const ScoringWeightsZ = z.object({
-  selfReliance: z.number().min(0).max(1),
-  communityJobs: z.number().min(0).max(1),
-  assetRetention: z.number().min(0).max(1),
-  transparency: z.number().min(0).max(1),
-  culturalValue: z.number().min(0).max(1),
+export const SectorExclusionZ = z.object({
+  value: z.string().min(1),
+  description: z.string().optional(),
 });
 
 export const CoopConfigInputZ = z.object({
   coopId: z.string().min(1),
   charterText: z.string().min(10).optional(),
-  goalDefinitions: z.array(GoalDefinitionZ).optional(),
+  missionGoals: z.array(MissionGoalZ).optional(),
+  structuralWeights: StructuralWeightsZ.optional(),
+  scoreMix: ScoreMixZ.optional(),
+  screeningPassThreshold: z.number().min(0).max(1).optional(),
   quorumPercent: z.number().min(0).max(100).optional(),
   approvalThresholdPercent: z.number().min(0).max(100).optional(),
   votingWindowDays: z.number().int().min(1).max(90).optional(),
   scVotingCapPercent: z.number().min(0).max(100).optional(),
   proposalCategories: z.array(ProposalCategoryConfigZ).optional(),
-  sectorExclusions: z.array(z.string()).optional(),
+  sectorExclusions: z.array(SectorExclusionZ).optional(),
   minScBalanceToSubmit: z.number().min(0).optional(),
-  scoringWeights: ScoringWeightsZ.optional(),
+  aiAutoApproveThresholdUSD: z.number().min(0).optional(),
   councilVoteThresholdUSD: z.number().min(0).optional(),
+  /** Configurable domain scorer-agent registry; admins manage without code changes */
+  scorerAgents: z.array(ScorerAgentZ).optional(),
   reason: z.string().min(3).max(500),
 });
 
@@ -219,16 +262,20 @@ export const CoopConfigOutputZ = z.object({
   version: z.number(),
   isActive: z.boolean(),
   charterText: z.string(),
-  goalDefinitions: z.array(GoalDefinitionZ),
+  missionGoals: z.array(MissionGoalZ),
+  structuralWeights: StructuralWeightsZ,
+  scoreMix: ScoreMixZ,
+  screeningPassThreshold: z.number(),
   quorumPercent: z.number(),
   approvalThresholdPercent: z.number(),
   votingWindowDays: z.number(),
   scVotingCapPercent: z.number(),
   proposalCategories: z.array(ProposalCategoryConfigZ),
-  sectorExclusions: z.array(z.string()),
+  sectorExclusions: z.array(SectorExclusionZ),
   minScBalanceToSubmit: z.number(),
-  scoringWeights: ScoringWeightsZ,
+  aiAutoApproveThresholdUSD: z.number(),
   councilVoteThresholdUSD: z.number(),
+  scorerAgents: z.array(ScorerAgentZ).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.string(),
@@ -263,7 +310,7 @@ export const CommentOutputZ = z.object({
 // ── tiny helper: build output from input + computed values ────────────────────
 export function buildOutput(params: {
   id: string;
-  createdAt: string; // ISO
+  createdAt: string;
   status: z.infer<typeof ProposalStatusZ>;
   input: z.infer<typeof ProposalInputZ>;
   extractedFields: {
@@ -272,9 +319,8 @@ export function buildOutput(params: {
     category?: z.infer<typeof ProposalCategoryZ>;
     budget?: z.infer<typeof BudgetZ>;
     treasuryPlan?: z.infer<typeof TreasuryPlanZ>;
-    impact?: z.infer<typeof ImpactZ>;
   };
-  scores: z.infer<typeof ScoresZ>;
+  evaluation: z.infer<typeof EvaluationZ>;
   governance?: Partial<z.infer<typeof GovernanceZ>>;
   engineVersion: string;
   checks: { name: string; passed: boolean; note?: string }[];
@@ -290,9 +336,8 @@ export function buildOutput(params: {
     region: params.input.region ?? { code: "US", name: "United States" },
     category: params.extractedFields.category ?? "other" as const,
     budget: params.extractedFields.budget ?? { currency: "USD" as const, amountRequested: 0 },
-    treasuryPlan: params.extractedFields.treasuryPlan ?? { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
-    impact: params.extractedFields.impact ?? ImpactZ.parse({}),
-    scores: params.scores,
+    treasuryPlan: params.extractedFields.treasuryPlan ?? null,
+    evaluation: params.evaluation,
     governance: gov,
     audit: { engineVersion: params.engineVersion, checks: params.checks },
   };
@@ -305,16 +350,21 @@ export type ProposalOutput = z.infer<typeof ProposalOutputZ>;
 export type ProposerRole = z.infer<typeof ProposerRoleZ>;
 export type ProposalStatus = z.infer<typeof ProposalStatusZ>;
 export type ProposalCategory = z.infer<typeof ProposalCategoryZ>;
-export type Scores = z.infer<typeof ScoresZ>;
 export type Governance = z.infer<typeof GovernanceZ>;
 export type Audit = z.infer<typeof AuditZ>;
-export type Goals = z.infer<typeof GoalsZ>;
+export type StructuralScores = z.infer<typeof StructuralScoresZ>;
+export type MissionImpactScore = z.infer<typeof MissionImpactScoreZ>;
+export type ComputedScores = z.infer<typeof ComputedScoresZ>;
+export type Evaluation = z.infer<typeof EvaluationZ>;
 export type Alternative = z.infer<typeof AlternativeZ>;
 export type Decision = z.infer<typeof DecisionZ>;
 export type MissingData = z.infer<typeof MissingDataZ>;
-export type GoalDefinition = z.infer<typeof GoalDefinitionZ>;
+export type MissionGoal = z.infer<typeof MissionGoalZ>;
+export type ScorerAgent = z.infer<typeof ScorerAgentZ>;
+export type StructuralWeights = z.infer<typeof StructuralWeightsZ>;
+export type ScoreMix = z.infer<typeof ScoreMixZ>;
 export type ProposalCategoryConfig = z.infer<typeof ProposalCategoryConfigZ>;
-export type ScoringWeights = z.infer<typeof ScoringWeightsZ>;
+export type SectorExclusion = z.infer<typeof SectorExclusionZ>;
 export type CoopConfigInput = z.infer<typeof CoopConfigInputZ>;
 export type CoopConfigOutput = z.infer<typeof CoopConfigOutputZ>;
 export type CommentAlignment = z.infer<typeof CommentAlignmentZ>;

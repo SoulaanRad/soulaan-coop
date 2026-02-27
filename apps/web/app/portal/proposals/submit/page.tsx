@@ -57,7 +57,7 @@ export default function SubmitProposalPage() {
             <p className="font-medium">AI-Powered Analysis</p>
             <p className="text-blue-300/80 mt-1">
               Write your proposal in plain text. Our AI engine will automatically extract structured details
-              (category, budget, impact, treasury plan) and score it against the co-op charter goals.
+              (category, budget, impact) and score it against the co-op charter goals.
               The more detail you provide, the better the analysis.
             </p>
           </div>

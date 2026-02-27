@@ -28,6 +28,9 @@ import {
   ChevronUp,
   Users,
   LogOut,
+  Pencil,
+  RotateCcw,
+  History,
 } from 'lucide-react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/ui/text';
@@ -35,6 +38,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function prettifyKey(key: string) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
@@ -138,6 +145,7 @@ export default function ProposalDetailScreen() {
 
   const [proposal, setProposal] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
+  const [categoryLabels, setCategoryLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [comment, setComment] = useState('');
@@ -156,17 +164,34 @@ export default function ProposalDetailScreen() {
   const [councilVoteResult, setCouncilVoteResult] = useState<{ forCount: number; againstCount: number; abstainCount: number; newStatus: string | null } | null>(null);
   const [castingVote, setCastingVote] = useState(false);
 
+  // Edit & resubmit state
+  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [resubmitting, setResubmitting] = useState(false);
+
+  // Audit trail (revision history)
+  const [revisions, setRevisions] = useState<any[]>([]);
+  const [expandedRevision, setExpandedRevision] = useState<number | null>(null);
+
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [p, c, r] = await Promise.all([
+      const [p, c, r, cfg, revs] = await Promise.all([
         api.getProposal(id, user?.walletAddress),
         api.listProposalComments(id, user?.walletAddress),
         api.getReactionCounts(id, user?.walletAddress),
+        api.getCoopConfig(),
+        api.getProposalRevisions(id, user?.walletAddress),
       ]);
       setProposal(p);
       setComments(c?.comments ?? []);
       if (r) setReactionCounts(r);
+      if (cfg?.proposalCategories) {
+        setCategoryLabels(
+          Object.fromEntries(cfg.proposalCategories.map((cat: { key: string; label: string }) => [cat.key, cat.label]))
+        );
+      }
+      setRevisions(revs ?? []);
     } catch {
       // keep existing state on error
     } finally {
@@ -250,6 +275,20 @@ export default function ProposalDetailScreen() {
     }
   }
 
+  async function handleResubmit() {
+    if (!user?.walletAddress || !id || editText.trim().length < 10) return;
+    setResubmitting(true);
+    try {
+      await api.resubmitProposal(id, editText.trim(), user.walletAddress);
+      setShowEditPanel(false);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Resubmit Failed', e.message || 'Could not resubmit proposal');
+    } finally {
+      setResubmitting(false);
+    }
+  }
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-cream-100 items-center justify-center">
@@ -270,13 +309,15 @@ export default function ProposalDetailScreen() {
   }
 
   const dc = decisionColor(proposal.decision);
-  const composite = Math.round((proposal.scores?.composite ?? 0) * 100);
+  const overallScore = Math.round((proposal.evaluation?.computed_scores?.overall_score ?? 0) * 100);
+  const passesThreshold = proposal.evaluation?.computed_scores?.passes_threshold ?? false;
   const visibleComments = showAll ? comments : comments.slice(0, 3);
 
   // Proposer + admin role checks
   const isProposer = user?.walletAddress && proposal.proposer?.wallet === user.walletAddress;
   const isAdmin = (user as any)?.roles?.includes('admin') || (user as any)?.role === 'admin';
   const canWithdraw = isProposer && (proposal.status === 'submitted' || proposal.status === 'votable');
+  const canEdit = isProposer && (proposal.status === 'submitted' || proposal.status === 'votable');
   const councilRequired = proposal.councilRequired;
 
   // Build a dynamic process timeline that reflects actual routing logic:
@@ -325,7 +366,7 @@ export default function ProposalDetailScreen() {
       icon: <Sparkles size={18} color={aiAdvanced ? '#16A34A' : '#DC2626'} />,
       bg: aiAdvanced ? '#DCFCE7' : '#FEF2F2',
       label: 'AI Scoring Complete',
-      detail: `Score: ${composite}% · ${decisionTag}`,
+      detail: `Score: ${overallScore}% · ${decisionTag}`,
       done: aiAdvanced,
     });
 
@@ -380,12 +421,12 @@ export default function ProposalDetailScreen() {
         done: isApproved,
       });
     } else {
-      // Small-budget path — auto-approved by AI, no council vote
+      // Tier 1: AI auto-approved — budget below auto-approve threshold
       steps.push({
         icon: <CheckCircle size={18} color="#16A34A" />,
         bg: '#DCFCE7',
-        label: 'Auto-Approved',
-        detail: 'Budget under review threshold — no council vote required',
+        label: 'AI Auto-Approved',
+        detail: 'Budget below auto-approve threshold — no council vote required',
         done: true,
       });
 
@@ -438,7 +479,7 @@ export default function ProposalDetailScreen() {
             {/* Badges row */}
             <View className="flex-row flex-wrap gap-2 mb-3">
               <View className="bg-gold-100 rounded-full px-3 py-1">
-                <Text className="text-gold-700 text-xs font-semibold">{proposal.category}</Text>
+                <Text className="text-gold-700 text-xs font-semibold">{categoryLabels[proposal.category] ?? prettifyKey(proposal.category)}</Text>
               </View>
               <View className="rounded-full px-3 py-1" style={{ backgroundColor: dc.bg, borderColor: dc.border, borderWidth: 1 }}>
                 <Text style={{ color: dc.text, fontSize: 12, fontWeight: '600' }}>
@@ -488,16 +529,73 @@ export default function ProposalDetailScreen() {
             </View>
           )}
 
+          {/* ── Edit & Resubmit (proposer only, submitted/votable) ── */}
+          {canEdit && (
+            <View className="bg-white rounded-2xl overflow-hidden" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
+              <TouchableOpacity
+                className="p-4 flex-row items-center gap-3"
+                style={{ backgroundColor: '#FFFBEB' }}
+                onPress={() => {
+                  if (!showEditPanel) setEditText(proposal.rawText ?? proposal.summary ?? '');
+                  setShowEditPanel(v => !v);
+                }}
+              >
+                <View className="w-9 h-9 rounded-full bg-amber-100 items-center justify-center">
+                  <Pencil size={16} color="#B45309" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-amber-800 font-semibold text-sm">Edit & Resubmit</Text>
+                  <Text className="text-amber-600 text-xs">Update your proposal text and let the AI re-evaluate</Text>
+                </View>
+                {showEditPanel
+                  ? <ChevronUp size={16} color="#B45309" />
+                  : <ChevronDown size={16} color="#B45309" />
+                }
+              </TouchableOpacity>
+
+              {showEditPanel && (
+                <View className="p-4 pt-0 gap-3">
+                  <TextInput
+                    value={editText}
+                    onChangeText={setEditText}
+                    multiline
+                    numberOfLines={8}
+                    placeholder="Update your proposal text..."
+                    placeholderTextColor="#9CA3AF"
+                    style={{
+                      borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 12,
+                      padding: 12, minHeight: 160, textAlignVertical: 'top',
+                      fontSize: 13, color: '#1F2937', backgroundColor: '#F9FAFB',
+                    }}
+                  />
+                  <Text className="text-charcoal-400 text-xs text-right">{editText.length} chars</Text>
+                  <TouchableOpacity
+                    onPress={handleResubmit}
+                    disabled={resubmitting || editText.trim().length < 10}
+                    className="rounded-xl py-3 flex-row items-center justify-center gap-2"
+                    style={{ backgroundColor: resubmitting || editText.trim().length < 10 ? '#D1D5DB' : '#B45309' }}
+                  >
+                    {resubmitting
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <RotateCcw size={14} color="#fff" />
+                    }
+                    <Text className="text-white font-semibold text-sm">
+                      {resubmitting ? 'Re-evaluating…' : 'Resubmit for Review'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* ── Budget & Funding ── */}
           <View className="bg-white rounded-2xl p-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
             <Text className="text-charcoal-800 font-semibold text-base mb-3">Budget & Details</Text>
             <View className="gap-2">
               {[
                 ['Budget Requested', `${proposal.budget?.currency ?? ''} ${proposal.budget?.amountRequested?.toLocaleString() ?? 0}`],
-                ['Treasury Split', `Local ${proposal.treasuryPlan?.localPercent}% / National ${proposal.treasuryPlan?.nationalPercent}%`],
-                ['Region', proposal.region?.name],
-                ['Jobs Created', String(proposal.impact?.jobsCreated ?? 0)],
-                ['Leakage Reduction', `$${(proposal.impact?.leakageReductionUSD ?? 0).toLocaleString()}`],
+                ['Category', categoryLabels[proposal.category] ?? prettifyKey(proposal.category)],
+                ['Location', proposal.region?.name],
               ].map(([label, value]) => (
                 <View key={label} className="flex-row justify-between items-center p-3 bg-cream-50 rounded-xl">
                   <Text className="text-charcoal-500 text-sm">{label}</Text>
@@ -509,6 +607,7 @@ export default function ProposalDetailScreen() {
 
           {/* ── AI Review ── */}
           <View className="bg-white rounded-2xl overflow-hidden" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
+            {/* Header */}
             <View className="p-4 flex-row items-center gap-3" style={{ backgroundColor: '#F0FDF4' }}>
               <View className="w-10 h-10 rounded-full bg-green-100 items-center justify-center">
                 <Sparkles size={20} color="#16A34A" />
@@ -518,34 +617,114 @@ export default function ProposalDetailScreen() {
                 <Text className="text-green-600 text-xs">Engine v{proposal.audit?.engineVersion}</Text>
               </View>
               <View className="items-end">
-                <Text className="text-green-700 font-bold text-2xl">{composite}</Text>
+                <Text className="text-green-700 font-bold text-2xl">{overallScore}</Text>
                 <Text className="text-green-600 text-xs">/ 100</Text>
               </View>
             </View>
 
-            <View className="p-4">
-              <ScoreBar label="Alignment" value={proposal.scores?.alignment ?? 0} icon={<Users size={13} color="#B45309" />} />
-              <ScoreBar label="Feasibility" value={proposal.scores?.feasibility ?? 0} icon={<CheckCircle size={13} color="#B45309" />} />
-              <ScoreBar label="Composite" value={proposal.scores?.composite ?? 0} icon={<TrendingUp size={13} color="#B45309" />} />
+            <View className="p-4 gap-1">
+              {/* Pass/fail badge */}
+              <View className="flex-row mb-2">
+                <View
+                  className="self-start rounded-full px-3 py-1 flex-row items-center gap-1"
+                  style={{ backgroundColor: passesThreshold ? '#DCFCE7' : '#FEF2F2' }}
+                >
+                  {passesThreshold
+                    ? <CheckCircle size={12} color="#16A34A" />
+                    : <XCircle size={12} color="#DC2626" />
+                  }
+                  <Text style={{ color: passesThreshold ? '#16A34A' : '#DC2626', fontSize: 11, fontWeight: '600' }}>
+                    {passesThreshold ? 'Passed Threshold' : 'Below Threshold'}
+                  </Text>
+                </View>
+              </View>
 
-              {/* Charter goal scores */}
-              {proposal.goalScores && (
-                <View className="mt-3">
-                  <Text className="text-charcoal-700 font-semibold text-sm mb-2">Charter Goal Scores</Text>
-                  {Object.entries(proposal.goalScores).filter(([k]) => k !== 'composite').map(([key, val]) => (
-                    <ScoreBar
-                      key={key}
-                      label={key.replace(/([A-Z])/g, ' $1').trim()}
-                      value={val as number}
-                      icon={<Shield size={11} color="#B45309" />}
-                    />
+              {/* LLM Summary */}
+              {proposal.evaluation?.llm_summary ? (
+                <Text className="text-charcoal-500 text-xs leading-relaxed mb-3">
+                  {proposal.evaluation.llm_summary}
+                </Text>
+              ) : null}
+
+              {/* Structural Scores */}
+              {proposal.evaluation?.structural_scores && (
+                <View className="mb-3">
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-charcoal-700 font-semibold text-sm">Structural</Text>
+                    <Text className="text-charcoal-400 text-xs">
+                      {Math.round((proposal.evaluation.computed_scores?.structural_weighted_score ?? 0) * 100)}% weighted
+                    </Text>
+                  </View>
+                  {/* Goal mapping valid */}
+                  <View className="flex-row items-center gap-2 mb-2">
+                    {proposal.evaluation.structural_scores.goal_mapping_valid
+                      ? <CheckCircle size={14} color="#16A34A" />
+                      : <XCircle size={14} color="#DC2626" />
+                    }
+                    <Text style={{ color: proposal.evaluation.structural_scores.goal_mapping_valid ? '#16A34A' : '#DC2626', fontSize: 12 }}>
+                      Goal mapping {proposal.evaluation.structural_scores.goal_mapping_valid ? 'valid' : 'invalid'}
+                    </Text>
+                  </View>
+                  <ScoreBar label="Feasibility" value={proposal.evaluation.structural_scores.feasibility_score} icon={<CheckCircle size={13} color="#B45309" />} />
+                  <ScoreBar label="Risk" value={proposal.evaluation.structural_scores.risk_score} icon={<Shield size={13} color="#B45309" />} />
+                  <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1">Lower risk is better</Text>
+                  <ScoreBar label="Accountability" value={proposal.evaluation.structural_scores.accountability_score} icon={<Users size={13} color="#B45309" />} />
+                </View>
+              )}
+
+              {/* Mission Impact Scores */}
+              {proposal.evaluation?.mission_impact_scores && proposal.evaluation.mission_impact_scores.length > 0 && (
+                <View className="mt-1 pt-3 border-t border-cream-200">
+                  <View className="flex-row items-center justify-between mb-2">
+                    <Text className="text-charcoal-700 font-semibold text-sm">Mission Impact</Text>
+                    <Text className="text-charcoal-400 text-xs">
+                      {Math.round((proposal.evaluation.computed_scores?.mission_weighted_score ?? 0) * 100)}% weighted
+                    </Text>
+                  </View>
+                  {proposal.evaluation.mission_impact_scores.map((s: any) => (
+                    <View key={s.goal_id}>
+                      <ScoreBar
+                        label={s.goal_id.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        value={s.impact_score}
+                        icon={<TrendingUp size={11} color="#B45309" />}
+                      />
+                      <Text className="text-charcoal-400 text-xs ml-5 -mt-1 mb-1">
+                        {Math.round(s.goal_priority_weight * 100)}% priority weight
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Risk Flags */}
+              {proposal.evaluation?.risk_flags && proposal.evaluation.risk_flags.length > 0 && (
+                <View className="mt-3 pt-3 border-t border-cream-200">
+                  <Text className="text-amber-700 font-semibold text-sm mb-2">Risk Flags</Text>
+                  {proposal.evaluation.risk_flags.map((flag: string, i: number) => (
+                    <View key={i} className="flex-row gap-2 mb-1">
+                      <AlertCircle size={13} color="#B45309" style={{ marginTop: 1 }} />
+                      <Text className="text-charcoal-600 text-xs flex-1">{flag}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Violations */}
+              {proposal.evaluation?.violations && proposal.evaluation.violations.length > 0 && (
+                <View className="mt-3 pt-3 border-t border-cream-200">
+                  <Text className="text-red-600 font-semibold text-sm mb-2">Violations</Text>
+                  {proposal.evaluation.violations.map((v: string, i: number) => (
+                    <View key={i} className="flex-row gap-2 mb-1">
+                      <XCircle size={13} color="#DC2626" style={{ marginTop: 1 }} />
+                      <Text className="text-charcoal-600 text-xs flex-1">{v}</Text>
+                    </View>
                   ))}
                 </View>
               )}
 
               {/* Audit checks */}
               {proposal.audit?.checks?.length > 0 && (
-                <View className="mt-3">
+                <View className="mt-3 pt-3 border-t border-cream-200">
                   <Text className="text-charcoal-700 font-semibold text-sm mb-2">Compliance Checks</Text>
                   {proposal.audit.checks.map((check: any, i: number) => (
                     <View key={i} className="flex-row items-center gap-2 mb-1.5">
@@ -577,9 +756,11 @@ export default function ProposalDetailScreen() {
                 <View key={i} className="p-3 rounded-xl bg-cream-50 border border-cream-200 mb-2">
                   <Text className="text-charcoal-800 font-medium text-sm">{alt.label}</Text>
                   <Text className="text-charcoal-500 text-xs mt-1 leading-relaxed">{alt.rationale}</Text>
-                  <Text className="text-amber-600 text-xs mt-1 font-semibold">
-                    Composite: {Math.round((alt.scores?.composite ?? 0) * 100)}%
-                  </Text>
+                  {alt.overallScore != null && (
+                    <Text className="text-amber-600 text-xs mt-1 font-semibold">
+                      Overall Score: {Math.round((alt.overallScore ?? 0) * 100)}%
+                    </Text>
+                  )}
                 </View>
               ))}
             </View>
@@ -747,8 +928,8 @@ export default function ProposalDetailScreen() {
             {showFull && (
               <View className="px-4 pb-4">
                 {[
-                  { label: 'Category', value: proposal.category },
-                  { label: 'Region', value: `${proposal.region?.name} (${proposal.region?.code})` },
+                  { label: 'Category', value: categoryLabels[proposal.category] ?? prettifyKey(proposal.category) },
+                  { label: 'Location', value: proposal.region?.name },
                   { label: 'Council Required', value: proposal.councilRequired ? 'Yes — pending council vote' : 'No — auto-approved if AI advances' },
                 ].map(row => (
                   <View key={row.label} className="mb-3">
@@ -834,6 +1015,84 @@ export default function ProposalDetailScreen() {
               </>
             )}
           </View>
+
+          {/* ── Submission History / Audit Trail ── */}
+          {revisions.length > 0 && (
+            <View className="bg-white rounded-2xl overflow-hidden" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
+              <View className="p-4 flex-row items-center gap-2 border-b border-cream-200">
+                <History size={16} color="#B45309" />
+                <Text className="text-charcoal-800 font-semibold text-base flex-1">Submission History</Text>
+                <Text className="text-charcoal-400 text-xs">{revisions.length} revision{revisions.length !== 1 ? 's' : ''}</Text>
+              </View>
+              {[...revisions].reverse().map((rev: any) => {
+                const isExpanded = expandedRevision === rev.revisionNumber;
+                const decBg = rev.decision === 'advance' ? '#F0FDF4' : rev.decision === 'block' ? '#FEF2F2' : '#FFFBEB';
+                const decColor = rev.decision === 'advance' ? '#15803D' : rev.decision === 'block' ? '#DC2626' : '#B45309';
+                const overallPct = rev.evaluation?.computed_scores?.overall_score != null
+                  ? Math.round(rev.evaluation.computed_scores.overall_score * 100)
+                  : null;
+                return (
+                  <View key={rev.revisionNumber} className="border-b border-cream-200 last:border-0">
+                    <TouchableOpacity
+                      className="px-4 py-3 flex-row items-center gap-3"
+                      onPress={() => setExpandedRevision(isExpanded ? null : rev.revisionNumber)}
+                    >
+                      <Text className="text-charcoal-400 text-xs font-mono w-6">#{rev.revisionNumber}</Text>
+                      <View className="rounded-full px-2.5 py-0.5" style={{ backgroundColor: decBg }}>
+                        <Text style={{ color: decColor, fontSize: 11, fontWeight: '600' }}>{rev.decision ?? 'unknown'}</Text>
+                      </View>
+                      <Text className="text-charcoal-400 text-xs flex-1">
+                        {new Date(rev.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                      {overallPct != null && (
+                        <Text style={{ color: overallPct >= 70 ? '#16A34A' : overallPct >= 40 ? '#B45309' : '#DC2626', fontSize: 12, fontWeight: '700' }}>
+                          {overallPct}%
+                        </Text>
+                      )}
+                      {isExpanded ? <ChevronUp size={14} color="#9CA3AF" /> : <ChevronDown size={14} color="#9CA3AF" />}
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View className="px-4 pb-4 gap-3 bg-cream-50">
+                        {rev.decisionReasons?.length > 0 && (
+                          <View>
+                            <Text className="text-charcoal-500 text-xs font-semibold uppercase tracking-wide mb-1">Decision Reasons</Text>
+                            {rev.decisionReasons.map((r: string, i: number) => (
+                              <View key={i} className="flex-row items-start gap-1.5 mb-1">
+                                <Text className="text-amber-600 mt-0.5">•</Text>
+                                <Text className="text-charcoal-600 text-xs flex-1">{r}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {rev.auditChecks?.length > 0 && (
+                          <View>
+                            <Text className="text-charcoal-500 text-xs font-semibold uppercase tracking-wide mb-1">Compliance Checks</Text>
+                            {rev.auditChecks.map((check: any, i: number) => (
+                              <View key={i} className="flex-row items-center gap-2 mb-1">
+                                {check.passed
+                                  ? <CheckCircle size={12} color="#16A34A" />
+                                  : <XCircle size={12} color="#DC2626" />
+                                }
+                                <Text className="text-charcoal-500 text-xs">{check.name?.replace(/_/g, ' ')}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {rev.evaluation?.llm_summary && (
+                          <View>
+                            <Text className="text-charcoal-500 text-xs font-semibold uppercase tracking-wide mb-1">AI Summary</Text>
+                            <Text className="text-charcoal-500 text-xs italic">{rev.evaluation.llm_summary}</Text>
+                          </View>
+                        )}
+                        <Text className="text-charcoal-400 text-xs">Engine: {rev.engineVersion}</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {/* ── Process timeline ── */}
           <View className="bg-white rounded-2xl p-4" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>

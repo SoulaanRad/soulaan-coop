@@ -14,15 +14,9 @@ const statusColors: Record<string, string> = {
   failed: "bg-orange-500/20 text-orange-400 border-orange-500/30",
 };
 
-const categoryLabels: Record<string, string> = {
-  business_funding: "Business Funding",
-  procurement: "Procurement",
-  infrastructure: "Infrastructure",
-  transport: "Transport",
-  wallet_incentive: "Wallet Incentive",
-  governance: "Governance",
-  other: "Other",
-};
+function prettifyKey(key: string) {
+  return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
 interface ProposalCardProps {
   proposal: {
@@ -31,19 +25,20 @@ interface ProposalCardProps {
     summary: string;
     status: string;
     category: string;
-    scores: { composite: number };
+    evaluation?: { computed_scores?: { overall_score?: number } } | null;
     proposer: { wallet: string; displayName?: string | null };
     region: { name: string };
     createdAt: string;
     decision?: string | null;
   };
+  categoryLabels?: Record<string, string>;
 }
 
-export function ProposalCard({ proposal }: ProposalCardProps) {
+export function ProposalCard({ proposal, categoryLabels }: ProposalCardProps) {
   const statusClass = statusColors[proposal.status] ?? statusColors.submitted;
-  const catLabel = categoryLabels[proposal.category] ?? proposal.category;
+  const catLabel = categoryLabels?.[proposal.category] ?? prettifyKey(proposal.category);
   const date = new Date(proposal.createdAt).toLocaleDateString();
-  const scorePct = Math.round(proposal.scores.composite * 100);
+  const scorePct = Math.round((proposal.evaluation?.computed_scores?.overall_score ?? 0) * 100);
 
   return (
     <Link href={`/portal/proposals/${proposal.id}`}>

@@ -4,9 +4,7 @@ import type { CoopConfigData } from "../proposal-engine.js";
 // Mock @openai/agents to avoid real API calls
 vi.mock("@openai/agents", () => {
   class MockAgent {
-    constructor(opts: any) {
-      // no-op
-    }
+    constructor(_opts: any) {}
   }
   return {
     Agent: MockAgent,
@@ -19,9 +17,22 @@ vi.mock("@openai/agents", () => {
         category: "business_funding",
         budget: { currency: "USD", amountRequested: 50000 },
         treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-        impact: { leakageReductionUSD: 10000, jobsCreated: 3, timeHorizonMonths: 12 },
-        alignment: 0.7,
-        feasibility: 0.6,
+        // Evaluation agent fields
+        structural_scores: {
+          goal_mapping_valid: true,
+          feasibility_score: 0.7,
+          risk_score: 0.3,
+          accountability_score: 0.6,
+        },
+        mission_impact_scores: [
+          { goal_id: "income_stability",  impact_score: 0.7 },
+          { goal_id: "asset_creation",    impact_score: 0.6 },
+          { goal_id: "leakage_reduction", impact_score: 0.8 },
+          { goal_id: "export_expansion",  impact_score: 0.5 },
+        ],
+        violations: [],
+        risk_flags: ["Limited market research provided"],
+        llm_summary: "Solid community garden proposal with reasonable financials.",
         quorumPercent: 20,
         approvalThresholdPercent: 60,
         votingWindowDays: 7,
@@ -29,15 +40,6 @@ vi.mock("@openai/agents", () => {
           {
             label: "Lower Budget Option",
             changes: [{ field: "budget.amountRequested", from: 50000, to: 30000 }],
-            scores: {
-              LeakageReduction: 0.6,
-              MemberBenefit: 0.5,
-              EquityGrowth: 0.4,
-              LocalJobs: 0.5,
-              CommunityVitality: 0.5,
-              Resilience: 0.4,
-              composite: 0.5,
-            },
             rationale: "Reducing budget improves feasibility while maintaining community benefit",
           },
         ],
@@ -49,7 +51,6 @@ vi.mock("@openai/agents", () => {
             blocking: true,
           },
         ],
-        status: "submitted",
       },
     }),
     webSearchTool: vi.fn().mockReturnValue({}),
@@ -61,7 +62,6 @@ describe("ProposalEngine with CoopConfig", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Dynamic import after mocks are set
     const mod = await import("../proposal-engine.js");
     ProposalEngine = mod.ProposalEngine;
   });
@@ -74,27 +74,21 @@ describe("ProposalEngine with CoopConfig", () => {
 
   const createConfig = (): CoopConfigData => ({
     charterText: "Soulaan Co-op charter text for testing purposes with enough content to pass validation",
-    goalDefinitions: [
-      { key: "LeakageReduction", label: "Leakage Reduction", weight: 0.30 },
-      { key: "MemberBenefit", label: "Member Benefit", weight: 0.20 },
-      { key: "EquityGrowth", label: "Equity Growth", weight: 0.10 },
-      { key: "LocalJobs", label: "Local Jobs", weight: 0.20 },
-      { key: "CommunityVitality", label: "Community Vitality", weight: 0.10 },
-      { key: "Resilience", label: "Resilience", weight: 0.10 },
+    missionGoals: [
+      { key: "income_stability",  label: "Income Stability",  priorityWeight: 0.35 },
+      { key: "asset_creation",    label: "Asset Creation",    priorityWeight: 0.25 },
+      { key: "leakage_reduction", label: "Leakage Reduction", priorityWeight: 0.20 },
+      { key: "export_expansion",  label: "Export Expansion",  priorityWeight: 0.20 },
     ],
-    scoringWeights: {
-      selfReliance: 0.20,
-      communityJobs: 0.25,
-      assetRetention: 0.20,
-      transparency: 0.15,
-      culturalValue: 0.20,
-    },
+    structuralWeights: { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+    scoreMix: { missionWeight: 0.60, structuralWeight: 0.40 },
+    screeningPassThreshold: 0.6,
     proposalCategories: [
       { key: "business_funding", label: "Business Funding", isActive: true },
-      { key: "infrastructure", label: "Infrastructure", isActive: true },
-      { key: "other", label: "Other", isActive: true },
+      { key: "infrastructure",   label: "Infrastructure",   isActive: true },
+      { key: "other",            label: "Other",            isActive: true },
     ],
-    sectorExclusions: ["gambling", "tobacco"],
+    sectorExclusions: [{ value: "gambling" }, { value: "tobacco" }],
     quorumPercent: 25,
     approvalThresholdPercent: 55,
     votingWindowDays: 10,
@@ -112,10 +106,6 @@ describe("ProposalEngine with CoopConfig", () => {
           category: "business_funding",
           budget: { currency: "uc", amountRequested: 1000 },
           treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-          impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
-          alignment: 0.5,
-          feasibility: 0.5,
-          status: "submitted",
         },
       });
 
@@ -135,10 +125,6 @@ describe("ProposalEngine with CoopConfig", () => {
           category: "business_funding",
           budget: { currency: "usd", amountRequested: 5000 },
           treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-          impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
-          alignment: 0.5,
-          feasibility: 0.5,
-          status: "submitted",
         },
       });
 
@@ -158,10 +144,6 @@ describe("ProposalEngine with CoopConfig", () => {
           category: "business_funding",
           budget: { currency: "Mixed", amountRequested: 5000 },
           treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-          impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
-          alignment: 0.5,
-          feasibility: 0.5,
-          status: "submitted",
         },
       });
 
@@ -181,10 +163,6 @@ describe("ProposalEngine with CoopConfig", () => {
           category: "business_funding",
           budget: { currency: "UC", amountRequested: 5000 },
           treasuryPlan: { localPercent: 70, nationalPercent: 30, acceptUC: true },
-          impact: { leakageReductionUSD: 500, jobsCreated: 1, timeHorizonMonths: 6 },
-          alignment: 0.5,
-          feasibility: 0.5,
-          status: "submitted",
         },
       });
 
@@ -194,59 +172,72 @@ describe("ProposalEngine with CoopConfig", () => {
     });
   });
 
-  it("processProposal without config still works (backward compat)", async () => {
+  it("processProposal without config still works", async () => {
     const engine = new ProposalEngine();
     const result = await engine.processProposal(createInput());
 
     expect(result.id).toBeDefined();
     expect(result.title).toBeDefined();
-    expect(result.scores.alignment).toBeGreaterThanOrEqual(0);
-    expect(result.scores.feasibility).toBeGreaterThanOrEqual(0);
+    expect(result.evaluation).toBeDefined();
+    expect(result.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
   });
 
-  it("processProposal with config produces valid output", async () => {
+  it("processProposal with config produces valid evaluation output", async () => {
     const engine = new ProposalEngine();
     const result = await engine.processProposal(createInput(), createConfig());
 
     expect(result.id).toBeDefined();
     expect(result.title).toBeDefined();
-    expect(result.goalScores).toBeDefined();
+    expect(result.evaluation).toBeDefined();
+    expect(result.evaluation.structural_scores).toBeDefined();
+    expect(result.evaluation.mission_impact_scores.length).toBeGreaterThan(0);
+    expect(result.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+    expect(result.evaluation.computed_scores.overall_score).toBeLessThanOrEqual(1);
     expect(result.decision).toBeDefined();
   });
 
-  it("estimateGoals uses config weights when provided", () => {
+  it("computeEvaluation calculates correct weighted totals", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    // Access private method via any
-    const goals = (engine).estimateGoals(
-      { budget: { amountRequested: 50000 }, category: "business_funding" },
-      config,
-    );
+    const rawEval = {
+      structural_scores: {
+        goal_mapping_valid: true,
+        feasibility_score: 0.8,
+        risk_score: 0.2,
+        accountability_score: 0.7,
+      },
+      mission_impact_scores: [
+        { goal_id: "income_stability",  impact_score: 0.8 },
+        { goal_id: "asset_creation",    impact_score: 0.7 },
+        { goal_id: "leakage_reduction", impact_score: 0.9 },
+        { goal_id: "export_expansion",  impact_score: 0.6 },
+      ],
+      violations: [],
+      risk_flags: [],
+      llm_summary: "Test",
+    };
 
-    expect(goals.composite).toBeGreaterThanOrEqual(0);
-    expect(goals.composite).toBeLessThanOrEqual(1);
-    expect(goals.LeakageReduction).toBeDefined();
-    expect(goals.MemberBenefit).toBeDefined();
-  });
+    const evaluation = engine.computeEvaluation(rawEval, config);
 
-  it("estimateGoals uses default weights when config absent", () => {
-    const engine = new ProposalEngine();
+    // Mission: 0.8*0.35 + 0.7*0.25 + 0.9*0.20 + 0.6*0.20 = 0.28+0.175+0.18+0.12 = 0.755
+    expect(evaluation.computed_scores.mission_weighted_score).toBeCloseTo(0.755, 2);
 
-    const goals = (engine).estimateGoals(
-      { budget: { amountRequested: 50000 }, category: "business_funding" },
-    );
+    // Structural: 0.8*0.40 + (1-0.2)*0.35 + 0.7*0.25 = 0.32+0.28+0.175 = 0.775
+    expect(evaluation.computed_scores.structural_weighted_score).toBeCloseTo(0.775, 2);
 
-    expect(goals.composite).toBeGreaterThanOrEqual(0);
-    expect(goals.composite).toBeLessThanOrEqual(1);
+    // Overall: 0.755*0.60 + 0.775*0.40 = 0.453+0.31 = 0.763
+    expect(evaluation.computed_scores.overall_score).toBeCloseTo(0.763, 2);
+
+    expect(evaluation.computed_scores.passes_threshold).toBe(true);
   });
 
   it("compliance checks use config sector exclusions", async () => {
     const engine = new ProposalEngine();
     const config = createConfig();
-    config.sectorExclusions = ["gambling", "tobacco"];
+    config.sectorExclusions = [{ value: "gambling" }, { value: "tobacco" }];
 
-    const checks = await (engine).runComplianceChecks(
+    const checks = await (engine as any).runComplianceChecks(
       { text: "This is about a gambling business", proposer: null, region: null },
       { title: "Gambling Proposal", summary: "..." },
       config,
@@ -261,7 +252,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine).runComplianceChecks(
+    const checks = await (engine as any).runComplianceChecks(
       { text: "Community solar panel installation project" },
       { title: "Solar Panels", summary: "Green energy project" },
       config,
@@ -275,7 +266,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine).runComplianceChecks(
+    const checks = await (engine as any).runComplianceChecks(
       { text: "Test proposal text for community project" },
       { title: "Test", summary: "test" },
       config,

@@ -7,6 +7,12 @@ import type { CoopConfigData } from "@repo/validators";
 import { ProposalCategory, ProposalStatus, ProposerRole, Currency, VoteType } from "@repo/db";
 import type { AuthenticatedContext } from "../context.js";
 
+function normalizeDbCategory(categoryKey: string): ProposalCategory {
+  const key = categoryKey.toUpperCase();
+  const values = Object.values(ProposalCategory) as string[];
+  return values.includes(key) ? (key as ProposalCategory) : ProposalCategory.OTHER;
+}
+
 export const proposalRouter = router({
   /**
    * Create a new proposal (authenticated — any wallet holder)
@@ -22,45 +28,55 @@ export const proposalRouter = router({
 
       // Fetch active CoopConfig
       let configData: CoopConfigData | undefined;
-      let threshold = 5000;
+      let aiAutoApproveThreshold = 500;
+      let councilVoteThreshold = 5000;
       const coopConfig = await ctx.db.coopConfig.findFirst({
         where: { coopId, isActive: true },
         orderBy: { version: "desc" },
       });
 
       if (coopConfig) {
-        // Check SC balance against minScBalanceToSubmit
-        if (coopConfig.minScBalanceToSubmit > 0) {
-          // For now we skip actual on-chain balance check — just validate the rule exists
-        }
-
-        threshold = coopConfig.councilVoteThresholdUSD ?? 5000;
+        aiAutoApproveThreshold = coopConfig.aiAutoApproveThresholdUSD ?? 500;
+        councilVoteThreshold = coopConfig.councilVoteThresholdUSD ?? 5000;
 
         configData = {
           charterText: coopConfig.charterText,
-          goalDefinitions: coopConfig.goalDefinitions as Array<{ key: string; label: string; weight: number; description?: string }>,
-          scoringWeights: coopConfig.scoringWeights as Record<string, number>,
+          missionGoals: coopConfig.missionGoals as Array<{ key: string; label: string; priorityWeight: number; description?: string }>,
+          structuralWeights: coopConfig.structuralWeights as { feasibility: number; risk: number; accountability: number },
+          scoreMix: coopConfig.scoreMix as { missionWeight: number; structuralWeight: number },
+          screeningPassThreshold: coopConfig.screeningPassThreshold,
           proposalCategories: coopConfig.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
-          sectorExclusions: coopConfig.sectorExclusions as string[],
+          sectorExclusions: (coopConfig.sectorExclusions as Array<string | { value: string; description?: string }>)
+            .map(e => typeof e === "string" ? { value: e } : e),
           quorumPercent: coopConfig.quorumPercent,
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
           votingWindowDays: coopConfig.votingWindowDays,
+          scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
         };
+
+        // Attach historical expert calibration so domain agents learn from past corrections
+        configData.expertCalibration = await fetchExpertCalibration(ctx.db, coopId);
       }
 
       // Process proposal through engine with config
       const processedProposal = await proposalEngine.processProposal(input, configData);
 
-      // Determine final status and councilRequired based on auto-approve logic
+      // Determine final status using 3-tier approval logic:
+      //   Tier 1: budget < aiAutoApproveThreshold  → AI auto-approved, no vote needed
+      //   Tier 2: budget < councilVoteThreshold     → council vote required
+      //   Tier 3: budget >= councilVoteThreshold    → full coop vote (councilRequired=true, stays votable)
       const budget = processedProposal.budget.amountRequested;
       let finalStatus: ProposalStatus;
       let councilRequired = false;
 
       if (processedProposal.decision === "advance") {
-        if (budget < threshold) {
-          finalStatus = ProposalStatus.APPROVED; // auto-approve
+        if (budget < aiAutoApproveThreshold) {
+          finalStatus = ProposalStatus.APPROVED; // Tier 1: AI auto-approve
+        } else if (budget < councilVoteThreshold) {
+          finalStatus = ProposalStatus.VOTABLE;  // Tier 2: council vote
+          councilRequired = true;
         } else {
-          finalStatus = ProposalStatus.VOTABLE;
+          finalStatus = ProposalStatus.VOTABLE;  // Tier 3: full coop vote
           councilRequired = true;
         }
       } else {
@@ -73,7 +89,7 @@ export const proposalRouter = router({
           id: processedProposal.id,
           title: processedProposal.title,
           summary: processedProposal.summary,
-          category: processedProposal.category.toUpperCase() as ProposalCategory,
+          category: normalizeDbCategory(processedProposal.category),
           proposerWallet: walletAddress,
           proposerRole: (processedProposal.proposer.role || "member").toUpperCase() as ProposerRole,
           proposerDisplayName: processedProposal.proposer.displayName,
@@ -81,25 +97,19 @@ export const proposalRouter = router({
           regionName: processedProposal.region.name,
           budgetCurrency: processedProposal.budget.currency.toUpperCase() as Currency,
           budgetAmount: processedProposal.budget.amountRequested,
-          localPercent: processedProposal.treasuryPlan.localPercent,
-          nationalPercent: processedProposal.treasuryPlan.nationalPercent,
-          acceptUC: processedProposal.treasuryPlan.acceptUC,
-          leakageReductionUSD: processedProposal.impact.leakageReductionUSD,
-          jobsCreated: processedProposal.impact.jobsCreated,
-          timeHorizonMonths: processedProposal.impact.timeHorizonMonths,
-          alignmentScore: processedProposal.scores.alignment,
-          feasibilityScore: processedProposal.scores.feasibility,
-          compositeScore: processedProposal.scores.composite,
           quorumPercent: processedProposal.governance.quorumPercent,
           approvalThresholdPercent: processedProposal.governance.approvalThresholdPercent,
           votingWindowDays: processedProposal.governance.votingWindowDays,
           engineVersion: processedProposal.audit.engineVersion,
           status: finalStatus,
           councilRequired,
+          // New evaluation model
+          evaluation: processedProposal.evaluation as any,
+          charterVersionId: coopConfig?.id ?? undefined,
           // Enhanced fields
           coopId,
+          rawText: input.text,
           categoryKey: processedProposal.category,
-          goalScores: processedProposal.goalScores ?? undefined,
           alternatives: processedProposal.alternatives ?? undefined,
           bestAlternative: processedProposal.bestAlternative ?? undefined,
           decision: processedProposal.decision,
@@ -110,15 +120,15 @@ export const proposalRouter = router({
               data: processedProposal.audit.checks.map((check: any) => ({
                 name: check.name,
                 passed: check.passed,
-                note: check.note
-              }))
-            }
-          }
+                note: check.note,
+              })),
+            },
+          },
         },
         include: {
           kpis: true,
-          auditChecks: true
-        }
+          auditChecks: true,
+        },
       });
 
       // Fetch complete proposal
@@ -129,6 +139,9 @@ export const proposalRouter = router({
           auditChecks: true
         }
       });
+
+      // Save initial revision snapshot (revision 1)
+      await saveRevision(ctx.db, savedProposal.id, 1, processedProposal, finalStatus, input.text, configData);
 
       return mapDbToOutput(completeProposal);
     }),
@@ -159,10 +172,8 @@ export const proposalRouter = router({
   list: publicProcedure
     .input(z.object({
       status: z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"]).optional(),
-      category: z.enum([
-        "business_funding", "procurement", "infrastructure", "transport",
-        "wallet_incentive", "governance", "other"
-      ]).optional(),
+      statuses: z.array(z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"])).optional(),
+      category: z.string().min(1).optional(),
       region: z.string().optional(),
       coopId: z.string().optional(),
       limit: z.number().min(1).max(100).default(20),
@@ -174,9 +185,16 @@ export const proposalRouter = router({
       hasMore: z.boolean()
     }))
     .query(async ({ input, ctx }) => {
+      // statuses array takes priority over single status
+      const statusFilter = input.statuses?.length
+        ? { status: { in: input.statuses.map(s => s.toUpperCase() as ProposalStatus) } }
+        : input.status
+          ? { status: input.status.toUpperCase() as ProposalStatus }
+          : {};
+
       const where = {
-        ...(input.status && { status: input.status.toUpperCase() as ProposalStatus }),
-        ...(input.category && { category: input.category.toUpperCase() as ProposalCategory }),
+        ...statusFilter,
+        ...(input.category && { categoryKey: input.category }),
         ...(input.region && { regionCode: input.region }),
         ...(input.coopId && { coopId: input.coopId }),
       };
@@ -417,6 +435,307 @@ export const proposalRouter = router({
     }),
 
   /**
+   * Resubmit a proposal with edited text — re-runs the full engine pipeline.
+   * Only the original proposer can resubmit, and only while status is SUBMITTED.
+   */
+  resubmit: authenticatedProcedure
+    .input(z.object({
+      proposalId: z.string().min(1),
+      text: z.string().min(10),
+    }))
+    .output(ProposalOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const existing = await ctx.db.proposal.findUnique({
+        where: { id: input.proposalId },
+        include: { kpis: true, auditChecks: true },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Proposal not found." });
+      if (existing.proposerWallet !== walletAddress) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the original proposer can edit this proposal." });
+      }
+      if (!["SUBMITTED", "VOTABLE"].includes(existing.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only submitted or votable proposals can be edited." });
+      }
+
+      const coopId = existing.coopId || "soulaan";
+      let configData: CoopConfigData | undefined;
+      let aiAutoApproveThreshold = 500;
+      let councilVoteThreshold = 5000;
+      const coopConfig = await ctx.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+      if (coopConfig) {
+        aiAutoApproveThreshold = coopConfig.aiAutoApproveThresholdUSD ?? 500;
+        councilVoteThreshold = coopConfig.councilVoteThresholdUSD ?? 5000;
+        configData = {
+          charterText: coopConfig.charterText,
+          missionGoals: coopConfig.missionGoals as Array<{ key: string; label: string; priorityWeight: number; description?: string }>,
+          structuralWeights: coopConfig.structuralWeights as { feasibility: number; risk: number; accountability: number },
+          scoreMix: coopConfig.scoreMix as { missionWeight: number; structuralWeight: number },
+          screeningPassThreshold: coopConfig.screeningPassThreshold,
+          proposalCategories: coopConfig.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
+          sectorExclusions: (coopConfig.sectorExclusions as Array<string | { value: string; description?: string }>)
+            .map(e => typeof e === "string" ? { value: e } : e),
+          quorumPercent: coopConfig.quorumPercent,
+          approvalThresholdPercent: coopConfig.approvalThresholdPercent,
+          votingWindowDays: coopConfig.votingWindowDays,
+          scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
+        };
+
+        configData.expertCalibration = await fetchExpertCalibration(ctx.db, coopId);
+      }
+
+      const proposalInput = {
+        text: input.text,
+        proposer: {
+          wallet: existing.proposerWallet,
+          role: existing.proposerRole.toLowerCase() as "member" | "merchant" | "anchor" | "bot",
+          displayName: existing.proposerDisplayName ?? undefined,
+        },
+        region: { code: existing.regionCode, name: existing.regionName },
+        coopId,
+      };
+
+      const processedProposal = await proposalEngine.processProposal(proposalInput, configData);
+      const budget = processedProposal.budget.amountRequested;
+      let finalStatus: ProposalStatus;
+      let councilRequired = false;
+
+      if (processedProposal.decision === "advance") {
+        if (budget < aiAutoApproveThreshold) {
+          finalStatus = ProposalStatus.APPROVED;
+        } else if (budget < councilVoteThreshold) {
+          finalStatus = ProposalStatus.VOTABLE;
+          councilRequired = true;
+        } else {
+          finalStatus = ProposalStatus.VOTABLE;
+          councilRequired = true;
+        }
+      } else {
+        finalStatus = processedProposal.status.toUpperCase() as ProposalStatus;
+      }
+
+      // Delete old audit checks and rebuild
+      await ctx.db.proposalAuditCheck.deleteMany({ where: { proposalId: input.proposalId } });
+
+      const updated = await ctx.db.proposal.update({
+        where: { id: input.proposalId },
+        data: {
+          title: processedProposal.title,
+          summary: processedProposal.summary,
+          category: normalizeDbCategory(processedProposal.category),
+          regionCode: processedProposal.region.code,
+          regionName: processedProposal.region.name,
+          budgetCurrency: processedProposal.budget.currency.toUpperCase() as Currency,
+          budgetAmount: processedProposal.budget.amountRequested,
+          quorumPercent: processedProposal.governance.quorumPercent,
+          approvalThresholdPercent: processedProposal.governance.approvalThresholdPercent,
+          votingWindowDays: processedProposal.governance.votingWindowDays,
+          engineVersion: processedProposal.audit.engineVersion,
+          status: finalStatus,
+          councilRequired,
+          evaluation: processedProposal.evaluation as any,
+          rawText: input.text,
+          categoryKey: processedProposal.category,
+          alternatives: processedProposal.alternatives ?? undefined,
+          bestAlternative: processedProposal.bestAlternative ?? undefined,
+          decision: processedProposal.decision,
+          decisionReasons: processedProposal.decisionReasons ?? [],
+          missingData: processedProposal.missing_data ?? undefined,
+          auditChecks: {
+            createMany: {
+              data: processedProposal.audit.checks.map((check: any) => ({
+                name: check.name,
+                passed: check.passed,
+                note: check.note,
+              })),
+            },
+          },
+        },
+        include: { kpis: true, auditChecks: true },
+      });
+
+      // Save revision snapshot for this resubmission
+      const revCount = await ctx.db.proposalRevision.count({ where: { proposalId: input.proposalId } });
+      await saveRevision(ctx.db, input.proposalId, revCount + 1, processedProposal, finalStatus, input.text, configData);
+
+      return mapDbToOutput(updated);
+    }),
+
+  /**
+   * Apply an AI-suggested alternative to a proposal.
+   * The engine rewrites the proposal text to incorporate the alternative's changes,
+   * then re-runs the full evaluation pipeline.
+   */
+  applyAlternative: authenticatedProcedure
+    .input(z.object({
+      proposalId: z.string().min(1),
+      alternativeIndex: z.number().int().min(0),
+    }))
+    .output(ProposalOutputZ)
+    .mutation(async ({ input, ctx }) => {
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const existing = await ctx.db.proposal.findUnique({
+        where: { id: input.proposalId },
+        include: { kpis: true, auditChecks: true },
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Proposal not found." });
+      if (existing.proposerWallet !== walletAddress) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the original proposer can apply an alternative." });
+      }
+      if (!["SUBMITTED", "VOTABLE"].includes(existing.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only submitted or votable proposals can be revised." });
+      }
+
+      const alternatives = (existing.alternatives as any[]) ?? [];
+      const alternative = alternatives[input.alternativeIndex];
+      if (!alternative) throw new TRPCError({ code: "BAD_REQUEST", message: "Alternative not found." });
+
+      const originalText = existing.rawText || existing.summary;
+      if (!originalText) throw new TRPCError({ code: "BAD_REQUEST", message: "No original text available for rewriting." });
+
+      // Ask the AI to rewrite the proposal to incorporate the alternative's changes
+      const rewrittenText = await proposalEngine.rewriteWithAlternative(originalText, {
+        label: alternative.label ?? "",
+        rationale: alternative.rationale ?? "",
+        changes: alternative.changes ?? [],
+      });
+
+      // Now resubmit through the full engine pipeline with the rewritten text
+      const coopId = existing.coopId || "soulaan";
+      let configData: CoopConfigData | undefined;
+      let aiAutoApproveThreshold = 500;
+      let councilVoteThreshold = 5000;
+      const coopConfig = await ctx.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+      if (coopConfig) {
+        aiAutoApproveThreshold = coopConfig.aiAutoApproveThresholdUSD ?? 500;
+        councilVoteThreshold = coopConfig.councilVoteThresholdUSD ?? 5000;
+        configData = {
+          charterText: coopConfig.charterText,
+          missionGoals: coopConfig.missionGoals as Array<{ key: string; label: string; priorityWeight: number; description?: string }>,
+          structuralWeights: coopConfig.structuralWeights as { feasibility: number; risk: number; accountability: number },
+          scoreMix: coopConfig.scoreMix as { missionWeight: number; structuralWeight: number },
+          screeningPassThreshold: coopConfig.screeningPassThreshold,
+          proposalCategories: coopConfig.proposalCategories as Array<{ key: string; label: string; isActive: boolean }>,
+          sectorExclusions: (coopConfig.sectorExclusions as Array<string | { value: string; description?: string }>)
+            .map(e => typeof e === "string" ? { value: e } : e),
+          quorumPercent: coopConfig.quorumPercent,
+          approvalThresholdPercent: coopConfig.approvalThresholdPercent,
+          votingWindowDays: coopConfig.votingWindowDays,
+          scorerAgents: ((coopConfig as any).scorerAgents as any[] | undefined) ?? [],
+        };
+
+        configData.expertCalibration = await fetchExpertCalibration(ctx.db, coopId);
+      }
+
+      const proposalInput = {
+        text: rewrittenText,
+        proposer: {
+          wallet: existing.proposerWallet,
+          role: existing.proposerRole.toLowerCase() as "member" | "merchant" | "anchor" | "bot",
+          displayName: existing.proposerDisplayName ?? undefined,
+        },
+        region: { code: existing.regionCode, name: existing.regionName },
+        coopId,
+      };
+
+      const processedProposal = await proposalEngine.processProposal(proposalInput, configData);
+      const budget = processedProposal.budget.amountRequested;
+      let finalStatus: ProposalStatus;
+      let councilRequired = false;
+
+      if (processedProposal.decision === "advance") {
+        if (budget < aiAutoApproveThreshold) {
+          finalStatus = ProposalStatus.APPROVED;
+        } else if (budget < councilVoteThreshold) {
+          finalStatus = ProposalStatus.VOTABLE;
+          councilRequired = true;
+        } else {
+          finalStatus = ProposalStatus.VOTABLE;
+          councilRequired = true;
+        }
+      } else {
+        finalStatus = processedProposal.status.toUpperCase() as ProposalStatus;
+      }
+
+      await ctx.db.proposalAuditCheck.deleteMany({ where: { proposalId: input.proposalId } });
+
+      const updated = await ctx.db.proposal.update({
+        where: { id: input.proposalId },
+        data: {
+          title: processedProposal.title,
+          summary: processedProposal.summary,
+          category: normalizeDbCategory(processedProposal.category),
+          regionCode: processedProposal.region.code,
+          regionName: processedProposal.region.name,
+          budgetCurrency: processedProposal.budget.currency.toUpperCase() as Currency,
+          budgetAmount: processedProposal.budget.amountRequested,
+          quorumPercent: processedProposal.governance.quorumPercent,
+          approvalThresholdPercent: processedProposal.governance.approvalThresholdPercent,
+          votingWindowDays: processedProposal.governance.votingWindowDays,
+          engineVersion: processedProposal.audit.engineVersion,
+          status: finalStatus,
+          councilRequired,
+          evaluation: processedProposal.evaluation as any,
+          rawText: rewrittenText,
+          categoryKey: processedProposal.category,
+          alternatives: processedProposal.alternatives ?? undefined,
+          bestAlternative: processedProposal.bestAlternative ?? undefined,
+          decision: processedProposal.decision,
+          decisionReasons: processedProposal.decisionReasons ?? [],
+          missingData: processedProposal.missing_data ?? undefined,
+          auditChecks: {
+            createMany: {
+              data: processedProposal.audit.checks.map((check: any) => ({
+                name: check.name,
+                passed: check.passed,
+                note: check.note,
+              })),
+            },
+          },
+        },
+        include: { kpis: true, auditChecks: true },
+      });
+
+      // Save revision snapshot for this alternative application
+      const revCount = await ctx.db.proposalRevision.count({ where: { proposalId: input.proposalId } });
+      await saveRevision(ctx.db, input.proposalId, revCount + 1, processedProposal, finalStatus, rewrittenText, configData);
+
+      return mapDbToOutput(updated);
+    }),
+
+  /**
+   * Get the full submission audit trail for a proposal (all revisions, oldest first)
+   */
+  getRevisions: publicProcedure
+    .input(z.object({ proposalId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const revisions = await ctx.db.proposalRevision.findMany({
+        where: { proposalId: input.proposalId },
+        orderBy: { revisionNumber: "asc" },
+      });
+      return revisions.map(r => ({
+        id: r.id,
+        revisionNumber: r.revisionNumber,
+        submittedAt: r.submittedAt.toISOString(),
+        rawText: r.rawText ?? undefined,
+        evaluation: r.evaluation as any,
+        decision: r.decision ?? undefined,
+        decisionReasons: r.decisionReasons,
+        auditChecks: (r.auditChecks as any[]) ?? [],
+        status: r.status,
+        engineVersion: r.engineVersion,
+      }));
+    }),
+
+  /**
    * Test endpoint to verify engine functionality
    */
   testEngine: publicProcedure
@@ -432,6 +751,125 @@ export const proposalRouter = router({
     })
 });
 
+// Persist a snapshot of a processed proposal as a revision in the audit trail
+/**
+ * Fetches recent expert score overrides and groups them by domain so they can
+ * be injected into each domain agent's prompt as calibration examples.
+ * Pulls up to `limit` rows per domain (most recent first) from proposals that
+ * belong to the same coop.
+ */
+async function fetchExpertCalibration(
+  db: any,
+  coopId: string,
+  limit = 5,
+): Promise<Record<string, Array<{ goalId: string; aiScore: number; expertScore: number; reason: string }>>> {
+  // Find all proposalIds for this coop by joining via charterVersionId → CoopConfig
+  const coopConfigIds = await db.coopConfig.findMany({
+    where: { coopId },
+    select: { id: true },
+  });
+  const configIdSet = new Set(coopConfigIds.map((c: { id: string }) => c.id));
+
+  // Fetch proposals linked to this coop's config
+  const proposals = await db.proposal.findMany({
+    where: { charterVersionId: { in: [...configIdSet] } },
+    select: { id: true },
+  });
+  const proposalIds = proposals.map((p: { id: string }) => p.id);
+  if (proposalIds.length === 0) return {};
+
+  // Fetch recent goal scores that have an expert override
+  const expertScores = await db.proposalGoalScore.findMany({
+    where: {
+      proposalId: { in: proposalIds },
+      expertScore: { not: null },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit * 20, // over-fetch then trim per domain
+    select: {
+      domain: true,
+      goalId: true,
+      aiScore: true,
+      expertScore: true,
+      expertReason: true,
+    },
+  });
+
+  // Group by domain, cap at `limit` per domain
+  const calibration: Record<string, Array<{ goalId: string; aiScore: number; expertScore: number; reason: string }>> = {};
+  for (const row of expertScores) {
+    if (!calibration[row.domain]) calibration[row.domain] = [];
+    if (calibration[row.domain].length < limit) {
+      calibration[row.domain].push({
+        goalId: row.goalId,
+        aiScore: row.aiScore,
+        expertScore: row.expertScore as number,
+        reason: row.expertReason ?? "",
+      });
+    }
+  }
+  return calibration;
+}
+
+async function saveRevision(
+  db: any,
+  proposalId: string,
+  revisionNumber: number,
+  processedProposal: any,
+  finalStatus: string,
+  rawText: string,
+  /** Config passed to the engine — used to resolve domain per goal */
+  configData?: { missionGoals?: { key: string; domain?: string }[]; scorerAgents?: { agentKey: string; enabled?: boolean }[] },
+) {
+  await db.proposalRevision.create({
+    data: {
+      proposalId,
+      revisionNumber,
+      rawText,
+      evaluation: processedProposal.evaluation ?? null,
+      decision: processedProposal.decision ?? null,
+      decisionReasons: processedProposal.decisionReasons ?? [],
+      auditChecks: processedProposal.audit.checks.map((c: any) => ({
+        name: c.name,
+        passed: c.passed,
+        note: c.note ?? null,
+      })),
+      status: finalStatus.toLowerCase(),
+      engineVersion: processedProposal.audit.engineVersion,
+    },
+  });
+
+  // Persist per-goal AI scores for this revision
+  const missionScores: { goal_id: string; impact_score: number }[] =
+    processedProposal.evaluation?.mission_impact_scores ?? [];
+
+  if (missionScores.length > 0) {
+    const enabledAgentKeys = new Set(
+      (configData?.scorerAgents ?? []).filter((a: any) => a.enabled !== false).map((a: any) => a.agentKey)
+    );
+    const goalDomainMap = new Map(
+      (configData?.missionGoals ?? []).map((g: any) => [
+        g.key,
+        (g.domain && enabledAgentKeys.has(g.domain)) ? g.domain : "general",
+      ])
+    );
+
+    // Delete any stale rows (idempotent for retries)
+    await db.proposalGoalScore.deleteMany({ where: { proposalId, revisionNumber } });
+
+    await db.proposalGoalScore.createMany({
+      data: missionScores.map((ms: { goal_id: string; impact_score: number }) => ({
+        proposalId,
+        revisionNumber,
+        goalId: ms.goal_id,
+        domain: goalDomainMap.get(ms.goal_id) ?? "general",
+        aiScore: ms.impact_score,
+        finalScore: ms.impact_score, // no expert override yet
+      })),
+    });
+  }
+}
+
 // Helper function to map database records to output format
 function mapDbToOutput(dbRecord: any): ProposalOutput {
   return {
@@ -440,7 +878,7 @@ function mapDbToOutput(dbRecord: any): ProposalOutput {
     status: dbRecord.status.toLowerCase(),
     title: dbRecord.title,
     summary: dbRecord.summary,
-    category: dbRecord.category.toLowerCase(),
+    category: (dbRecord.categoryKey ?? dbRecord.category.toLowerCase()),
     proposer: {
       wallet: dbRecord.proposerWallet,
       role: dbRecord.proposerRole.toLowerCase(),
@@ -454,41 +892,44 @@ function mapDbToOutput(dbRecord: any): ProposalOutput {
       currency: dbRecord.budgetCurrency === "MIXED" ? "mixed" : dbRecord.budgetCurrency,
       amountRequested: dbRecord.budgetAmount
     },
-    treasuryPlan: {
-      localPercent: dbRecord.localPercent,
-      nationalPercent: dbRecord.nationalPercent,
-      acceptUC: dbRecord.acceptUC
+    evaluation: (dbRecord.evaluation as any) ?? {
+      structural_scores: {
+        goal_mapping_valid: true,
+        feasibility_score: 0.5,
+        risk_score: 0.5,
+        accountability_score: 0.5,
+      },
+      mission_impact_scores: [],
+      computed_scores: {
+        mission_weighted_score: 0.5,
+        structural_weighted_score: 0.5,
+        overall_score: 0.5,
+        passes_threshold: false,
+      },
+      violations: [],
+      risk_flags: [],
+      llm_summary: "",
     },
-    impact: {
-      leakageReductionUSD: dbRecord.leakageReductionUSD,
-      jobsCreated: dbRecord.jobsCreated,
-      timeHorizonMonths: dbRecord.timeHorizonMonths
-    },
-    scores: {
-      alignment: dbRecord.alignmentScore,
-      feasibility: dbRecord.feasibilityScore,
-      composite: dbRecord.compositeScore
-    },
+    charterVersionId: dbRecord.charterVersionId ?? undefined,
     governance: {
       quorumPercent: dbRecord.quorumPercent,
       approvalThresholdPercent: dbRecord.approvalThresholdPercent,
-      votingWindowDays: dbRecord.votingWindowDays
+      votingWindowDays: dbRecord.votingWindowDays,
     },
     audit: {
       engineVersion: dbRecord.engineVersion,
       checks: (dbRecord.auditChecks || []).map((check: any) => ({
         name: check.name,
         passed: check.passed,
-        note: check.note
-      }))
+        note: check.note,
+      })),
     },
-    // Enhanced fields — read from DB or provide defaults
-    goalScores: dbRecord.goalScores ?? undefined,
     alternatives: dbRecord.alternatives ?? [],
     bestAlternative: dbRecord.bestAlternative ?? undefined,
     decision: dbRecord.decision ?? "advance",
     decisionReasons: dbRecord.decisionReasons ?? [],
     missing_data: dbRecord.missingData ?? [],
     councilRequired: dbRecord.councilRequired ?? false,
+    rawText: dbRecord.rawText ?? undefined,
   };
 }

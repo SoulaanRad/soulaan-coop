@@ -20,6 +20,7 @@ import { scRewardsRouter } from "./sc-rewards.js";
 import { coopConfigRouter } from "./coop-config.js";
 import { proposalCommentRouter } from "./proposal-comment.js";
 import { proposalReactionRouter } from "./proposal-reaction.js";
+import { proposalExpertRouter } from "./proposal-expert.js";
 
 
 export const appRouter = router({
@@ -43,6 +44,7 @@ export const appRouter = router({
   coopConfig: coopConfigRouter,
   proposalComment: proposalCommentRouter,
   proposalReaction: proposalReactionRouter,
+  proposalExpert: proposalExpertRouter,
 });
 
 export type AppRouter = typeof appRouter;
