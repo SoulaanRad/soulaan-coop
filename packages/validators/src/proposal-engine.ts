@@ -1043,7 +1043,9 @@ export class ProposalEngine {
 
     const output = result.finalOutput ?? result.output ?? {};
     const rawItems = (output.missing_data as unknown[]) ?? [];
-    return rawItems.map((item: unknown) => {
+    // Truncate to max 10 items to comply with schema validation
+    const truncatedItems = rawItems.slice(0, 10);
+    return truncatedItems.map((item: unknown) => {
       const parsed = MDItemSchema.parse(item);
       // Backfill legacy blocking field from severity
       return { ...parsed, blocking: parsed.severity === "BLOCKER" };
