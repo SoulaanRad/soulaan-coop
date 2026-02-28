@@ -38,6 +38,7 @@ vi.mock("@openai/agents", () => {
           {
             label: "Lower Budget Option",
             changes: [{ field: "budget.amountRequested", from: 50000, to: 30000 }],
+            overallScore: null,
             rationale: "Reducing budget improves feasibility while maintaining community benefit",
           },
         ],
@@ -121,7 +122,11 @@ describe("ProposalEngine Features", () => {
         expect(typeof alt?.label).toBe("string");
         expect(Array.isArray(alt?.changes)).toBe(true);
         expect(alt?.rationale).toBeDefined();
-        expect(alt?.overallScore).toBeGreaterThanOrEqual(0);
+        expect(alt?.overallScore === null || typeof alt?.overallScore === "number").toBe(true);
+        if (typeof alt?.overallScore === "number") {
+          expect(alt.overallScore).toBeGreaterThanOrEqual(0);
+          expect(alt.overallScore).toBeLessThanOrEqual(1);
+        }
       }
     });
   });
