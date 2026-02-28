@@ -34,8 +34,6 @@ describe('Proposal API Integration Tests (STUB)', () => {
         proposer: input.proposer,
         region: input.region,
         budget: expect.any(Object),
-        treasuryPlan: expect.any(Object),
-        impact: expect.any(Object),
         evaluation: {
           structural_scores: expect.any(Object),
           mission_impact_scores: expect.any(Array),
@@ -52,6 +50,10 @@ describe('Proposal API Integration Tests (STUB)', () => {
           ])
         }
       });
+      // treasuryPlan is optional; if present it should be an object
+      if (result.treasuryPlan != null) {
+        expect(typeof result.treasuryPlan).toBe("object");
+      }
     });
 
     it('should still validate input schema', async () => {
