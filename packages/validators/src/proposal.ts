@@ -36,20 +36,11 @@ export const BudgetZ = z.object({
   amountRequested: z.number().nonnegative(),
 });
 
-export const TreasuryPlanZ = z
-  .object({
-    localPercent: z.number().min(0).max(100),
-    nationalPercent: z.number().min(0).max(100),
-    acceptUC: z.literal(true), // v0 rule: must accept UC
-  })
-  .superRefine((t, ctx) => {
-    if (Math.round((t.localPercent + t.nationalPercent) * 100) / 100 !== 100) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "localPercent + nationalPercent must equal 100",
-      });
-    }
-  });
+export const TreasuryPlanZ = z.object({
+  localPercent: z.number().min(0).max(100),
+  nationalPercent: z.number().min(0).max(100),
+  acceptUC: z.literal(true), // v0 rule: must accept UC
+});
 
 export const KPIz = z.object({
   name: z.string().min(2),
