@@ -1786,6 +1786,211 @@ export const api = {
     return result.result?.data;
   },
 
+  // ── Coop Config ────────────────────────────────────────────────────────────
+
+  /**
+   * Get the active CoopConfig (includes proposalCategories for label lookup)
+   */
+  async getCoopConfig(coopId = 'soulaan') {
+    const input = encodeURIComponent(JSON.stringify({ coopId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/coopConfig.getActive?input=${input}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const result = await response.json();
+    if (result.error) return null;
+    return result.result?.data as {
+      proposalCategories: { key: string; label: string; isActive: boolean }[];
+    } | null;
+  },
+
+  // ── Proposals ──────────────────────────────────────────────────────────────
+
+  /**
+   * List proposals with optional status filter
+   */
+  async listProposals(
+    options: { status?: string; limit?: number; offset?: number } = {},
+    walletAddress?: string | null,
+  ) {
+    const input = encodeURIComponent(
+      JSON.stringify({ status: options.status, limit: options.limit ?? 20, offset: options.offset ?? 0 }),
+    );
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.list?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load proposals');
+    return result.result?.data as { proposals: any[]; total: number; hasMore: boolean };
+  },
+
+  /**
+   * Get a single proposal by ID
+   */
+  async getProposal(id: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ id }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.getById?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load proposal');
+    return result.result?.data;
+  },
+
+  /**
+   * Get proposals submitted by a specific wallet address
+   */
+  async getMyProposals(walletAddress: string, limit = 20, offset = 0) {
+    const input = encodeURIComponent(JSON.stringify({ wallet: walletAddress, limit, offset }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.getByProposer?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load proposals');
+    return result.result?.data as { proposals: any[]; total: number };
+  },
+
+  /**
+   * Submit a new proposal (authenticated — requires wallet)
+   */
+  async createProposal(text: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.create`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ text }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to submit proposal');
+    return result.result?.data;
+  },
+
+  /**
+   * List comments for a proposal
+   */
+  async listProposalComments(proposalId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ proposalId, limit: 50, offset: 0 }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposalComment.listByProposal?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load comments');
+    return result.result?.data as { comments: any[]; total: number };
+  },
+
+  /**
+   * Post a comment on a proposal (authenticated — requires wallet)
+   */
+  async createProposalComment(proposalId: string, content: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposalComment.create`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ proposalId, content }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to post comment');
+    return result.result?.data;
+  },
+
+  /**
+   * React to a proposal (toggle support/concern)
+   * Authenticated — requires wallet address
+   */
+  async reactToProposal(proposalId: string, reaction: 'SUPPORT' | 'CONCERN', walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposalReaction.upsert`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ proposalId, reaction }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to react');
+    return result.result?.data as { support: number; concern: number; myReaction: 'SUPPORT' | 'CONCERN' | null };
+  },
+
+  /**
+   * Get reaction counts for a proposal
+   */
+  async getReactionCounts(proposalId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ proposalId, walletAddress: walletAddress ?? undefined }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposalReaction.getCounts?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to get reaction counts');
+    return result.result?.data as { support: number; concern: number; myReaction: 'SUPPORT' | 'CONCERN' | null };
+  },
+
+  /**
+   * Withdraw a proposal (proposer only)
+   */
+  async withdrawProposal(id: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.withdraw`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ id }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to withdraw proposal');
+    return result.result?.data;
+  },
+
+  /**
+   * Cast a council vote on a proposal (admin only)
+   */
+  async councilVote(proposalId: string, vote: 'FOR' | 'AGAINST' | 'ABSTAIN', walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.councilVote`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ proposalId, vote }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to cast council vote');
+    return result.result?.data as { vote: string; forCount: number; againstCount: number; abstainCount: number; newStatus: string | null };
+  },
+
+  /**
+   * Resubmit / edit a proposal (proposer only, status must be submitted or votable)
+   */
+  async resubmitProposal(proposalId: string, text: string, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.resubmit`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ proposalId, text }),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to resubmit proposal');
+    return result.result?.data;
+  },
+
+  /**
+   * Get the full submission audit trail for a proposal (all revisions)
+   */
+  async getProposalRevisions(proposalId: string, walletAddress?: string | null) {
+    const input = encodeURIComponent(JSON.stringify({ proposalId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/proposal.getRevisions?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+    const result = await response.json();
+    if (result.error) throw new Error(result.error.message || 'Failed to load revision history');
+    return result.result?.data as Array<{
+      id: string;
+      revisionNumber: number;
+      submittedAt: string;
+      rawText?: string;
+      evaluation?: any;
+      decision?: string;
+      decisionReasons: string[];
+      auditChecks: any[];
+      status: string;
+      engineVersion: string;
+    }>;
+  },
+
   /**
    * Mark all notifications as read
    */

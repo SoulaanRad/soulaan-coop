@@ -1,69 +1,171 @@
 import { Agent, run, webSearchTool } from "@openai/agents";
 import { z } from "zod";
-import type { ProposalInput, ProposalOutput, Goals, Alternative, MissingData, Decision } from "./proposal.js";
+import type { ProposalInput, ProposalOutput, Alternative, MissingData, Decision, Evaluation, MissionImpactScore, MissionGoalBreakdownItem, StructuralBreakdownItem, ScorerAgent ,
+  ProposalStatusZ} from "./proposal.js";
 import {
   ProposalInputZ,
   ProposalOutputZ,
   buildOutput,
-  ProposalStatusZ,
   AlternativeZ,
   MissingDataZ,
+  MissingSeverityZ,
+  EvaluationZ,
 } from "./proposal.js";
 import type { KPIz } from "./proposal.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 
 /**
+ * Config data from CoopConfig DB record, passed to engine methods.
+ * Replaces old goalDefinitions/scoringWeights with mission/structural split.
+ */
+export interface CoopConfigData {
+  charterText: string;
+  /** Coop-specific mission goals with their priority weights */
+  missionGoals: { key: string; label: string; priorityWeight: number; description?: string; domain?: string; scoringRubric?: string }[];
+  /** Universal structural scoring weights */
+  structuralWeights: { feasibility: number; risk: number; accountability: number };
+  /** Blend ratio between mission and structural overall score */
+  scoreMix: { missionWeight: number; structuralWeight: number };
+  /** overall_score threshold to pass screening */
+  screeningPassThreshold: number;
+  proposalCategories: { key: string; label: string; isActive: boolean; description?: string }[];
+  sectorExclusions: { value: string; description?: string }[];
+  quorumPercent: number;
+  approvalThresholdPercent: number;
+  votingWindowDays: number;
+  /** Configurable domain scorer-agent registry */
+  scorerAgents?: ScorerAgent[];
+  /**
+   * Recent expert-calibration examples keyed by domain.
+   * Fetched from ProposalGoalScore history before scoring and injected into each
+   * domain agent's prompt so the AI learns from past human corrections.
+   */
+  expertCalibration?: Record<string, {
+    goalId: string;
+    aiScore: number;
+    expertScore: number;
+    reason: string;
+  }[]>;
+  /** A single mission goal must reach this score (0..1) for mission alignment. Default 0.70. */
+  strongGoalThreshold?: number;
+  /** Weighted average mission score must meet this floor (0..1). Default 0.50. */
+  missionMinThreshold?: number;
+  /** Structural score must clear this gate (0..1) or proposal fails outright. Default 0.65. */
+  structuralGate?: number;
+  /** Budget below this USD amount is auto-approved (Tier 1). */
+  aiAutoApproveThresholdUSD?: number;
+  /** Budget at/above this USD amount requires a council vote (Tier 3). */
+  councilVoteThresholdUSD?: number;
+}
+
+// ── Default config values ──────────────────────────────────────────────────
+const DEFAULT_MISSION_GOALS: { key: string; label: string; priorityWeight: number; description?: string; domain?: string; scoringRubric?: string }[] = [
+  {
+    key: "income_stability",
+    label: "Income Stability",
+    priorityWeight: 0.35,
+    description:
+      "Does this proposal create reliable, living-wage income for Soulaan Co-op members? " +
+      "Score high if it funds productive employment, apprenticeships, or revenue-generating operations " +
+      "within SC-eligible sectors (manufacturing, logistics, trade training, exportable products, tech/IP). " +
+      "Score low if income generated is marginal, speculative, or flows primarily to a single individual rather than the broader membership. " +
+      "Per the charter, 85%+ of spending must be export-earning, import-reducing, or productive investment within 12–36 months.",
+  },
+  {
+    key: "asset_creation",
+    label: "Asset Creation",
+    priorityWeight: 0.25,
+    description:
+      "Does this proposal build long-term, collectively owned productive assets — real estate, equipment, IP platforms, trade infrastructure, or equity stakes? " +
+      "Score high if it transforms rent, consumption, or labor into durable equity and governance rights for the membership. " +
+      "Score low if it funds depreciating goods, one-time events, non-scalable side hustles, or assets that accrue to one person. " +
+      "Per the charter, the Soulaan Wealth Fund prioritises housing, trade schools, export businesses, and infrastructure above all else.",
+  },
+  {
+    key: "leakage_reduction",
+    label: "Leakage Reduction",
+    priorityWeight: 0.20,
+    description:
+      "Does this proposal reduce the outflow of capital from the Black community economy by bringing more goods, services, or capacity in-house? " +
+      "Score high if it substitutes an import with a co-op-produced alternative, lowers collective costs through bulk procurement, " +
+      "or increases circulation of UC within the community rather than letting dollars exit to external vendors. " +
+      "Score low if it increases dependence on outside suppliers, creates no substitution effect, or primarily serves individual consumption with no multiplier. " +
+      "Per the charter surplus rule, proposals must demonstrably reduce the import side of the ledger.",
+  },
+  {
+    key: "export_expansion",
+    label: "Export Expansion",
+    priorityWeight: 0.20,
+    description:
+      "Does this proposal bring new capital into the Soulaan economy by selling Black-created goods, services, or intellectual property to external markets? " +
+      "Score high if it generates verifiable outside revenue within 12–24 months — exportable products (skincare, shelf-stable foods, B2B tools, IP platforms), " +
+      "logistics serving outside clients, or manufacturing supply chains that sell beyond the co-op. " +
+      "Score low if the business model is entirely inward-facing, relies on member spending to survive, or cannot demonstrate a credible path to external revenue. " +
+      "Per the charter, expanding UC export inflow is one of the four core pillars of Black economic sovereignty.",
+  },
+];
+
+const DEFAULT_STRUCTURAL_WEIGHTS = { feasibility: 0.40, risk: 0.35, accountability: 0.25 };
+const DEFAULT_SCORE_MIX = { missionWeight: 0.6, structuralWeight: 0.4 };
+const DEFAULT_PASS_THRESHOLD = 0.6;
+const DEFAULT_STRONG_GOAL_THRESHOLD = 0.70;
+const DEFAULT_MISSION_MIN_THRESHOLD = 0.50;
+const DEFAULT_STRUCTURAL_GATE = 0.65;
+
+function normalizeCurrency(val: unknown): "UC" | "USD" | "mixed" {
+  const s = String(val).toUpperCase();
+  if (s === "UC") return "UC";
+  if (s === "MIXED") return "mixed";
+  return "USD";
+}
+
+/**
  * ProposalEngine: Multi-agent orchestration using @openai/agents
  *
- * Agents:
- * - Text Extraction Agent → structured fields from raw text
- * - Impact Agent → scores {alignment, feasibility, composite}
- * - Governance Agent → governance params with guardrail re-validation
- * - KPI Agent → up to 3 KPIs (name, target, unit)
- * - Alternative Agent → generates counterfactual proposals with charter goal scoring
- * - Missing Data Agent → identifies blocking vs non-blocking data needs
- * - Decision Agent → advance/revise/block based on dominance and missing data
- * - Compliance checks → local rules + charter read
+ * Scoring model:
+ * - Evaluation Agent → structural_scores (universal) + mission_impact_scores (per-coop goals)
+ * - Backend computes all weighted totals and pass/fail — LLM does NOT decide
+ * - Alternatives Agent → counterfactual designs with overallScore
+ * - Missing Data Agent → blocking vs non-blocking data gaps
+ * - Decision Agent → advance/revise/block from scoring results
  */
 export class ProposalEngine {
-  private readonly version = "proposal-engine@agents-1.0.0";
+  private readonly version = "proposal-engine@2.0.0";
 
-  async processProposal(input: ProposalInput): Promise<ProposalOutput> {
-    // Validate input
+  async processProposal(input: ProposalInput, config?: CoopConfigData): Promise<ProposalOutput> {
     const validated = ProposalInputZ.parse(input);
 
-    // Extract all structured fields from the text input using AI agents
-    const extractedFields = await this.runExtractionAgent(validated);
+    const extractedFields = await this.runExtractionAgent(validated, config);
 
-    const [scores, governance, _kpis, checks] = await Promise.all([
-      this.runImpactAgent(validated, extractedFields),
-      this.runGovernanceAgent(validated, extractedFields),
+    const [rawEval, governance, _kpis, checks] = await Promise.all([
+      this.runEvaluationAgent(validated, extractedFields, config),
+      this.runGovernanceAgent(validated, extractedFields, config),
       this.runKPIAgent(validated, extractedFields),
-      this.runComplianceChecks(validated, extractedFields),
+      this.runComplianceChecks(validated, extractedFields, config),
     ]);
 
-    // V0.2: Compute charter goal scores and run new agents
-    const goalScores = this.estimateGoals(extractedFields);
+    // Backend computes all totals — no LLM pass/fail
+    const prelimEvaluation = this.computeEvaluation(rawEval, config);
+
     const [alternatives, missing_data] = await Promise.all([
-      this.runAlternativeAgent(extractedFields),
-      this.runMissingDataAgent(extractedFields),
+      this.runAlternativeAgent(extractedFields, prelimEvaluation, config),
+      this.runMissingDataAgent(extractedFields, prelimEvaluation, config),
     ]);
-    
-    const { decision, reasons, bestAlt } = this.decideWithAlternatives(goalScores, alternatives, missing_data);
+
+    // Apply SOFT missing-data penalties to structural and mission goal scores
+    const evaluation = this.applyMissingDataPenalties(prelimEvaluation, missing_data, config);
+
+    const { decision, reasons, bestAlt } = this.decideWithAlternatives(evaluation, alternatives, missing_data);
     const status = this.statusFromDecision(decision);
 
-    // Build base output using existing function
     const baseOut = buildOutput({
       id: this.generateProposalId(),
       createdAt: new Date().toISOString(),
       status,
       input: validated,
-      extractedFields: {
-        ...extractedFields,
-        impact: extractedFields.impact,
-      },
-      scores,
+      extractedFields,
+      evaluation,
       governance,
       engineVersion: this.version,
       checks: [
@@ -72,108 +174,254 @@ export class ProposalEngine {
       ],
     });
 
-    // Extend with enhanced features
     const enhancedOutput = {
       ...baseOut,
-      goalScores,
       alternatives,
       bestAlternative: bestAlt,
       decision,
       decisionReasons: reasons,
       missing_data,
     };
-    
+
     return ProposalOutputZ.parse(enhancedOutput);
   }
 
-  // ── Helper Functions ──────────────────────────────────────────────────────
+  /**
+   * Evaluate a comment's alignment with this coop's mission goals.
+   */
+  async evaluateComment(
+    commentText: string,
+    proposalContext: { title: string; summary: string; category: string },
+    config?: CoopConfigData,
+  ): Promise<{ alignment: "ALIGNED" | "NEUTRAL" | "MISALIGNED"; score: number; analysis: string; goalsImpacted: string[] }> {
+    const charterSummary = config?.charterText
+      ? config.charterText.substring(0, 2000)
+      : await this.readCharter().then(t => t.substring(0, 2000));
 
-  private estimateGoals(extracted: any): Goals {
-    // Estimate charter goal scores based on extracted fields
-    const budget = extracted.budget?.amountRequested || 10000;
-    const category = extracted.category || "other";
-    
-    // Base scores with category-specific adjustments
-    const baseScores = {
-      LeakageReduction: 0.5,
-      MemberBenefit: 0.5,
-      EquityGrowth: 0.4,
-      LocalJobs: 0.4,
-      CommunityVitality: 0.5,
-      Resilience: 0.4,
-    };
+    const goalKeys = (config?.missionGoals ?? DEFAULT_MISSION_GOALS).map(g => g.key);
 
-    // Category bonuses
-    if (category === "infrastructure") {
-      baseScores.Resilience += 0.2;
-      baseScores.CommunityVitality += 0.1;
-    } else if (category === "business_funding") {
-      baseScores.LeakageReduction += 0.2;
-      baseScores.LocalJobs += 0.2;
-      baseScores.MemberBenefit += 0.1;
-    } else if (category === "transport") {
-      baseScores.CommunityVitality += 0.2;
-      baseScores.MemberBenefit += 0.1;
-    }
-
-    // Budget impact (larger budgets can have more impact but also more risk)
-    const budgetFactor = Math.min(budget / 100000, 2); // Cap at 2x for $100k+
-    (Object.keys(baseScores) as (keyof typeof baseScores)[]).forEach(key => {
-      baseScores[key] = Math.min(
-        baseScores[key] * (0.8 + budgetFactor * 0.2), 
-        1.0
-      );
+    const EvalSchema = z.object({
+      alignment: z.enum(["ALIGNED", "NEUTRAL", "MISALIGNED"]),
+      score: z.number().min(0).max(1),
+      analysis: z.string().min(5),
+      goalsImpacted: z.array(z.string()),
     });
 
-    // Calculate composite as weighted average
-    const weights = {
-      LeakageReduction: 0.25,
-      MemberBenefit: 0.20,
-      EquityGrowth: 0.15,
-      LocalJobs: 0.15,
-      CommunityVitality: 0.15,
-      Resilience: 0.10,
-    };
+    const agent = new Agent({
+      name: "Comment Evaluation Agent",
+      instructions: [
+        "Evaluate whether a community comment on a proposal supports or conflicts with the co-op's mission goals.",
+        "Charter summary:",
+        charterSummary,
+        "",
+        `Valid mission goal keys: ${goalKeys.join(", ")}`,
+        "",
+        "Score 0-1 where 1 = strongly supports the co-op mission.",
+        "ALIGNED = score >= 0.6, NEUTRAL = 0.3–0.6, MISALIGNED = < 0.3.",
+        "goalsImpacted should list only mission goal keys that the comment meaningfully touches.",
+        "",
+        "WRITING RULES for the analysis field:",
+        "- Write 1–2 plain sentences explaining what the comment is saying and why it aligns or conflicts with the mission.",
+        "- Write as if summarising the comment for other community members reading the discussion.",
+        "- Example: 'This comment raises a valid concern that the proposal mainly benefits the owner rather than the wider membership, which goes against the co-op's shared ownership goals.'",
+        "- No scoring jargon. No phrases like 'mission alignment index' or 'structural compatibility'.",
+        "",
+        "Return ONLY valid JSON matching the schema.",
+      ].join("\n"),
+      model: "gpt-5.2",
+      outputType: EvalSchema,
+    });
 
-    const composite = (Object.entries(weights) as [keyof typeof baseScores, number][]).reduce((sum, [key, weight]) => {
-      return sum + baseScores[key] * weight;
-    }, 0);
+    const result = await run(agent, [
+      `Proposal: ${proposalContext.title} — ${proposalContext.summary}`,
+      `Category: ${proposalContext.category}`,
+      `Comment: ${commentText}`,
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
+
+    const out = result.finalOutput ?? result.output ?? {};
+    const score = this.clamp01((out.score as number | undefined) ?? 0.5);
+    const alignment = (out.alignment as "ALIGNED" | "NEUTRAL" | "MISALIGNED" | undefined)
+      ?? (score >= 0.6 ? "ALIGNED" : score >= 0.3 ? "NEUTRAL" : "MISALIGNED");
+    const goalsImpacted = ((out.goalsImpacted as string[] | undefined) ?? []).filter((g: string) => goalKeys.includes(g));
 
     return {
-      ...baseScores,
-      composite: Math.min(Math.max(composite, 0), 1)
+      alignment,
+      score,
+      analysis: (out.analysis as string | undefined) || "No analysis available.",
+      goalsImpacted,
     };
   }
 
-  private applyChangesShallow(original: any, changes: {field: string, from?: any, to: any}[]): any {
-    const result = { ...original };
-    
-    changes.forEach(change => {
-      const parts = change.field.split('.');
-      if (parts.length === 1 && parts[0]) {
-        result[parts[0]] = change.to;
-      } else if (parts.length === 2 && parts[0] && parts[1]) {
-        if (!result[parts[0]]) result[parts[0]] = {};
-        result[parts[0]] = { ...result[parts[0]], [parts[1]]: change.to };
-      }
-      // Could extend for deeper nesting if needed
+  // ── Backend computation (no LLM) ──────────────────────────────────────────
+
+  /**
+   * Combine raw LLM structural/mission scores with config weights to produce
+   * the final Evaluation object. All pass/fail logic lives here.
+   *
+   * Pass/fail gates (in evaluation order):
+   *  1. FAIL_STRUCTURAL_GATE       — structural_weighted_score < structuralGate (default 0.65)
+   *  2. FAIL_MISSION_MIN_THRESHOLD — mission_weighted_score < missionMinThreshold (default 0.50)
+   *  3. FAIL_NO_STRONG_MISSION_GOAL — no single goal reaches strongGoalThreshold (default 0.70)
+   */
+  computeEvaluation(
+    rawEval: {
+      structural_scores: {
+        goal_mapping_valid: boolean;
+        feasibility_score: number;
+        risk_score: number;
+        accountability_score: number;
+        feasibility_rationale?: string;
+        feasibility_evidence_refs?: string[];
+        risk_rationale?: string;
+        risk_evidence_refs?: string[];
+        accountability_rationale?: string;
+        accountability_evidence_refs?: string[];
+      };
+      mission_impact_scores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[];
+      violations: string[];
+      risk_flags: string[];
+      llm_summary: string;
+    },
+    config?: CoopConfigData,
+  ): Evaluation {
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+    const sw = config?.structuralWeights ?? DEFAULT_STRUCTURAL_WEIGHTS;
+    const mix = config?.scoreMix ?? DEFAULT_SCORE_MIX;
+
+    // ── Thresholds (configurable) ──────────────────────────────────────────────
+    const strongGoalThreshold = config?.strongGoalThreshold ?? DEFAULT_STRONG_GOAL_THRESHOLD;
+    const missionMinThreshold = config?.missionMinThreshold ?? DEFAULT_MISSION_MIN_THRESHOLD;
+    const structuralGate = config?.structuralGate ?? DEFAULT_STRUCTURAL_GATE;
+
+    // ── Normalize mission goal weights to sum to 1.0 ───────────────────────────
+    const totalWeight = missionGoals.reduce((s, g) => s + g.priorityWeight, 0);
+    const normWeight = (w: number) => totalWeight > 0 ? w / totalWeight : 1 / missionGoals.length;
+
+    // Build mission impact scores with normalized priority weights
+    const mission_impact_scores: MissionImpactScore[] = missionGoals.map(goal => {
+      const found = rawEval.mission_impact_scores.find(s => s.goal_id === goal.key);
+      return {
+        goal_id: goal.key,
+        impact_score: this.clamp01(found?.impact_score ?? 0.5),
+        goal_priority_weight: normWeight(goal.priorityWeight),
+        ...(found?.score_reason ? { score_reason: found.score_reason } : {}),
+        ...(found?.evidenceRefs?.length ? { evidenceRefs: found.evidenceRefs } : {}),
+      };
     });
-    
-    return result;
+
+    // MissionImpactScore = Σ(impact_score * normalized_weight)
+    const mission_weighted_score = this.clamp01(
+      mission_impact_scores.reduce((acc, s) => acc + s.impact_score * s.goal_priority_weight, 0)
+    );
+
+    // maxGoalScore: highest individual mission goal score
+    const maxGoalScore = mission_impact_scores.length > 0
+      ? Math.max(...mission_impact_scores.map(s => s.impact_score))
+      : 0;
+
+    // ── StructuralScore: risk inverted (lower risk = better) ───────────────────
+    const { feasibility_score, risk_score, accountability_score } = rawEval.structural_scores;
+    const structural_weighted_score = this.clamp01(
+      feasibility_score * sw.feasibility +
+      (1 - risk_score) * sw.risk +
+      accountability_score * sw.accountability
+    );
+
+    // FinalScore = weighted blend of mission and structural
+    const overall_score = this.clamp01(
+      mission_weighted_score * mix.missionWeight +
+      structural_weighted_score * mix.structuralWeight
+    );
+
+    // ── Pass/fail gates ────────────────────────────────────────────────────────
+    const passFailReasons: string[] = [];
+    if (structural_weighted_score < structuralGate) {
+      passFailReasons.push("FAIL_STRUCTURAL_GATE");
+    }
+    if (mission_weighted_score < missionMinThreshold) {
+      passFailReasons.push("FAIL_MISSION_MIN_THRESHOLD");
+    }
+    if (maxGoalScore < strongGoalThreshold) {
+      passFailReasons.push("FAIL_NO_STRONG_MISSION_GOAL");
+    }
+
+    const passes_threshold = passFailReasons.length === 0 &&
+      rawEval.structural_scores.goal_mapping_valid;
+
+    // ── Build missionGoalBreakdown ─────────────────────────────────────────────
+    const mission_goal_breakdown: MissionGoalBreakdownItem[] = mission_impact_scores.map(s => ({
+      goal_id: s.goal_id,
+      score: s.impact_score,
+      weight: s.goal_priority_weight,
+      rationale: s.score_reason ?? "",
+      evidenceRefs: s.evidenceRefs ?? [],
+    }));
+
+    // ── Build structuralBreakdown ──────────────────────────────────────────────
+    const structural_breakdown: StructuralBreakdownItem[] = [
+      {
+        factor: "feasibility",
+        score: this.clamp01(feasibility_score),
+        weight: sw.feasibility,
+        rationale: rawEval.structural_scores.feasibility_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.feasibility_evidence_refs ?? [],
+      },
+      {
+        factor: "risk",
+        score: this.clamp01(1 - risk_score),
+        weight: sw.risk,
+        rationale: rawEval.structural_scores.risk_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.risk_evidence_refs ?? [],
+      },
+      {
+        factor: "accountability",
+        score: this.clamp01(accountability_score),
+        weight: sw.accountability,
+        rationale: rawEval.structural_scores.accountability_rationale ?? "",
+        evidenceRefs: rawEval.structural_scores.accountability_evidence_refs ?? [],
+      },
+    ];
+
+    // Destructure only the base structural fields (rationale/refs live in breakdown)
+    const { feasibility_score: _f, risk_score: _r, accountability_score: _a, goal_mapping_valid,
+      feasibility_rationale: _fr, feasibility_evidence_refs: _fer,
+      risk_rationale: _rr, risk_evidence_refs: _rer,
+      accountability_rationale: _ar, accountability_evidence_refs: _aer,
+    } = rawEval.structural_scores;
+
+    return EvaluationZ.parse({
+      structural_scores: { goal_mapping_valid, feasibility_score, risk_score, accountability_score },
+      mission_impact_scores,
+      computed_scores: {
+        mission_weighted_score,
+        structural_weighted_score,
+        overall_score,
+        passes_threshold,
+        passFailReasons,
+      },
+      violations: rawEval.violations,
+      risk_flags: rawEval.risk_flags,
+      llm_summary: rawEval.llm_summary,
+      mission_goal_breakdown,
+      structural_breakdown,
+    });
   }
 
-  // ── Agents ────────────────────────────────────────────────────────────
+  // ── Agents ────────────────────────────────────────────────────────────────
 
-  async runExtractionAgent(input: ProposalInput): Promise<{
+  async runExtractionAgent(input: ProposalInput, config?: CoopConfigData): Promise<{
     title: string;
     summary: string;
     proposer: { wallet: string; role: "member" | "merchant" | "anchor" | "bot"; displayName: string };
     region: { code: string; name: string };
-    category: "business_funding" | "procurement" | "infrastructure" | "transport" | "wallet_incentive" | "governance" | "other";
+    category: string;
     budget: { currency: "UC" | "USD" | "mixed"; amountRequested: number };
-    treasuryPlan: { localPercent: number; nationalPercent: number; acceptUC: true };
-    impact: { leakageReductionUSD: number; jobsCreated: number; timeHorizonMonths: number };
+    treasuryPlan?: { localPercent: number; nationalPercent: number; acceptUC: true };
   }> {
+    const categoryKeys = (config?.proposalCategories ?? [])
+      .filter(c => c.isActive)
+      .map(c => c.key);
+
     const ExtractionSchema = z.object({
       title: z.string().min(5).max(140),
       summary: z.string().min(20).max(1000),
@@ -186,15 +434,9 @@ export class ProposalEngine {
         code: z.string().min(2),
         name: z.string().min(2),
       }),
-      category: z.enum([
-        "business_funding",
-        "procurement", 
-        "infrastructure",
-        "transport",
-        "wallet_incentive",
-        "governance",
-        "other",
-      ]),
+      category: categoryKeys.length > 0
+        ? z.enum(categoryKeys as [string, ...string[]])
+        : z.string().min(1).max(64),
       budget: z.object({
         currency: z.enum(["UC", "USD", "mixed"]),
         amountRequested: z.number().nonnegative(),
@@ -203,32 +445,30 @@ export class ProposalEngine {
         localPercent: z.number().min(0).max(100),
         nationalPercent: z.number().min(0).max(100),
         acceptUC: z.literal(true),
-      }),
-      impact: z.object({
-        leakageReductionUSD: z.number().nonnegative(),
-        jobsCreated: z.number().int().nonnegative(),
-        timeHorizonMonths: z.number().int().positive(),
-      }),
+      }).optional().nullable(),
     });
+
+    const charterContext = config?.charterText
+      ? `Charter context: ${config.charterText.substring(0, 500)}`
+      : "";
 
     const agent = new Agent({
       name: "Text Extraction Agent",
       instructions: [
         "Extract ALL structured information from raw proposal text.",
-        "ALL FIELDS ARE REQUIRED - provide reasonable defaults if information is missing:",
-        "- title: Extract clear title (5-140 chars) or create one from the proposal",
-        "- summary: Create concise summary (20-1000 chars) of the proposal",
-        "- proposer: If not mentioned, use defaults (wallet: 'unknown', role: 'member', displayName: 'Anonymous')",
-        "- region: Infer from location mentions or default to US/United States",
-        "- category: Determine from proposal type or default to 'other'",
-        "- budget: Extract amount and currency or estimate based on proposal scope",
-        "- treasuryPlan: Suggest local/national split (must sum to 100%), default 70/30",
-        "- impact: Estimate economic impact based on proposal size and type",
-        "Use web_search to research market data, comparable projects, and validate estimates.",
-        "Base all financial estimates on real market research and comparable case studies.",
+        charterContext,
+        `Valid categories: ${categoryKeys.join(", ")}`,
+        "ALL FIELDS ARE REQUIRED — Provide reasonable defaults if missing.",
+        "- title: 5–140 chars",
+        "- summary: 20–1000 chars",
+        "- proposer: default {wallet: 'unknown', role: 'member', displayName: 'Anonymous'}",
+        "- region: infer from text or default to US/United States",
+        "- category: determine from proposal type",
+        "- budget: extract amount and currency or estimate",
+        "Use web_search for market data and comparable projects.",
         "Return ONLY valid JSON with ALL fields populated.",
       ].join("\n"),
-      model: "gpt-4.1-mini",
+      model: "gpt-5.2",
       outputType: ExtractionSchema,
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
@@ -236,118 +476,301 @@ export class ProposalEngine {
 
     const result = await run(
       agent,
-      [
-        `Proposal text to analyze: ${input.text}`,
-      ].join("\n"),
-    );
+      `Proposal text to analyze: ${input.text}`,
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    const out = result.finalOutput ?? result.output ?? {};
 
     return {
-      title: out.title || "Untitled Proposal",
-      summary: out.summary || input.text.substring(0, 500),
-      proposer: out.proposer || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
-      region: out.region || { code: "US", name: "United States" },
-      category: out.category || "other" as const,
-      budget: out.budget || { currency: "USD" as const, amountRequested: 10000 },
-      treasuryPlan: out.treasuryPlan || { localPercent: 70, nationalPercent: 30, acceptUC: true as const },
-      impact: out.impact || { leakageReductionUSD: 5000, jobsCreated: 2, timeHorizonMonths: 12 },
+      title: (out.title as string | undefined) || "Untitled Proposal",
+      summary: (out.summary as string | undefined) || input.text.substring(0, 500),
+      proposer: (out.proposer as { wallet: string; role: "member" | "merchant" | "anchor" | "bot"; displayName: string } | undefined)
+        || { wallet: "unknown", role: "member" as const, displayName: "Anonymous" },
+      region: (out.region as { code: string; name: string } | undefined) || { code: "US", name: "United States" },
+      category: (out.category as string | undefined) || "other",
+      budget: out.budget
+        ? { ...(out.budget as Record<string, unknown>), currency: normalizeCurrency((out.budget as { currency?: unknown }).currency), amountRequested: ((out.budget as { amountRequested?: number }).amountRequested ?? 10000) }
+        : { currency: "USD" as const, amountRequested: 10000 },
+      treasuryPlan: (out.treasuryPlan as { localPercent: number; nationalPercent: number; acceptUC: true } | undefined) ?? undefined,
     };
   }
 
-  async runDecisionAgent(
+  /**
+   * Evaluation orchestrator: groups mission goals by domain, runs one specialist
+   * agent per domain (falling back to the 'general' agent for unmapped goals),
+   * and also runs the structural scorer.  All results are merged and returned
+   * to computeEvaluation(), which builds the final Evaluation object.
+   */
+  private async runEvaluationAgent(
     input: ProposalInput,
     extractedFields: any,
-    scores: { alignment: number; feasibility: number; composite: number },
-    checks: { name: string; passed: boolean; note?: string }[],
-  ): Promise<z.infer<typeof ProposalStatusZ>> {
-    const DecisionSchema = z.object({ 
-      status: ProposalStatusZ 
-    });
-
-    const failing = checks.some((c) => c.passed === false);
-
-    const agent = new Agent({
-      name: "Decision Agent",
-      instructions: [
-        "Decide the proposal status as one of: draft, votable, approved, funded, rejected.",
-        "Rules:",
-        "- If any critical compliance check fails → rejected.",
-        "- Else if composite score is high and feasibility solid → votable or approved depending on confidence.",
-        "- Default conservatively to draft when uncertain.",
-        "Use web_search to verify key claims and check for negative precedents or risks.",
-        "Output ONLY JSON matching the schema.",
-      ].join("\n"),
-      model: "gpt-4.1-mini",
-      outputType: DecisionSchema,
-      tools: [webSearchTool()],
-      modelSettings: { toolChoice: "auto" },
-    });
-
-    const result = await run(
-      agent,
-      [
-        `HasFailingChecks: ${failing}`,
-        `Scores: alignment=${scores.alignment.toFixed(3)}, feasibility=${scores.feasibility.toFixed(3)}, composite=${scores.composite.toFixed(3)}`,
-        `Category: ${extractedFields.category}`,
-        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
-        `Summary: ${extractedFields.summary}`,
-      ].join("\n"),
-    );
-
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    return out.status ?? "draft";
-  }
-
-  private async runImpactAgent(input: ProposalInput, extractedFields: any): Promise<{
-    alignment: number;
-    feasibility: number;
-    composite: number;
+    config?: CoopConfigData,
+  ): Promise<{
+    structural_scores: {
+      goal_mapping_valid: boolean;
+      feasibility_score: number;
+      risk_score: number;
+      accountability_score: number;
+      feasibility_rationale?: string;
+      feasibility_evidence_refs?: string[];
+      risk_rationale?: string;
+      risk_evidence_refs?: string[];
+      accountability_rationale?: string;
+      accountability_evidence_refs?: string[];
+    };
+    mission_impact_scores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[];
+    violations: string[];
+    risk_flags: string[];
+    llm_summary: string;
   }> {
-    const ImpactSchema = z.object({
-      alignment: z.number().min(0).max(1),
-      feasibility: z.number().min(0).max(1),
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+    const scorerAgents = config?.scorerAgents ?? [];
+    const expertCalibration = config?.expertCalibration ?? {};
+
+    // ── Build enabled agent registry (agentKey → ScorerAgent) ─────────────────
+    const enabledAgents = new Map(
+      scorerAgents.filter(a => a.enabled !== false).map(a => [a.agentKey, a])
+    );
+
+    // ── Assign each goal to a domain; unmapped / disabled → 'general' ─────────
+    const domainGoalMap = new Map<string, typeof missionGoals>();
+    for (const goal of missionGoals) {
+      const domain = (goal.domain && enabledAgents.has(goal.domain)) ? goal.domain : "general";
+      if (!domainGoalMap.has(domain)) domainGoalMap.set(domain, []);
+      domainGoalMap.get(domain)!.push(goal);
+    }
+
+    const proposalContext = [
+      `Title: ${extractedFields.title}`,
+      `Category: ${extractedFields.category}`,
+      `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+      `Region: ${extractedFields.region?.code} - ${extractedFields.region?.name}`,
+      `Summary: ${extractedFields.summary}`,
+    ].join("\n");
+
+    const charterContext = config?.charterText
+      ? `Co-op Charter: ${config.charterText.substring(0, 800)}`
+      : "Score for a community co-op proposal.";
+
+    const proposalCategories = config?.proposalCategories ?? [];
+    const categoryContext = proposalCategories.length > 0
+      ? "PROPOSAL CATEGORIES:\n" +
+        proposalCategories.filter(c => c.isActive).map(c => `- ${c.key} (${c.label})`).join("\n")
+      : "";
+
+    const exclusionList = config?.sectorExclusions ?? [];
+    const exclusionContext = exclusionList.length > 0
+      ? "SECTOR EXCLUSIONS — flag if proposal matches:\n" +
+        exclusionList.map(e => `- ${e.value}`).join("\n")
+      : "";
+
+    const MissionScoreItemZ = z.object({
+      goal_id: z.string(),
+      impact_score: z.number().min(0).max(1),
+      /** Why this specific score was given and what the proposal would need to score higher. */
+      score_reason: z.string().min(5),
+      /** Short direct quotes or references from the proposal text that support the score. */
+      evidenceRefs: z.array(z.string()).optional(),
     });
 
-    const agent = new Agent({
-      name: "Economic Impact Agent",
+    const DomainScorerOutputZ = z.object({
+      mission_impact_scores: z.array(MissionScoreItemZ),
+    });
+
+    // ── Run each domain scorer in parallel ────────────────────────────────────
+    const domainScoringPromises = Array.from(domainGoalMap.entries()).map(
+      async ([domain, goals]) => {
+        const agentDef = enabledAgents.get(domain);
+        const domainLabel = agentDef?.label ?? (domain === "general" ? "General Co-op Scorer" : domain);
+        const modelOverride = agentDef?.model ?? "gpt-5.2";
+
+        const goalDescriptions = goals.map(g => {
+          const rubric = g.scoringRubric ?? g.description ?? `Score how well this proposal advances ${g.label}`;
+          return `- ${g.key} (${g.label}, weight ${Math.round(g.priorityWeight * 100)}%): ${rubric}`;
+        }).join("\n");
+
+        const customPrompt = agentDef?.promptTemplate ?? "";
+
+        // Build calibration block from past expert corrections for this domain
+        const domainExamples = expertCalibration[domain] ?? [];
+        let calibrationBlock = "";
+        if (domainExamples.length > 0) {
+          const lines = domainExamples.map(ex =>
+            `  • Goal "${ex.goalId}": AI scored ${Math.round(ex.aiScore * 100)}% → expert moved to ${Math.round(ex.expertScore * 100)}%. Reason: "${ex.reason}"`
+          );
+          calibrationBlock = [
+            "CALIBRATION FROM PAST EXPERT REVIEWS (use these to align your scoring):",
+            ...lines,
+            "Apply the same judgment: where experts consistently raised or lowered AI scores, adjust accordingly.",
+          ].join("\n");
+        }
+
+        const agentInstructions = [
+          charterContext,
+          "",
+          `You are the ${domainLabel} expert scorer for this co-op.`,
+          "Score ONLY the mission goals listed below — do not add others.",
+          "",
+          "MISSION GOALS TO SCORE (0..1):",
+          goalDescriptions,
+          categoryContext ? `\n${categoryContext}` : "",
+          exclusionContext ? `\n${exclusionContext}` : "",
+          customPrompt ? `\n${customPrompt}` : "",
+          calibrationBlock ? `\n${calibrationBlock}` : "",
+          "",
+          "SCORING GUIDELINES:",
+          "- 0.0–0.3: Proposal does not address this goal at all.",
+          "- 0.3–0.5: Partial or indirect connection to the goal.",
+          "- 0.5–0.7: Clear connection with some evidence.",
+          "- 0.7–0.9: Strong evidence and direct contribution.",
+          "- 0.9–1.0: Exceptional, primary purpose of the proposal.",
+          "",
+          "For EVERY goal you score, you MUST also provide score_reason and evidenceRefs fields.",
+          "score_reason rules:",
+          "- 1–2 plain sentences explaining exactly why this score was given.",
+          "- Explicitly state what evidence IS present (justifying the score).",
+          "- Explicitly state what is MISSING or would need to change to score higher.",
+          "- Example: 'The proposal describes two new jobs for members but gives no wage details (current: 52%). To score above 70%, it should specify living-wage rates and show income is sustained beyond the first year.'",
+          "- Write directly to the proposer. No jargon.",
+          "evidenceRefs rules:",
+          "- Array of short direct quotes (≤15 words each) from the proposal text that justify the score.",
+          "- Use empty array [] if no direct evidence exists in the proposal text.",
+          "",
+          "Be consistent. Use the same rubric bands every time.",
+          "Return ONLY valid JSON matching the schema.",
+        ].filter(Boolean).join("\n");
+
+        const agent = new Agent({
+          name: `${domainLabel} Scorer`,
+          instructions: agentInstructions,
+          model: modelOverride,
+          outputType: DomainScorerOutputZ,
+          tools: [webSearchTool()],
+          modelSettings: { toolChoice: "auto" },
+        });
+
+        const result = await run(agent, proposalContext) as unknown as {
+          finalOutput?: Record<string, unknown>;
+          output?: Record<string, unknown>;
+        };
+        const out = result.finalOutput ?? result.output ?? {};
+        const scores = (out.mission_impact_scores as { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[] | undefined) ?? [];
+        return { domain, goals, scores };
+      }
+    );
+
+    // ── Structural scorer (always runs once, same as before) ──────────────────
+    const StructuralOutputZ = z.object({
+      structural_scores: z.object({
+        goal_mapping_valid: z.boolean(),
+        feasibility_score: z.number().min(0).max(1),
+        risk_score: z.number().min(0).max(1),
+        accountability_score: z.number().min(0).max(1),
+        feasibility_rationale: z.string().optional(),
+        feasibility_evidence_refs: z.array(z.string()).optional(),
+        risk_rationale: z.string().optional(),
+        risk_evidence_refs: z.array(z.string()).optional(),
+        accountability_rationale: z.string().optional(),
+        accountability_evidence_refs: z.array(z.string()).optional(),
+      }),
+      // Keep these tolerant because the model can occasionally omit them.
+      violations: z.array(z.string()).default([]),
+      risk_flags: z.array(z.string()).default([]),
+      llm_summary: z.string().default(""),
+    });
+
+    const structuralAgent = new Agent({
+      name: "Structural Scorer",
       instructions: [
-        "Score alignment and feasibility (0..1) for Soulaan Co-op proposals.",
-        "Alignment reflects mission fit and surplus-driven potential.",
-        "Feasibility reflects execution risk and delivery capacity.",
-        "Use web_search to research market data, sector benchmarks, and economic outcomes for similar projects.",
-        "Base scores on proven economic research and comparable case studies.",
-        "Return ONLY valid JSON matching the output schema.",
-      ].join("\n"),
-      model: "gpt-4.1-mini",
-      outputType: ImpactSchema,
+        charterContext,
+        "",
+        "Score these STRUCTURAL dimensions (0..1) — universal for all co-op proposals:",
+        "- goal_mapping_valid: true if the proposal clearly maps to at least one mission goal",
+        "- feasibility_score: execution realism (team, timeline, market fit)",
+        "- risk_score: 0 = low risk, 1 = very high risk (inverted — lower is better)",
+        "- accountability_score: clarity of milestones, reporting, and verification",
+        "",
+        "For EACH of the three scored dimensions, also provide a rationale and evidenceRefs:",
+        "- feasibility_rationale: 1 sentence explaining the feasibility score.",
+        "- feasibility_evidence_refs: array of short direct quotes (≤15 words) from the proposal supporting the score.",
+        "- risk_rationale: 1 sentence explaining the risk score.",
+        "- risk_evidence_refs: array of short direct quotes.",
+        "- accountability_rationale: 1 sentence explaining the accountability score.",
+        "- accountability_evidence_refs: array of short direct quotes.",
+        "Use empty array [] when no direct evidence exists.",
+        "",
+        categoryContext,
+        exclusionContext,
+        "",
+        "Also provide:",
+        "- violations: short plain sentences for any policy violations. Empty array if none.",
+        "- risk_flags: top risks as short plain sentences. Empty array if none.",
+        "- llm_summary: 2–3 plain sentences for a community member. No jargon.",
+        "",
+        "TONE: Write like you're talking to a smart neighbour. Under 25 words per sentence.",
+        "Return ONLY valid JSON matching the schema.",
+      ].filter(Boolean).join("\n"),
+      model: "gpt-5.2",
+      outputType: StructuralOutputZ,
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
     });
 
-    const result = await run(
-      agent,
-      [
-        `Category: ${extractedFields.category}`,
-        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
-        `Region: ${extractedFields.region?.code} - ${extractedFields.region?.name}`,
-        `Title: ${extractedFields.title}`,
-        `Summary: ${extractedFields.summary}`,
-      ].join("\n"),
-    );
+    // ── Run everything in parallel ────────────────────────────────────────────
+    const [domainResults, structuralResult] = await Promise.all([
+      Promise.all(domainScoringPromises),
+      run(structuralAgent, proposalContext) as unknown as Promise<{
+        finalOutput?: Record<string, unknown>;
+        output?: Record<string, unknown>;
+      }>,
+    ]);
 
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    const alignment = this.clamp01(out.alignment);
-    const feasibility = this.clamp01(out.feasibility);
-    const composite = this.clamp01((alignment + feasibility) / 2);
-    return { alignment, feasibility, composite };
+    // ── Merge domain scores into flat mission_impact_scores ───────────────────
+    const allMissionScores: { goal_id: string; impact_score: number; score_reason?: string; evidenceRefs?: string[] }[] = [];
+    for (const { goals, scores } of domainResults) {
+      for (const goal of goals) {
+        const found = scores.find(s => s.goal_id === goal.key);
+        allMissionScores.push({
+          goal_id: goal.key,
+          impact_score: this.clamp01(found?.impact_score ?? 0.5),
+          score_reason: found?.score_reason,
+          evidenceRefs: found?.evidenceRefs,
+        });
+      }
+    }
+
+    const sOut = structuralResult.finalOutput ?? structuralResult.output ?? {};
+    const structural = (sOut.structural_scores as Record<string, unknown> | undefined) ?? {};
+
+    return {
+      structural_scores: {
+        goal_mapping_valid: Boolean(structural.goal_mapping_valid ?? true),
+        feasibility_score: this.clamp01((structural.feasibility_score as number | undefined) ?? 0.5),
+        risk_score: this.clamp01((structural.risk_score as number | undefined) ?? 0.5),
+        accountability_score: this.clamp01((structural.accountability_score as number | undefined) ?? 0.5),
+        feasibility_rationale: (structural.feasibility_rationale as string | undefined),
+        feasibility_evidence_refs: (structural.feasibility_evidence_refs as string[] | undefined),
+        risk_rationale: (structural.risk_rationale as string | undefined),
+        risk_evidence_refs: (structural.risk_evidence_refs as string[] | undefined),
+        accountability_rationale: (structural.accountability_rationale as string | undefined),
+        accountability_evidence_refs: (structural.accountability_evidence_refs as string[] | undefined),
+      },
+      mission_impact_scores: allMissionScores,
+      violations: (sOut.violations as string[] | undefined) ?? [],
+      risk_flags: (sOut.risk_flags as string[] | undefined) ?? [],
+      llm_summary: (sOut.llm_summary as string | undefined) ?? "",
+    };
   }
 
-  private async runGovernanceAgent(input: ProposalInput, extractedFields: any): Promise<{
+  private async runGovernanceAgent(input: ProposalInput, extractedFields: any, config?: CoopConfigData): Promise<{
     quorumPercent: number;
     approvalThresholdPercent: number;
     votingWindowDays: number;
   }> {
+    const defaultQuorum = config?.quorumPercent ?? 20;
+    const defaultApproval = config?.approvalThresholdPercent ?? 60;
+    const defaultWindow = config?.votingWindowDays ?? 7;
+
     const GovernanceSchema = z.object({
       quorumPercent: z.number().min(0).max(100),
       approvalThresholdPercent: z.number().min(0).max(100),
@@ -357,12 +780,12 @@ export class ProposalEngine {
     const agent = new Agent({
       name: "Governance Policy Agent",
       instructions: [
-        "Recommend governance parameters for Soulaan proposals.",
-        "Defaults: quorum=20, approval=60, window=7. Adjust slightly by budget/category, but stay within bounds.",
-        "Use web_search to research cooperative governance precedents and best practices when uncertain.",
+        "Recommend governance parameters for cooperative proposals.",
+        `Defaults: quorum=${defaultQuorum}, approval=${defaultApproval}, window=${defaultWindow}. Adjust slightly by budget/category, but stay within bounds.`,
+        "Use web_search to research cooperative governance precedents when uncertain.",
         "Return ONLY valid JSON matching the schema.",
       ].join("\n"),
-      model: "gpt-4.1-mini",
+      model: "gpt-5.2",
       outputType: GovernanceSchema,
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
@@ -374,109 +797,240 @@ export class ProposalEngine {
         `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
         `Category: ${extractedFields.category}`,
       ].join("\n"),
-    );
-    const out: any = (result as any).finalOutput ?? (result as any).output ?? {};
+    ) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
+    const out = result.finalOutput ?? result.output ?? {};
     return {
-      quorumPercent: this.boundPercent(out.quorumPercent ?? 20),
-      approvalThresholdPercent: this.boundPercent(out.approvalThresholdPercent ?? 60),
-      votingWindowDays: Math.max(1, Math.min(30, Math.trunc(out.votingWindowDays ?? 7))),
+      quorumPercent: this.boundPercent((out.quorumPercent as number | undefined) ?? defaultQuorum),
+      approvalThresholdPercent: this.boundPercent((out.approvalThresholdPercent as number | undefined) ?? defaultApproval),
+      votingWindowDays: Math.max(1, Math.min(30, Math.trunc((out.votingWindowDays as number | undefined) ?? defaultWindow))),
     };
   }
 
-  private async runKPIAgent(input: ProposalInput, extractedFields: any): Promise<
-    z.infer<typeof KPIz>[]
-  > {
+  private async runKPIAgent(input: ProposalInput, extractedFields: any): Promise<z.infer<typeof KPIz>[]> {
     const agent = new Agent({
       name: "KPI Agent",
       instructions: [
         "Propose up to 3 concrete KPIs for the proposal.",
         "Each KPI should have a short name, numeric target, and unit among USD|UC|jobs|percent|count.",
-        "Align with surplus-driven outcomes (export earnings, import reduction, productive capacity).",
-        "Use web_search to research realistic targets based on market data and comparable projects.",
-        "Return ONLY a JSON array of KPIs (max 3) in this format:",
-        '[{"name": "export_revenue", "target": 100000, "unit": "USD"}, {"name": "jobs_created", "target": 5, "unit": "jobs"}]',
+        "Use web_search for realistic targets.",
+        "Return ONLY a JSON array of KPIs (max 3).",
       ].join("\n"),
-      model: "gpt-4.1-mini",
+      model: "gpt-5.2",
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
     });
 
-    const _result = await run(
-      agent,
-      [
-        `Title: ${extractedFields.title}`,
-        `Summary: ${extractedFields.summary}`,
-        `Category: ${extractedFields.category}`,
-        `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
-        `Region: ${extractedFields.region?.code}`,
-      ].join("\n"),
-    );
+    await run(agent, [
+      `Title: ${extractedFields.title}`,
+      `Summary: ${extractedFields.summary}`,
+      `Category: ${extractedFields.category}`,
+      `Budget: ${extractedFields.budget?.currency} ${extractedFields.budget?.amountRequested}`,
+    ].join("\n"));
 
-    // For now, return default KPIs since structured output parsing is complex
-    // TODO: Implement proper text output parsing when SDK documentation is clearer
     return [
       { name: "export_revenue", target: 100_000, unit: "USD" as const },
       { name: "jobs_created", target: 5, unit: "jobs" as const },
     ];
   }
 
+  private async runAlternativeAgent(
+    extracted: any,
+    evaluation: Evaluation,
+    config?: CoopConfigData,
+  ): Promise<Alternative[]> {
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+    const goalKeys = missionGoals.map(g => `${g.key} (${g.label})`);
+    const passThreshold = config?.screeningPassThreshold ?? DEFAULT_PASS_THRESHOLD;
 
-  private async runAlternativeAgent(extracted: any): Promise<Alternative[]> {
     const AltWrapperSchema = z.object({
-      alternatives: z.array(AlternativeZ).max(3)
+      alternatives: z.array(z.object({
+        label: z.string().min(3),
+        changes: z.array(z.object({
+          field: z.string(),
+          from: z.union([z.string(), z.number(), z.boolean()]).optional().nullable(),
+          to: z.union([z.string(), z.number(), z.boolean()]),
+        })).max(10),
+        rationale: z.string().min(10),
+        dataNeeds: z.array(z.string()).optional().nullable(),
+      })).max(3),
     });
-    
+
     const agent = new Agent({
       name: "Alternative Generator",
       instructions: [
-        "Generate 1–3 concrete counterfactual designs that may better satisfy Soulaan charter goals.",
-        "- Provide CHANGES as [{field, from, to}] where 'from' and 'to' are string, number, or boolean values.",
-        "- Set 'from' to null if original value is unknown, 'dataNeeds' to null if no additional data needed.",
-        "- Example change: {field: 'budget.amountRequested', from: 25000, to: 15000}",
-        "- Focus on charter goals: LeakageReduction, MemberBenefit, EquityGrowth, LocalJobs, CommunityVitality, Resilience.",
-        "- Prefer a low-cost improvement first; optionally include a high-impact, higher-cost option.",
-        "- Rationale must reference only charter goals, avoid UC-density terminology.",
-        "Return ONLY a JSON object with 'alternatives' array matching the schema."
+        "Generate 1–3 concrete alternative versions of this proposal that would better serve the co-op's mission goals.",
+        "Provide CHANGES as [{field, from, to}] where values are string, number, or boolean.",
+        `Focus on mission goals: ${goalKeys.join(", ")}.`,
+        "Prefer a low-cost improvement first; optionally include a higher-impact option.",
+        "",
+        `The co-op's minimum pass score is ${(passThreshold * 100).toFixed(0)}%. Only include alternatives that address the main weaknesses of the current proposal.`,
+        "",
+        "WRITING RULES for label and rationale fields:",
+        "- label: a short, plain title like 'Start smaller and prove the model first' or 'Partner with an existing co-op supplier instead'.",
+        "- rationale: 2–3 plain sentences explaining WHY this version would work better for the community. Write as if talking to the person who submitted the proposal.",
+        "  Example good rationale: 'Starting with a $10,000 pilot instead of $50,000 reduces the risk to the co-op treasury. If the pilot succeeds, a larger funding round is much easier to approve. This approach has worked for similar food-production projects in other co-ops.'",
+        "  Example bad rationale: 'This alternative improves the feasibility score and reduces accountability risk through structural realignment.'",
+        "- No jargon. No scoring language. Write for a community member, not an analyst.",
+        "",
+        "Return ONLY a JSON object with 'alternatives' array. If no alternative would realistically pass, return an empty array.",
       ].join("\n"),
-      model: "gpt-4.1-mini",
+      model: "gpt-5.2",
       outputType: AltWrapperSchema,
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
     });
+
+    const currentScore = evaluation.computed_scores.overall_score.toFixed(3);
 
     const result = await run(agent, [
       `Category: ${extracted.category}`,
       `Region: ${extracted.region?.code}`,
       `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
       `Summary: ${extracted.summary}`,
-      `Title: ${extracted.title}`
-    ].join("\n"));
+      `Title: ${extracted.title}`,
+      `Current overall_score: ${currentScore} (pass threshold: ${passThreshold.toFixed(2)})`,
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    const altsRaw: any[] = output.alternatives ?? [];
-    const scored = altsRaw.slice(0,3).map((alt) => {
-      const applied = this.applyChangesShallow(extracted, alt.changes);
-      const goals = this.estimateGoals(applied);
-      return { ...alt, scores: goals };
-    });
-    return scored;
+    const output = result.finalOutput ?? result.output ?? {};
+    const altsRaw = (output.alternatives as Record<string, unknown>[] | undefined) ?? [];
+
+    return altsRaw
+      .slice(0, 3)
+      .map((alt) => ({
+        label: (alt.label as string | undefined) || "Alternative",
+        changes: (alt.changes as Alternative["changes"] | undefined) || [],
+        overallScore: null, // score is only trusted after re-running the verified pipeline
+        rationale: (alt.rationale as string | undefined) || "",
+        dataNeeds: (alt.dataNeeds as string[] | undefined) ?? null,
+      }));
   }
 
-  private async runMissingDataAgent(extracted: any): Promise<MissingData[]> {
+  /**
+   * Classifies a proposal's budget into one of three review tiers:
+   *   Tier 1 — below aiAutoApproveThreshold: minimal scrutiny
+   *   Tier 2 — below councilVoteThreshold:   moderate scrutiny
+   *   Tier 3 — at/above councilVoteThreshold: strict scrutiny (procurement, escrow, milestones)
+   */
+  determineBudgetTier(amountUSD: number, config?: CoopConfigData): 1 | 2 | 3 {
+    const autoApprove = config?.aiAutoApproveThresholdUSD ?? 500;
+    const council = config?.councilVoteThresholdUSD ?? 5000;
+    if (amountUSD < autoApprove) return 1;
+    if (amountUSD < council) return 2;
+    return 3;
+  }
+
+  private async runMissingDataAgent(
+    extracted: any,
+    evaluation: Evaluation,
+    config?: CoopConfigData,
+  ): Promise<MissingData[]> {
+    const MDItemSchema = MissingDataZ;
     const MDWrapperSchema = z.object({
-      missing_data: z.array(MissingDataZ).max(10)
+      // Allow model to over-return; we enforce hard cap after parsing.
+      missing_data: z.array(MDItemSchema),
     });
-    
+
+    const passThreshold = config?.screeningPassThreshold ?? DEFAULT_PASS_THRESHOLD;
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+
+    const budgetAmount: number = extracted.budget?.amountRequested ?? 0;
+    const tier = this.determineBudgetTier(budgetAmount, config);
+    const autoApprove = config?.aiAutoApproveThresholdUSD ?? 500;
+    const council = config?.councilVoteThresholdUSD ?? 5000;
+
+    const tierLabel = tier === 1
+      ? `Tier 1 (< $${autoApprove} — low-value, fast-track)`
+      : tier === 2
+        ? `Tier 2 ($${autoApprove}–$${council} — standard review)`
+        : `Tier 3 (≥ $${council} — large spend, council review)`;
+
+    const tierBlockerRules = tier === 1
+      ? [
+          "TIER 1 — minimal blockers. Only set severity=BLOCKER if truly nothing can be scored:",
+          "  - No description at all, OR no dollar amount, OR proposer identity completely missing.",
+          "  - Everything else should be SOFT or INFO.",
+        ]
+      : tier === 2
+        ? [
+            "TIER 2 — moderate blockers. Set severity=BLOCKER when a required dimension cannot be scored:",
+            "  - Completely missing financial plan or budget breakdown.",
+            "  - No team or responsible person named.",
+            "  - No timeline or milestones.",
+            "  - Missing accountability/oversight plan.",
+            "  - Set severity=SOFT for gaps that reduce confidence but don't prevent scoring.",
+          ]
+        : [
+            "TIER 3 — strict blockers (large spend requires council vote). Set severity=BLOCKER for:",
+            "  - No detailed procurement plan (how vendors/contractors will be selected).",
+            "  - No escrow or milestone-release schedule for funds.",
+            "  - No named project manager or oversight committee.",
+            "  - No risk register or contingency budget.",
+            "  - Incomplete or vague budget breakdown (line items required).",
+            "  - Missing accountability metrics and reporting cadence.",
+            "  - Set severity=SOFT for gaps that are present but insufficiently detailed.",
+          ];
+
+    const overallPct = Math.round(evaluation.computed_scores.overall_score * 100);
+    const passesPct = Math.round(passThreshold * 100);
+    const feasPct = Math.round(evaluation.structural_scores.feasibility_score * 100);
+    const riskPct = Math.round(evaluation.structural_scores.risk_score * 100);
+    const acctPct = Math.round(evaluation.structural_scores.accountability_score * 100);
+
+    const scoreContext = [
+      `BUDGET TIER: ${tierLabel}`,
+      `CURRENT SCORES (out of 100):`,
+      `  Overall: ${overallPct}% (pass threshold: ${passesPct}%)${overallPct >= passesPct ? " ✓ passes" : " ✗ does not pass"}`,
+      `  Feasibility: ${feasPct}%`,
+      `  Risk (lower = better): ${riskPct}%`,
+      `  Accountability: ${acctPct}%`,
+    ].join("\n");
+
+    const WEAK_GOAL_THRESHOLD = 0.55;
+    const weakGoalLines: string[] = [];
+    for (const ms of evaluation.mission_impact_scores) {
+      if (ms.impact_score < WEAK_GOAL_THRESHOLD) {
+        const goalDef = missionGoals.find(g => g.key === ms.goal_id);
+        if (!goalDef) continue;
+        const rubric = goalDef.scoringRubric ?? goalDef.description ?? `How well the proposal advances ${goalDef.label}`;
+        weakGoalLines.push(
+          `  • ${goalDef.label} (${ms.goal_id}): scored ${Math.round(ms.impact_score * 100)}% — rubric: ${rubric}`
+        );
+      }
+    }
+    const weakGoalContext = weakGoalLines.length > 0
+      ? [
+          "",
+          "MISSION GOALS WITH WEAK SCORES — focus missing-data questions on what would improve these:",
+          ...weakGoalLines,
+        ].join("\n")
+      : "";
+
     const agent = new Agent({
       name: "Data Needs Agent",
       instructions: [
-        "List specific missing data items that affect feasibility, legality, or goal scoring.",
-        "Mark blocking=true if absence prevents reliable feasibility or legality (e.g., zoning, site control, permits).",
-        "Non-blocking for estimates that refine scoring (e.g., LOIs, surveys, market research).",
-        "Focus on practical implementation needs for the specific proposal type and location.",
-        "Return ONLY a JSON object with 'missing_data' array matching schema."
-      ].join("\n"),
-      model: "gpt-4.1-mini",
+        "You are reviewing a co-op proposal against its scoring rubric.",
+        "List ONLY missing information that would materially change the score or funding decision.",
+        "Do NOT ask for generic completeness data unless it affects a specific score.",
+        "Prioritise gaps in the weakest-scoring areas.",
+        "Return at most 10 items in missing_data.",
+        "",
+        scoreContext,
+        weakGoalContext,
+        "",
+        "SEVERITY RULES (use exactly one of: BLOCKER, SOFT, INFO):",
+        ...tierBlockerRules,
+        "  - Use severity=INFO for contextual improvements that won't move the score.",
+        "",
+        "FIELD RULES:",
+        "- field: short plain label, e.g. 'Budget breakdown' or 'Team qualifications'.",
+        "- question: direct question to the proposer.",
+        "- why_needed: one plain sentence linking the gap to its impact on the score.",
+        "- affectedGoalIds: optional array of mission goal keys (from the config) whose scores this evidence would improve.",
+        "- No jargon. Write as if leaving a note for the person who submitted the proposal.",
+        "",
+        "Return ONLY a JSON object with 'missing_data' array (max 10 items).",
+      ].filter(Boolean).join("\n"),
+      model: "gpt-5.2",
       outputType: MDWrapperSchema,
       tools: [webSearchTool()],
       modelSettings: { toolChoice: "auto" },
@@ -488,19 +1042,26 @@ export class ProposalEngine {
       `Region: ${extracted.region?.code}`,
       `Summary: ${extracted.summary}`,
       `Budget: ${extracted.budget?.currency} ${extracted.budget?.amountRequested}`,
-    ].join("\n"));
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
-    const output: any = (result as any).finalOutput ?? (result as any).output ?? {};
-    return output.missing_data ?? [];
+    const output = result.finalOutput ?? result.output ?? {};
+    const rawItems = output.missing_data as unknown[];
+    // Truncate to max 10 items to comply with schema validation
+    const truncatedItems = rawItems.slice(0, 10);
+    return truncatedItems.map((item: unknown) => {
+      const parsed = MDItemSchema.parse(item);
+      // Backfill legacy blocking field from severity
+      return { ...parsed, blocking: parsed.severity === "BLOCKER" };
+    });
   }
 
   private async runComplianceChecks(
     input: ProposalInput,
     extractedFields: any,
+    config?: CoopConfigData,
   ): Promise<{ name: string; passed: boolean; note?: string }[]> {
     const checks: { name: string; passed: boolean; note?: string }[] = [];
 
-    // Treasury allocation must sum to 100 (Zod enforces; record status)
     if (extractedFields.treasuryPlan) {
       const sum = Math.round(
         (extractedFields.treasuryPlan.localPercent + extractedFields.treasuryPlan.nationalPercent) * 100,
@@ -511,35 +1072,26 @@ export class ProposalEngine {
         note: sum === 100 ? undefined : `local+national=${sum} must equal 100`,
       });
     } else {
-      checks.push({
-        name: "treasury_allocation_sum",
-        passed: false,
-        note: "Treasury plan missing - could not be extracted from text",
-      });
+      // Treasury plan is optional; skip failing the proposal if it isn't provided.
+      checks.push({ name: "treasury_allocation_sum", passed: true, note: "Treasury plan not provided" });
     }
 
-    // Sector exclusions (heuristic)
-    const excludedKeywords = ["fashion", "restaurant", "cafe", "food truck"];
+    const defaultExclusions = [
+      { value: "fashion" }, { value: "restaurant" }, { value: "cafe" }, { value: "food truck" },
+    ];
+    const exclusions = config?.sectorExclusions ?? defaultExclusions;
     const lower = `${extractedFields.title} ${input.text}`.toLowerCase();
-    const excludedHit = excludedKeywords.some((k) => lower.includes(k));
+    const excludedHit = exclusions.some((e) => lower.includes(e.value.toLowerCase()));
     checks.push({
       name: "sector_exclusion_screen",
       passed: !excludedHit,
       note: excludedHit ? "Proposal appears to match excluded sectors" : undefined,
     });
 
-    // Prompt injection / agent manipulation detection
     const manipulationPatterns = [
-      "ignore previous instructions",
-      "do not research", 
-      "fast track",
-      "approve regardless",
-      "bypass checks",
-      "override",
-      "skip validation",
-      "emergency approval",
-      "urgent bypass",
-      "disable guardrails"
+      "ignore previous instructions", "do not research", "fast track",
+      "approve regardless", "bypass checks", "override", "skip validation",
+      "emergency approval", "urgent bypass", "disable guardrails",
     ];
     const manipulationHit = manipulationPatterns.some((p) => lower.includes(p));
     checks.push({
@@ -548,14 +1100,9 @@ export class ProposalEngine {
       note: manipulationHit ? "Detected language attempting to manipulate agent behavior" : undefined,
     });
 
-    // Unrealistic benefit claims (red flag detection)
     const unrealisticClaims = [
-      "guaranteed profit",
-      "risk-free",
-      "100% success",
-      "no downside",
-      "unlimited potential",
-      "revolutionary breakthrough"
+      "guaranteed profit", "risk-free", "100% success",
+      "no downside", "unlimited potential", "revolutionary breakthrough",
     ];
     const unrealisticHit = unrealisticClaims.some((p) => lower.includes(p));
     checks.push({
@@ -564,56 +1111,159 @@ export class ProposalEngine {
       note: unrealisticHit ? "Detected unrealistic or overly optimistic claims" : undefined,
     });
 
-    // Charter loaded sanity (optional)
-    try {
-      const charter = await this.readCharter();
-      checks.push({ name: "charter_loaded", passed: Boolean(charter && charter.length > 50) });
-    } catch {
-      checks.push({ name: "charter_loaded", passed: false, note: "read_error" });
+    if (config?.charterText) {
+      checks.push({ name: "charter_loaded", passed: config.charterText.length > 50 });
+    } else {
+      try {
+        const charter = await this.readCharter();
+        checks.push({ name: "charter_loaded", passed: Boolean(charter && charter.length > 50) });
+      } catch {
+        checks.push({ name: "charter_loaded", passed: false, note: "read_error" });
+      }
     }
 
     return checks;
   }
 
-  // ── V0.2 DECISION LOGIC ───────────────────────────────────────────────────
+  // ── Decision logic ────────────────────────────────────────────────────────
 
-  private readonly DEFAULT_DOMINANCE_DELTA = 0.08; // tune by category if desired
+  /**
+   * Applies a structural-score penalty for each SOFT missing-data item (−5% each, capped at −20%).
+   * If a SOFT item specifies affectedGoalIds, the mission goal scores for those goals are capped
+   * at their current value minus a small per-item deduction (−5 pts each, minimum 0).
+   * BLOCKER and INFO items do not trigger penalties here — BLOCKER is handled in decideWithAlternatives.
+   */
+  applyMissingDataPenalties(evaluation: Evaluation, missingData: MissingData[], config?: CoopConfigData): Evaluation {
+    const softItems = missingData.filter(m => m.severity === "SOFT" || (m.severity == null && m.blocking === false));
+    if (softItems.length === 0) return evaluation;
+
+    const PENALTY_PER_SOFT = 0.05;
+    const MAX_STRUCTURAL_PENALTY = 0.20;
+    const totalStructuralPenalty = Math.min(softItems.length * PENALTY_PER_SOFT, MAX_STRUCTURAL_PENALTY);
+
+    const rawStructural = evaluation.computed_scores.structural_weighted_score;
+    const penalizedStructural = Math.max(0, rawStructural - totalStructuralPenalty);
+
+    // Cap mission goal scores for goals whose evidence is flagged as missing
+    let penalizedMissionScores = evaluation.mission_impact_scores.map(ms => ({ ...ms }));
+    for (const item of softItems) {
+      if (!item.affectedGoalIds?.length) continue;
+      for (const goalId of item.affectedGoalIds) {
+        penalizedMissionScores = penalizedMissionScores.map(ms =>
+          ms.goal_id === goalId
+            ? { ...ms, impact_score: Math.max(0, ms.impact_score - PENALTY_PER_SOFT) }
+            : ms
+        );
+      }
+    }
+
+    // Recompute mission_impact_score and FinalScore using the same logic as computeEvaluation
+    const missionGoals = config?.missionGoals ?? DEFAULT_MISSION_GOALS;
+    const totalWeight = missionGoals.reduce((s, g) => s + (g.priorityWeight ?? 1), 0) || 1;
+    const penalizedMissionWeighted = penalizedMissionScores.reduce((sum, ms) => {
+      const goalDef = missionGoals.find(g => g.key === ms.goal_id);
+      const w = (goalDef?.priorityWeight ?? 1) / totalWeight;
+      return sum + ms.impact_score * w;
+    }, 0);
+
+    const mix = config?.scoreMix ?? { missionWeight: 0.6, structuralWeight: 0.4 };
+    const mW = mix.missionWeight ?? 0.6;
+    const sW = mix.structuralWeight ?? 0.4;
+    const newOverall = Math.min(1, Math.max(0, penalizedMissionWeighted * mW + penalizedStructural * sW));
+
+    const structuralGate = (config?.structuralGate ?? DEFAULT_STRUCTURAL_GATE);
+    const missionMinThreshold = (config?.missionMinThreshold ?? DEFAULT_MISSION_MIN_THRESHOLD);
+    const strongGoalThreshold = (config?.strongGoalThreshold ?? DEFAULT_STRONG_GOAL_THRESHOLD);
+    const maxGoalScore = Math.max(0, ...penalizedMissionScores.map(m => m.impact_score));
+
+    const passFailReasons: string[] = [];
+    if (penalizedStructural < structuralGate) passFailReasons.push("FAIL_STRUCTURAL_GATE");
+    if (penalizedMissionWeighted < missionMinThreshold) passFailReasons.push("FAIL_MISSION_MIN_THRESHOLD");
+    if (maxGoalScore < strongGoalThreshold) passFailReasons.push("FAIL_NO_STRONG_MISSION_GOAL");
+
+    const goalMappingValid = evaluation.structural_scores.goal_mapping_valid ?? true;
+    const newPasses = passFailReasons.length === 0 && goalMappingValid;
+
+    return {
+      ...evaluation,
+      mission_impact_scores: penalizedMissionScores,
+      computed_scores: {
+        ...evaluation.computed_scores,
+        structural_weighted_score: penalizedStructural,
+        mission_weighted_score: penalizedMissionWeighted,
+        overall_score: newOverall,
+        passes_threshold: newPasses,
+        passFailReasons,
+      },
+    };
+  }
 
   private decideWithAlternatives(
-    originalGoals: Goals,
+    evaluation: Evaluation,
     alts: Alternative[],
     missing: MissingData[],
-  ): { decision: Decision, reasons: string[], bestAlt?: Alternative } {
+  ): { decision: Decision; reasons: string[]; bestAlt?: Alternative } {
+    const hasBlocker = missing.some(m => m.severity === "BLOCKER" || (m.severity == null && m.blocking === true));
+    const best = alts.slice().sort((a, b) => (b.overallScore ?? 0) - (a.overallScore ?? 0))[0];
+    const overallScore = evaluation.computed_scores.overall_score;
 
-    // Blocking data forces 'block' (maps to legacy status 'draft' → no vote)
-    const hasBlocking = missing.some(m => m.blocking);
-    const best = alts.slice().sort((a,b)=> b.scores.composite - a.scores.composite)[0];
-
-    if (hasBlocking) {
+    if (hasBlocker) {
       return {
-        decision: "block",
-        reasons: ["Blocking missing data (feasibility/legal) — supply before voting."],
-        bestAlt: best
+        decision: "needs_info",
+        reasons: ["This proposal is missing critical information needed before it can be reviewed — see the 'Missing Data' section below for what's needed."],
+        bestAlt: best,
       };
     }
 
-    if (!best || best.scores.composite <= originalGoals.composite) {
-      return { decision: "advance", reasons: ["No superior alternative over charter goals."] };
+    if (!evaluation.computed_scores.passes_threshold) {
+      return {
+        decision: "revise",
+        reasons: [
+          `This proposal scored ${(overallScore * 100).toFixed(0)}% overall, which is below the co-op's minimum threshold to move forward. It needs to be strengthened before it can go to a vote.`,
+          ...evaluation.risk_flags.slice(0, 2),
+        ],
+        bestAlt: best,
+      };
     }
 
-    const diff = Number((best.scores.composite - originalGoals.composite).toFixed(3));
-    if (diff >= this.DEFAULT_DOMINANCE_DELTA) {
-      return { decision: "block", reasons: [`Dominated by '${best.label}' (+${diff} composite).`], bestAlt: best };
+    if (evaluation.structural_scores.goal_mapping_valid === false) {
+      return {
+        decision: "revise",
+        reasons: ["This proposal doesn't clearly connect to any of the co-op's mission goals. Revise it to explain how it serves the community's economic priorities."],
+        bestAlt: best,
+      };
     }
-    return { decision: "revise", reasons: [`Improvement available: '${best.label}' (+${diff}).`], bestAlt: best };
+
+    return {
+      decision: "advance",
+      reasons: [
+        `This proposal scored ${(overallScore * 100).toFixed(0)}% and meets the co-op's screening standards. It's ready to move forward for community review and voting.`,
+      ],
+      bestAlt: best,
+    };
   }
 
-  // Map decision → legacy status
   private statusFromDecision(d: Decision): z.infer<typeof ProposalStatusZ> {
-    return d === "advance" ? "votable" : (d === "revise" ? "votable" : "draft");
+    if (d === "advance" || d === "revise") return "votable";
+    // "needs_info" and "block" both land as "submitted" (not yet votable)
+    return "submitted";
   }
 
-  // ── Utilities ─────────────────────────────────────────────────────────
+  // ── Utilities ─────────────────────────────────────────────────────────────
+
+  private applyChangesShallow(original: any, changes: { field: string; from?: any; to: any }[]): any {
+    const result = { ...original };
+    for (const change of (changes || [])) {
+      const parts = change.field.split(".");
+      if (parts.length === 1 && parts[0]) {
+        result[parts[0]] = change.to;
+      } else if (parts.length === 2 && parts[0] && parts[1]) {
+        if (!result[parts[0]]) result[parts[0]] = {};
+        result[parts[0]] = { ...result[parts[0]], [parts[1]]: change.to };
+      }
+    }
+    return result;
+  }
 
   private async readCharter(): Promise<string> {
     const candidates = [
@@ -646,6 +1296,57 @@ export class ProposalEngine {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+  }
+
+  /**
+   * Rewrites an existing proposal text to incorporate an alternative's suggested changes.
+   * The output is a new plain-English proposal text ready to be re-submitted through processProposal.
+   */
+  async rewriteWithAlternative(
+    originalText: string,
+    alternative: { label: string; rationale: string; changes: { field: string; from?: unknown; to: unknown }[] },
+  ): Promise<string> {
+    const RewriteSchema = z.object({
+      rewritten_text: z.string().describe("The revised proposal text incorporating the alternative's changes"),
+    });
+
+    const safeStr = (v: unknown): string => (v == null ? "current value" : typeof v === "object" ? JSON.stringify(v) : String(v as string | number | boolean));
+    const changesDescription = alternative.changes
+      .map(c => `  • ${c.field}: change from "${safeStr(c.from)}" to "${safeStr(c.to)}"`)
+      .join("\n");
+
+    const agent = new Agent({
+      name: "ProposalRewriteAgent",
+      instructions: [
+        "You are an expert cooperative proposal writer. Your job is to revise an existing proposal text to incorporate a specific set of suggested changes.",
+        "",
+        "RULES:",
+        "- Preserve the proposer's original voice and intent as much as possible.",
+        "- Only modify the parts that relate to the listed changes.",
+        "- Keep the text in plain, conversational language that any community member can understand.",
+        "- Do not add jargon, scoring terms, or technical analysis language.",
+        "- The output must be a complete, self-contained proposal text — not a summary or bullet points.",
+        "- Keep it concise: 150–350 words.",
+        "",
+        "Return ONLY valid JSON matching the schema.",
+      ].join("\n"),
+      model: "gpt-5.2",
+      outputType: RewriteSchema,
+    });
+
+    const result = await run(agent, [
+      `ORIGINAL PROPOSAL:\n${originalText}`,
+      ``,
+      `ALTERNATIVE LABEL: ${alternative.label}`,
+      `ALTERNATIVE RATIONALE: ${alternative.rationale}`,
+      ``,
+      `CHANGES TO INCORPORATE:\n${changesDescription}`,
+    ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
+
+    const out = result.finalOutput ?? result.output ?? {};
+    const rewritten = (out.rewritten_text as string | undefined)?.trim();
+    if (!rewritten) throw new Error("RewriteAgent returned empty text");
+    return rewritten;
   }
 }
 

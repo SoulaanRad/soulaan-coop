@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown } from "lucide-react";
+import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown, Vote } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
 import BackendWalletStatus from "./backend-wallet-status";
@@ -24,8 +24,8 @@ interface NavItem {
 interface NavGroup {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
-  href?: string; // Single item groups can have direct href
-  items?: NavItem[]; // Multi-item groups have dropdown
+  href?: string;
+  items?: NavItem[];
   adminOnly?: boolean;
 }
 
@@ -41,6 +41,14 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Members", href: "/portal/members", icon: Users },
       { title: "Applications", href: "/portal/applications", icon: FileText },
+    ],
+  },
+  {
+    title: "Governance",
+    icon: Vote,
+    items: [
+      { title: "Proposals", href: "/portal/proposals", icon: FileText },
+      { title: "Config", href: "/portal/proposals/config", icon: Settings, adminOnly: true },
     ],
   },
   {
@@ -83,7 +91,6 @@ export function PortalNav() {
     }
   };
 
-  // Check if any item in a group is active
   const isGroupActive = (group: NavGroup) => {
     if (group.href) {
       return pathname === group.href;
@@ -110,7 +117,6 @@ export function PortalNav() {
             {/* Navigation */}
             <nav className="flex items-center gap-1">
               {navGroups.map((group) => {
-                // Skip admin-only groups for non-admins
                 if (group.adminOnly && !isAdmin) {
                   return null;
                 }
@@ -152,14 +158,14 @@ export function PortalNav() {
                       {group.title}
                       <ChevronDown className="h-3 w-3 opacity-50" />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent 
-                      align="start" 
+                    <DropdownMenuContent
+                      align="start"
                       className="bg-slate-900 border-slate-700"
                     >
                       {group.items?.map((item) => {
                         const ItemIcon = item.icon;
                         const isItemActive = pathname === item.href;
-                        
+
                         return (
                           <DropdownMenuItem
                             key={item.href}

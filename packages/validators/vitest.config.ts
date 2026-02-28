@@ -8,6 +8,9 @@ export default defineConfig({
     // Increase timeout for AI agent calls
     testTimeout: 60000, // 60 seconds
     hookTimeout: 60000, // 60 seconds
+    teardownTimeout: 5000,
+    pool: 'threads',
+    singleThread: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

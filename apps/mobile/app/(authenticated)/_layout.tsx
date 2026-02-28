@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
-import { Home, User, Store } from 'lucide-react-native';
+import { Home, User, Store, FileText } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function AuthenticatedLayout() {
@@ -68,6 +68,21 @@ export default function AuthenticatedLayout() {
 
 
       <Tabs.Screen
+        name="proposals"
+        options={{
+          title: 'Proposals',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={focused ? {
+              backgroundColor: '#FEF3C7',
+              borderRadius: 12,
+              padding: 8,
+            } : { padding: 8 }}>
+              <FileText color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -104,6 +119,7 @@ export default function AuthenticatedLayout() {
       <Tabs.Screen name="order-detail" options={{ href: null }} />
       <Tabs.Screen name="fund-wallet" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="proposal-detail" options={{ href: null }} />
     </Tabs>
   );
 }

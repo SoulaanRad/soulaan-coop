@@ -27,39 +27,38 @@ describe('ProposalEngine (Agents)', () => {
       const input = createValidInput();
       const result = await engine.processProposal(input);
 
-      expect(result).toMatchObject({
-        id: expect.stringMatching(/^prop_[a-zA-Z0-9]{6}$/),
-        createdAt: expect.any(String),
-        // status decided by Decision Agent, allow any valid enum
-        status: expect.stringMatching(/^(draft|votable|approved|funded|rejected)$/),
-        title: expect.any(String),
-        summary: expect.any(String),
-        category: expect.any(String),
-        proposer: input.proposer,
-        region: input.region,
-        budget: expect.any(Object),
-        treasuryPlan: expect.any(Object),
-        impact: expect.any(Object),
-        scores: {
-          alignment: expect.any(Number),  // Mock values may vary
-          feasibility: expect.any(Number),
-          composite: expect.any(Number)
-        },
-        governance: {
-          quorumPercent: expect.any(Number),  // AI-generated values
-          approvalThresholdPercent: expect.any(Number),
-          votingWindowDays: expect.any(Number)
-        },
-        audit: {
-          engineVersion: expect.stringMatching(/^proposal-engine@/),
-          checks: expect.arrayContaining([
-            expect.objectContaining({
-              name: "basic_validation",
-              passed: true,
-            })
-          ])
-        }
-      });
+      // Basic structure checks
+      expect(result.id).toMatch(/^prop_[a-zA-Z0-9]{6}$/);
+      expect(result.createdAt).toBeDefined();
+      expect(typeof result.createdAt).toBe('string');
+      expect(result.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
+      expect(typeof result.title).toBe('string');
+      expect(typeof result.summary).toBe('string');
+      expect(typeof result.category).toBe('string');
+      expect(result.proposer).toEqual(input.proposer);
+      expect(result.region).toEqual(input.region);
+      expect(result.budget).toBeDefined();
+      expect(result.treasuryPlan).toBeDefined();
+      
+      // Evaluation structure
+      expect(result.evaluation).toBeDefined();
+      expect(result.evaluation.structural_scores).toBeDefined();
+      expect(Array.isArray(result.evaluation.mission_impact_scores)).toBe(true);
+      expect(result.evaluation.computed_scores).toBeDefined();
+      
+      // Governance
+      expect(result.governance).toBeDefined();
+      expect(typeof result.governance.quorumPercent).toBe('number');
+      expect(typeof result.governance.approvalThresholdPercent).toBe('number');
+      expect(typeof result.governance.votingWindowDays).toBe('number');
+      
+      // Audit
+      expect(result.audit).toBeDefined();
+      expect(result.audit.engineVersion).toMatch(/^proposal-engine@/);
+      expect(Array.isArray(result.audit.checks)).toBe(true);
+      const basicValidation = result.audit.checks.find(c => c.name === 'basic_validation');
+      expect(basicValidation).toBeDefined();
+      expect(basicValidation?.passed).toBe(true);
     });
 
     it('should generate unique IDs', async () => {
@@ -68,7 +67,7 @@ describe('ProposalEngine (Agents)', () => {
       const result2 = await engine.processProposal(input);
 
       expect(result1.id).not.toBe(result2.id);
-    });
+    }, 180_000);
 
     it('should still validate input schema', async () => {
       const invalidInput = createValidInput();
@@ -82,9 +81,9 @@ describe('ProposalEngine (Agents)', () => {
       const result = await proposalEngine.processProposal(input);
       
       expect(result.id).toBeDefined();
-      expect(result.status).toMatch(/^(draft|votable|approved|funded|rejected)$/);
-      expect(result.scores.alignment).toBeGreaterThanOrEqual(0);
-      expect(result.scores.alignment).toBeLessThanOrEqual(1);
+      expect(result.status).toMatch(/^(submitted|votable|approved|funded|rejected|failed)$/);
+      expect(result.evaluation.computed_scores.overall_score).toBeGreaterThanOrEqual(0);
+      expect(result.evaluation.computed_scores.overall_score).toBeLessThanOrEqual(1);
     });
   });
 

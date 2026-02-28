@@ -118,57 +118,226 @@ model Application {
   @@schema("public")
 }
 
+// ── Coop Configuration Models ────────────────────────────
+model CoopConfig {
+  id                        String   @id @default(cuid())
+  coopId                    String
+  version                   Int
+  isActive                  Boolean  @default(true)
+  charterText               String   @db.Text
+  missionGoals              Json     // [{ key, label, priorityWeight, description? }]
+  structuralWeights         Json     // { feasibility, risk, accountability } — sum to 1
+  scoreMix                  Json     // { missionWeight, structuralWeight } — sum to 1
+  screeningPassThreshold    Float    @default(0.6)  // 0..1
+  quorumPercent             Float    @default(15)
+  approvalThresholdPercent  Float    @default(51)
+  votingWindowDays          Int      @default(7)
+  scVotingCapPercent        Float    @default(2)
+  proposalCategories        Json     // [{ key, label, isActive }]
+  sectorExclusions          Json     // ["fashion", "restaurant", ...]
+  scorerAgents              Json     @default("[]") // [{ agentKey, label, enabled, promptTemplate?, model? }]
+  minScBalanceToSubmit      Float    @default(0)
+  aiAutoApproveThresholdUSD Float    @default(500)
+  councilVoteThresholdUSD   Float    @default(5000)
+  strongGoalThreshold       Float    @default(0.70)
+  missionMinThreshold       Float    @default(0.50)
+  structuralGate            Float    @default(0.65)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  createdBy                 String   // wallet address
+
+  // Relations
+  audits                    CoopConfigAudit[]
+
+  @@unique([coopId, version])
+  @@index([coopId, isActive])
+  @@schema("public")
+}
+
+// Proposed change to any config section — must be acknowledged before going live
+model ConfigAmendment {
+  id               String    @id @default(cuid())
+  coopId           String
+  section          String                        // e.g. "missionGoals", "votingRules"
+  proposedChanges  Json                          // { fieldName: newValue, ... }
+  currentSnapshot  Json                          // snapshot of the fields being replaced
+  reason           String
+  status           String    @default("PENDING") // PENDING | ACKNOWLEDGED | REJECTED | SUPERSEDED
+  proposedBy       String                        // wallet address
+  proposedAt       DateTime  @default(now())
+  reviewedBy       String?
+  reviewedAt       DateTime?
+
+  @@index([coopId, status])
+  @@index([coopId, section, status])
+  @@schema("public")
+}
+
+// Proposed charter text changes that must be acknowledged before going live
+model CharterAmendment {
+  id           String    @id @default(cuid())
+  coopId       String
+  proposedText String    @db.Text
+  currentText  String    @db.Text   // snapshot of text being replaced
+  reason       String
+  status       String    @default("PENDING") // PENDING | ACKNOWLEDGED | REJECTED
+  proposedBy   String                        // wallet address
+  proposedAt   DateTime  @default(now())
+  reviewedBy   String?                       // wallet address
+  reviewedAt   DateTime?
+
+  @@index([coopId, status])
+  @@schema("public")
+}
+
+model CoopConfigAudit {
+  id            String     @id @default(cuid())
+  coopConfigId  String
+  coopConfig    CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
+  changedBy     String     // wallet address
+  changedAt     DateTime   @default(now())
+  reason        String
+  diff          Json       // [{ field, before, after }]
+
+  @@index([coopConfigId])
+  @@schema("public")
+}
+
 // ── Proposal Engine Models ────────────────────────────
 model Proposal {
   id          String   @id @default(cuid())
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  status      ProposalStatus @default(DRAFT)
-  
+  status      ProposalStatus @default(SUBMITTED)
+
   // Core proposal data
   title       String
   summary     String
   category    ProposalCategory
-  
+
   // Proposer information
   proposerWallet     String
   proposerRole       ProposerRole
   proposerDisplayName String?
-  
+
   // Region and budget
   regionCode         String
   regionName         String
   budgetCurrency     Currency
   budgetAmount       Float
-  
-  // Treasury plan
-  localPercent       Float
-  nationalPercent    Float
-  acceptUC           Boolean @default(true)
-  
-  // Impact metrics
-  leakageReductionUSD Float @default(0)
-  jobsCreated        Int @default(0)
-  timeHorizonMonths  Int @default(12)
-  
-  // AI scores
-  alignmentScore     Float
-  feasibilityScore   Float
-  compositeScore     Float
-  
+
+  // Evaluation (new unified scoring model)
+  evaluation         Json?           // EvaluationZ: structural_scores, mission_impact_scores, computed_scores, violations, risk_flags, llm_summary
+  charterVersionId   String?         // snapshot of active CoopConfig.id at submission time
+
   // Governance settings
   quorumPercent              Float @default(20)
   approvalThresholdPercent   Float @default(60)
   votingWindowDays           Int @default(7)
-  
+
   // Audit trail
   engineVersion      String
-  
+
+  // Enhanced engine output
+  coopId             String?         // links to CoopConfig.coopId
+  categoryKey        String?         // dynamic category from CoopConfig
+  alternatives       Json?           // persisted Alternative[]
+  bestAlternative    Json?           // top Alternative
+  decision           String?         // "advance" | "revise" | "block"
+  decisionReasons    String[]        // reason strings
+  missingData        Json?           // MissingData[]
+
+  // Original submission text (stored for re-submission / edit flow)
+  rawText            String?         @db.Text
+
+  // Governance additions
+  councilRequired    Boolean         @default(false)
+  withdrawnAt        DateTime?
+  withdrawnBy        String?         // wallet address
+
   // Relations
   kpis               ProposalKPI[]
   auditChecks        ProposalAuditCheck[]
   votes              ProposalVote[]
-  
+  comments           ProposalComment[]
+  reactions          ProposalReaction[]
+  revisions          ProposalRevision[]
+
+  @@schema("public")
+}
+
+model ProposalRevision {
+  id             String   @id @default(cuid())
+  proposalId     String
+  revisionNumber Int
+  submittedAt    DateTime @default(now())
+  rawText        String?  @db.Text
+  evaluation     Json?
+  decision       String?
+  decisionReasons String[]
+  auditChecks    Json     // snapshot of audit checks at this revision
+  status         String
+  engineVersion  String
+
+  proposal       Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, revisionNumber])
+  @@schema("public")
+}
+
+// ── Expert Scoring Models ──────────────────────────────
+
+/** Many-to-many mapping: a wallet can be expert for multiple domains */
+model ExpertAssignment {
+  id            String   @id @default(cuid())
+  walletAddress String
+  domain        String   // e.g. 'finance', 'market', 'community', 'ops', 'general'
+  isActive      Boolean  @default(true)
+  assignedBy    String   // admin wallet that granted the assignment
+  assignedAt    DateTime @default(now())
+
+  @@unique([walletAddress, domain])
+  @@index([domain, isActive])
+  @@schema("public")
+}
+
+/** Per-goal score record for a specific proposal revision.
+ *  Stores both the AI score and optional expert override. */
+model ProposalGoalScore {
+  id             String   @id @default(cuid())
+  proposalId     String
+  revisionNumber Int
+  goalId         String   // matches MissionGoal.key
+  domain         String   // agent domain that produced the AI score
+  aiScore        Float
+  expertScore    Float?   // set when an expert provides an override
+  finalScore     Float    // aiScore unless expertScore is set (override policy)
+  expertWallet   String?  // wallet that submitted the expert override
+  expertReason   String?  // rationale for the override
+  updatedAt      DateTime @updatedAt
+
+  adjustmentLog  ProposalScoreAdjustmentLog[]
+
+  @@unique([proposalId, revisionNumber, goalId])
+  @@index([proposalId, revisionNumber])
+  @@index([domain])
+  @@schema("public")
+}
+
+/** Immutable audit trail of every expert score change */
+model ProposalScoreAdjustmentLog {
+  id           String   @id @default(cuid())
+  goalScoreId  String
+  fromScore    Float
+  toScore      Float
+  reason       String
+  expertWallet String
+  createdAt    DateTime @default(now())
+
+  goalScore    ProposalGoalScore @relation(fields: [goalScoreId], references: [id], onDelete: Cascade)
+
+  @@index([goalScoreId])
+  @@index([expertWallet, createdAt])
   @@schema("public")
 }
 
@@ -206,6 +375,49 @@ model ProposalVote {
   proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   
   @@unique([proposalId, voterWallet])
+  @@schema("public")
+}
+
+model ProposalComment {
+  id            String   @id @default(cuid())
+  proposalId    String
+  proposal      Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  authorWallet  String
+  authorName    String?
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  aiEvaluation  CommentAIEvaluation?
+
+  @@index([proposalId, createdAt])
+  @@schema("public")
+}
+
+model ProposalReaction {
+  id          String       @id @default(cuid())
+  proposalId  String
+  proposal    Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  voterWallet String
+  reaction    ReactionType
+  createdAt   DateTime     @default(now())
+
+  @@unique([proposalId, voterWallet])
+  @@index([proposalId])
+  @@schema("public")
+}
+
+model CommentAIEvaluation {
+  id            String           @id @default(cuid())
+  commentId     String           @unique
+  comment       ProposalComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  alignment     CommentAlignment
+  score         Float            // 0-1
+  analysis      String           @db.Text
+  goalsImpacted String[]
+  createdAt     DateTime         @default(now())
+
   @@schema("public")
 }
 
@@ -285,12 +497,21 @@ enum ApplicationStatus {
 }
 
 enum ProposalStatus {
-  DRAFT
+  SUBMITTED
   VOTABLE
   APPROVED
   FUNDED
   REJECTED
-  
+  FAILED
+  WITHDRAWN
+
+  @@schema("public")
+}
+
+enum ReactionType {
+  SUPPORT
+  CONCERN
+
   @@schema("public")
 }
 
@@ -337,6 +558,14 @@ enum VoteType {
   FOR
   AGAINST
   ABSTAIN
+
+  @@schema("public")
+}
+
+enum CommentAlignment {
+  ALIGNED
+  NEUTRAL
+  MISALIGNED
 
   @@schema("public")
 }

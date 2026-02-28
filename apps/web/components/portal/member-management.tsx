@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle } from "lucide-react";
+import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle, Star, X } from "lucide-react";
 
 type UserStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 
@@ -61,6 +61,11 @@ export default function MemberManagement() {
   });
   const [blockchainInfoModalOpen, setBlockchainInfoModalOpen] = useState(false);
   const [selectedUserForBlockchainInfo, setSelectedUserForBlockchainInfo] = useState<string | null>(null);
+
+  // Expert assignment state
+  const [expertModalOpen, setExpertModalOpen] = useState(false);
+  const [expertModalUser, setExpertModalUser] = useState<{ wallet: string; name: string } | null>(null);
+  const [selectedDomainToAssign, setSelectedDomainToAssign] = useState("");
 
   // Fetch users based on filter
   const allUsersQuery = api.admin.getAllUsersWithApplications.useQuery(undefined, {
@@ -150,6 +155,31 @@ export default function MemberManagement() {
       }
     }
   );
+
+  // Expert assignment queries/mutations
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+  const availableDomains = (coopConfig?.scorerAgents ?? []).filter((a: any) => a.enabled !== false);
+
+  const { data: expertAssignments, refetch: refetchExpertAssignments } = api.proposalExpert.listAssignments.useQuery(
+    { activeOnly: false },
+    { enabled: expertModalOpen && !!expertModalUser },
+  );
+  const memberAssignments = expertAssignments?.filter(
+    (a: any) => a.walletAddress.toLowerCase() === expertModalUser?.wallet?.toLowerCase()
+  ) ?? [];
+
+  const assignExpert = api.proposalExpert.assignExpert.useMutation({
+    onSuccess: () => { refetchExpertAssignments(); setSelectedDomainToAssign(""); },
+  });
+
+  const revokeExpert = api.proposalExpert.revokeExpert.useMutation({
+    onSuccess: () => refetchExpertAssignments(),
+  });
+
+  const handleOpenExpertModal = (wallet: string, name: string) => {
+    setExpertModalUser({ wallet, name });
+    setExpertModalOpen(true);
+  };
 
   const handleStatusChange = (userId: string, newStatus: UserStatus) => {
     updateStatus.mutate({
@@ -415,6 +445,17 @@ export default function MemberManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {user.walletAddress && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-amber-500 hover:text-amber-400"
+                          onClick={() => handleOpenExpertModal(user.walletAddress, user.name || user.email)}
+                          title="Manage expert domains"
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                      )}
                       {user.status === 'ACTIVE' && (
                         <Button
                           variant="ghost"
@@ -986,6 +1027,101 @@ export default function MemberManagement() {
                 Sync Now
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expert Assignment Modal */}
+      <Dialog open={expertModalOpen} onOpenChange={open => { setExpertModalOpen(open); if (!open) { setExpertModalUser(null); setSelectedDomainToAssign(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-400" />
+              Expert Domains
+            </DialogTitle>
+            <DialogDescription>
+              Manage scorer-expert assignments for <span className="font-semibold text-white">{expertModalUser?.name}</span>
+              <span className="block text-xs font-mono mt-0.5 text-gray-500">{expertModalUser?.wallet}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Current assignments */}
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Current Expert Domains</p>
+              {memberAssignments.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No expert domains assigned</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {memberAssignments.map((a: any) => (
+                    <div
+                      key={a.id}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                        a.isActive
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                          : "bg-slate-700/50 border-slate-600 text-gray-500 line-through"
+                      }`}
+                    >
+                      <Star className="h-3 w-3" />
+                      {a.domain}
+                      {a.isActive && (
+                        <button
+                          className="ml-1 hover:text-red-400 transition-colors"
+                          title="Revoke this domain"
+                          onClick={() => revokeExpert.mutate({ walletAddress: expertModalUser!.wallet, domain: a.domain })}
+                          disabled={revokeExpert.isPending}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Assign new domain */}
+            <div className="space-y-2 border-t border-slate-700 pt-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Assign New Domain</p>
+              <div className="flex gap-2">
+                <Select value={selectedDomainToAssign} onValueChange={setSelectedDomainToAssign}>
+                  <SelectTrigger className="flex-1 bg-slate-800 border-slate-600 text-white">
+                    <SelectValue placeholder="Select a domain…" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700">
+                    {availableDomains.length === 0 ? (
+                      <SelectItem value="_none" disabled className="text-gray-500">No domains configured</SelectItem>
+                    ) : (
+                      availableDomains
+                        .filter((d: any) => !memberAssignments.some((a: any) => a.domain === d.agentKey && a.isActive))
+                        .map((d: any) => (
+                          <SelectItem key={d.agentKey} value={d.agentKey} className="text-white hover:bg-slate-700">
+                            {d.label}
+                          </SelectItem>
+                        ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  className="bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                  disabled={!selectedDomainToAssign || assignExpert.isPending}
+                  onClick={() => {
+                    if (expertModalUser && selectedDomainToAssign) {
+                      assignExpert.mutate({ walletAddress: expertModalUser.wallet, domain: selectedDomainToAssign });
+                    }
+                  }}
+                >
+                  {assignExpert.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign"}
+                </Button>
+              </div>
+              {assignExpert.isError && (
+                <p className="text-xs text-red-400">{(assignExpert.error as any)?.message ?? "Failed to assign."}</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExpertModalOpen(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
