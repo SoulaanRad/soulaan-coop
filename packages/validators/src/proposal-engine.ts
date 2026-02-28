@@ -673,9 +673,10 @@ export class ProposalEngine {
         accountability_rationale: z.string().optional(),
         accountability_evidence_refs: z.array(z.string()).optional(),
       }),
-      violations: z.array(z.string()),
-      risk_flags: z.array(z.string()),
-      llm_summary: z.string(),
+      // Keep these tolerant because the model can occasionally omit them.
+      violations: z.array(z.string()).default([]),
+      risk_flags: z.array(z.string()).default([]),
+      llm_summary: z.string().default(""),
     });
 
     const structuralAgent = new Agent({
