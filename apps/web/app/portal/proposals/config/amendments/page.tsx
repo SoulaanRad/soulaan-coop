@@ -22,7 +22,7 @@ import {
 
 type StatusFilter = "ALL" | "PENDING" | "ACKNOWLEDGED" | "REJECTED" | "SUPERSEDED";
 
-type ConfigAmendment = {
+interface ConfigAmendment {
   id: string;
   type: "config";
   section: string;
@@ -34,9 +34,9 @@ type ConfigAmendment = {
   reviewedAt: string | null;
   proposedChanges: Record<string, unknown>;
   currentSnapshot: Record<string, unknown>;
-};
+}
 
-type CharterAmendment = {
+interface CharterAmendment {
   id: string;
   type: "charter";
   reason: string;
@@ -47,7 +47,7 @@ type CharterAmendment = {
   reviewedAt: string | null;
   proposedText: string;
   currentText: string;
-};
+}
 
 type AnyAmendment = ConfigAmendment | CharterAmendment;
 

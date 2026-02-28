@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 vi.mock("@openai/agents", () => {
   class MockAgent {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     constructor(_opts: any) {}
   }
   return {

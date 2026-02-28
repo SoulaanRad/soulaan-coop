@@ -615,7 +615,7 @@ export default function ProposalDetailPage() {
                     rev.decision === "advance" ? "text-green-400 border-green-500/30 bg-green-500/5" :
                     rev.decision === "block"   ? "text-red-400 border-red-500/30 bg-red-500/5" :
                     "text-amber-400 border-amber-500/30 bg-amber-500/5";
-                  const overallScore = (rev.evaluation as any)?.computed_scores?.overall_score;
+                  const overallScore = (rev.evaluation)?.computed_scores?.overall_score;
                   return (
                     <div key={rev.revisionNumber} className="border border-slate-700 rounded-lg overflow-hidden">
                       <button
@@ -658,11 +658,11 @@ export default function ProposalDetailPage() {
                           )}
 
                           {/* Compliance checks */}
-                          {(rev.auditChecks as any[]).length > 0 && (
+                          {(rev.auditChecks).length > 0 && (
                             <div>
                               <p className="text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Compliance Checks</p>
                               <div className="space-y-1">
-                                {(rev.auditChecks as any[]).map((check: any, i: number) => (
+                                {(rev.auditChecks).map((check: any, i: number) => (
                                   <div key={i} className="flex items-center gap-2 text-xs">
                                     {check.passed
                                       ? <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
@@ -676,10 +676,10 @@ export default function ProposalDetailPage() {
                           )}
 
                           {/* AI Summary */}
-                          {(rev.evaluation as any)?.llm_summary && (
+                          {(rev.evaluation)?.llm_summary && (
                             <div>
                               <p className="text-xs text-gray-500 mb-1 uppercase tracking-wide">AI Summary</p>
-                              <p className="text-xs text-gray-400 italic">{(rev.evaluation as any).llm_summary}</p>
+                              <p className="text-xs text-gray-400 italic">{(rev.evaluation).llm_summary}</p>
                             </div>
                           )}
 

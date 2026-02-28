@@ -4,6 +4,7 @@ import type { CoopConfigData } from "../proposal-engine.js";
 // Mock @openai/agents to avoid real API calls
 vi.mock("@openai/agents", () => {
   class MockAgent {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     constructor(_opts: any) {}
   }
   return {
@@ -237,7 +238,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const config = createConfig();
     config.sectorExclusions = [{ value: "gambling" }, { value: "tobacco" }];
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "This is about a gambling business", proposer: null, region: null },
       { title: "Gambling Proposal", summary: "..." },
       config,
@@ -252,7 +253,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "Community solar panel installation project" },
       { title: "Solar Panels", summary: "Green energy project" },
       config,
@@ -266,7 +267,7 @@ describe("ProposalEngine with CoopConfig", () => {
     const engine = new ProposalEngine();
     const config = createConfig();
 
-    const checks = await (engine as any).runComplianceChecks(
+    const checks = await (engine).runComplianceChecks(
       { text: "Test proposal text for community project" },
       { title: "Test", summary: "test" },
       config,

@@ -1,11 +1,11 @@
 import { Agent, run, webSearchTool } from "@openai/agents";
 import { z } from "zod";
-import type { ProposalInput, ProposalOutput, Alternative, MissingData, Decision, Evaluation, MissionImpactScore, MissionGoalBreakdownItem, StructuralBreakdownItem, ScorerAgent } from "./proposal.js";
+import type { ProposalInput, ProposalOutput, Alternative, MissingData, Decision, Evaluation, MissionImpactScore, MissionGoalBreakdownItem, StructuralBreakdownItem, ScorerAgent ,
+  ProposalStatusZ} from "./proposal.js";
 import {
   ProposalInputZ,
   ProposalOutputZ,
   buildOutput,
-  ProposalStatusZ,
   AlternativeZ,
   MissingDataZ,
   MissingSeverityZ,
@@ -41,12 +41,12 @@ export interface CoopConfigData {
    * Fetched from ProposalGoalScore history before scoring and injected into each
    * domain agent's prompt so the AI learns from past human corrections.
    */
-  expertCalibration?: Record<string, Array<{
+  expertCalibration?: Record<string, {
     goalId: string;
     aiScore: number;
     expertScore: number;
     reason: string;
-  }>>;
+  }[]>;
   /** A single mission goal must reach this score (0..1) for mission alignment. Default 0.70. */
   strongGoalThreshold?: number;
   /** Weighted average mission score must meet this floor (0..1). Default 0.50. */
