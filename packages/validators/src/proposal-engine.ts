@@ -925,7 +925,8 @@ export class ProposalEngine {
   ): Promise<MissingData[]> {
     const MDItemSchema = MissingDataZ;
     const MDWrapperSchema = z.object({
-      missing_data: z.array(MDItemSchema).max(10),
+      // Allow model to over-return; we enforce hard cap after parsing.
+      missing_data: z.array(MDItemSchema),
     });
 
     const passThreshold = config?.screeningPassThreshold ?? DEFAULT_PASS_THRESHOLD;
@@ -1042,7 +1043,7 @@ export class ProposalEngine {
     ].join("\n")) as unknown as { finalOutput?: Record<string, unknown>; output?: Record<string, unknown> };
 
     const output = result.finalOutput ?? result.output ?? {};
-    const rawItems = (output.missing_data as unknown[]) ?? [];
+    const rawItems = output.missing_data as unknown[];
     // Truncate to max 10 items to comply with schema validation
     const truncatedItems = rawItems.slice(0, 10);
     return truncatedItems.map((item: unknown) => {
