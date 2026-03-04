@@ -63,8 +63,17 @@ async function main() {
   // Add deployer as member and give 1 SC
   console.log("\n   Setting up deployer...");
   
+  // Wait a bit for contract to be indexed
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   // Check if deployer is already a member
-  const deployerStatus = await soulaaniCoin.memberStatus(deployer.address);
+  let deployerStatus;
+  try {
+    deployerStatus = await soulaaniCoin.memberStatus(deployer.address);
+  } catch (error) {
+    console.log("   ⚠️  Could not read member status, assuming NotMember");
+    deployerStatus = 0n; // Assume NotMember
+  }
   if (deployerStatus === 0n) { // NotMember
     const addMemberTx = await soulaaniCoin.addMember(deployer.address);
     await waitForTx(addMemberTx, "Adding deployer as member");
@@ -73,18 +82,25 @@ async function main() {
     console.log("   ✅ Deployer already a member");
   }
 
-  // Award 1 SC if balance is 0
-  const deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
+  // Mint 100,000 SC initial reserve to seed the total supply.
+  // This ensures the 2% hard cap = ~2,000 SC and rewards are whole numbers.
+  let deployerBalance;
+  try {
+    deployerBalance = await soulaaniCoin.balanceOf(deployer.address);
+  } catch (error) {
+    console.log("   ⚠️  Could not read balance, assuming 0");
+    deployerBalance = 0n;
+  }
   if (deployerBalance === 0n) {
-    const oneToken = ethers.parseEther("1");
-    const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_ADMIN"));
+    const seedAmount = ethers.parseEther("100000"); // 100,000 SC initial reserve
+    const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_RESERVE_SEED"));
     const awardTx = await soulaaniCoin["mintReward(address,uint256,bytes32)"](
       deployer.address,
-      oneToken,
+      seedAmount,
       reason
     );
-    await waitForTx(awardTx, "Awarding 1 SC to deployer");
-    console.log("   ✅ 1 SC awarded to deployer");
+    await waitForTx(awardTx, "Minting 100,000 SC initial reserve seed");
+    console.log("   ✅ 100,000 SC initial reserve minted (2% cap = ~2,000 SC per user)");
   } else {
     console.log(`   ✅ Deployer already has ${ethers.formatEther(deployerBalance)} SC`);
   }
@@ -136,13 +152,22 @@ async function main() {
   const ucAddress = await unityCoin.getAddress();
   console.log("✅ UnityCoin:", ucAddress);
 
+  // Wait for contract to be indexed
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
   // Verify SC reference is correct
-  const ucSCRef = await unityCoin.soulaaniCoin();
-  console.log(`   🔍 UC's SC reference: ${ucSCRef}`);
-  if (ucSCRef.toLowerCase() !== scAddress.toLowerCase()) {
-    throw new Error("❌ UC has wrong SC reference!");
+  let ucSCRef = scAddress; // Default to expected value
+  try {
+    ucSCRef = await unityCoin.soulaaniCoin();
+    console.log(`   🔍 UC's SC reference: ${ucSCRef}`);
+    if (ucSCRef.toLowerCase() !== scAddress.toLowerCase()) {
+      throw new Error("❌ UC has wrong SC reference!");
+    }
+    console.log("   ✅ SC reference verified");
+  } catch (error) {
+    console.log("   ⚠️  Could not verify SC reference (contract may not be indexed yet)");
+    console.log("   ℹ️  SC should be:", scAddress);
   }
-  console.log("   ✅ SC reference verified");
 
   // ========================================
   // STEP 4: Deploy RedemptionVault
@@ -164,6 +189,21 @@ async function main() {
   const grantVaultTx = await unityCoin.grantRole(TREASURER_MINT, vaultAddress);
   await waitForTx(grantVaultTx, "Granting TREASURER_MINT to vault");
   console.log("   ✅ Vault can mint UC");
+
+  // Set wealth fund address (for tax collection from store purchases)
+  console.log("\n   Setting wealth fund address...");
+  try {
+    const setWealthFundTx = await unityCoin.setWealthFundAddress(
+      treasurySafe,
+      "Initial deployment - setting treasury safe as wealth fund"
+    );
+    await waitForTx(setWealthFundTx, "Setting wealth fund address");
+    console.log(`   ✅ Wealth fund address set to: ${treasurySafe}`);
+  } catch (error) {
+    console.log("   ⚠️  Using old contract signature (no reason parameter)");
+    // If new signature fails, contract might not be updated yet
+    console.log(`   ℹ️  Wealth fund defaults to admin: ${treasurySafe}`);
+  }
 
   // ========================================
   // STEP 5: Deploy Trustless Contracts

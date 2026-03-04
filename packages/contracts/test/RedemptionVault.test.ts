@@ -942,7 +942,7 @@ describe("RedemptionVault", function () {
     it("Should allow admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(vault.connect(admin).setClearingContract(newClearingContract))
+      await expect(vault.connect(admin).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.emit(vault, "ClearingContractChanged")
         .withArgs(ethers.ZeroAddress, newClearingContract, admin.address);
       
@@ -962,7 +962,7 @@ describe("RedemptionVault", function () {
     it("Should not allow non-admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(vault.connect(user1).setClearingContract(newClearingContract))
+      await expect(vault.connect(user1).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.be.revertedWithCustomError(vault, "AccessControlUnauthorizedAccount");
     });
 
@@ -972,7 +972,7 @@ describe("RedemptionVault", function () {
     });
 
     it("Should revert if setting clearing contract to zero address", async function () {
-      await expect(vault.connect(admin).setClearingContract(ethers.ZeroAddress))
+      await expect(vault.connect(admin).setClearingContract(ethers.ZeroAddress, "Clearing zero address test"))
         .to.be.revertedWith("Clearing contract cannot be zero address");
     });
 

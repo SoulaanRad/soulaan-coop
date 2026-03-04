@@ -21,6 +21,7 @@ import { coopConfigRouter } from "./coop-config.js";
 import { proposalCommentRouter } from "./proposal-comment.js";
 import { proposalReactionRouter } from "./proposal-reaction.js";
 import { proposalExpertRouter } from "./proposal-expert.js";
+import { treasuryRouter } from "./treasury.js";
 
 
 export const appRouter = router({
@@ -45,6 +46,7 @@ export const appRouter = router({
   proposalComment: proposalCommentRouter,
   proposalReaction: proposalReactionRouter,
   proposalExpert: proposalExpertRouter,
+  treasury: treasuryRouter,
 });
 
 export type AppRouter = typeof appRouter;

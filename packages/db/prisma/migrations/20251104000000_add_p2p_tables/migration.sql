@@ -13,8 +13,11 @@ CREATE TYPE "public"."PendingStatus" AS ENUM ('PENDING_CLAIM', 'CLAIMED_TO_BANK'
 -- CreateEnum
 CREATE TYPE "public"."WithdrawalStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
 
--- AlterTable
+-- AlterTable (UserProfile username - UserProfile created in 20251103)
 ALTER TABLE "auth"."UserProfile" ADD COLUMN     "username" TEXT;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UserProfile_username_key" ON "auth"."UserProfile"("username");
 
 -- AlterTable
 ALTER TABLE "public"."Application" ADD COLUMN     "documentCID" TEXT,
@@ -206,9 +209,6 @@ CREATE INDEX "Withdrawal_status_idx" ON "public"."Withdrawal"("status");
 
 -- CreateIndex
 CREATE INDEX "Notification_userId_read_createdAt_idx" ON "public"."Notification"("userId", "read", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "UserProfile_username_key" ON "auth"."UserProfile"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_phone_key" ON "public"."User"("phone");

@@ -1,15 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { coopConfig } from '@/lib/coop-config';
+
+/**
+ * Format SC balance as whole integers with comma separators.
+ * SC rewards are whole numbers (10 SC per $1), so no decimals needed.
+ */
+function formatSCBalance(raw: string): string {
+  const num = parseFloat(raw);
+  if (isNaN(num) || num === 0) return '0';
+  return Math.floor(num).toLocaleString();
+}
 
 /**
  * Truncate wallet address for display
@@ -38,6 +48,16 @@ export default function HomeScreen() {
       loadData();
     }
   }, [user?.id]);
+
+  // Refresh balances and recent transactions whenever the screen comes back into focus
+  // (e.g. after returning from a store purchase or sending a payment)
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id && !isLoading) {
+        loadData();
+      }
+    }, [user?.id])
+  );
 
   const loadData = async () => {
     if (!user?.id) return;
@@ -247,7 +267,7 @@ export default function HomeScreen() {
                 {isLoading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text className="text-white text-2xl font-bold">{parseFloat(scBalance).toFixed(2)} SC</Text>
+                  <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} SC</Text>
                 )}
               </LinearGradient>
             </View>
@@ -354,7 +374,7 @@ export default function HomeScreen() {
                         }`}
                       >
                         {isSCReward 
-                          ? `+${tx.amount.toFixed(2)} SC`
+                          ? `+${formatSCBalance(String(tx.amount))} SC`
                           : `${isReceived ? '+' : '-'}$${tx.amount.toFixed(2)}`
                         }
                       </Text>

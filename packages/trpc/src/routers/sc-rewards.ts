@@ -12,6 +12,7 @@ import {
   checkMemberStatus
 } from "../services/sc-validation-service.js";
 import { mintSCToUser, SC_REWARD_REASONS } from "../services/wallet-service.js";
+import { runRetryCycle } from "../services/reward-retry-service.js";
 
 export const scRewardsRouter = router({
   /**
@@ -317,18 +318,19 @@ export const scRewardsRouter = router({
 
       // Attempt to mint SC
       try {
-        const txHash = await mintSCToUser(
+        const { txHash, actualAmountSC } = await mintSCToUser(
           reward.userId,
           reward.amountSC,
           reward.reason // Use the reason directly from the database
         );
 
-        // Update record to COMPLETED
+        // Update record to COMPLETED with actual minted amount
         await context.db.sCRewardTransaction.update({
           where: { id: input.id },
           data: {
             status: 'COMPLETED',
             txHash,
+            amountSC: actualAmountSC,
             completedAt: new Date(),
             failureReason: null,
             retryCount: { increment: 1 },
@@ -564,4 +566,18 @@ export const scRewardsRouter = router({
         });
       }
     }),
+
+  /**
+   * Manually trigger one retry cycle for all FAILED / stuck PENDING SC rewards
+   * and any missing treasury reserve entries. Admin only.
+   */
+  retryAllFailed: privateProcedure.mutation(async ({ ctx }: { ctx: AuthenticatedContext }) => {
+    const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+    if (!adminStatus.isAdmin) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admin access required' });
+    }
+
+    await runRetryCycle();
+    return { success: true };
+  }),
 });

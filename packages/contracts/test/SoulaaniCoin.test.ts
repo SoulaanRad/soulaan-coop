@@ -239,6 +239,145 @@ describe("SoulaaniCoin (SC)", function () {
     });
   });
 
+  describe("Awarding SC with Source UC Transaction", function () {
+    const SOURCE_UC_TX = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    
+    beforeEach(async function () {
+      // Add members before awarding
+      await sc.connect(governanceBot).addMember(member1.address);
+      await sc.connect(governanceBot).addMember(member2.address);
+    });
+
+    it("Should store mint record with source UC tx and treasury reserve", async function () {
+      const amount = ethers.parseEther("10");
+      const treasuryReserve = ethers.parseEther("5"); // 5 UC reserved
+      
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member1.address, 
+        amount, 
+        REASON_RENT,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+
+      const historyLength = await sc.getMintHistoryLength();
+      expect(historyLength).to.equal(1);
+
+      const record = await sc.getMintRecord(0);
+      expect(record.treasuryReserveAmount).to.equal(treasuryReserve);
+      expect(record.recipient).to.equal(member1.address);
+      expect(record.amount).to.be.lte(amount); // May be reduced by diminishing returns
+      expect(record.reason).to.equal(REASON_RENT);
+      expect(record.sourceUcTxHash).to.equal(SOURCE_UC_TX);
+      expect(record.awarder).to.equal(governanceBot.address);
+    });
+
+    it("Should emit AwardedWithSource event", async function () {
+      const amount = ethers.parseEther("10");
+      const treasuryReserve = ethers.parseEther("5");
+
+      await expect(
+        sc.connect(governanceBot).mintRewardWithSource(
+          member1.address, 
+          amount, 
+          REASON_RENT,
+          SOURCE_UC_TX,
+          treasuryReserve
+        )
+      )
+        .to.emit(sc, "AwardedWithSource")
+        .withArgs(member1.address, amount, REASON_RENT, governanceBot.address, SOURCE_UC_TX, 0);
+    });
+
+    it("Should index multiple mints by source UC tx", async function () {
+      const amount = ethers.parseEther("10");
+      const treasuryReserve = ethers.parseEther("5");
+      
+      // Mint to member1 from SOURCE_UC_TX
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member1.address, 
+        amount, 
+        REASON_SPENDING,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+      
+      // Mint to member2 from same SOURCE_UC_TX
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member2.address, 
+        amount, 
+        REASON_SPENDING,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+
+      const indices = await sc.getMintsBySourceTx(SOURCE_UC_TX);
+      expect(indices.length).to.equal(2);
+      expect(indices[0]).to.equal(0);
+      expect(indices[1]).to.equal(1);
+    });
+
+    it("Should retrieve mint records by source UC tx", async function () {
+      const amount = ethers.parseEther("10");
+      const treasuryReserve = ethers.parseEther("5");
+      
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member1.address, 
+        amount, 
+        REASON_SPENDING,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+      
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member2.address, 
+        amount, 
+        REASON_SPENDING,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+
+      const records = await sc.getMintRecordsBySourceTx(SOURCE_UC_TX);
+      expect(records.length).to.equal(2);
+      expect(records[0].recipient).to.equal(member1.address);
+      expect(records[1].recipient).to.equal(member2.address);
+      expect(records[0].sourceUcTxHash).to.equal(SOURCE_UC_TX);
+      expect(records[1].sourceUcTxHash).to.equal(SOURCE_UC_TX);
+      expect(records[0].treasuryReserveAmount).to.equal(treasuryReserve);
+      expect(records[1].treasuryReserveAmount).to.equal(treasuryReserve);
+    });
+
+    it("Should mint SC tokens and update balance", async function () {
+      const amount = ethers.parseEther("10");
+      const treasuryReserve = ethers.parseEther("5");
+      
+      await sc.connect(governanceBot).mintRewardWithSource(
+        member1.address, 
+        amount, 
+        REASON_RENT,
+        SOURCE_UC_TX,
+        treasuryReserve
+      );
+
+      expect(await sc.balanceOf(member1.address)).to.be.lte(amount);
+      expect(await sc.totalSupply()).to.be.lte(amount);
+    });
+
+    it("Should not allow awarding to non-active member", async function () {
+      await sc.connect(governanceBot).suspendMember(member1.address);
+
+      await expect(
+        sc.connect(governanceBot).mintRewardWithSource(
+          member1.address, 
+          ethers.parseEther("10"), 
+          REASON_RENT,
+          SOURCE_UC_TX,
+          ethers.parseEther("5")
+        )
+      ).to.be.revertedWithCustomError(sc, "NotActiveMember");
+    });
+  });
+
   describe("Slashing SC", function () {
     const initialAmount = ethers.parseEther("100");
 
@@ -1348,7 +1487,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should allow admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(sc.connect(governanceBot).setClearingContract(newClearingContract))
+      await expect(sc.connect(governanceBot).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.emit(sc, "ClearingContractChanged")
         .withArgs(ethers.ZeroAddress, newClearingContract, governanceBot.address);
       
@@ -1368,7 +1507,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should not allow non-admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(sc.connect(member1).setClearingContract(newClearingContract))
+      await expect(sc.connect(member1).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.be.revertedWithCustomError(sc, "AccessControlUnauthorizedAccount");
     });
 
@@ -1378,7 +1517,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should revert if setting clearing contract to zero address", async function () {
-      await expect(sc.connect(governanceBot).setClearingContract(ethers.ZeroAddress))
+      await expect(sc.connect(governanceBot).setClearingContract(ethers.ZeroAddress, "Clearing zero address test"))
         .to.be.revertedWith("Clearing contract cannot be zero address");
     });
 

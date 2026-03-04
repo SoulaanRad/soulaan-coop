@@ -63,6 +63,20 @@ export default function SCRewardsPage() {
     offset: 0,
   });
 
+  // Retry all failed mutation
+  const retryAll = api.scRewards.retryAllFailed.useMutation({
+    onSuccess: () => {
+      toast.success('Retry cycle complete', {
+        description: 'All failed and stuck transactions have been retried.',
+      });
+      refetchRewards();
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error('Retry failed', { description: error.message });
+    },
+  });
+
   // Reconcile mutation
   const reconcile = api.scRewards.reconcileSCRewards.useMutation({
     onSuccess: (data) => {
@@ -137,6 +151,19 @@ export default function SCRewardsPage() {
             Refresh
           </Button>
           <Button
+            onClick={() => retryAll.mutate()}
+            variant="outline"
+            disabled={retryAll.isPending}
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+          >
+            {retryAll.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Retry All Failed
+          </Button>
+          <Button
             onClick={() => setShowReconcileDialog(true)}
             variant="outline"
             className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
@@ -170,10 +197,10 @@ export default function SCRewardsPage() {
                 <div>
                   <p className="text-sm text-gray-400">Total SC Minted</p>
                   <p className="text-2xl font-bold text-white mt-1">
-                    {stats.totalMintedDB.toFixed(2)}
+                    {Math.floor(stats.totalMintedDB).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    On-chain: {stats.totalOnChain.toFixed(2)}
+                    On-chain: {Math.floor(stats.totalOnChain).toLocaleString()}
                   </p>
                 </div>
                 <Coins className="h-10 w-10 text-amber-500" />
@@ -226,10 +253,10 @@ export default function SCRewardsPage() {
                 <div>
                   <p className="text-sm text-gray-400">This Week</p>
                   <p className="text-2xl font-bold text-white mt-1">
-                    {stats.weekMinted.toFixed(2)}
+                    {Math.floor(stats.weekMinted).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Today: {stats.todayMinted.toFixed(2)}
+                    Today: {Math.floor(stats.todayMinted).toLocaleString()}
                   </p>
                 </div>
                 <Clock className="h-10 w-10 text-blue-500" />

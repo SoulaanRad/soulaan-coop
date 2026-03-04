@@ -38,6 +38,9 @@ interface SCReward {
   reason: string;
   status: string;
   txHash: string | null;
+  sourceUcTxHash: string | null;
+  sourceType: string | null;
+  sourceRecordId: string | null;
   createdAt: Date;
   completedAt: Date | null;
   failedAt: Date | null;
@@ -96,7 +99,7 @@ function RetryDialogContent({ reward }: { reward: SCReward }) {
         </div>
         
         <span className="text-gray-400">Amount:</span>
-        <span className="text-amber-400 font-semibold">{reward.amountSC.toFixed(4)} SC</span>
+        <span className="text-amber-400 font-semibold">{Math.floor(reward.amountSC).toLocaleString()} SC</span>
         
         <span className="text-gray-400">Retry Count:</span>
         <span className="text-white">{reward.retryCount} / 3</span>
@@ -259,7 +262,7 @@ export function SCRewardsTable({ rewards, onRefresh }: SCRewardsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <span className="text-amber-400 font-semibold">{reward.amountSC.toFixed(4)} SC</span>
+                  <span className="text-amber-400 font-semibold">{Math.floor(reward.amountSC).toLocaleString()} SC</span>
                 </TableCell>
                 <TableCell>{getReasonBadge(reward.reason)}</TableCell>
                 <TableCell>{getStatusBadge(reward.status)}</TableCell>
@@ -278,19 +281,38 @@ export function SCRewardsTable({ rewards, onRefresh }: SCRewardsTableProps) {
                   )}
                 </TableCell>
                 <TableCell>
-                  {reward.txHash ? (
-                    <a
-                      href={getBlockExplorerUrl(reward.txHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-amber-400 hover:text-amber-300 inline-flex items-center gap-1 text-sm"
-                    >
-                      {reward.txHash.slice(0, 6)}...{reward.txHash.slice(-4)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    <span className="text-gray-500">-</span>
-                  )}
+                  <div className="space-y-1">
+                    {reward.txHash ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">SC:</span>
+                        <a
+                          href={getBlockExplorerUrl(reward.txHash)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-amber-400 hover:text-amber-300 inline-flex items-center gap-1 text-sm"
+                        >
+                          {reward.txHash.slice(0, 6)}...{reward.txHash.slice(-4)}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                    {reward.sourceUcTxHash && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">UC:</span>
+                        <a
+                          href={getBlockExplorerUrl(reward.sourceUcTxHash)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1 text-xs"
+                        >
+                          {reward.sourceUcTxHash.slice(0, 6)}...{reward.sourceUcTxHash.slice(-4)}
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">

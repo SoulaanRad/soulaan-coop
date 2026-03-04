@@ -32,6 +32,8 @@
     "deploy:trustless:sepolia": "hardhat run scripts/deploy-trustless.ts --network baseSepolia",
     "deploy:trustless:mainnet": "hardhat run scripts/deploy-trustless.ts --network base",
     "deploy:trustless:local": "hardhat run scripts/deploy-trustless.ts --network localhost",
+    "seed-sc-reserve:sepolia": "hardhat run scripts/seed-sc-reserve.ts --network baseSepolia",
+    "seed-sc-reserve:mainnet": "hardhat run scripts/seed-sc-reserve.ts --network base",
     "seed-stores:sepolia": "hardhat run scripts/seed-verified-stores.ts --network baseSepolia",
     "seed-stores:mainnet": "hardhat run scripts/seed-verified-stores.ts --network base",
     "seed-stores:local": "hardhat run scripts/seed-verified-stores.ts --network localhost",

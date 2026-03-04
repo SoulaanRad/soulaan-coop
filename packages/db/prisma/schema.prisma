@@ -5,6 +5,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+
   schemas  = ["auth", "public"]
 }
 
@@ -1224,6 +1226,11 @@ model SCRewardTransaction {
   // Blockchain
   txHash        String?  @unique
   
+  // Source UC transaction tracking (ties SC mint to originating treasury transaction)
+  sourceUcTxHash   String?  // UC payment tx that triggered this SC reward
+  sourceType       String?  // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL' | null
+  sourceRecordId   String?  // ID of source record (StoreOrder.id or P2PTransfer.id)
+  
   // Context - link to store purchase
   relatedStoreId   String?
   relatedStore     Store?  @relation(fields: [relatedStoreId], references: [id])
@@ -1247,6 +1254,8 @@ model SCRewardTransaction {
   @@index([status])
   @@index([relatedStoreId])
   @@index([relatedOrderId])
+  @@index([sourceUcTxHash])
+  @@index([sourceRecordId])
   @@schema("public")
 }
 
@@ -1265,3 +1274,71 @@ enum SCRewardStatus {
 
   @@schema("public")
 }
+
+// ── Treasury Reserve Tracking Models ────────────────────────────
+
+model TreasuryReservePolicy {
+  id                    String   @id @default(cuid())
+  coopId                String   @default("soulaan")
+  
+  // Default reserve rate in basis points (500 = 5%)
+  defaultReserveBps     Int      @default(500)
+  
+  // Optional overrides for special programs
+  badgeReserveBps       Int?     // Override for badge-linked transactions
+  programReserveBps     Json?    // { "program_key": bps_value } for special programs
+  
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  createdBy             String   // wallet address
+  
+  @@index([coopId, isActive])
+  @@schema("public")
+}
+
+model TreasuryReserveEntry {
+  id                    String   @id @default(cuid())
+  
+  // Source transaction linkage
+  sourceType            String   // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL'
+  sourceRecordId        String   // StoreOrder.id or P2PTransfer.id
+  sourceUcTxHash        String   // Original UC payment transaction
+  
+  // Reserve calculation
+  transactionAmountUC   Float    // Original transaction amount in UC
+  reservePercentBps     Int      // Reserve rate used (basis points)
+  reserveAmountUC       Float    // Calculated reserve amount
+  
+  // Treasury settlement
+  treasuryTxHash        String?  @unique  // On-chain transfer to treasury
+  status                TreasuryReserveStatus @default(PENDING)
+  
+  // Linkage to SC rewards created from this transaction
+  relatedScRewardIds    String[] // Array of SCRewardTransaction IDs
+  
+  // Timestamps
+  createdAt             DateTime @default(now())
+  settledAt             DateTime?
+  failedAt              DateTime?
+  failureReason         String?
+  retryCount            Int      @default(0)
+  
+  @@index([sourceUcTxHash])
+  @@index([sourceRecordId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@schema("public")
+}
+
+enum TreasuryReserveStatus {
+  PENDING      // Reserve calculated, transfer not yet attempted
+  SETTLING     // Transfer in progress
+  SETTLED      // Successfully transferred to treasury
+  FAILED       // Transfer failed
+  
+  @@schema("public")
+}
+
+// WealthFundAddressChange model removed - now tracked on-chain via contract events
+// See UnityCoin.sol PrivilegedAddressChanged event
