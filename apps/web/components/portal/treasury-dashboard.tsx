@@ -5,6 +5,8 @@ import { api } from "@/lib/trpc/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,6 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   RefreshCw,
   DollarSign,
@@ -24,6 +35,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Loader2,
+  Settings,
+  ExternalLink,
 } from "lucide-react";
 
 type ChartPeriod = '7d' | '30d' | '90d';
@@ -36,6 +49,9 @@ interface OnrampProcessorRow {
 
 export default function TreasuryDashboard() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d');
+  const [showTreasurySettings, setShowTreasurySettings] = useState(false);
+  const [newTreasuryAddress, setNewTreasuryAddress] = useState('');
+  const [newReserveRate, setNewReserveRate] = useState('');
 
   // Fetch treasury overview
   const treasuryQuery = api.admin.getTreasuryOverview.useQuery(undefined, {
@@ -46,6 +62,28 @@ export default function TreasuryDashboard() {
   const chartQuery = api.admin.getTransactionVolumeChart.useQuery({
     period: chartPeriod,
     type: 'all',
+  });
+
+  // Fetch treasury config
+  const treasuryConfigQuery = api.treasury.getTreasuryConfig.useQuery(undefined, {
+    refetchInterval: 60000,
+  });
+
+  // Mutations
+  const setTreasuryAddressMutation = api.treasury.setTreasuryAddress.useMutation({
+    onSuccess: () => {
+      treasuryConfigQuery.refetch();
+      setShowTreasurySettings(false);
+      setNewTreasuryAddress('');
+    },
+  });
+
+  const setReserveRateMutation = api.treasury.setDefaultReserveRate.useMutation({
+    onSuccess: () => {
+      treasuryConfigQuery.refetch();
+      setShowTreasurySettings(false);
+      setNewReserveRate('');
+    },
   });
 
   const formatAmount = (amount: number) => {
@@ -74,6 +112,24 @@ export default function TreasuryDashboard() {
   const refetchAll = () => {
     treasuryQuery.refetch();
     chartQuery.refetch();
+    treasuryConfigQuery.refetch();
+  };
+
+  const handleSetTreasuryAddress = () => {
+    if (!newTreasuryAddress?.startsWith('0x')) {
+      alert('Please enter a valid Ethereum address');
+      return;
+    }
+    setTreasuryAddressMutation.mutate({ treasuryAddress: newTreasuryAddress });
+  };
+
+  const handleSetReserveRate = () => {
+    const bps = parseFloat(newReserveRate) * 100; // Convert percentage to basis points
+    if (isNaN(bps) || bps < 0 || bps > 2000) {
+      alert('Please enter a valid percentage between 0 and 20');
+      return;
+    }
+    setReserveRateMutation.mutate({ reserveBps: Math.round(bps) });
   };
 
   if (treasuryQuery.isLoading) {
@@ -125,20 +181,169 @@ export default function TreasuryDashboard() {
             Last updated: {data?.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'N/A'}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refetchAll}
-          disabled={treasuryQuery.isFetching}
-          className="bg-slate-800 border-slate-600 text-gray-200 hover:bg-slate-700 hover:text-white"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${treasuryQuery.isFetching ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dialog open={showTreasurySettings} onOpenChange={setShowTreasurySettings}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-slate-800 border-slate-600 text-gray-200 hover:bg-slate-700 hover:text-white"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Treasury Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl">Treasury Configuration</DialogTitle>
+                <DialogDescription className="text-slate-400">
+                  Manage on-chain treasury settings (admin only)
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Current Configuration */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-300">Current Configuration</h3>
+                  {treasuryConfigQuery.isLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                    </div>
+                  ) : treasuryConfigQuery.data ? (
+                    <div className="space-y-2 p-4 rounded-lg bg-slate-800 border border-slate-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-400">Treasury Address:</span>
+                        <div className="flex items-center gap-2">
+                          {treasuryConfigQuery.data.treasuryAddress && 
+                           treasuryConfigQuery.data.treasuryAddress !== '0x0000000000000000000000000000000000000000' ? (
+                            <>
+                              <code className="text-sm text-cyan-400 font-mono">
+                                {treasuryConfigQuery.data.treasuryAddress.slice(0, 6)}...
+                                {treasuryConfigQuery.data.treasuryAddress.slice(-4)}
+                              </code>
+                              <a
+                                href={`https://sepolia.basescan.org/address/${treasuryConfigQuery.data.treasuryAddress}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-cyan-400 hover:text-cyan-300"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </>
+                          ) : (
+                            <span className="text-sm text-slate-500">Not set</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-400">Reserve Rate:</span>
+                        <span className="text-sm font-semibold text-white">
+                          {(treasuryConfigQuery.data.defaultReserveBps / 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-400">Failed to load configuration</div>
+                  )}
+                </div>
+
+                {/* Update Treasury Address */}
+                <div className="space-y-3">
+                  <Label htmlFor="treasury-address" className="text-sm font-semibold text-slate-300">
+                    Update Treasury Address
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="treasury-address"
+                      placeholder="0x..."
+                      value={newTreasuryAddress}
+                      onChange={(e) => setNewTreasuryAddress(e.target.value)}
+                      className="bg-slate-800 border-slate-600 text-white font-mono text-sm"
+                    />
+                    <Button
+                      onClick={handleSetTreasuryAddress}
+                      disabled={setTreasuryAddressMutation.isPending || !newTreasuryAddress}
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                    >
+                      {setTreasuryAddressMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Set'
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    All future reserve transfers will go to this address
+                  </p>
+                </div>
+
+                {/* Update Reserve Rate */}
+                <div className="space-y-3">
+                  <Label htmlFor="reserve-rate" className="text-sm font-semibold text-slate-300">
+                    Update Reserve Rate
+                  </Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        id="reserve-rate"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="20"
+                        placeholder="5.0"
+                        value={newReserveRate}
+                        onChange={(e) => setNewReserveRate(e.target.value)}
+                        className="bg-slate-800 border-slate-600 text-white pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                        %
+                      </span>
+                    </div>
+                    <Button
+                      onClick={handleSetReserveRate}
+                      disabled={setReserveRateMutation.isPending || !newReserveRate}
+                      className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                    >
+                      {setReserveRateMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Set'
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Percentage of each transaction to SC-verified stores (max 20%)
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowTreasurySettings(false)}
+                  className="bg-slate-800 border-slate-600 text-gray-200 hover:bg-slate-700"
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetchAll}
+            disabled={treasuryQuery.isFetching}
+            className="bg-slate-800 border-slate-600 text-gray-200 hover:bg-slate-700 hover:text-white"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${treasuryQuery.isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Main Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* UC in Circulation */}
         <Card className="bg-gradient-to-br from-purple-900/50 to-slate-800 border-purple-700/50">
           <CardHeader className="pb-2">

@@ -27,6 +27,16 @@ import { useCart } from '@/contexts/cart-context';
 import { calculatePartialPaymentFee, requiresPaymentProcessor } from '@/lib/fee-calculator';
 import { FeeBreakdown, CompactFeeDisplay } from '@/components/fee-breakdown';
 
+/**
+ * Format SC balance as whole integers with comma separators.
+ * SC rewards are whole numbers (10 SC per $1), so no decimals needed.
+ */
+function formatSCBalance(raw: string): string {
+  const num = parseFloat(raw);
+  if (isNaN(num) || num === 0) return '0';
+  return Math.floor(num).toLocaleString();
+}
+
 interface PaymentMethod {
   id: string;
   brand: string;
@@ -56,7 +66,7 @@ export default function CheckoutScreen() {
   const hasEnoughBalance = balance >= subtotal;
   
   // Calculate estimated SC reward (1% of subtotal for SC-verified stores)
-  const estimatedScReward = store?.isScVerified ? subtotal * 0.01 : 0;
+  const estimatedScReward = store?.isScVerified ? Math.round(subtotal * 10) : 0; // 10 SC per $1
 
   const loadData = useCallback(async () => {
     if (!user?.walletAddress || !storeId) return;
@@ -117,10 +127,19 @@ export default function CheckoutScreen() {
       // Clear cart items for this store
       clearStoreItems(storeId);
 
+      // Build success message including actual SC earned (if any)
+      let successMsg = `Your order for $${total.toFixed(2)} has been placed successfully.`;
+      if (result.scRewardSC != null && result.scRewardSC > 0) {
+        const scDisplay = formatSCBalance(String(result.scRewardSC));
+        successMsg += `\n\n🪙 You earned ${scDisplay} SC!`;
+      } else if (store?.isScVerified) {
+        successMsg += `\n\n🪙 SC reward is being processed.`;
+      }
+
       // Show success and navigate to order detail
       Alert.alert(
         'Order Placed!',
-        `Your order for $${total.toFixed(2)} has been placed successfully.`,
+        successMsg,
         [
           {
             text: 'View Order',
@@ -349,11 +368,11 @@ export default function CheckoutScreen() {
                   <View className="flex-row items-center">
                     <BadgeCheck size={18} color="#16A34A" />
                     <Text className="text-green-700 dark:text-green-400 ml-2 font-semibold">
-                      You&apos;ll earn ~${estimatedScReward.toFixed(2)} SC
+                      You&apos;ll earn SC rewards!
                     </Text>
                   </View>
                   <Text className="text-green-600 dark:text-green-500 text-xs mt-1 ml-6">
-                    1% reward on SC-verified store purchases
+                    ~{estimatedScReward.toLocaleString()} SC (10 SC per $1, adjusted by pool rate)
                   </Text>
                 </View>
               ) : (

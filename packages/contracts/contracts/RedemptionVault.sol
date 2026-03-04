@@ -120,6 +120,32 @@ contract RedemptionVault is AccessControlEnumerable, ReentrancyGuard {
     // Multi-coop events
     event ClearingContractChanged(address indexed oldClearingContract, address indexed newClearingContract, address indexed changedBy);
     event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
+    
+    // Privileged Address Change Tracking Events
+    event PrivilegedAddressChanged(
+        string indexed changeType,
+        address indexed oldAddress,
+        address indexed newAddress,
+        address changedBy,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleGranted(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleRevoked(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
     event CrossCoopRedemption(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed member, uint256 amount);
 
     /**
@@ -442,11 +468,12 @@ contract RedemptionVault is AccessControlEnumerable, ReentrancyGuard {
      * @dev Only callable by DEFAULT_ADMIN_ROLE
      * @dev Used for future multi-coop cross-settlement
      */
-    function setClearingContract(address newClearingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setClearingContract(address newClearingContract, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newClearingContract != address(0), "Clearing contract cannot be zero address");
         address oldClearingContract = clearingContract;
         clearingContract = newClearingContract;
         emit ClearingContractChanged(oldClearingContract, newClearingContract, msg.sender);
+        emit PrivilegedAddressChanged("CLEARING_CONTRACT", oldClearingContract, newClearingContract, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -460,5 +487,29 @@ contract RedemptionVault is AccessControlEnumerable, ReentrancyGuard {
         uint256 oldCoopId = coopId;
         coopId = newCoopId;
         emit CoopIdChanged(oldCoopId, newCoopId, msg.sender);
+    }
+
+    /**
+     * @notice Grant role with audit trail
+     * @param role Role to grant
+     * @param account Address to grant role to
+     * @param reason Reason for granting the role
+     * @dev Only callable by role admin
+     */
+    function grantRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        grantRole(role, account);
+        emit RoleGranted(role, account, msg.sender, reason, block.timestamp);
+    }
+
+    /**
+     * @notice Revoke role with audit trail
+     * @param role Role to revoke
+     * @param account Address to revoke role from
+     * @param reason Reason for revoking the role
+     * @dev Only callable by role admin
+     */
+    function revokeRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        revokeRole(role, account);
+        emit RoleRevoked(role, account, msg.sender, reason, block.timestamp);
     }
 }

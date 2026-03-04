@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown, Vote } from "lucide-react";
+import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown, Vote, Wallet } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
 import BackendWalletStatus from "./backend-wallet-status";
@@ -61,10 +61,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Treasury",
+    title: "Finance",
     icon: Landmark,
-    href: "/portal/treasury",
     adminOnly: true,
+    items: [
+      { title: "Treasury", href: "/portal/treasury", icon: Landmark },
+      { title: "Wealth Fund", href: "/portal/wealth-fund", icon: Wallet },
+    ],
   },
   {
     title: "Settings",

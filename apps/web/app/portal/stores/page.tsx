@@ -31,6 +31,10 @@ import {
   Eye,
   DollarSign,
   Coins,
+  AlertTriangle,
+  RefreshCw,
+  Link2,
+  Link2Off,
 } from "lucide-react";
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
@@ -402,6 +406,12 @@ function AllStoresTab() {
                         )}
                       </Button>
                     </div>
+
+                    {/* On-Chain Status Check */}
+                    <StoreOnChainStatusPanel
+                      storeId={store.id}
+                      onFixApplied={() => refetch()}
+                    />
 
                     {/* SC Rewards Section (only for SC-verified stores) */}
                     {store.isScVerified && (
@@ -943,6 +953,152 @@ function ApplicationsTab() {
             )}
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// STORE ON-CHAIN STATUS PANEL
+// ============================================
+function StoreOnChainStatusPanel({
+  storeId,
+  onFixApplied,
+}: {
+  storeId: string;
+  onFixApplied: () => void;
+}) {
+  const [checked, setChecked] = useState(false);
+
+  const { data, isLoading, refetch } = api.store.checkStoreOnChainStatus.useQuery(
+    { storeId },
+    { enabled: checked }
+  );
+
+  const toggleScVerification = api.store.toggleScVerification.useMutation({
+    onSuccess: () => {
+      refetch();
+      onFixApplied();
+    },
+  });
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-medium text-white flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-cyan-400" />
+          On-Chain vs Database Status
+        </h4>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => { setChecked(true); refetch(); }}
+          disabled={isLoading}
+          className="border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 text-xs h-7"
+        >
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3 mr-1" />
+          )}
+          Check Chain
+        </Button>
+      </div>
+
+      {!checked && !data && (
+        <p className="text-xs text-gray-500">Click "Check Chain" to compare database vs on-chain verification status.</p>
+      )}
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Querying blockchain...
+        </div>
+      )}
+
+      {data && !isLoading && (
+        <div className="space-y-3">
+          {/* Status comparison row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded bg-slate-800 px-3 py-2">
+              <p className="text-xs text-gray-400 mb-1">Database</p>
+              {data.dbVerified ? (
+                <span className="flex items-center gap-1 text-sm text-green-400 font-medium">
+                  <CheckCircle2 className="h-4 w-4" /> SC Verified
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-sm text-gray-400 font-medium">
+                  <XCircle className="h-4 w-4" /> Not Verified
+                </span>
+              )}
+            </div>
+            <div className="rounded bg-slate-800 px-3 py-2">
+              <p className="text-xs text-gray-400 mb-1">On-Chain</p>
+              {data.error ? (
+                <span className="flex items-center gap-1 text-sm text-red-400">
+                  <AlertTriangle className="h-4 w-4" /> {data.error}
+                </span>
+              ) : data.onChainVerified ? (
+                <span className="flex items-center gap-1 text-sm text-green-400 font-medium">
+                  <CheckCircle2 className="h-4 w-4" /> SC Verified
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-sm text-gray-400 font-medium">
+                  <XCircle className="h-4 w-4" /> Not Verified
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Sync status + wallet */}
+          {data.ownerWallet && (
+            <p className="text-xs text-gray-500 font-mono truncate">
+              Owner wallet: {data.ownerWallet}
+            </p>
+          )}
+
+          {/* In sync / out of sync indicator */}
+          {!data.error && (
+            data.inSync ? (
+              <div className="flex items-center gap-2 rounded bg-green-500/10 border border-green-500/20 px-3 py-2 text-xs text-green-400">
+                <Link2 className="h-3 w-3 shrink-0" />
+                In sync — database and on-chain status match
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 rounded bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-xs text-yellow-400">
+                  <Link2Off className="h-3 w-3 shrink-0" />
+                  Out of sync — database says <strong className="ml-1">{data.dbVerified ? 'verified' : 'not verified'}</strong>
+                  , chain says <strong className="ml-1">{data.onChainVerified ? 'verified' : 'not verified'}</strong>
+                </div>
+                <div className="flex gap-2">
+                  {data.dbVerified && !data.onChainVerified && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
+                      disabled={toggleScVerification.isPending}
+                      onClick={() => toggleScVerification.mutate({ storeId, verified: true })}
+                    >
+                      {toggleScVerification.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldCheck className="h-3 w-3 mr-1" />}
+                      Push Verification to Chain
+                    </Button>
+                  )}
+                  {!data.dbVerified && data.onChainVerified && (
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs bg-amber-600 hover:bg-amber-700"
+                      disabled={toggleScVerification.isPending}
+                      onClick={() => toggleScVerification.mutate({ storeId, verified: false })}
+                    >
+                      {toggleScVerification.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <XCircle className="h-3 w-3 mr-1" />}
+                      Remove from Chain
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )
+          )}
+        </div>
       )}
     </div>
   );

@@ -1105,4 +1105,112 @@ describe("UnityCoin (UC)", function () {
       ).to.be.revertedWith("Address is not a backend minter");
     });
   });
+
+  describe("Treasury Reserve System", function () {
+    let treasury: any;
+    let store: any;
+    let customer: any;
+
+    beforeEach(async function () {
+      [treasury, store, customer] = await ethers.getSigners();
+      
+      // Set wealth fund address
+      await uc.connect(admin).setWealthFundAddress(treasury.address, "Initial setup");
+      
+      // Mint some UC to customer for testing
+      await uc.connect(admin).mint(customer.address, ethers.parseEther("1000"));
+    });
+
+    it("Should set wealth fund address", async function () {
+      expect(await uc.wealthFundAddress()).to.equal(treasury.address);
+    });
+
+    it("Should set default reserve rate", async function () {
+      await uc.connect(admin).setDefaultReserveRate(1000); // 10%
+      expect(await uc.defaultReserveBps()).to.equal(1000);
+    });
+
+    it("Should not allow reserve rate above 20%", async function () {
+      await expect(
+        uc.connect(admin).setDefaultReserveRate(2001)
+      ).to.be.revertedWith("Reserve rate cannot exceed 20%");
+    });
+
+    it("Should register SC-verified store via SoulaaniCoin", async function () {
+      // Store verification is now managed in SoulaaniCoin contract
+      await sc.connect(admin).setStoreVerification(store.address, true);
+      expect(await sc.isScVerifiedStore(store.address)).to.be.true;
+    });
+
+    it("Should automatically transfer reserve to treasury on payment to SC-verified store", async function () {
+      // Register store as SC-verified in SoulaaniCoin
+      await sc.connect(admin).setStoreVerification(store.address, true);
+      
+      // Set reserve rate to 10% for easier math
+      await uc.connect(admin).setDefaultReserveRate(1000);
+      
+      const paymentAmount = ethers.parseEther("100");
+      const expectedReserve = ethers.parseEther("10"); // 10% of 100
+      const expectedToStore = ethers.parseEther("90"); // 90 after reserve
+      
+      const treasuryBalanceBefore = await uc.balanceOf(treasury.address);
+      const storeBalanceBefore = await uc.balanceOf(store.address);
+      
+      // Customer pays store
+      await uc.connect(customer).transfer(store.address, paymentAmount);
+      
+      // Check balances
+      expect(await uc.balanceOf(treasury.address)).to.equal(treasuryBalanceBefore + expectedReserve);
+      expect(await uc.balanceOf(store.address)).to.equal(storeBalanceBefore + expectedToStore);
+    });
+
+    it("Should emit TreasuryReserveTransferred event", async function () {
+      await sc.connect(admin).setStoreVerification(store.address, true);
+      await uc.connect(admin).setDefaultReserveRate(500); // 5%
+      
+      const paymentAmount = ethers.parseEther("100");
+      const expectedReserve = ethers.parseEther("5");
+      
+      await expect(uc.connect(customer).transfer(store.address, paymentAmount))
+        .to.emit(uc, "TreasuryReserveTransferred")
+        .withArgs(
+          customer.address,
+          store.address,
+          paymentAmount,
+          expectedReserve,
+          500,
+          ethers.zeroPadValue(customer.address, 32) // sourceUcTxHash uses sender address
+        );
+    });
+
+
+    it("Should not transfer reserve for non-verified stores", async function () {
+      // Don't verify the store
+      const paymentAmount = ethers.parseEther("100");
+      
+      const treasuryBalanceBefore = await uc.balanceOf(treasury.address);
+      const storeBalanceBefore = await uc.balanceOf(store.address);
+      
+      await uc.connect(customer).transfer(store.address, paymentAmount);
+      
+      // Treasury should not receive anything
+      expect(await uc.balanceOf(treasury.address)).to.equal(treasuryBalanceBefore);
+      // Store should receive full amount
+      expect(await uc.balanceOf(store.address)).to.equal(storeBalanceBefore + paymentAmount);
+    });
+
+    it("Should allow GOVERNANCE_AWARD to set store verification in SoulaaniCoin", async function () {
+      const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
+      await sc.connect(admin).grantRole(GOVERNANCE_AWARD, user1.address);
+      
+      await sc.connect(user1).setStoreVerification(store.address, true);
+      expect(await sc.isScVerifiedStore(store.address)).to.be.true;
+    });
+
+    it("Should not allow non-GOVERNANCE_AWARD to set store verification", async function () {
+      await expect(
+        sc.connect(user1).setStoreVerification(store.address, true)
+      ).to.be.revertedWithCustomError(sc, "AccessControlUnauthorizedAccount");
+    });
+  });
 });

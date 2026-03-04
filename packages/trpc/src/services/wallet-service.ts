@@ -1,8 +1,10 @@
-import { createWalletClient, http, parseUnits, parseEther, formatEther, encodeFunctionData, createPublicClient, type Address } from 'viem';
+import { createWalletClient, http, parseUnits, formatUnits, parseEther, formatEther, encodeFunctionData, createPublicClient, decodeEventLog, parseAbiItem, type Address } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import { db } from '@repo/db';
+import { trackReserveFromTransaction } from './treasury-reserve-service.js';
+import { getTreasuryReserveFromTransaction } from './uc-event-parser.js';
 
 // Environment configuration
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
@@ -407,7 +409,9 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
 
 // Soulaani Coin (SC) reward configuration
 const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
-const SC_REWARD_RATE = 0.01; // 1% SC reward on qualifying transactions
+// 10 SC per $1 spent — with 100,000 SC seeded at deploy, 2% cap = ~2,000 SC per user.
+// Tier thresholds: full rate until 500 SC, slowing at 1,000 SC, capped at 2,000 SC.
+const SC_REWARD_RATE = 10; // 10 SC per USD
 
 // SC Reward Reason Constants
 export const SC_REWARD_REASONS = {
@@ -422,10 +426,10 @@ export const SC_REWARD_REASONS = {
 /**
  * Calculate SC reward for a transaction
  * @param amountUSD - Transaction amount in USD
- * @returns SC reward amount (1% of transaction)
+ * @returns SC reward amount (10 SC per $1 spent)
  */
 export function calculateSCReward(amountUSD: number): number {
-  return amountUSD * SC_REWARD_RATE;
+  return Math.round(amountUSD * SC_REWARD_RATE); // whole number SC
 }
 
 /**
@@ -434,9 +438,16 @@ export function calculateSCReward(amountUSD: number): number {
  * @param userId - The user ID to mint SC for
  * @param amountSC - Amount of SC to mint
  * @param reason - Reason for the reward (for logging)
+ * @param sourceUcTxHash - Optional source UC transaction hash that triggered this reward
  * @returns Transaction hash
  */
-export async function mintSCToUser(userId: string, amountSC: number, reason: string = 'transaction_reward'): Promise<string> {
+export async function mintSCToUser(
+  userId: string, 
+  amountSC: number, 
+  reason: string = 'transaction_reward', 
+  sourceUcTxHash?: string,
+  treasuryReserveAmountUC?: number
+): Promise<{ txHash: string; actualAmountSC: number }> {
   const keyPreview = BACKEND_WALLET_PRIVATE_KEY
     ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
     : 'NOT SET';
@@ -506,7 +517,7 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
     throw new Error(`User ${user.walletAddress} is not an active member. SC can only be minted to approved members.`);
   }
 
-  // Encode mintReward function call (3-parameter version for better gas efficiency)
+  // Encode mintReward function call
   // SoulaaniCoin has 18 decimals
   const amountInWei = parseUnits(amountSC.toString(), 18);
   
@@ -514,6 +525,33 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
   const reasonHash = `0x${Buffer.from(reason.toUpperCase().replace(/[^A-Z0-9_]/g, '_')).toString('hex').padEnd(64, '0')}` as `0x${string}`;
 
   console.log(`🔍 Reason hash: ${reasonHash}`);
+  
+  // Always require source UC tx for transaction-based rewards
+  if (!sourceUcTxHash) {
+    console.warn(`⚠️ No source UC tx provided for SC mint to ${user.walletAddress}. Using fallback mintReward.`);
+  }
+  
+  // Convert source UC tx hash (0x-prefixed hex string) to bytes32
+  const sourceUcTxHashBytes32 = sourceUcTxHash
+    ? (sourceUcTxHash.startsWith('0x') 
+        ? (sourceUcTxHash.padEnd(66, '0') as `0x${string}`)
+        : (`0x${sourceUcTxHash}`.padEnd(66, '0') as `0x${string}`))
+    : ('0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`);
+  
+  if (sourceUcTxHash) {
+    console.log(`🔗 Source UC tx: ${sourceUcTxHashBytes32}`);
+  }
+  
+  // Convert treasury reserve amount to wei (18 decimals)
+  const treasuryReserveInWei = treasuryReserveAmountUC 
+    ? parseUnits(treasuryReserveAmountUC.toString(), 18)
+    : BigInt(0);
+  
+  if (treasuryReserveAmountUC && treasuryReserveAmountUC > 0) {
+    console.log(`💰 Treasury reserve: ${treasuryReserveAmountUC} UC (${treasuryReserveInWei.toString()} wei)`);
+  }
+  
+  // Always use mintRewardWithSource (pass zero hash if no source for manual/legacy cases)
   const txData = encodeFunctionData({
     abi: [
       {
@@ -521,15 +559,17 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
           { name: 'recipient', type: 'address' },
           { name: 'amount', type: 'uint256' },
           { name: 'reason', type: 'bytes32' },
+          { name: 'sourceUcTxHash', type: 'bytes32' },
+          { name: 'treasuryReserveAmount', type: 'uint256' },
         ],
-        name: 'mintReward',
+        name: 'mintRewardWithSource',
         outputs: [],
         stateMutability: 'nonpayable',
         type: 'function',
       },
     ],
-    functionName: 'mintReward',
-    args: [user.walletAddress as Address, amountInWei, reasonHash],
+    functionName: 'mintRewardWithSource',
+    args: [user.walletAddress as Address, amountInWei, reasonHash, sourceUcTxHashBytes32, treasuryReserveInWei],
   });
 
   console.log(`🪙 Minting ${amountSC} SC (${amountInWei.toString()} wei) to ${user.walletAddress}...`);
@@ -551,7 +591,31 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
 
   console.log(`✅ SC Mint confirmed: ${txHash}`);
 
-  return txHash;
+  // Parse the actual minted amount from the DiminishingRateApplied event.
+  // The contract may mint less than requested when the pool balance ratio is high.
+  let actualAmountSC = amountSC; // default to requested if event not found
+  try {
+    const DIMINISHING_RATE_EVENT = parseAbiItem(
+      'event DiminishingRateApplied(address indexed recipient, uint256 requestedAmount, uint256 actualAmount, uint256 currentBalancePercent)'
+    );
+    for (const log of receipt.logs) {
+      try {
+        const decoded = decodeEventLog({ abi: [DIMINISHING_RATE_EVENT], data: log.data, topics: log.topics });
+        if (decoded.eventName === 'DiminishingRateApplied') {
+          const args = decoded.args as { recipient: string; requestedAmount: bigint; actualAmount: bigint; currentBalancePercent: bigint };
+          actualAmountSC = Number(formatUnits(args.actualAmount, 18));
+          console.log(`📉 DiminishingRateApplied: requested ${amountSC} SC → actual ${actualAmountSC} SC (pool ratio: ${args.currentBalancePercent}%)`);
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch (parseErr) {
+    console.warn('Could not parse DiminishingRateApplied event:', parseErr);
+  }
+
+  return { txHash, actualAmountSC };
 }
 
 /**
@@ -561,6 +625,11 @@ export async function mintSCToUser(userId: string, amountSC: number, reason: str
  * @param storeOwnerId - The store owner who received payment
  * @param amountUSD - Transaction amount in USD
  * @param storeIsScVerified - Whether the store is SC-verified
+ * @param orderId - Optional order ID for linking
+ * @param storeId - Optional store ID for linking
+ * @param sourceUcTxHash - Optional source UC transaction hash that triggered this reward
+ * @param sourceType - Optional source type ('STORE_ORDER' | 'P2P_TRANSFER')
+ * @param sourceRecordId - Optional source record ID (order.id or transfer.id)
  */
 export async function awardStoreTransactionReward(
   customerId: string,
@@ -568,7 +637,10 @@ export async function awardStoreTransactionReward(
   amountUSD: number,
   storeIsScVerified: boolean,
   orderId?: string,
-  storeId?: string
+  storeId?: string,
+  sourceUcTxHash?: string,
+  sourceType?: string,
+  sourceRecordId?: string
 ): Promise<{ 
   customerReward: number; 
   storeReward: number; 
@@ -598,68 +670,166 @@ export async function awardStoreTransactionReward(
   const scReward = calculateSCReward(amountUSD);
 
   // Minimum reward threshold (avoid minting dust)
-  if (scReward < 0.01) {
+  if (scReward < 1) {
     console.log(`🪙 SC reward too small (${scReward}), skipping`);
     return result;
   }
 
-  // Mint SC for customer FIRST, then create record only if successful
-  try {
-    result.customerReward = scReward;
-    result.customerTxHash = await mintSCToUser(
-      customerId,
-      scReward,
-      SC_REWARD_REASONS.STORE_PURCHASE
-    );
-    
-    // Only create database record AFTER successful mint
-    const customerRecord = await db.sCRewardTransaction.create({
-      data: {
-        userId: customerId,
-        amountSC: scReward,
-        reason: SC_REWARD_REASONS.STORE_PURCHASE,
-        status: 'COMPLETED',
-        txHash: result.customerTxHash,
-        relatedOrderId: orderId,
-        relatedStoreId: storeId,
-        completedAt: new Date(),
-      },
-    });
-    result.customerRecordId = customerRecord.id;
-    console.log(`✅ Minted ${scReward} SC to customer ${customerId} and created record ${customerRecord.id}`);
-  } catch (error) {
-    console.error(`❌ Failed to mint SC for customer ${customerId}:`, error);
-    // Don't create a database record for failed mints
-    // Log the error but don't throw - we still want to try minting for the store owner
+  // Parse treasury reserve amount from UC transaction event (set aside automatically by UC contract)
+  let treasuryReserveAmount = 0;
+  if (sourceUcTxHash) {
+    try {
+      const reserveData = await getTreasuryReserveFromTransaction(sourceUcTxHash);
+      if (reserveData) {
+        treasuryReserveAmount = reserveData.reserveAmount;
+        console.log(`💰 Treasury reserve from UC tx: ${treasuryReserveAmount} UC (${reserveData.reserveBps / 100}%)`);
+      }
+    } catch (error) {
+      console.error(`⚠️ Failed to parse treasury reserve from UC tx (non-critical):`, error);
+      // Continue without reserve amount - SC mint will still work
+    }
   }
 
-  // Mint SC for store owner FIRST, then create record only if successful
-  try {
-    result.storeReward = scReward;
-    result.storeTxHash = await mintSCToUser(
-      storeOwnerId,
-      scReward,
-      SC_REWARD_REASONS.STORE_SALE
-    );
-    
-    // Only create database record AFTER successful mint
-    const storeOwnerRecord = await db.sCRewardTransaction.create({
-      data: {
-        userId: storeOwnerId,
-        amountSC: scReward,
-        reason: SC_REWARD_REASONS.STORE_SALE,
-        status: 'COMPLETED',
-        txHash: result.storeTxHash,
-        relatedOrderId: orderId,
-        relatedStoreId: storeId,
-        completedAt: new Date(),
-      },
-    });
-    result.storeRecordId = storeOwnerRecord.id;
-    console.log(`✅ Minted ${scReward} SC to store owner ${storeOwnerId} and created record ${storeOwnerRecord.id}`);
-  } catch (error) {
-    console.error(`❌ Failed to mint SC for store owner ${storeOwnerId}:`, error);
-    // Don't create a database record for failed mints
+  // Pre-create PENDING records so failures are always tracked and retryable.
+  // Use findFirst + create to honour the partial unique index on (sourceUcTxHash, userId, reason).
+  const existingCustomer = sourceUcTxHash
+    ? await db.sCRewardTransaction.findFirst({
+        where: { sourceUcTxHash, userId: customerId, reason: SC_REWARD_REASONS.STORE_PURCHASE },
+      })
+    : null;
+
+  let customerRecord = existingCustomer ?? await db.sCRewardTransaction.create({
+    data: {
+      userId: customerId,
+      amountSC: scReward,
+      reason: SC_REWARD_REASONS.STORE_PURCHASE,
+      status: 'PENDING',
+      relatedOrderId: orderId,
+      relatedStoreId: storeId,
+      sourceUcTxHash: sourceUcTxHash,
+      sourceType: sourceType,
+      sourceRecordId: sourceRecordId,
+    },
+  });
+
+  const existingStore = sourceUcTxHash
+    ? await db.sCRewardTransaction.findFirst({
+        where: { sourceUcTxHash, userId: storeOwnerId, reason: SC_REWARD_REASONS.STORE_SALE },
+      })
+    : null;
+
+  let storeOwnerRecord = existingStore ?? await db.sCRewardTransaction.create({
+    data: {
+      userId: storeOwnerId,
+      amountSC: scReward,
+      reason: SC_REWARD_REASONS.STORE_SALE,
+      status: 'PENDING',
+      relatedOrderId: orderId,
+      relatedStoreId: storeId,
+      sourceUcTxHash: sourceUcTxHash,
+      sourceType: sourceType,
+      sourceRecordId: sourceRecordId,
+    },
+  });
+
+  result.customerRecordId = customerRecord.id;
+  result.storeRecordId = storeOwnerRecord.id;
+
+  // Mint SC for customer — update record to COMPLETED or FAILED
+  if (customerRecord.status !== 'COMPLETED') {
+    try {
+      const { txHash: customerTxHash, actualAmountSC: customerActual } = await mintSCToUser(
+        customerId,
+        scReward,
+        SC_REWARD_REASONS.STORE_PURCHASE,
+        sourceUcTxHash,
+        treasuryReserveAmount
+      );
+      result.customerReward = customerActual;
+      result.customerTxHash = customerTxHash;
+      customerRecord = await db.sCRewardTransaction.update({
+        where: { id: customerRecord.id },
+        data: {
+          status: 'COMPLETED',
+          txHash: customerTxHash,
+          amountSC: customerActual, // store actual minted amount, not requested
+          completedAt: new Date(),
+          failureReason: null,
+        },
+      });
+      console.log(`✅ Minted ${customerActual} SC (requested ${scReward}) to customer ${customerId} (record ${customerRecord.id})`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to mint SC for customer ${customerId}:`, msg);
+      await db.sCRewardTransaction.update({
+        where: { id: customerRecord.id },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+          failureReason: msg,
+          retryCount: { increment: 1 },
+          lastRetryAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // Mint SC for store owner — update record to COMPLETED or FAILED
+  if (storeOwnerRecord.status !== 'COMPLETED') {
+    try {
+      const { txHash: storeTxHash, actualAmountSC: storeActual } = await mintSCToUser(
+        storeOwnerId,
+        scReward,
+        SC_REWARD_REASONS.STORE_SALE,
+        sourceUcTxHash,
+        treasuryReserveAmount
+      );
+      result.storeReward = storeActual;
+      result.storeTxHash = storeTxHash;
+      storeOwnerRecord = await db.sCRewardTransaction.update({
+        where: { id: storeOwnerRecord.id },
+        data: {
+          status: 'COMPLETED',
+          txHash: storeTxHash,
+          amountSC: storeActual, // store actual minted amount, not requested
+          completedAt: new Date(),
+          failureReason: null,
+        },
+      });
+      console.log(`✅ Minted ${storeActual} SC (requested ${scReward}) to store owner ${storeOwnerId} (record ${storeOwnerRecord.id})`);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to mint SC for store owner ${storeOwnerId}:`, msg);
+      await db.sCRewardTransaction.update({
+        where: { id: storeOwnerRecord.id },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+          failureReason: msg,
+          retryCount: { increment: 1 },
+          lastRetryAt: new Date(),
+        },
+      });
+    }
+  }
+
+  // Track treasury reserve — always attempt if we have the source tx, idempotent
+  if (sourceUcTxHash && sourceType && sourceRecordId) {
+    try {
+      const scRewardIds = [customerRecord.id, storeOwnerRecord.id];
+      const reserveResult = await trackReserveFromTransaction({
+        sourceType,
+        sourceRecordId,
+        sourceUcTxHash,
+        transactionAmountUC: amountUSD,
+        relatedScRewardIds: scRewardIds,
+      });
+      if (reserveResult) {
+        console.log(`💰 Treasury reserve tracked: ${reserveResult.reserveAmountUC} UC from tx ${sourceUcTxHash}`);
+      }
+    } catch (error) {
+      console.error(`❌ Failed to track treasury reserve (will retry automatically):`, error);
+    }
   }
 
   return result;

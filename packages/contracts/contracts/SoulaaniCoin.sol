@@ -86,6 +86,23 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     mapping(address => uint256) public totalActivities; // Count of all activities
     mapping(address => mapping(bytes32 => uint256)) public activityTypeCount; // Count per activity type
 
+    // SC-verified store registry (stores that earn SC rewards and trigger treasury reserves)
+    mapping(address => bool) public scVerifiedStores;
+
+    // Per-mint source UC transaction tracking
+    struct MintRecord {
+        address recipient;
+        uint256 amount;
+        bytes32 reason;
+        bytes32 sourceUcTxHash; // UC transaction that triggered this SC mint (includes reserve transfer)
+        uint256 treasuryReserveAmount; // Amount set aside to treasury in the same UC tx (in wei, 18 decimals)
+        uint256 timestamp;
+        address awarder;
+    }
+    
+    MintRecord[] public mintHistory;
+    mapping(bytes32 => uint256[]) public mintsBySourceTx; // UC tx hash => mint record indices
+
     // Voting power cap (adjustable, default 2% of total supply)
     uint256 public maxVotingPowerPercent = 2;
 
@@ -114,6 +131,15 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
 
     // Events
     event Awarded(address indexed recipient, uint256 amount, bytes32 indexed reason, address indexed awarder);
+    
+    event AwardedWithSource(
+        address indexed recipient, 
+        uint256 amount, 
+        bytes32 indexed reason, 
+        address indexed awarder,
+        bytes32 sourceUcTxHash,
+        uint256 mintRecordIndex
+    );
 
     event Slashed(address indexed account, uint256 amount, bytes32 indexed reason, address indexed slasher);
 
@@ -141,6 +167,32 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     // Multi-coop events
     event ClearingContractChanged(address indexed oldClearingContract, address indexed newClearingContract, address indexed changedBy);
     event CoopIdChanged(uint256 indexed oldCoopId, uint256 indexed newCoopId, address indexed changedBy);
+    
+    // Privileged Address Change Tracking Events
+    event PrivilegedAddressChanged(
+        string indexed changeType,
+        address indexed oldAddress,
+        address indexed newAddress,
+        address changedBy,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleGranted(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleRevoked(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
     event CrossCoopActivity(uint256 indexed fromCoopId, uint256 indexed toCoopId, address indexed member, bytes32 activityType);
 
     // Diminishing returns and decay events
@@ -148,6 +200,9 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     event DiminishingRatesUpdated(address indexed updatedBy);
     event DecayExecuted(address indexed account, uint256 amount, uint256 monthsInactive);
     event DecayParametersUpdated(uint256 newInactivityPeriod, uint256 newDecayRate, address indexed updatedBy);
+
+    // Store verification events
+    event StoreVerificationChanged(address indexed store, bool isVerified, address indexed changedBy);
 
     /**
      * @notice Constructor - initializes SC token
@@ -239,6 +294,95 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     }
 
     // 2-parameter version removed - use 3-parameter version with explicit reason for better gas efficiency
+
+    /**
+     * @notice Mint SC reward tokens with source UC transaction tracking
+     * @param recipient Address to receive SC
+     * @param amount Amount of SC to mint (before diminishing returns)
+     * @param reason Reason code for the award
+     * @param sourceUcTxHash UC transaction hash that triggered this reward (bytes32)
+     * @param treasuryReserveAmount Amount set aside to treasury in the UC transaction (in wei, 18 decimals)
+     * @dev Only callable by GOVERNANCE_AWARD role (governance bot/backend)
+     * @dev Stores per-mint history linking SC mint to originating UC payment AND treasury reserve
+     * @dev Applies diminishing returns and enforces 2% hard cap
+     * @dev Recipient must be an active member to receive SC
+     */
+    function mintRewardWithSource(
+        address recipient,
+        uint256 amount,
+        bytes32 reason,
+        bytes32 sourceUcTxHash,
+        uint256 treasuryReserveAmount
+    ) external onlyRole(GOVERNANCE_AWARD) whenNotPaused {
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+        if (!isActiveMember(recipient)) revert NotActiveMember(recipient, uint8(memberStatus[recipient]));
+
+        // Check award limit if set (0 = unlimited)
+        if (maxAwardPerTransaction > 0) {
+            if (amount > maxAwardPerTransaction) revert ExceedsMaxAward(amount, maxAwardPerTransaction);
+        }
+
+        // Apply diminishing returns based on current balance
+        uint256 actualAmount = calculateDiminishedAmount(recipient, amount);
+
+        // Enforce 2% hard cap - cannot mint if it would exceed max voting power
+        uint256 currentBalance = balanceOf(recipient);
+        uint256 supply = totalSupply();
+        
+        if (supply > 0) {
+            uint256 maxBalance = getMaxVotingPower();
+            
+            if (currentBalance >= maxBalance) {
+                actualAmount = 0;
+            } else if (currentBalance + actualAmount > maxBalance) {
+                actualAmount = maxBalance - currentBalance;
+            }
+        }
+
+        // Only mint if there's something to award
+        if (actualAmount > 0) {
+            _mint(recipient, actualAmount);
+        }
+
+        // Track activity metrics
+        lastActivity[recipient] = block.timestamp;
+        totalActivities[recipient] += 1;
+        activityTypeCount[recipient][reason] += 1;
+
+        // Store mint record with source UC tx reference and treasury reserve amount
+        uint256 recordIndex = mintHistory.length;
+        mintHistory.push(MintRecord({
+            recipient: recipient,
+            amount: actualAmount,
+            reason: reason,
+            sourceUcTxHash: sourceUcTxHash,
+            treasuryReserveAmount: treasuryReserveAmount,
+            timestamp: block.timestamp,
+            awarder: msg.sender
+        }));
+        
+        // Index by source UC tx for reverse lookup
+        mintsBySourceTx[sourceUcTxHash].push(recordIndex);
+
+        // Optional: Notify clearing contract for cross-coop activity tracking
+        if (clearingContract != address(0)) {
+            try ICoopClearing(clearingContract).recordCrossCoopActivity(coopId, coopId, recipient, reason) {
+                // Success - clearing contract handled the activity
+            } catch {
+                // Ignore clearing contract errors - don't fail the award
+            }
+        }
+
+        emit AwardedWithSource(recipient, actualAmount, reason, msg.sender, sourceUcTxHash, recordIndex);
+        emit ActivityRecorded(recipient, reason, block.timestamp);
+
+        // Emit diminishing rate event if amount was reduced
+        if (actualAmount < amount) {
+            uint256 balancePercent = supply > 0 ? (currentBalance * 10000) / supply : 0;
+            emit DiminishingRateApplied(recipient, amount, actualAmount, balancePercent);
+        }
+    }
 
     /**
      * @notice Calculate earning multiplier based on current balance
@@ -737,6 +881,51 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         emit DecayParametersUpdated(newInactivityPeriod, newDecayRatePerMonth, msg.sender);
     }
 
+    // ========== MINT HISTORY QUERIES ==========
+    
+    /**
+     * @notice Get total number of mint records
+     * @return uint256 Total mint history length
+     */
+    function getMintHistoryLength() external view returns (uint256) {
+        return mintHistory.length;
+    }
+    
+    /**
+     * @notice Get mint record by index
+     * @param index Index in mintHistory array
+     * @return MintRecord struct with mint details
+     */
+    function getMintRecord(uint256 index) external view returns (MintRecord memory) {
+        require(index < mintHistory.length, "Index out of bounds");
+        return mintHistory[index];
+    }
+    
+    /**
+     * @notice Get all mint record indices for a given source UC transaction
+     * @param sourceUcTxHash UC transaction hash (bytes32)
+     * @return uint256[] Array of mint record indices
+     */
+    function getMintsBySourceTx(bytes32 sourceUcTxHash) external view returns (uint256[] memory) {
+        return mintsBySourceTx[sourceUcTxHash];
+    }
+    
+    /**
+     * @notice Get mint records for a given source UC transaction
+     * @param sourceUcTxHash UC transaction hash (bytes32)
+     * @return MintRecord[] Array of mint records
+     */
+    function getMintRecordsBySourceTx(bytes32 sourceUcTxHash) external view returns (MintRecord[] memory) {
+        uint256[] memory indices = mintsBySourceTx[sourceUcTxHash];
+        MintRecord[] memory records = new MintRecord[](indices.length);
+        
+        for (uint256 i = 0; i < indices.length; i++) {
+            records[i] = mintHistory[indices[i]];
+        }
+        
+        return records;
+    }
+
     // ========== SOULBOUND ENFORCEMENT ==========
     // Block all transfers, approvals, and allowances
 
@@ -796,6 +985,30 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         return super.supportsInterface(interfaceId);
     }
 
+    // ========== STORE VERIFICATION MANAGEMENT ==========
+
+    /**
+     * @notice Add or remove SC-verified store
+     * @param store Store wallet address
+     * @param isVerified True to add, false to remove
+     * @dev Only callable by GOVERNANCE_AWARD role (backend)
+     * @dev SC-verified stores earn SC rewards and trigger automatic treasury reserves in UC
+     */
+    function setStoreVerification(address store, bool isVerified) external onlyRole(GOVERNANCE_AWARD) {
+        require(store != address(0), "Store cannot be zero address");
+        scVerifiedStores[store] = isVerified;
+        emit StoreVerificationChanged(store, isVerified, msg.sender);
+    }
+
+    /**
+     * @notice Check if a store is SC-verified
+     * @param store Store wallet address
+     * @return bool True if store is SC-verified
+     */
+    function isScVerifiedStore(address store) external view returns (bool) {
+        return scVerifiedStores[store];
+    }
+
     // ========== MULTI-COOP ADMIN FUNCTIONS ==========
 
     /**
@@ -804,11 +1017,12 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
      * @dev Only callable by DEFAULT_ADMIN_ROLE
      * @dev Used for future multi-coop cross-settlement
      */
-    function setClearingContract(address newClearingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setClearingContract(address newClearingContract, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newClearingContract != address(0), "Clearing contract cannot be zero address");
         address oldClearingContract = clearingContract;
         clearingContract = newClearingContract;
         emit ClearingContractChanged(oldClearingContract, newClearingContract, msg.sender);
+        emit PrivilegedAddressChanged("CLEARING_CONTRACT", oldClearingContract, newClearingContract, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -822,5 +1036,29 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         uint256 oldCoopId = coopId;
         coopId = newCoopId;
         emit CoopIdChanged(oldCoopId, newCoopId, msg.sender);
+    }
+
+    /**
+     * @notice Grant role with audit trail
+     * @param role Role to grant
+     * @param account Address to grant role to
+     * @param reason Reason for granting the role
+     * @dev Only callable by role admin
+     */
+    function grantRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        grantRole(role, account);
+        emit RoleGranted(role, account, msg.sender, reason, block.timestamp);
+    }
+
+    /**
+     * @notice Revoke role with audit trail
+     * @param role Role to revoke
+     * @param account Address to revoke role from
+     * @param reason Reason for revoking the role
+     * @dev Only callable by role admin
+     */
+    function revokeRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        revokeRole(role, account);
+        emit RoleRevoked(role, account, msg.sender, reason, block.timestamp);
     }
 }

@@ -1012,6 +1012,15 @@ export const storeRouter = router({
         }
 
         console.log(`✅ On-chain verification ${input.verified ? 'granted' : 'removed'}: ${txHash}`);
+
+        // Also sync to UnityCoin contract for automatic treasury reserves
+        try {
+          const { syncStoreVerificationToContract } = await import('../services/store-sync-service');
+          await syncStoreVerificationToContract(store.owner.walletAddress, input.verified);
+          console.log(`✅ Store verification synced to UC contract`);
+        } catch (syncError) {
+          console.error('❌ Failed to sync to UC contract (non-critical):', syncError);
+        }
       } catch (error) {
         console.error('❌ On-chain verification failed:', error);
         throw new Error(
@@ -1182,6 +1191,7 @@ export const storeRouter = router({
               name: true,
               email: true,
               phone: true,
+              walletAddress: true,
             },
           },
           _count: {
@@ -1211,12 +1221,86 @@ export const storeRouter = router({
           acceptsUC: store.acceptsUC,
           ucDiscountPercent: store.ucDiscountPercent,
           communityCommitmentPercent: store.communityCommitmentPercent,
-          owner: store.owner,
+          owner: {
+            id: store.owner.id,
+            name: store.owner.name,
+            email: store.owner.email,
+            phone: store.owner.phone,
+          },
+          ownerWalletAddress: store.owner.walletAddress,
+          address: store.address,
+          city: store.city,
+          state: store.state,
+          phone: store.phone,
+          email: store.email,
+          website: store.website,
+          totalSales: store.totalSales,
+          rating: store.rating,
+          reviewCount: store.reviewCount,
           productCount: store._count.products,
           orderCount: store._count.orders,
           createdAt: store.createdAt,
         })),
         nextCursor,
+      };
+    }),
+
+  /**
+   * Check on-chain SC-verification status for a single store.
+   * Returns both the DB flag and the live chain state so they can be compared.
+   */
+  checkStoreOnChainStatus: privateProcedure
+    .input(z.object({ storeId: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        select: {
+          id: true,
+          name: true,
+          isScVerified: true,
+          owner: { select: { walletAddress: true } },
+        },
+      });
+
+      if (!store) throw new TRPCError({ code: 'NOT_FOUND', message: 'Store not found' });
+
+      const ownerWallet = store.owner.walletAddress;
+
+      if (!ownerWallet) {
+        return {
+          storeId: store.id,
+          dbVerified: store.isScVerified,
+          onChainVerified: false,
+          inSync: !store.isScVerified,
+          ownerWallet: null,
+          error: 'Store owner has no wallet address',
+        };
+      }
+
+      const { createPublicClient, http, parseAbi } = await import('viem');
+      const { baseSepolia } = await import('viem/chains');
+
+      const SC_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
+      const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+
+      const publicClient = createPublicClient({ chain: baseSepolia, transport: http(RPC_URL) });
+
+      const onChainVerified = await publicClient.readContract({
+        address: SC_ADDRESS as `0x${string}`,
+        abi: parseAbi(['function isScVerifiedStore(address store) external view returns (bool)']),
+        functionName: 'isScVerifiedStore',
+        args: [ownerWallet as `0x${string}`],
+      }) as boolean;
+
+      return {
+        storeId: store.id,
+        dbVerified: store.isScVerified,
+        onChainVerified,
+        inSync: store.isScVerified === onChainVerified,
+        ownerWallet,
+        error: null,
       };
     }),
 
@@ -1743,16 +1827,24 @@ export const storeRouter = router({
       });
 
       // Award SC rewards if store is SC-verified (after order is created)
+      let scRewardResult: { customerReward?: number; customerTxHash?: string } = {};
       if (store.isScVerified) {
         try {
-          await awardStoreTransactionReward(
+          const rewardResult = await awardStoreTransactionReward(
             buyer.id,
             store.owner.id,
             totalUSD,
             true,
             order.id,  // Pass orderId
-            store.id   // Pass storeId
+            store.id,  // Pass storeId
+            transactionHash,  // Source UC tx hash
+            'STORE_ORDER',    // Source type
+            order.id          // Source record ID
           );
+          scRewardResult = {
+            customerReward: rewardResult.customerReward ?? undefined,
+            customerTxHash: rewardResult.customerTxHash ?? undefined,
+          };
           console.log('🪙 SC rewards distributed and tracked');
         } catch (error) {
           console.error('Failed to award SC (non-critical):', error);
@@ -1784,6 +1876,8 @@ export const storeRouter = router({
       return {
         success: true,
         orderId: order.id,
+        scRewardSC: scRewardResult.customerReward ?? null, // actual SC minted (after diminishing rate)
+        scRewardTxHash: scRewardResult.customerTxHash ?? null,
         order: {
           id: order.id,
           totalUSD: order.totalUSD,

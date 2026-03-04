@@ -6,10 +6,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 
-// Interface to check membership status from SoulaaniCoin
+// Interface to check membership status and store verification from SoulaaniCoin
 interface ISoulaaniCoin {
     function isActiveMember(address account) external view returns (bool);
     function isMember(address account) external view returns (bool);
+    function isScVerifiedStore(address store) external view returns (bool);
 }
 
 // Interface for future cross-coop clearing functionality
@@ -57,7 +58,7 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     bytes32 public constant PAUSER = keccak256("PAUSER");
     bytes32 public constant SYSTEM_CONTRACT_MANAGER = keccak256("SYSTEM_CONTRACT_MANAGER");
 
-    // Reference to SoulaaniCoin for membership verification
+    // Reference to SoulaaniCoin for membership verification and store registry
     ISoulaaniCoin public soulaaniCoin;
 
     // Whitelisted system contracts (can send/receive UC without membership check)
@@ -74,6 +75,10 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     // Fee collection
     uint256 public transferFeePercent = 10; // 0.1% = 10 basis points
     address public feeRecipient;
+
+    // Wealth Fund reserve system (formerly treasury reserve)
+    address public wealthFundAddress;
+    uint256 public defaultReserveBps = 500; // 5% global reserve rate for all SC-verified stores
 
     // Multi-coop foundation (minimal)
     uint256 public coopId = 1; // Default to Soulaan Co-op
@@ -102,6 +107,50 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
     
     // SoulaaniCoin reference update event
     event SoulaaniCoinAddressChanged(address indexed oldAddress, address indexed newAddress, address indexed changedBy);
+
+    // Wealth Fund reserve events
+    event WealthFundAddressChanged(
+        address indexed oldAddress, 
+        address indexed newAddress, 
+        address indexed changedBy,
+        string reason,
+        uint256 timestamp
+    );
+    event ReserveRateChanged(uint256 oldBps, uint256 newBps, address indexed changedBy);
+    event TreasuryReserveTransferred(
+        address indexed from,
+        address indexed store,
+        uint256 paymentAmount,
+        uint256 reserveAmount,
+        uint256 reserveBps,
+        bytes32 indexed sourceUcTxHash
+    );
+    
+    // Privileged Address Change Tracking Events
+    event PrivilegedAddressChanged(
+        string indexed changeType,
+        address indexed oldAddress,
+        address indexed newAddress,
+        address changedBy,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleGranted(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
+    
+    event RoleRevoked(
+        bytes32 indexed role,
+        address indexed account,
+        address indexed sender,
+        string reason,
+        uint256 timestamp
+    );
 
     /**
      * @notice Constructor - initializes UC token
@@ -132,6 +181,9 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         // This is a reasonable limit for development/testnet
         // Admin can adjust this later using setDailyMintLimit()
         dailyMintLimit[admin] = 10_000 * 10**18; // 10,000 UC in wei
+
+        // Set wealth fund address to admin initially (can be changed later)
+        wealthFundAddress = admin;
     }
 
     /**
@@ -388,11 +440,12 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @param newRecipient Address to receive transfer fees
      * @dev Only callable by DEFAULT_ADMIN_ROLE
      */
-    function setFeeRecipient(address newRecipient) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFeeRecipient(address newRecipient, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newRecipient != address(0), "Fee recipient cannot be zero address");
         address oldRecipient = feeRecipient;
         feeRecipient = newRecipient;
         emit FeeRecipientChanged(oldRecipient, newRecipient, msg.sender);
+        emit PrivilegedAddressChanged("FEE_RECIPIENT", oldRecipient, newRecipient, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -400,11 +453,12 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @param newSoulaaniCoin New SoulaaniCoin contract address
      * @dev Only callable by DEFAULT_ADMIN_ROLE. Allows upgrading SC contract independently.
      */
-    function setSoulaaniCoinAddress(address newSoulaaniCoin) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setSoulaaniCoinAddress(address newSoulaaniCoin, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newSoulaaniCoin != address(0), "SoulaaniCoin cannot be zero address");
         address oldAddress = address(soulaaniCoin);
         soulaaniCoin = ISoulaaniCoin(newSoulaaniCoin);
         emit SoulaaniCoinAddressChanged(oldAddress, newSoulaaniCoin, msg.sender);
+        emit PrivilegedAddressChanged("SOULAANI_COIN", oldAddress, newSoulaaniCoin, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -430,6 +484,35 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         emit OwnershipTransferCompleted(msg.sender, block.timestamp);
     }
 
+    // ========== TREASURY RESERVE MANAGEMENT ==========
+
+    /**
+     * @notice Set wealth fund address for reserve transfers
+     * @param newAddress Address of wealth fund wallet/contract
+     * @param reason Reason for the address change (for audit trail)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     */
+    function setWealthFundAddress(address newAddress, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newAddress != address(0), "Wealth fund address cannot be zero");
+        address oldAddress = wealthFundAddress;
+        wealthFundAddress = newAddress;
+        emit WealthFundAddressChanged(oldAddress, newAddress, msg.sender, reason, block.timestamp);
+        emit PrivilegedAddressChanged("WEALTH_FUND", oldAddress, newAddress, msg.sender, reason, block.timestamp);
+    }
+
+    /**
+     * @notice Set default reserve rate for all SC-verified stores
+     * @param newBps New reserve rate in basis points (500 = 5%)
+     * @dev Only callable by DEFAULT_ADMIN_ROLE
+     * @dev Maximum reserve rate is 20% (2000 bps)
+     */
+    function setDefaultReserveRate(uint256 newBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newBps <= 2000, "Reserve rate cannot exceed 20%");
+        uint256 oldBps = defaultReserveBps;
+        defaultReserveBps = newBps;
+        emit ReserveRateChanged(oldBps, newBps, msg.sender);
+    }
+
     // Required overrides for multiple inheritance
     function _update(address from, address to, uint256 amount) internal override(ERC20, ERC20Pausable) {
         // Allow minting (from == 0) and burning (to == 0)
@@ -443,6 +526,31 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
             // Check recipient membership (unless recipient is a whitelisted system contract)
             if (!isSystemContract[to]) {
                 require(soulaaniCoin.isActiveMember(to), "Recipient must be an active SC member");
+            }
+
+            // Wealth Fund reserve: If recipient is SC-verified store, set aside reserve
+            // Query SC contract for store verification status
+            if (soulaaniCoin.isScVerifiedStore(to) && wealthFundAddress != address(0) && amount > 0) {
+                uint256 reserveAmount = (amount * defaultReserveBps) / 10000;
+                
+                if (reserveAmount > 0) {
+                    // Transfer reserve directly from sender to wealth fund
+                    // This happens BEFORE the main transfer, reducing the amount to store
+                    super._update(from, wealthFundAddress, reserveAmount);
+                    
+                    // Reduce the amount going to the store
+                    amount = amount - reserveAmount;
+                    
+                    // Emit reserve transfer event with tx hash for tracking
+                    emit TreasuryReserveTransferred(
+                        from,
+                        to,
+                        amount + reserveAmount, // Original payment amount
+                        reserveAmount,
+                        defaultReserveBps,
+                        bytes32(uint256(uint160(from))) // Use sender address as source identifier
+                    );
+                }
             }
 
             // Collect transfer fee (only on transfers between users, not mints/burns)
@@ -473,11 +581,12 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
      * @dev Only callable by DEFAULT_ADMIN_ROLE
      * @dev Used for future multi-coop cross-settlement
      */
-    function setClearingContract(address newClearingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setClearingContract(address newClearingContract, string calldata reason) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newClearingContract != address(0), "Clearing contract cannot be zero address");
         address oldClearingContract = clearingContract;
         clearingContract = newClearingContract;
         emit ClearingContractChanged(oldClearingContract, newClearingContract, msg.sender);
+        emit PrivilegedAddressChanged("CLEARING_CONTRACT", oldClearingContract, newClearingContract, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -491,5 +600,29 @@ contract UnityCoin is ERC20, ERC20Burnable, ERC20Pausable, AccessControlEnumerab
         uint256 oldCoopId = coopId;
         coopId = newCoopId;
         emit CoopIdChanged(oldCoopId, newCoopId, msg.sender);
+    }
+
+    /**
+     * @notice Grant role with audit trail
+     * @param role Role to grant
+     * @param account Address to grant role to
+     * @param reason Reason for granting the role
+     * @dev Only callable by role admin
+     */
+    function grantRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        grantRole(role, account);
+        emit RoleGranted(role, account, msg.sender, reason, block.timestamp);
+    }
+
+    /**
+     * @notice Revoke role with audit trail
+     * @param role Role to revoke
+     * @param account Address to revoke role from
+     * @param reason Reason for revoking the role
+     * @dev Only callable by role admin
+     */
+    function revokeRoleWithReason(bytes32 role, address account, string calldata reason) external {
+        revokeRole(role, account);
+        emit RoleRevoked(role, account, msg.sender, reason, block.timestamp);
     }
 }

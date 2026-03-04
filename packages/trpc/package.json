@@ -52,6 +52,11 @@
       "import": "./dist/services/admin-verification.js",
       "require": "./dist/services/admin-verification.js",
       "types": "./dist/services/admin-verification.d.ts"
+    },
+    "./services/reward-retry-service": {
+      "import": "./dist/services/reward-retry-service.js",
+      "require": "./dist/services/reward-retry-service.js",
+      "types": "./dist/services/reward-retry-service.d.ts"
     }
   },
   "keywords": [],

@@ -351,7 +351,12 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
       payerId,
       request.store.ownerId,
       amount,
-      request.store.isScVerified
+      request.store.isScVerified,
+      undefined,  // orderId (not available in payment request flow)
+      request.storeId,  // storeId
+      transferResult.transactionHash,  // Source UC tx hash
+      'P2P_TRANSFER',  // Source type
+      transferResult.transferId  // Source record ID
     );
   }
 
@@ -442,7 +447,12 @@ export async function payByStoreCode(params: PayByCodeParams): Promise<PayReques
       payerId,
       store.ownerId,
       amount,
-      store.isScVerified
+      store.isScVerified,
+      undefined,  // orderId (not available in quick pay flow)
+      store.id,  // storeId
+      transferResult.transactionHash,  // Source UC tx hash
+      'P2P_TRANSFER',  // Source type
+      transferResult.transferId  // Source record ID
     );
   }
 
