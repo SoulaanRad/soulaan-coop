@@ -883,7 +883,7 @@ describe("UnityCoin (UC)", function () {
     it("Should allow admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(uc.connect(admin).setClearingContract(newClearingContract))
+      await expect(uc.connect(admin).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.emit(uc, "ClearingContractChanged")
         .withArgs(ethers.ZeroAddress, newClearingContract, admin.address);
       
@@ -903,7 +903,7 @@ describe("UnityCoin (UC)", function () {
     it("Should not allow non-admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(uc.connect(user1).setClearingContract(newClearingContract))
+      await expect(uc.connect(user1).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
     });
 
@@ -913,7 +913,7 @@ describe("UnityCoin (UC)", function () {
     });
 
     it("Should revert if setting clearing contract to zero address", async function () {
-      await expect(uc.connect(admin).setClearingContract(ethers.ZeroAddress))
+      await expect(uc.connect(admin).setClearingContract(ethers.ZeroAddress, "Clearing zero address test"))
         .to.be.revertedWith("Clearing contract cannot be zero address");
     });
 
@@ -935,7 +935,7 @@ describe("UnityCoin (UC)", function () {
       await sc.connect(admin).addMembersBatch([await treasury.getAddress()]);
 
       // Set treasury as fee recipient
-      await uc.connect(admin).setFeeRecipient(await treasury.getAddress());
+      await uc.connect(admin).setFeeRecipient(await treasury.getAddress(), "Setting fee recipient");
 
       // Mint UC to users for testing
       await uc.connect(admin).mint(user1.address, ethers.parseEther("1000"));
@@ -1050,7 +1050,7 @@ describe("UnityCoin (UC)", function () {
     it("Should allow admin to set fee recipient", async function () {
       const newRecipient = user1.address;
       
-      await expect(uc.connect(admin).setFeeRecipient(newRecipient))
+      await expect(uc.connect(admin).setFeeRecipient(newRecipient, "Setting fee recipient"))
         .to.emit(uc, "FeeRecipientChanged")
         .withArgs(ethers.ZeroAddress, newRecipient, admin.address);
       
@@ -1058,12 +1058,12 @@ describe("UnityCoin (UC)", function () {
     });
 
     it("Should not allow setting fee recipient to zero address", async function () {
-      await expect(uc.connect(admin).setFeeRecipient(ethers.ZeroAddress))
+      await expect(uc.connect(admin).setFeeRecipient(ethers.ZeroAddress, "Fee zero address test"))
         .to.be.revertedWith("Fee recipient cannot be zero address");
     });
 
     it("Should not allow non-admin to set fee recipient", async function () {
-      await expect(uc.connect(user1).setFeeRecipient(user2.address))
+      await expect(uc.connect(user1).setFeeRecipient(user2.address, "Setting fee recipient"))
         .to.be.revertedWithCustomError(uc, "AccessControlUnauthorizedAccount");
     });
   });

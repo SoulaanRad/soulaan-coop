@@ -18,7 +18,7 @@
     "cors": "^2.8.5",
     "dotenv": "catalog:",
     "express": "^5.2.1",
-    "multer": "^2.0.2",
+    "multer": "^2.1.0",
     "pinata-web3": "^0.5.4",
     "superjson": "catalog:",
     "zod": "catalog:"

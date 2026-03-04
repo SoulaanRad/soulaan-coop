@@ -1487,7 +1487,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should allow admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(sc.connect(governanceBot).setClearingContract(newClearingContract))
+      await expect(sc.connect(governanceBot).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.emit(sc, "ClearingContractChanged")
         .withArgs(ethers.ZeroAddress, newClearingContract, governanceBot.address);
       
@@ -1507,7 +1507,7 @@ describe("SoulaaniCoin (SC)", function () {
     it("Should not allow non-admin to set clearing contract", async function () {
       const newClearingContract = ethers.Wallet.createRandom().address;
       
-      await expect(sc.connect(member1).setClearingContract(newClearingContract))
+      await expect(sc.connect(member1).setClearingContract(newClearingContract, "Setting clearing contract"))
         .to.be.revertedWithCustomError(sc, "AccessControlUnauthorizedAccount");
     });
 
@@ -1517,7 +1517,7 @@ describe("SoulaaniCoin (SC)", function () {
     });
 
     it("Should revert if setting clearing contract to zero address", async function () {
-      await expect(sc.connect(governanceBot).setClearingContract(ethers.ZeroAddress))
+      await expect(sc.connect(governanceBot).setClearingContract(ethers.ZeroAddress, "Clearing zero address test"))
         .to.be.revertedWith("Clearing contract cannot be zero address");
     });
 
