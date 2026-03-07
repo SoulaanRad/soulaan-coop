@@ -1,10 +1,10 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export function BusinessSignupForm() {
+function BusinessSignupFormContent() {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coopInterest, setCoopInterest] = useState("");
@@ -337,5 +337,13 @@ export function BusinessSignupForm() {
         </form>
       </div>
     </div>
+  );
+}
+
+export function BusinessSignupForm() {
+  return (
+    <Suspense fallback={<div className="text-slate-400">Loading form...</div>}>
+      <BusinessSignupFormContent />
+    </Suspense>
   );
 }
