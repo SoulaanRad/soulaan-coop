@@ -36,8 +36,10 @@
   - [ ] Add logging for proposal submissions and their outcomes to monitor usage and detect issues. � �
   - [ ] Document the proposal submission process and the criteria for approval. � �
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Create performance benchmarks for profile retrieval and updates to ensure scalability. � �
+
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Create integration tests to validate the interaction between member profiles and the proposal engine. � �
 
 ---
 
@@ -73,4 +75,4 @@
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
 ---
-*🤖 Roadmap updated 2026-01-31 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-03-07 - AI-generated sub-items added based on completed work analysis*
