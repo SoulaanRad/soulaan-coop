@@ -18,12 +18,13 @@ interface WaitlistData {
   email: string;
   name?: string;
   source: "hero" | "contact";
+  suggestedCoop?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name, source } = body as WaitlistData;
+    const { email, name, source, suggestedCoop } = body as WaitlistData;
     console.log("waitlist-form request", body);
 
     // Validation
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
       email,
       name: name || undefined,
       source: source,
+      suggestedCoop: suggestedCoop?.trim() || undefined,
     };
 
     // Send to Slack first
@@ -58,12 +60,18 @@ export async function POST(request: NextRequest) {
       update: {
         name: waitlistData.name,
         source: waitlistData.source,
+        notes: waitlistData.suggestedCoop
+          ? `Interested coop: ${waitlistData.suggestedCoop}`
+          : undefined,
       },
       create: {
         email: waitlistData.email,
         name: waitlistData.name,
         type: "user",
         source: waitlistData.source,
+        notes: waitlistData.suggestedCoop
+          ? `Interested coop: ${waitlistData.suggestedCoop}`
+          : undefined,
       },
     });
 
@@ -90,7 +98,7 @@ async function sendWaitlistToSlack(data: WaitlistData) {
   }
 
   const message = {
-    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {
