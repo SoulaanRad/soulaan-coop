@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
 import { WaitlistForm } from "@/components/waitlist-form";
@@ -183,18 +184,33 @@ export default function SoulaanLanding() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-white/10">
-              <Image
-                src="/images/soulaan-flag.jpg"
-                alt="Soulaan Co-op Flag"
-                fill
-                className="object-cover"
-                priority
-              />
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 backdrop-blur-sm flex items-center justify-center">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-6 w-6"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7l-8-5z"
+                  fill="url(#logo-gradient)"
+                  opacity="0.9"
+                />
+                <circle cx="12" cy="12" r="3" fill="currentColor" className="text-emerald-300" />
+                <circle cx="8" cy="10" r="1.5" fill="currentColor" className="text-emerald-400" />
+                <circle cx="16" cy="10" r="1.5" fill="currentColor" className="text-emerald-400" />
+                <circle cx="12" cy="16" r="1.5" fill="currentColor" className="text-indigo-400" />
+                <defs>
+                  <linearGradient id="logo-gradient" x1="4" y1="2" x2="20" y2="24" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="rgb(52, 211, 153)" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="rgb(99, 102, 241)" stopOpacity="0.3" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-300/80">
-                Guild
+                Cahootz
               </p>
               <p className="text-sm text-slate-300">Digital coop network</p>
             </div>
@@ -660,7 +676,9 @@ export default function SoulaanLanding() {
                   User path
                 </div>
               </div>
-              <WaitlistForm source="contact" variant="card" />
+              <Suspense fallback={<div className="text-center text-slate-400">Loading...</div>}>
+                <WaitlistForm source="contact" variant="card" />
+              </Suspense>
             </div>
           </div>
         </section>
@@ -681,7 +699,9 @@ export default function SoulaanLanding() {
                 useful projects.
               </p>
             </div>
-            <BusinessSignupForm />
+            <Suspense fallback={<div className="text-center text-slate-400">Loading...</div>}>
+              <BusinessSignupForm />
+            </Suspense>
           </div>
         </section>
       </main>
@@ -698,7 +718,7 @@ export default function SoulaanLanding() {
               />
             </div>
             <p className="text-sm leading-6 text-slate-400">
-              Guild is building digital cooperatives that keep value,
+              Cahootz is building digital cooperatives that keep value,
               ownership, and decision-making closer to the people creating it.
             </p>
           </div>
