@@ -99,7 +99,7 @@ const activeCoops: CoopCard[] = [
     focus:
       "Members help grow a shared treasury and vote on projects that improve economic opportunity and stability.",
     buttonLabel: "Join Soulaan Coop",
-    accent: "from-emerald-400/30 to-cyan-400/10",
+    accent: "from-orange-400/30 to-amber-400/10",
     status: "Live Coop",
   },
   {
@@ -179,12 +179,12 @@ const heroLoop = [
 export default function SoulaanLanding() {
   return (
     <div className="min-h-screen bg-[#050816] text-white">
-      <div className="absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.18),_transparent_45%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_30%)]" />
+      <div className="absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(circle_at_top,_rgba(251,146,60,0.18),_transparent_45%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.18),_transparent_30%)]" />
 
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
-            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 backdrop-blur-sm flex items-center justify-center">
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-orange-400/30 bg-gradient-to-br from-orange-500/20 to-amber-500/20 backdrop-blur-sm flex items-center justify-center">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -196,20 +196,20 @@ export default function SoulaanLanding() {
                   fill="url(#logo-gradient)"
                   opacity="0.9"
                 />
-                <circle cx="12" cy="12" r="3" fill="currentColor" className="text-emerald-300" />
-                <circle cx="8" cy="10" r="1.5" fill="currentColor" className="text-emerald-400" />
-                <circle cx="16" cy="10" r="1.5" fill="currentColor" className="text-emerald-400" />
-                <circle cx="12" cy="16" r="1.5" fill="currentColor" className="text-indigo-400" />
+                <circle cx="12" cy="12" r="3" fill="currentColor" className="text-orange-300" />
+                <circle cx="8" cy="10" r="1.5" fill="currentColor" className="text-orange-400" />
+                <circle cx="16" cy="10" r="1.5" fill="currentColor" className="text-orange-400" />
+                <circle cx="12" cy="16" r="1.5" fill="currentColor" className="text-amber-400" />
                 <defs>
                   <linearGradient id="logo-gradient" x1="4" y1="2" x2="20" y2="24" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="rgb(52, 211, 153)" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="rgb(99, 102, 241)" stopOpacity="0.3" />
+                    <stop offset="0%" stopColor="rgb(251, 146, 60)" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="rgb(245, 158, 11)" stopOpacity="0.3" />
                   </linearGradient>
                 </defs>
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-300/80">
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-orange-300/80">
                 Cahootz
               </p>
               <p className="text-sm text-slate-300">Digital coop network</p>
@@ -241,7 +241,7 @@ export default function SoulaanLanding() {
         <section className="px-4 pb-20 pt-14 sm:px-6 lg:px-8 lg:pb-28 lg:pt-20">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-sm text-orange-200">
                 <Sparkles className="h-4 w-4" />
                 Coops built for real-world stability
               </div>
@@ -306,7 +306,7 @@ export default function SoulaanLanding() {
             </div>
 
             <div className="relative">
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-indigo-500/20 blur-3xl" />
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-orange-400/20 via-amber-400/10 to-yellow-500/20 blur-3xl" />
               <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-cyan-950/30">
                 <div className="flex items-center justify-between">
                   <div>
@@ -317,7 +317,7 @@ export default function SoulaanLanding() {
                       Everyday activity becomes shared power
                     </h2>
                   </div>
-                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                  <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-sm text-orange-200">
                     Network mode
                   </div>
                 </div>
@@ -329,7 +329,7 @@ export default function SoulaanLanding() {
                       className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
                     >
                       <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300/20 to-cyan-400/20 text-emerald-200">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-300/20 to-amber-400/20 text-orange-200">
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
@@ -346,10 +346,10 @@ export default function SoulaanLanding() {
                             <div
                               className={`h-2 rounded-full ${
                                 index === 0
-                                  ? "w-3/4 bg-gradient-to-r from-emerald-300 to-cyan-300"
+                                  ? "w-3/4 bg-gradient-to-r from-orange-300 to-amber-300"
                                   : index === 1
-                                    ? "w-2/3 bg-gradient-to-r from-cyan-300 to-blue-300"
-                                    : "w-4/5 bg-gradient-to-r from-violet-300 to-fuchsia-300"
+                                    ? "w-2/3 bg-gradient-to-r from-amber-300 to-yellow-300"
+                                    : "w-4/5 bg-gradient-to-r from-orange-400 to-red-400"
                               }`}
                             />
                           </div>
@@ -361,7 +361,7 @@ export default function SoulaanLanding() {
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center gap-3 text-emerald-200">
+                    <div className="flex items-center gap-3 text-orange-200">
                       <Coins className="h-5 w-5" />
                       <p className="font-medium">Shared treasury</p>
                     </div>
@@ -407,9 +407,9 @@ export default function SoulaanLanding() {
               {problemCards.map(({ title, description, icon: Icon }) => (
                 <div
                   key={title}
-                  className="group rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                  className="group rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white/10 to-white/5 text-emerald-200">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white/10 to-white/5 text-orange-200">
                     <Icon className="h-6 w-6" />
                   </div>
                   <h3 className="mt-6 text-xl font-semibold text-white">
@@ -545,19 +545,19 @@ export default function SoulaanLanding() {
                 </div>
                 <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-400">
                   <li>Users create value and someone else captures it.</li>
-                  <li>Communities generate data, demand, and revenue without control.</li>
-                  <li>Decisions happen far away from the people affected.</li>
+                  <li>Equity concentrates with investors, not contributors.</li>
+                  <li>Voting power stays with shareholders, not the people building it.</li>
                 </ul>
               </div>
 
-              <div className="rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.06] p-6">
-                <div className="flex items-center gap-3 text-emerald-200">
+              <div className="rounded-[1.75rem] border border-orange-300/15 bg-orange-300/[0.06] p-6">
+                <div className="flex items-center gap-3 text-orange-200">
                   <Users2 className="h-5 w-5" />
                   <h3 className="font-semibold text-white">Cooperative model</h3>
                 </div>
                 <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-300">
                   <li>Members support businesses that feed back into shared goals.</li>
-                  <li>Treasuries can fund housing, jobs, groceries, and infrastructure.</li>
+                  <li>Equity and ownership are shared among active contributors.</li>
                   <li>Voting power stays with the people building the network.</li>
                 </ul>
               </div>
@@ -591,9 +591,13 @@ export default function SoulaanLanding() {
                   More Coops Coming Soon
                 </h2>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
-                  Communities across different industries and cities will be
-                  able to create cooperatives focused on their own economic
-                  goals.
+                  Communities of members pool their purchasing power to support
+                  businesses, grow shared treasuries, and fund solutions to
+                  their economic challenges.
+                </p>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500">
+                  Each coop is built around members who shop, invest, and vote
+                  together—not employees running the businesses.
                 </p>
                 <Link
                   href="#member-signup"
@@ -638,9 +642,9 @@ export default function SoulaanLanding() {
               <div className="mt-8 grid gap-4">
                 <Link
                   href="#member-form"
-                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">
+                  <p className="text-sm uppercase tracking-[0.2em] text-orange-200">
                     Member signup
                   </p>
                   <p className="mt-2 text-lg font-medium text-white">
@@ -665,14 +669,14 @@ export default function SoulaanLanding() {
             <div id="member-form" className="rounded-[2rem] border border-white/10 bg-slate-950/80 p-6">
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-emerald-200/80">
+                  <p className="text-sm uppercase tracking-[0.24em] text-orange-200/80">
                     Member waitlist
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold text-white">
                     Get updates and choose your coop
                   </h3>
                 </div>
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-sm text-orange-200">
                   User path
                 </div>
               </div>
@@ -709,13 +713,29 @@ export default function SoulaanLanding() {
       <footer className="border-t border-white/10 px-4 py-10 text-slate-400 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-white/10">
-              <Image
-                src="/images/soulaan-flag.jpg"
-                alt="Soulaan Co-op Flag"
-                fill
-                className="object-cover"
-              />
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-orange-400/30 bg-gradient-to-br from-orange-500/20 to-amber-500/20 backdrop-blur-sm flex items-center justify-center">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-6 w-6"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2L4 7v5c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V7l-8-5z"
+                  fill="url(#footer-logo-gradient)"
+                  opacity="0.9"
+                />
+                <circle cx="12" cy="12" r="3" fill="currentColor" className="text-orange-300" />
+                <circle cx="8" cy="10" r="1.5" fill="currentColor" className="text-orange-400" />
+                <circle cx="16" cy="10" r="1.5" fill="currentColor" className="text-orange-400" />
+                <circle cx="12" cy="16" r="1.5" fill="currentColor" className="text-amber-400" />
+                <defs>
+                  <linearGradient id="footer-logo-gradient" x1="4" y1="2" x2="20" y2="24" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="rgb(251, 146, 60)" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="rgb(245, 158, 11)" stopOpacity="0.3" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
             <p className="text-sm leading-6 text-slate-400">
               Cahootz is building digital cooperatives that keep value,
