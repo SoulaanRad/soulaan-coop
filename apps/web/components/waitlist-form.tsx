@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface WaitlistFormProps {
@@ -10,7 +10,7 @@ interface WaitlistFormProps {
   className?: string;
 }
 
-export function WaitlistForm({
+function WaitlistFormContent({
   source,
   variant = "hero",
   className = "",
@@ -297,5 +297,13 @@ export function WaitlistForm({
         </p>
       </form>
     </div>
+  );
+}
+
+export function WaitlistForm(props: WaitlistFormProps) {
+  return (
+    <Suspense fallback={<div className="text-slate-400">Loading...</div>}>
+      <WaitlistFormContent {...props} />
+    </Suspense>
   );
 }
