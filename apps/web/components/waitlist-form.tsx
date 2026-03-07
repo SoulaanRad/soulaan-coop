@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
-// Using API endpoint instead of server actions
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface WaitlistFormProps {
   source: "hero" | "contact";
@@ -15,11 +15,20 @@ export function WaitlistForm({
   variant = "hero",
   className = "",
 }: WaitlistFormProps) {
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [suggestedCoop, setSuggestedCoop] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const coopFromQuery = searchParams.get("coop");
+    if (coopFromQuery) {
+      setSuggestedCoop(coopFromQuery);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,6 +38,7 @@ export function WaitlistForm({
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const name = formData.get("name") as string;
+    const coop = formData.get("suggestedCoop") as string;
 
     try {
       const response = await fetch("/api/waitlist", {
@@ -40,6 +50,7 @@ export function WaitlistForm({
           email,
           name,
           source,
+          suggestedCoop: coop,
         }),
       });
 
@@ -51,6 +62,7 @@ export function WaitlistForm({
         // Reset form on success
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         e?.currentTarget?.reset();
+        setSuggestedCoop(searchParams.get("coop") ?? "");
       }
     } catch (error) {
       console.error("Error joining waitlist", error);
@@ -65,57 +77,61 @@ export function WaitlistForm({
 
   if (variant === "hero") {
     return (
-      <div className={`mx-auto max-w-md ${className}`}>
+      <div className={`mx-auto max-w-3xl ${className}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="grid gap-3 md:grid-cols-2">
             <input
               type="text"
               name="name"
-              placeholder="Your Name (Optional)"
-              className="flex-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              placeholder="Your name"
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
               disabled={isSubmitting}
             />
             <input
               type="email"
               name="email"
-              placeholder="Your Email"
+              placeholder="Your email"
               required
-              className="flex-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-2 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
               disabled={isSubmitting}
             />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+            <div>
+              <input
+                type="text"
+                name="suggestedCoop"
+                list={`coop-options-${variant}`}
+                placeholder="Which coop do you want to join?"
+                value={suggestedCoop}
+                onChange={(event) => setSuggestedCoop(event.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
+                disabled={isSubmitting}
+              />
+              <datalist id={`coop-options-${variant}`}>
+                <option value="Soulaan Coop" />
+                <option value="SF Artist Coop" />
+                <option value="East Bay Food Coop" />
+                <option value="New coop idea" />
+              </datalist>
+            </div>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-md bg-gradient-to-r from-blue-600 to-green-600 px-6 py-2 font-medium text-white hover:from-blue-700 hover:to-green-700"
+              className="rounded-2xl bg-white px-6 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
             >
-              {isSubmitting ? (
-                "Joining..."
-              ) : (
-                <>
-                  Join Waitlist
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="ml-2 inline h-4 w-4"
-                  >
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </>
-              )}
+              {isSubmitting ? "Joining..." : "Join Waitlist"}
             </button>
           </div>
 
           {result && (
             <div
-              className={`flex items-center gap-2 text-sm ${result.success ? "text-green-400" : "text-red-400"}`}
+              className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${
+                result.success
+                  ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                  : "border-red-400/20 bg-red-400/10 text-red-200"
+              }`}
             >
               {result.success ? (
                 <svg
@@ -155,9 +171,8 @@ export function WaitlistForm({
             </div>
           )}
 
-          <p className="text-center text-xs text-slate-400">
-            Be the first to know about launch dates, community events, and new
-            features.
+          <p className="text-center text-xs text-slate-500">
+            Choose an active coop or type the one you want to see next.
           </p>
         </form>
       </div>
@@ -165,28 +180,44 @@ export function WaitlistForm({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700 p-6">
+    <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-3">
           <input
             type="text"
             name="name"
-            placeholder="Your Name (Optional)"
-            className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="Your name"
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
           />
           <input
             type="email"
             name="email"
-            placeholder="Your Email"
+            placeholder="Your email"
             required
-            className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
           />
+          <input
+            type="text"
+            name="suggestedCoop"
+            list={`coop-options-${variant}`}
+            placeholder="Which coop do you want to join?"
+            value={suggestedCoop}
+            onChange={(event) => setSuggestedCoop(event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
+            disabled={isSubmitting}
+          />
+          <datalist id={`coop-options-${variant}`}>
+            <option value="Soulaan Coop" />
+            <option value="SF Artist Coop" />
+            <option value="East Bay Food Coop" />
+            <option value="New coop idea" />
+          </datalist>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center rounded-md bg-gradient-to-r from-blue-600 to-green-600 px-4 py-2 font-medium text-white hover:from-blue-700 hover:to-green-700"
+            className="flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
           >
             {isSubmitting ? (
               "Joining..."
@@ -218,8 +249,8 @@ export function WaitlistForm({
           <div
             className={`flex items-center gap-2 rounded p-3 text-sm ${
               result.success
-                ? "bg-green-900/30 text-green-400"
-                : "bg-red-900/30 text-red-400"
+                ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                : "border border-red-400/20 bg-red-400/10 text-red-200"
             }`}
           >
             {result.success ? (
@@ -260,9 +291,9 @@ export function WaitlistForm({
           </div>
         )}
 
-        <p className="text-xs text-slate-400">
-          Ready to build with us? Fill out the form, tell a friend, and let's
-          put Black dollars to work for the whole community.
+        <p className="text-xs leading-6 text-slate-500">
+          Pick an active coop or type a new one if you want to help shape what
+          launches next.
         </p>
       </form>
     </div>

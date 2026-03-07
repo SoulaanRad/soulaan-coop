@@ -1,775 +1,716 @@
 import type { Metadata } from "next";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Coins,
+  Handshake,
+  House,
+  Landmark,
+  Paintbrush,
+  PiggyBank,
+  ShoppingBasket,
+  Sparkles,
+  Store,
+  Users2,
+  Vote,
+  Wallet,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+
 import { BusinessSignupForm } from "@/components/business-signup-form";
-import { CommunityIcon } from "@/components/icons/community-icon";
-import { CommunityInvestmentIcon } from "@/components/icons/community-investment-icon";
-import { GovernanceIcon } from "@/components/icons/governance-icon";
-import { PaymentIcon } from "@/components/icons/payment-icon";
-import { SCIcon } from "@/components/icons/sc-icon";
-import { UCIcon } from "@/components/icons/uc-icon";
-import { UnityIcon } from "@/components/icons/unity-icon";
-import { VoiceIcon } from "@/components/icons/voice-icon";
 import { WaitlistForm } from "@/components/waitlist-form";
 
-// Page-specific metadata
 export const metadata: Metadata = {
-  title:
-    "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+  title: "Soulaan Co-op | Build Stability Together",
   description:
-    "Join the Soulaan Co-op and transform everyday spending into community wealth. Use Unity Coin (UC) and SoulaaniCoin (SC) to keep money circulating in Black communities while earning rewards and voting power.",
+    "Join a network of digital cooperatives that helps communities support businesses, grow shared treasuries, and vote on solutions to real economic problems.",
   alternates: {
     canonical: "https://soulaan.coop",
   },
 };
 
+interface ProblemCard {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+interface CoopCard {
+  name: string;
+  description: string;
+  focus: string;
+  buttonLabel: string;
+  accent: string;
+  status: "Live Coop" | "Coming Soon";
+}
+
+interface StepCard {
+  step: string;
+  title: string;
+  description: string;
+}
+
+const problemCards: ProblemCard[] = [
+  {
+    title: "Affordable Housing",
+    description:
+      "Support projects that create stable housing options for members and communities.",
+    icon: House,
+  },
+  {
+    title: "Cheaper Groceries",
+    description:
+      "Fund cooperative grocery initiatives or supply chains that reduce food costs.",
+    icon: ShoppingBasket,
+  },
+  {
+    title: "Stable Jobs",
+    description:
+      "Invest in businesses and programs that create long-term employment opportunities.",
+    icon: Wallet,
+  },
+  {
+    title: "Small Business Support",
+    description: "Provide capital and customers to community businesses.",
+    icon: Store,
+  },
+  {
+    title: "Creative Work",
+    description:
+      "Support artists and cultural projects through shared funding.",
+    icon: Paintbrush,
+  },
+  {
+    title: "Community Infrastructure",
+    description:
+      "Fund tools, spaces, and services that benefit members.",
+    icon: Building2,
+  },
+];
+
+const activeCoops: CoopCard[] = [
+  {
+    name: "Soulaan Coop",
+    description:
+      "A cooperative focused on building shared wealth through community businesses, investments, and collective action.",
+    focus:
+      "Members help grow a shared treasury and vote on projects that improve economic opportunity and stability.",
+    buttonLabel: "Join Soulaan Coop",
+    accent: "from-emerald-400/30 to-cyan-400/10",
+    status: "Live Coop",
+  },
+  {
+    name: "SF Artist Coop",
+    description:
+      "A cooperative supporting artists in San Francisco by creating shared economic opportunities and funding creative work.",
+    focus:
+      "Members collaborate to strengthen the local arts community and help artists build sustainable careers.",
+    buttonLabel: "Join SF Artist Coop",
+    accent: "from-fuchsia-400/30 to-violet-400/10",
+    status: "Coming Soon",
+  },
+  {
+    name: "East Bay Food Coop",
+    description:
+      "A cooperative focused on lowering grocery costs through local food partnerships, shared purchasing, and neighborhood distribution.",
+    focus:
+      "Members support trusted food businesses, build buying power together, and vote on projects that make essentials more affordable.",
+    buttonLabel: "Join East Bay Food Coop",
+    accent: "from-amber-400/30 to-orange-400/10",
+    status: "Coming Soon",
+  },
+];
+
+const steps: StepCard[] = [
+  {
+    step: "Step 1",
+    title: "Join a Coop",
+    description:
+      "Become a member of a cooperative aligned with your community or interests.",
+  },
+  {
+    step: "Step 2",
+    title: "Support Businesses",
+    description:
+      "Members support businesses and services that are part of the coop network.",
+  },
+  {
+    step: "Step 3",
+    title: "Grow the Treasury",
+    description:
+      "A portion of economic activity contributes to a shared treasury.",
+  },
+  {
+    step: "Step 4",
+    title: "Vote On Projects",
+    description:
+      "Members vote on how the treasury is used to fund initiatives that improve the community.",
+  },
+];
+
+const futureCoops = [
+  "Local food cooperatives",
+  "Housing cooperatives",
+  "Worker cooperatives",
+  "Creative cooperatives",
+];
+
+const heroLoop = [
+  {
+    title: "Support Businesses",
+    description: "Direct spending toward businesses inside the coop network.",
+    icon: Store,
+  },
+  {
+    title: "Grow Shared Funds",
+    description: "Turn community economic activity into a treasury with purpose.",
+    icon: PiggyBank,
+  },
+  {
+    title: "Vote On Solutions",
+    description: "Fund practical projects that make life more affordable and stable.",
+    icon: Vote,
+  },
+];
+
 export default function SoulaanLanding() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-slate-700 bg-slate-900/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center space-x-2">
-            <div className="relative h-8 w-10">
+    <div className="min-h-screen bg-[#050816] text-white">
+      <div className="absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.18),_transparent_45%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.18),_transparent_30%)]" />
+
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050816]/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-white/10">
               <Image
                 src="/images/soulaan-flag.jpg"
-                alt="Soulaan Co-op Flag - Building Community Wealth"
+                alt="Soulaan Co-op Flag"
                 fill
-                className="rounded-md object-cover"
+                className="object-cover"
                 priority
               />
             </div>
-            <span className="text-xl font-bold text-white">Soulaan Co-op</span>
-          </div>
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-emerald-300/80">
+                Guild
+              </p>
+              <p className="text-sm text-slate-300">Digital coop network</p>
+            </div>
+          </Link>
+
           <nav
-            className="hidden items-center space-x-6 md:flex"
+            className="hidden items-center gap-6 text-sm text-slate-300 md:flex"
             role="navigation"
             aria-label="Main navigation"
           >
-            <Link
-              href="#about"
-              className="text-slate-300 transition-colors hover:text-blue-400"
-            >
-              About Us
+            <Link href="#problems" className="transition hover:text-white">
+              Problems We Solve
             </Link>
-            <Link
-              href="#how-it-works"
-              className="text-slate-300 transition-colors hover:text-blue-400"
-            >
+            <Link href="#coops" className="transition hover:text-white">
+              Active Coops
+            </Link>
+            <Link href="#how-it-works" className="transition hover:text-white">
               How It Works
             </Link>
-            <Link
-              href="#status"
-              className="text-slate-300 transition-colors hover:text-blue-400"
-            >
-              Our Progress
+            <Link href="#member-signup" className="transition hover:text-white">
+              Join
             </Link>
-            <Link
-              href="#contact"
-              className="text-slate-300 transition-colors hover:text-blue-400"
-            >
-              Get Involved
-            </Link>
-
           </nav>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="px-4 py-20">
-        <div className="container mx-auto max-w-4xl text-center">
-          <div className="mb-8">
-            <h1 className="mb-6 text-4xl font-bold leading-tight text-white md:text-6xl">
-              Building Generational Wealth for Our Community
-              <span className="bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">
-                {" "}
-                Through Economic Cooperation
-              </span>
-            </h1>
-            <p className="mx-auto mb-8 max-w-3xl text-xl leading-relaxed text-slate-300">
-              Welcome to the Soulaan Co-op—where every rent payment, every
-              shopping trip, and every dollar you spend in the neighborhood
-              creates investment in your community. We're making our community
-              money work harder for us, not just for somebody else.
-            </p>
-            <div className="space-y-6">
-              <WaitlistForm source="hero" variant="hero" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section id="about" className="bg-slate-800 px-4 py-20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
-              About Soulaan Co-op
-            </h2>
-            <p className="mx-auto max-w-4xl text-xl leading-relaxed text-slate-300">
-              Soulaan Co-op is all about making your money do double-duty:
-              support your people, and build real wealth for the culture. Every
-              time you spend at a participating Black business, you get
-              rewards—and those rewards give you a say in what we build next.
-              The more you use it, the more the community wins.
-            </p>
-          </div>
-
-          <div className="grid items-center gap-12 md:grid-cols-2">
+      <main>
+        <section className="px-4 pb-20 pt-14 sm:px-6 lg:px-8 lg:pb-28 lg:pt-20">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <h3 className="mb-6 text-2xl font-bold text-white">
-                We use two digital dollars:
-              </h3>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">
+                <Sparkles className="h-4 w-4" />
+                Coops built for real-world stability
+              </div>
 
-              <div className="space-y-6">
-                <div className="flex items-start space-x-4 rounded-lg bg-slate-700 p-4">
-                  <UCIcon className="mt-1 h-8 w-8 flex-shrink-0" />
-                  <div>
-                    <h4 className="mb-2 text-lg font-semibold text-white">
-                      Unity Coin (UC)
-                    </h4>
-                    <p className="text-slate-300">
-                      Our stable, digital money for shopping, paying rent, or
-                      getting paid at work. Use it just like cash, Venmo, or
-                      Cash App.
+              <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-tight text-white md:text-7xl">
+                Build Stability Together
+              </h1>
+
+              <p className="mt-6 max-w-3xl text-xl leading-8 text-slate-300">
+                Join a cooperative that helps members support businesses, fund
+                projects, and vote on solutions to real economic problems.
+              </p>
+
+              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
+                Instead of waiting for institutions to fix things,
+                cooperatives let communities organize resources and build
+                systems that create stability, ownership, and opportunity.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <Link
+                  href="#member-signup"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-base font-medium text-slate-950 transition hover:bg-slate-200"
+                >
+                  Join as a Member
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+                <Link
+                  href="#business-signup"
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-base font-medium text-white transition hover:border-white/25 hover:bg-white/10"
+                >
+                  Bring a Business
+                </Link>
+              </div>
+
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                {[
+                  {
+                    label: "Member-owned",
+                    copy: "Communities decide what gets built.",
+                  },
+                  {
+                    label: "Treasury-backed",
+                    copy: "Economic activity grows shared resources.",
+                  },
+                  {
+                    label: "Problem-focused",
+                    copy: "Housing, food, jobs, and cultural work.",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]"
+                  >
+                    <p className="text-sm font-medium text-white">{item.label}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {item.copy}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-start space-x-4 rounded-lg bg-slate-700 p-4">
-                  <SCIcon className="mt-1 h-8 w-8 flex-shrink-0 text-blue-400" />
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-indigo-500/20 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-cyan-950/30">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="mb-2 text-lg font-semibold text-white">
-                      SoulaaniCoin (SC)
-                    </h4>
-                    <p className="text-slate-300">
-                      Your "receipt" for spending, earning, or paying rent with
-                      UC. Gives you a say (and a stake) in what the community
-                      does next.
+                    <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/70">
+                      Impact loop
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold">
+                      Everyday activity becomes shared power
+                    </h2>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                    Network mode
+                  </div>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                  {heroLoop.map(({ title, description, icon: Icon }, index) => (
+                    <div
+                      key={title}
+                      className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300/20 to-cyan-400/20 text-emerald-200">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="font-medium text-white">{title}</h3>
+                            <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+                              0{index + 1}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-slate-400">
+                            {description}
+                          </p>
+                          <div className="mt-4 h-2 rounded-full bg-white/10">
+                            <div
+                              className={`h-2 rounded-full ${
+                                index === 0
+                                  ? "w-3/4 bg-gradient-to-r from-emerald-300 to-cyan-300"
+                                  : index === 1
+                                    ? "w-2/3 bg-gradient-to-r from-cyan-300 to-blue-300"
+                                    : "w-4/5 bg-gradient-to-r from-violet-300 to-fuchsia-300"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-3 text-emerald-200">
+                      <Coins className="h-5 w-5" />
+                      <p className="font-medium">Shared treasury</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Funds can be directed toward projects that lower costs and
+                      create stability.
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-3 text-cyan-200">
+                      <Users2 className="h-5 w-5" />
+                      <p className="font-medium">Member governance</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      Members choose priorities instead of platforms extracting
+                      value from them.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-blue-500">
-                <CommunityIcon className="mx-auto mb-3 h-8 w-8 text-blue-400" />
-                <h4 className="font-bold text-white">Keep Money</h4>
-                <p className="text-sm text-slate-300">
-                  In the Community's Hands
+        <section id="problems" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                <Landmark className="h-4 w-4" />
+                What Problems Coops Can Solve
+              </div>
+              <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                Vote On What Matters
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-slate-400">
+                Members of each coop can vote on proposals that address real
+                challenges in the economy. The cooperative treasury can be used
+                to support solutions that improve everyday life.
+              </p>
+            </div>
+
+            <div className="mt-14 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {problemCards.map(({ title, description, icon: Icon }) => (
+                <div
+                  key={title}
+                  className="group rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white/10 to-white/5 text-emerald-200">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold text-white">
+                    {title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-400">
+                    {description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="coops" className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  <Handshake className="h-4 w-4" />
+                  Active Coops
+                </div>
+                <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                  Pick a coop that matches the future you want to build
+                </h2>
+              </div>
+              <p className="max-w-2xl text-base leading-7 text-slate-400">
+                Each coop has its own focus, its own members, and its own
+                proposals. Join an existing coop now, or use the signup flow to
+                tell us what kind of cooperative should launch next.
+              </p>
+            </div>
+
+            <div className="mt-14 grid gap-6 lg:grid-cols-3">
+              {activeCoops.map((coop) => (
+                <div
+                  key={coop.name}
+                  className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80"
+                >
+                  <div className={`h-2 bg-gradient-to-r ${coop.accent}`} />
+                  <div className="p-6">
+                    <div
+                      className={`inline-flex rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] ${
+                        coop.status === "Live Coop"
+                          ? "border border-white/10 bg-white/5 text-slate-300"
+                          : "border border-amber-300/20 bg-amber-300/10 text-amber-200"
+                      }`}
+                    >
+                      {coop.status}
+                    </div>
+                    <h3 className="mt-5 text-2xl font-semibold text-white">
+                      {coop.name}
+                    </h3>
+                    <p className="mt-4 text-sm leading-7 text-slate-400">
+                      {coop.description}
+                    </p>
+                    <p className="mt-4 text-sm leading-7 text-slate-300">
+                      {coop.focus}
+                    </p>
+                    <Link
+                      href={`/?coop=${encodeURIComponent(coop.name)}#member-signup`}
+                      className="mt-8 inline-flex items-center rounded-2xl bg-white px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+                    >
+                      {coop.buttonLabel}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                <Vote className="h-4 w-4" />
+                How It Works
+              </div>
+              <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                A simple loop that turns participation into collective leverage
+              </h2>
+            </div>
+
+            <div className="mt-14 grid gap-5 lg:grid-cols-4">
+              {steps.map((step) => (
+                <div
+                  key={step.step}
+                  className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6"
+                >
+                  <div className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+                    {step.step}
+                  </div>
+                  <h3 className="mt-5 text-xl font-semibold text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-400">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                <Coins className="h-4 w-4" />
+                Why Cooperatives
+              </div>
+              <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                Keep Value In The Community
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-slate-400">
+                Many modern platforms extract value from the communities that
+                use them.
+              </p>
+              <p className="mt-5 text-lg leading-8 text-slate-300">
+                Cooperatives work differently. Members share ownership, grow
+                collective resources, and decide together how those resources
+                are used.
+              </p>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6">
+                <div className="flex items-center gap-3 text-rose-200">
+                  <ArrowRight className="h-5 w-5 rotate-45" />
+                  <h3 className="font-semibold text-white">Extractive model</h3>
+                </div>
+                <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-400">
+                  <li>Users create value and someone else captures it.</li>
+                  <li>Communities generate data, demand, and revenue without control.</li>
+                  <li>Decisions happen far away from the people affected.</li>
+                </ul>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.06] p-6">
+                <div className="flex items-center gap-3 text-emerald-200">
+                  <Users2 className="h-5 w-5" />
+                  <h3 className="font-semibold text-white">Cooperative model</h3>
+                </div>
+                <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-300">
+                  <li>Members support businesses that feed back into shared goals.</li>
+                  <li>Treasuries can fund housing, jobs, groceries, and infrastructure.</li>
+                  <li>Voting power stays with the people building the network.</li>
+                </ul>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 sm:col-span-2">
+                <div className="flex items-center gap-3 text-cyan-200">
+                  <PiggyBank className="h-5 w-5" />
+                  <h3 className="font-semibold text-white">
+                    Coops are practical tools, not abstract ideals
+                  </h3>
+                </div>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-400">
+                  The point is not to make the economy sound better. The point
+                  is to help people handle rent, food, work, and opportunity
+                  with systems they can actually influence.
                 </p>
               </div>
-              <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-green-500">
-                <CommunityInvestmentIcon className="mx-auto mb-3 h-8 w-8 text-green-400" />
-                <h4 className="font-bold text-white">Invest in Your</h4>
-                <p className="text-sm text-slate-300">Community Easily</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/[0.05] via-white/[0.03] to-transparent p-8 lg:p-10">
+            <div className="grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  <Sparkles className="h-4 w-4" />
+                  Future Coops
+                </div>
+                <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                  More Coops Coming Soon
+                </h2>
+                <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
+                  Communities across different industries and cities will be
+                  able to create cooperatives focused on their own economic
+                  goals.
+                </p>
+                <Link
+                  href="#member-signup"
+                  className="mt-8 inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-base font-medium text-white transition hover:border-white/25 hover:bg-white/10"
+                >
+                  Start a Coop
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </div>
-              <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-blue-500">
-                <GovernanceIcon className="mx-auto mb-3 h-8 w-8 text-blue-400" />
-                <h4 className="font-bold text-white">Get Your</h4>
-                <p className="text-sm text-slate-300">Voice Heard</p>
-              </div>
-              <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-green-500">
-                <UnityIcon className="mx-auto mb-3 h-8 w-8 text-green-400" />
-                <h4 className="font-bold text-white">Build</h4>
-                <p className="text-sm text-slate-300">Together</p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {futureCoops.map((coopType) => (
+                  <div
+                    key={coopType}
+                    className="rounded-[1.5rem] border border-white/10 bg-slate-950/70 p-5 text-sm font-medium text-slate-200"
+                  >
+                    {coopType}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="bg-slate-800 px-4 py-20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
-              How It Works: For Businesses & Everyday People
-            </h2>
-          </div>
-
-          <div className="mb-16 grid gap-12 lg:grid-cols-2">
-            {/* For Businesses */}
-            <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700 p-8">
-              <div className="pb-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-green-500">
-                  <PaymentIcon className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white">
-                  For Businesses
-                </h3>
+        <section id="member-signup" className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                <Users2 className="h-4 w-4" />
+                Join the network
               </div>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Accept Unity Coin just like cash, Venmo, or Cash App
+              <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                Choose your path into the coop economy
+              </h2>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
+                Sign up as a member, bring a business into the network, or tell
+                us which cooperative you want to join next. The forms stay on
+                this page so people can move from interest to action in one
+                step.
+              </p>
+
+              <div className="mt-8 grid gap-4">
+                <Link
+                  href="#member-form"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                >
+                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">
+                    Member signup
                   </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Every sale earns you bonus rewards and puts you in the room
-                    when big decisions are made
+                  <p className="mt-2 text-lg font-medium text-white">
+                    Join a coop and tell us which one you want.
                   </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Attract loyal customers who want to keep their dollars
-                    circulating in the culture
+                </Link>
+
+                <Link
+                  href="#business-signup"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-300/20 hover:bg-white/[0.05]"
+                >
+                  <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">
+                    Business signup
                   </p>
-                </div>
+                  <p className="mt-2 text-lg font-medium text-white">
+                    Bring customers, capacity, and long-term local value.
+                  </p>
+                </Link>
               </div>
             </div>
 
-            {/* For Everyday People */}
-            <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700 p-8">
-              <div className="pb-6 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-blue-500">
-                  <CommunityIcon className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white">
-                  For Everyday People
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Shop at Black-owned stores or pay your rent with Unity Coin
+            <div id="member-form" className="rounded-[2rem] border border-white/10 bg-slate-950/80 p-6">
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.24em] text-emerald-200/80">
+                    Member waitlist
                   </p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">
+                    Get updates and choose your coop
+                  </h3>
                 </div>
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Earn SoulaaniCoin every time you spend or pay your
-                    bills—like racking up points, but with voting power
-                  </p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mt-1 h-5 w-5 flex-shrink-0 text-green-400"
-                  >
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  <p className="text-slate-300">
-                    Use your coins to vote on what gets built or funded next:
-                    new businesses, housing, community projects
-                  </p>
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                  User path
                 </div>
               </div>
+              <WaitlistForm source="contact" variant="card" />
             </div>
           </div>
+        </section>
 
-          {/* Business Partnership Section */}
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-8 text-center">
-              <h3 className="mb-4 text-2xl font-bold text-white md:text-3xl">
-                Ready to Partner With Us?
-              </h3>
-              <p className="text-lg text-slate-300">
-                Get listed, get new customers, and earn extra rewards every time
-                folks pay with Unity Coin. Plus, you get a seat at the table to
-                help shape the future of the Black economy.
+        <section id="business-signup" className="px-4 py-20 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 text-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                <Store className="h-4 w-4" />
+                Business signup
+              </div>
+              <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                Add a business to the coop network
+              </h2>
+              <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-400">
+                Businesses help the network grow, members gain more places to
+                circulate value, and the treasury gains more capacity to fund
+                useful projects.
               </p>
             </div>
             <BusinessSignupForm />
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      {/* Why Join Section */}
-      <section className="bg-gradient-to-br from-slate-900 to-slate-800 px-4 py-20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
-              Why Join?
-            </h2>
-            <p className="mx-auto max-w-3xl text-xl text-slate-300">
-              No banks shutting you out, no red tape, no empty promises. Just a
-              new way to build, spend, and win together.
+      <footer className="border-t border-white/10 px-4 py-10 text-slate-400 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl border border-white/10">
+              <Image
+                src="/images/soulaan-flag.jpg"
+                alt="Soulaan Co-op Flag"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <p className="text-sm leading-6 text-slate-400">
+              Guild is building digital cooperatives that keep value,
+              ownership, and decision-making closer to the people creating it.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-blue-500">
-              <CommunityInvestmentIcon className="mx-auto mb-4 h-12 w-12 text-green-400" />
-              <h4 className="mb-2 font-bold text-white">Keep More Money</h4>
-              <p className="text-sm text-slate-300">in the community's hands</p>
-            </div>
-            <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-green-500">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto mb-4 h-12 w-12 text-blue-400"
-              >
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-                <polyline points="17 6 23 6 23 12" />
-              </svg>
-              <h4 className="mb-2 font-bold text-white">Earn Extra Rewards</h4>
-              <p className="text-sm text-slate-300">for supporting your own</p>
-            </div>
-            <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-blue-500">
-              <VoiceIcon className="mx-auto mb-4 h-12 w-12 text-blue-400" />
-              <h4 className="mb-2 font-bold text-white">Get a Say</h4>
-              <p className="text-sm text-slate-300">
-                in how community money gets used
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-600 bg-slate-700 p-6 text-center transition-colors hover:border-green-500">
-              <UnityIcon className="mx-auto mb-4 h-12 w-12 text-green-400" />
-              <h4 className="mb-2 font-bold text-white">
-                Build Real Ownership
-              </h4>
-              <p className="text-sm text-slate-300">
-                and legacy for your family
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Services Status Table */}
-      <section id="status" className="bg-slate-800 px-4 py-20">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold text-white md:text-4xl">
-              What We're Building
-            </h2>
-            <p className="mx-auto max-w-3xl text-xl text-slate-300">
-              Check out our progress—we're building this step by step, and
-              everything is open source so you can see exactly how we're doing
-              it.
-            </p>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-600">
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white">
-                      Service Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white">
-                      What it Does
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white">
-                      Open Source?
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-600">
-                  <tr className="transition-colors hover:bg-slate-600">
-                    <td className="whitespace-nowrap px-6 py-4 font-medium text-white">
-                      UC Wallet
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-300">
-                      Hold and spend Unity Coin
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-blue-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Planned
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-green-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        Yes
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="transition-colors hover:bg-slate-600">
-                    <td className="whitespace-nowrap px-6 py-4 font-medium text-white">
-                      SC Governance Portal
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-300">
-                      Vote, earn, and get rewards with SoulaaniCoin
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-blue-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Planned
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-green-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        Yes
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="transition-colors hover:bg-slate-600">
-                    <td className="whitespace-nowrap px-6 py-4 font-medium text-white">
-                      Merchant POS
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-slate-300">
-                      Accept Unity Coin at your business
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-blue-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                        Planned
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-green-600 px-2 text-xs font-semibold leading-5 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="mr-1 h-3 w-3"
-                        >
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        Yes
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Get Involved Section */}
-      <section
-        id="contact"
-        className="bg-gradient-to-br from-slate-900 to-slate-800 px-4 py-20"
-      >
-        <div className="container mx-auto max-w-4xl">
-          <div className="grid items-center gap-12 md:grid-cols-2">
-            {/* Email Signup */}
-            <div>
-              <h2 className="mb-4 text-3xl font-bold text-white">
-                Get Involved
-              </h2>
-              <p className="mb-6 leading-relaxed text-slate-300">
-                Drop your email below to stay in the loop—be the first to know
-                about launch dates, community events, and new features.
-              </p>
-              <WaitlistForm source="contact" variant="card" />
-            </div>
-
-            {/* GitHub Link */}
-            <div className="text-center md:text-left">
-              <h2 className="mb-4 text-3xl font-bold text-white">
-                Check Out Our Progress
-              </h2>
-              <p className="mb-6 leading-relaxed text-slate-300">
-                Curious or want to help build? Check the code, pitch ideas, or
-                follow along on GitHub.
-              </p>
-              <Link
-                href="https://github.com/soulaan-coop"
-                target="_blank"
-                className="inline-flex items-center"
-              >
-                <button className="flex items-center rounded-md border border-slate-600 bg-slate-700 px-6 py-3 font-medium text-white hover:border-slate-500 hover:bg-slate-600">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2 h-5 w-5"
-                  >
-                    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-                    <path d="M9 18c-4.51 2-5-2-7-2" />
-                  </svg>
-                  View on GitHub
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="ml-2 h-4 w-4"
-                  >
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-black px-4 py-12 text-white">
-        <div className="container mx-auto max-w-6xl">
-          <div className="grid gap-8 md:grid-cols-4">
-            <div className="md:col-span-2">
-              <div className="mb-4 flex items-center space-x-2">
-                <div className="relative h-8 w-10">
-                  <Image
-                    src="/images/soulaan-flag.jpg"
-                    alt="Soulaan Co-op Flag"
-                    fill
-                    className="rounded-md object-cover"
-                  />
-                </div>
-                <span className="text-xl font-bold">Soulaan Co-op</span>
-              </div>
-              <p className="leading-relaxed text-slate-400">
-                Building generational wealth for our community through economic
-                cooperation. Keeping money moving between us—turning everyday
-                business into ownership, voting power, and real community
-                wealth.
-              </p>
-            </div>
-            <div>
-              <h4 className="mb-4 font-semibold">Quick Links</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>
-                  <Link
-                    href="#about"
-                    className="transition-colors hover:text-white"
-                  >
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#how-it-works"
-                    className="transition-colors hover:text-white"
-                  >
-                    How It Works
-                  </Link>
-                </li>
-
-                <li>
-                  <Link
-                    href="#status"
-                    className="transition-colors hover:text-white"
-                  >
-                    Our Progress
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="#contact"
-                    className="transition-colors hover:text-white"
-                  >
-                    Get Involved
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="mb-4 font-semibold">Connect With Us</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li>
-                  <Link href="#" className="transition-colors hover:text-white">
-                    Discord
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="transition-colors hover:text-white">
-                    Twitter
-                  </Link>
-                </li>
-                <li>
-                  <Link href="#" className="transition-colors hover:text-white">
-                    LinkedIn
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="https://github.com/soulaan-coop"
-                    className="transition-colors hover:text-white"
-                  >
-                    GitHub
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 border-t border-slate-800 pt-8 text-center text-slate-400">
-            <p>
-              &copy; {new Date().getFullYear()} Soulaan Co-op. Building wealth,
-              building power, building our future.
-            </p>
-          </div>
+          <Link
+            href="https://github.com/soulaan-coop"
+            target="_blank"
+            className="inline-flex items-center text-sm text-slate-300 transition hover:text-white"
+          >
+            View on GitHub
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
         </div>
       </footer>
     </div>

@@ -1,15 +1,24 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
-// Using API endpoint instead of server actions
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export function BusinessSignupForm() {
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [coopInterest, setCoopInterest] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const coopFromQuery = searchParams.get("coop");
+    if (coopFromQuery) {
+      setCoopInterest(coopFromQuery);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -25,6 +34,7 @@ export function BusinessSignupForm() {
       businessAddress: formData.get("businessAddress") as string,
       businessType: formData.get("businessType") as string,
       monthlyRevenue: formData.get("monthlyRevenue") as string,
+      coopInterest: formData.get("coopInterest") as string,
       description: formData.get("description") as string,
     };
 
@@ -43,9 +53,10 @@ export function BusinessSignupForm() {
 
       if (data.success) {
         // Reset form on success
-        e.currentTarget?.reset();
+        e.currentTarget.reset();
+        setCoopInterest(searchParams.get("coop") ?? "");
       }
-    } catch (error) {
+    } catch {
       setResult({
         success: false,
         message: "Error submitting business signup. Please try again.",
@@ -56,8 +67,8 @@ export function BusinessSignupForm() {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-600 bg-slate-700">
-      <div className="border-b border-slate-600 p-6">
+    <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80">
+      <div className="border-b border-white/10 p-6">
         <div className="flex items-center gap-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -69,7 +80,7 @@ export function BusinessSignupForm() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-6 w-6 text-purple-400"
+            className="h-6 w-6 text-cyan-300"
           >
             <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -81,13 +92,36 @@ export function BusinessSignupForm() {
             Business Partnership Interest
           </h2>
         </div>
-        <p className="mt-2 text-sm text-slate-300">
-          Ready to accept Unity Coin and earn rewards? Tell us about your
-          business and we'll get you started.
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          Tell us about your business, the coop you want to support, and how
+          you want to participate in the network.
         </p>
       </div>
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="coopInterest" className="block text-sm text-white">
+              Coop you want to support
+            </label>
+            <input
+              id="coopInterest"
+              name="coopInterest"
+              type="text"
+              list="business-coop-options"
+              placeholder="Soulaan Coop, SF Artist Coop, East Bay Food Coop, or your own idea"
+              value={coopInterest}
+              onChange={(event) => setCoopInterest(event.target.value)}
+              disabled={isSubmitting}
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+            />
+            <datalist id="business-coop-options">
+              <option value="Soulaan Coop" />
+              <option value="SF Artist Coop" />
+              <option value="East Bay Food Coop" />
+              <option value="New coop idea" />
+            </datalist>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label htmlFor="ownerName" className="block text-sm text-white">
@@ -100,7 +134,7 @@ export function BusinessSignupForm() {
                 placeholder="John Smith"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
               />
             </div>
             <div className="space-y-2">
@@ -114,7 +148,7 @@ export function BusinessSignupForm() {
                 placeholder="john@yourbusiness.com"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
               />
             </div>
           </div>
@@ -130,7 +164,7 @@ export function BusinessSignupForm() {
               placeholder="Smith's Corner Store"
               required
               disabled={isSubmitting}
-              className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
             />
           </div>
 
@@ -148,7 +182,7 @@ export function BusinessSignupForm() {
               placeholder="123 Main St, Atlanta, GA 30309"
               required
               disabled={isSubmitting}
-              className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
             />
           </div>
 
@@ -165,7 +199,7 @@ export function BusinessSignupForm() {
                 name="businessType"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
               >
                 <option value="">Select business type</option>
                 <option value="restaurant">Restaurant/Food Service</option>
@@ -191,7 +225,7 @@ export function BusinessSignupForm() {
                 id="monthlyRevenue"
                 name="monthlyRevenue"
                 disabled={isSubmitting}
-                className="w-full rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
               >
                 <option value="">Select range (optional)</option>
                 <option value="under-5k">Under $5,000</option>
@@ -214,14 +248,14 @@ export function BusinessSignupForm() {
               placeholder="What products/services do you offer? How many customers do you serve? Any questions about Unity Coin integration?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full resize-none rounded-md border border-slate-500 bg-slate-600 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex w-full items-center justify-center rounded-md bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2 font-medium text-white hover:from-purple-700 hover:to-blue-700"
+            className="flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
           >
             {isSubmitting ? (
               "Submitting..."
@@ -254,8 +288,8 @@ export function BusinessSignupForm() {
             <div
               className={`flex items-center gap-2 rounded p-3 text-sm ${
                 result.success
-                  ? "bg-green-900/30 text-green-400"
-                  : "bg-red-900/30 text-red-400"
+                  ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                  : "border border-red-400/20 bg-red-400/10 text-red-200"
               }`}
             >
               {result.success ? (
@@ -296,10 +330,9 @@ export function BusinessSignupForm() {
             </div>
           )}
 
-          <p className="text-xs text-slate-400">
-            * Required fields. We'll contact you within 5 business days to
-            discuss partnership opportunities and help you get set up to accept
-            Unity Coin.
+          <p className="text-xs leading-6 text-slate-500">
+            * Required fields. You can choose an active coop above or type the
+            coop you want your business to help build.
           </p>
         </form>
       </div>
