@@ -17,26 +17,13 @@ import { resolve } from "path";
 const app: Application = express();
 
 // Import webhook handlers
-import { handleStripeWebhook, handleStripeWebhookNew, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
+import { handleStripeWebhookNew, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
 import uploadRouter from './routes/upload.js';
-import { isFeatureEnabled } from '@repo/trpc/services/feature-flag-service';
-
 // IMPORTANT: Stripe webhooks need raw body for signature verification
 // So we add this route BEFORE the general JSON parser
 app.post('/webhooks/stripe',
   express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    // Check if hybrid architecture is enabled
-    const hybridEnabled = await isFeatureEnabled('HYBRID_ARCHITECTURE_ENABLED');
-    
-    if (hybridEnabled) {
-      console.log('🔄 [Webhook Router] Using NEW hybrid webhook handler');
-      return handleStripeWebhookNew(req, res);
-    } else {
-      console.log('🔄 [Webhook Router] Using LEGACY webhook handler');
-      return handleStripeWebhook(req, res);
-    }
-  }
+  handleStripeWebhookNew
 );
 
 // Parse JSON bodies (for non-tRPC routes only)

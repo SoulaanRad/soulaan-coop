@@ -1,7 +1,7 @@
 import { View, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
-import { Send, QrCode, History, Key, Copy, Check, Plus, Package } from 'lucide-react-native';
+import { QrCode, History, Key, Copy, Check, Plus, Package } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { Text } from '@/components/ui/text';
@@ -136,22 +136,14 @@ export default function WalletScreen() {
       </View>
 
       {/* Action Buttons */}
-      <View className="mx-4 mt-4 flex-row gap-3">
+      <View className="mx-4 mt-4">
         <TouchableOpacity
-          onPress={() => router.push('/(authenticated)/fund-wallet')}
-          className="flex-1 bg-green-600 py-4 rounded-xl items-center flex-row justify-center"
+          onPress={() => router.push('/(authenticated)/payment-methods' as any)}
+          className="bg-amber-600 py-4 rounded-xl items-center flex-row justify-center"
           activeOpacity={0.8}
         >
           <Plus size={18} color="white" />
-          <Text className="text-white font-semibold ml-2">Add Money</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.push('/(authenticated)/pay')}
-          className="flex-1 bg-amber-600 py-4 rounded-xl items-center flex-row justify-center"
-          activeOpacity={0.8}
-        >
-          <Send size={18} color="white" />
-          <Text className="text-white font-semibold ml-2">Send</Text>
+          <Text className="text-white font-semibold ml-2">Add Payment Method</Text>
         </TouchableOpacity>
       </View>
 

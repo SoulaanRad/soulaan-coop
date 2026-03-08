@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
@@ -245,29 +245,12 @@ export default function HomeScreen() {
           {/* Quick Action Buttons */}
           <View className="flex-row gap-3 mb-6">
             <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/pay' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
-            >
-              <Send size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Send</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/withdraw' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
-            >
-              <Landmark size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Withdraw</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-              className="bg-white rounded-2xl py-4 px-5 items-center justify-center border border-gray-100"
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
               style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
             >
               <Plus size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Add Card</Text>
             </TouchableOpacity>
           </View>
 

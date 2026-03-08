@@ -19,7 +19,7 @@ import {
   BadgeCheck,
   Info,
 } from 'lucide-react-native';
-import { api } from '@/lib/api';
+import { api, API_BASE_URL } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { useCart } from '@/contexts/cart-context';
 
@@ -49,7 +49,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
       const [storeResult, readinessResult] = await Promise.all([
         api.getStore(storeId),
         // Get business readiness to check SC eligibility
-        fetch(`/api/trpc/stripeConnect.getBusinessReadiness?input=${encodeURIComponent(JSON.stringify({ businessId: storeId }))}`)
+        fetch(`${API_BASE_URL}/trpc/stripeConnect.getBusinessReadiness?input=${encodeURIComponent(JSON.stringify({ businessId: storeId }))}`)
           .then(res => res.json())
           .catch(() => null),
       ]);
@@ -60,7 +60,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
       // Get checkout preview
       if (subtotal > 0) {
         const previewResult = await fetch(
-          `/api/trpc/commerce.previewCheckout?input=${encodeURIComponent(JSON.stringify({
+          `${API_BASE_URL}/trpc/commerce.previewCheckout?input=${encodeURIComponent(JSON.stringify({
             userId: user.id,
             businessId: storeId,
             listedAmountCents: Math.round(subtotal * 100),

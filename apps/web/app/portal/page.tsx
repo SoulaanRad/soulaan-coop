@@ -1,12 +1,7 @@
 "use client";
 
-import { api } from "@/lib/trpc/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, CheckCircle2, XCircle, Loader2, TrendingUp, Coins, AlertTriangle } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
+import { Loader2 } from "lucide-react";
 
 const DashboardHybrid = dynamic(() => import('@/components/portal/dashboard-hybrid'), {
   ssr: false,
@@ -18,36 +13,7 @@ const DashboardHybrid = dynamic(() => import('@/components/portal/dashboard-hybr
 });
 
 export default function DashboardPage() {
-  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
-
-  // Check if hybrid architecture is enabled
-  useEffect(() => {
-    async function checkFeatureFlag() {
-      try {
-        const response = await fetch('/api/feature-flags/hybrid-architecture');
-        const data = await response.json();
-        setUseHybrid(data.enabled);
-      } catch (error) {
-        console.error('Failed to check feature flag:', error);
-        setUseHybrid(false);
-      }
-    }
-    checkFeatureFlag();
-  }, []);
-
-  if (useHybrid === null) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (useHybrid) {
-    return <DashboardHybrid />;
-  }
-
-  return <DashboardLegacyPage />;
+  return <DashboardHybrid />;
 }
 
 function DashboardLegacyPage() {

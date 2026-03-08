@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { db } from '@repo/db';
 import { router } from '../trpc.js';
-import { privateProcedure } from '../procedures/index.js';
+import { publicProcedure, privateProcedure } from '../procedures/index.js';
 
 // Well-known config keys
 const KNOWN_KEYS = [
@@ -48,7 +48,7 @@ export const platformConfigRouter = router({
    * Public — any authenticated or anonymous caller can read config.
    * Used by mobile app and web to get coin name/symbol.
    */
-  getConfig: privateProcedure
+  getConfig: publicProcedure
     .query(async () => {
       return loadConfig();
     }),
