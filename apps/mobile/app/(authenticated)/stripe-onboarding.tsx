@@ -247,11 +247,11 @@ export default function StripeOnboardingScreen() {
         {/* Restricted — extra help */}
         {store?.stripeAccount?.onboardingStatus === 'RESTRICTED' && (
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4 border border-red-200 dark:border-red-800">
-            <Text className="font-semibold text-gray-900 dark:text-white mb-2">What does "Action required" mean?</Text>
+            <Text className="font-semibold text-gray-900 dark:text-white mb-2">What does &quot;Action required&quot; mean?</Text>
             <Text className="text-gray-600 dark:text-gray-300 leading-6 text-sm">
               Our payment provider needs a bit more information to verify your account. This is normal and usually just means confirming your identity or adding a bank account.
               {'\n\n'}
-              Tap <Text className="font-semibold">"Finish Setup"</Text> and follow the steps. If you get stuck, contact support.
+              Tap <Text className="font-semibold">&quot;Finish Setup&quot;</Text> and follow the steps. If you get stuck, contact support.
             </Text>
           </View>
         )}
@@ -259,7 +259,7 @@ export default function StripeOnboardingScreen() {
         {/* What to expect card — only before setup */}
         {!store?.stripeAccount && (
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
-            <Text className="font-semibold text-gray-900 dark:text-white mb-3">What you'll need</Text>
+            <Text className="font-semibold text-gray-900 dark:text-white mb-3">What you&apos;ll need</Text>
             {[
               'Your business name and address',
               'Your date of birth and last 4 of SSN',
@@ -345,7 +345,7 @@ export default function StripeOnboardingScreen() {
           </>
         ) : (
           <TouchableOpacity onPress={() => router.replace('/my-store')} className="py-2">
-            <Text className="text-center text-gray-500 dark:text-gray-400 font-medium">I'll finish this later</Text>
+            <Text className="text-center text-gray-500 dark:text-gray-400 font-medium">I&apos;ll finish this later</Text>
           </TouchableOpacity>
         )}
       </View>

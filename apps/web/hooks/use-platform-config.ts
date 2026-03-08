@@ -1,10 +1,10 @@
 import { api } from "@/lib/trpc/client";
 
-export type CoinConfig = {
+export interface CoinConfig {
   symbol: string;
   name: string;
   description: string;
-};
+}
 
 const DEFAULT_COIN: CoinConfig = {
   symbol: "SC",
