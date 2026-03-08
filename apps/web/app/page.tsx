@@ -104,7 +104,7 @@ const activeCoops: CoopCard[] = [
     focus:
       "Members help grow a shared treasury and vote on projects that improve economic opportunity and stability.",
     buttonLabel: "Join Soulaan Coop",
-    accent: "from-emerald-400/30 to-cyan-400/10",
+    accent: "from-orange-400/30 to-amber-400/10",
     status: "Live Coop",
   },
   {
@@ -296,7 +296,7 @@ export default function SoulaanLanding() {
         <section className="px-4 pb-20 pt-14 sm:px-6 lg:px-8 lg:pb-28 lg:pt-20">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/20 bg-orange-400/10 px-4 py-2 text-sm text-orange-200">
                 <Sparkles className="h-4 w-4" />
                 Coops built for real-world stability
               </div>
@@ -361,18 +361,18 @@ export default function SoulaanLanding() {
             </div>
 
             <div className="relative">
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-emerald-400/20 via-cyan-400/10 to-indigo-500/20 blur-3xl" />
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-cyan-950/30">
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-orange-400/20 via-amber-400/10 to-orange-500/20 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-orange-950/30">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/70">
+                    <p className="text-sm uppercase tracking-[0.3em] text-orange-200/70">
                       Impact loop
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold">
                       Everyday activity becomes shared power
                     </h2>
                   </div>
-                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                  <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-sm text-orange-200">
                     Network mode
                   </div>
                 </div>
@@ -384,7 +384,7 @@ export default function SoulaanLanding() {
                       className="rounded-3xl border border-white/10 bg-white/[0.03] p-4"
                     >
                       <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300/20 to-cyan-400/20 text-emerald-200">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-300/20 to-amber-400/20 text-orange-200">
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
@@ -401,10 +401,10 @@ export default function SoulaanLanding() {
                             <div
                               className={`h-2 rounded-full ${
                                 index === 0
-                                  ? "w-3/4 bg-gradient-to-r from-emerald-300 to-cyan-300"
+                                  ? "w-3/4 bg-gradient-to-r from-orange-300 to-amber-300"
                                   : index === 1
-                                    ? "w-2/3 bg-gradient-to-r from-cyan-300 to-blue-300"
-                                    : "w-4/5 bg-gradient-to-r from-violet-300 to-fuchsia-300"
+                                    ? "w-2/3 bg-gradient-to-r from-amber-300 to-orange-400"
+                                    : "w-4/5 bg-gradient-to-r from-orange-400 to-amber-500"
                               }`}
                             />
                           </div>
@@ -416,7 +416,7 @@ export default function SoulaanLanding() {
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center gap-3 text-emerald-200">
+                    <div className="flex items-center gap-3 text-orange-200">
                       <Coins className="h-5 w-5" />
                       <p className="font-medium">Shared treasury</p>
                     </div>
@@ -426,7 +426,7 @@ export default function SoulaanLanding() {
                     </p>
                   </div>
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center gap-3 text-cyan-200">
+                    <div className="flex items-center gap-3 text-amber-200">
                       <Users2 className="h-5 w-5" />
                       <p className="font-medium">Member governance</p>
                     </div>
@@ -462,9 +462,9 @@ export default function SoulaanLanding() {
               {problemCards.map(({ title, description, icon: Icon }) => (
                 <div
                   key={title}
-                  className="group rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                  className="group rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white/10 to-white/5 text-emerald-200">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-white/10 to-white/5 text-orange-200">
                     <Icon className="h-6 w-6" />
                   </div>
                   <h3 className="mt-6 text-xl font-semibold text-white">
@@ -556,7 +556,7 @@ export default function SoulaanLanding() {
                   key={step.step}
                   className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6"
                 >
-                  <div className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+                  <div className="inline-flex rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-orange-200">
                     {step.step}
                   </div>
                   <h3 className="mt-5 text-xl font-semibold text-white">
@@ -604,7 +604,7 @@ export default function SoulaanLanding() {
                   ].map((item) => (
                     <div
                       key={item}
-                      className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100"
+                      className="rounded-full border border-orange-300/15 bg-orange-300/10 px-4 py-2 text-sm text-orange-100"
                     >
                       {item}
                     </div>
@@ -624,9 +624,9 @@ export default function SoulaanLanding() {
                 {businessBenefits.map(({ title, description, icon: Icon }) => (
                   <div
                     key={title}
-                    className="rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-6 transition hover:-translate-y-1 hover:border-cyan-300/20"
+                    className="rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-6 transition hover:-translate-y-1 hover:border-orange-300/20"
                   >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/15 to-emerald-300/15 text-cyan-200">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-300/15 to-amber-300/15 text-orange-200">
                       <Icon className="h-6 w-6" />
                     </div>
                     <h3 className="mt-6 text-xl font-semibold text-white">
@@ -676,8 +676,8 @@ export default function SoulaanLanding() {
                 </ul>
               </div>
 
-              <div className="rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.06] p-6">
-                <div className="flex items-center gap-3 text-emerald-200">
+              <div className="rounded-[1.75rem] border border-orange-300/15 bg-orange-300/[0.06] p-6">
+                <div className="flex items-center gap-3 text-orange-200">
                   <Users2 className="h-5 w-5" />
                   <h3 className="font-semibold text-white">Cooperative model</h3>
                 </div>
@@ -689,7 +689,7 @@ export default function SoulaanLanding() {
               </div>
 
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 sm:col-span-2">
-                <div className="flex items-center gap-3 text-cyan-200">
+                <div className="flex items-center gap-3 text-amber-200">
                   <PiggyBank className="h-5 w-5" />
                   <h3 className="font-semibold text-white">
                     Coops are practical tools, not abstract ideals
@@ -765,9 +765,9 @@ export default function SoulaanLanding() {
               <div className="mt-8 grid gap-4">
                 <Link
                   href="#member-form"
-                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-emerald-300/20 hover:bg-white/[0.05]"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-200">
+                  <p className="text-sm uppercase tracking-[0.2em] text-orange-200">
                     Member signup
                   </p>
                   <p className="mt-2 text-lg font-medium text-white">
@@ -777,9 +777,9 @@ export default function SoulaanLanding() {
 
                 <Link
                   href="#business-signup"
-                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-300/20 hover:bg-white/[0.05]"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">
+                  <p className="text-sm uppercase tracking-[0.2em] text-orange-200">
                     Business signup
                   </p>
                   <p className="mt-2 text-lg font-medium text-white">
@@ -792,14 +792,14 @@ export default function SoulaanLanding() {
             <div id="member-form" className="rounded-[2rem] border border-white/10 bg-slate-950/80 p-6">
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.24em] text-emerald-200/80">
+                  <p className="text-sm uppercase tracking-[0.24em] text-orange-200/80">
                     Member waitlist
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold text-white">
                     Get updates and choose your coop
                   </h3>
                 </div>
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+                <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-sm text-orange-200">
                   User path
                 </div>
               </div>

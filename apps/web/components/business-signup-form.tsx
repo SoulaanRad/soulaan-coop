@@ -80,7 +80,7 @@ function BusinessSignupFormContent() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-6 w-6 text-cyan-300"
+            className="h-6 w-6 text-orange-300"
           >
             <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -112,7 +112,7 @@ function BusinessSignupFormContent() {
               value={coopInterest}
               onChange={(event) => setCoopInterest(event.target.value)}
               disabled={isSubmitting}
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-300/50"
             />
             <datalist id="business-coop-options">
               <option value="Soulaan Coop" />
@@ -134,7 +134,7 @@ function BusinessSignupFormContent() {
                 placeholder="John Smith"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               />
             </div>
             <div className="space-y-2">
@@ -148,7 +148,7 @@ function BusinessSignupFormContent() {
                 placeholder="john@yourbusiness.com"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ function BusinessSignupFormContent() {
                 name="businessType"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               >
                 <option value="">Select business type</option>
                 <option value="restaurant">Restaurant/Food Service</option>
@@ -225,7 +225,7 @@ function BusinessSignupFormContent() {
                 id="monthlyRevenue"
                 name="monthlyRevenue"
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               >
                 <option value="">Select range (optional)</option>
                 <option value="under-5k">Under $5,000</option>
@@ -248,7 +248,7 @@ function BusinessSignupFormContent() {
               placeholder="What products/services do you offer? How many customers do you serve? Any questions about Unity Coin integration?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
             />
           </div>
 
@@ -288,7 +288,7 @@ function BusinessSignupFormContent() {
             <div
               className={`flex items-center gap-2 rounded p-3 text-sm ${
                 result.success
-                  ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                  ? "border border-orange-400/20 bg-orange-400/10 text-orange-200"
                   : "border border-red-400/20 bg-red-400/10 text-red-200"
               }`}
             >
