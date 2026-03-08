@@ -161,8 +161,8 @@ export default function OnboardingFlow() {
       id: 'soulaan',
       name: 'Soulaan Co-op',
       tagline: 'Building Black Economic Sovereignty',
-      description: 'A cooperative focused on circulating and growing Black wealth through collective buying power and community investment.',
-      mission: 'To empower Black communities by building economic sovereignty through cooperative ownership, local investment, and democratic governance.',
+      description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
+      mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
       features: [
         {
           title: 'Unity Coin (UC)',
