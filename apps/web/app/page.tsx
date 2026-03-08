@@ -52,6 +52,12 @@ interface StepCard {
   description: string;
 }
 
+interface BusinessBenefitCard {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}
+
 const problemCards: ProblemCard[] = [
   {
     title: "Affordable Housing",
@@ -150,6 +156,45 @@ const steps: StepCard[] = [
   },
 ];
 
+const businessBenefits: BusinessBenefitCard[] = [
+  {
+    title: "New Customers",
+    description:
+      "Reach members who intentionally spend within the cooperative network and want to support participating businesses.",
+    icon: Users2,
+  },
+  {
+    title: "Access Capital",
+    description:
+      "Apply for funding from the community treasury to grow your capacity, launch new offerings, or invest in equipment.",
+    icon: Landmark,
+  },
+  {
+    title: "Greater Visibility",
+    description:
+      "Be featured inside the network so members can discover, trust, and choose your business more often.",
+    icon: Sparkles,
+  },
+  {
+    title: "Community Influence",
+    description:
+      "Help shape proposals, priorities, and the direction of the cooperative economy you are helping build.",
+    icon: Vote,
+  },
+  {
+    title: "Stronger Local Loyalty",
+    description:
+      "Build repeat relationships with customers who care about keeping value circulating close to home.",
+    icon: Handshake,
+  },
+  {
+    title: "Shared Growth",
+    description:
+      "Join a network where business success strengthens the treasury, expands demand, and creates more opportunity for everyone.",
+    icon: Coins,
+  },
+];
+
 const futureCoops = [
   "Local food cooperatives",
   "Housing cooperatives",
@@ -228,6 +273,9 @@ export default function SoulaanLanding() {
             </Link>
             <Link href="#how-it-works" className="transition hover:text-white">
               How It Works
+            </Link>
+            <Link href="#business-benefits" className="transition hover:text-white">
+              For Businesses
             </Link>
             <Link href="#member-signup" className="transition hover:text-white">
               Join
@@ -515,6 +563,74 @@ export default function SoulaanLanding() {
           </div>
         </section>
 
+        <section
+          id="business-benefits"
+          className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8"
+        >
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  <Store className="h-4 w-4" />
+                  Why Businesses Join
+                </div>
+                <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                  A cooperative network can help businesses grow with their community
+                </h2>
+                <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
+                  Businesses do not just get listed. They join a system designed
+                  to drive customers, unlock funding, and build long-term
+                  community loyalty.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  {[
+                    "Join the network",
+                    "Get customers",
+                    "Access funding",
+                    "Build local trust",
+                    "Help shape the community economy",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  href="#business-signup"
+                  className="mt-8 inline-flex items-center rounded-2xl bg-white px-6 py-3 text-base font-medium text-slate-950 transition hover:bg-slate-200"
+                >
+                  Bring Your Business
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                {businessBenefits.map(({ title, description, icon: Icon }) => (
+                  <div
+                    key={title}
+                    className="rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-6 transition hover:-translate-y-1 hover:border-cyan-300/20"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/15 to-emerald-300/15 text-cyan-200">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-6 text-xl font-semibold text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">
+                      {description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8">
@@ -691,9 +807,9 @@ export default function SoulaanLanding() {
                 Add a business to the coop network
               </h2>
               <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-                Businesses help the network grow, members gain more places to
-                circulate value, and the treasury gains more capacity to fund
-                useful projects.
+                Join the network to reach aligned customers, gain visibility,
+                access community funding, and help shape an economy that keeps
+                value circulating locally.
               </p>
             </div>
             <BusinessSignupForm />
