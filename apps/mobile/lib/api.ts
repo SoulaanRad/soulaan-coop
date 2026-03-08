@@ -775,7 +775,7 @@ export const api = {
   /**
    * Get notifications
    */
-  async getNotifications(userId: string, unreadOnly = false, limit = 20, walletAddress?: string | null) {
+  async getP2PNotifications(userId: string, unreadOnly = false, limit = 20, walletAddress?: string | null) {
     const input = encodeURIComponent(JSON.stringify({ userId, unreadOnly, limit }));
     const response = await fetch(`${API_BASE_URL}/trpc/p2p.getNotifications?input=${input}`, {
       method: 'GET',
@@ -1106,6 +1106,55 @@ export const api = {
     return result.result?.data;
   },
 
+  async getCommerceTransaction(
+    data: { userId: string; transactionId: string },
+    walletAddress: string
+  ) {
+    const response = await fetch(`${API_BASE_URL}/trpc/commerce.getTransaction`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get commerce transaction');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  async listCommerceTransactions(
+    data: {
+      userId: string;
+      status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
+      businessId?: string;
+      customerId?: string;
+      limit?: number;
+      offset?: number;
+    },
+    walletAddress: string
+  ) {
+    const response = await fetch(`${API_BASE_URL}/trpc/commerce.listTransactions`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to list commerce transactions');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
   /**
    * Apply to become a store (authenticated)
    */
@@ -1121,8 +1170,7 @@ export const api = {
     ownerName: string;
     ownerEmail: string;
     ownerPhone: string;
-    communityBenefitStatement: string;
-    communityCommitmentPercent: number;
+    communityBenefitStatement?: string;
     estimatedMonthlyRevenue?: string;
     websiteUrl?: string;
     socialMediaUrls?: string[];
@@ -1143,6 +1191,94 @@ export const api = {
     }
 
     return result.result?.data;
+  },
+
+  async createBusinessForStore(data: {
+    userId: string;
+    storeId: string;
+    email: string;
+    businessType?: 'individual' | 'company';
+    country?: string;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/stripeConnect.createBusinessForStore`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to start Stripe onboarding');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  async syncStripeBusinessStatus(data: {
+    userId: string;
+    businessId: string;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/stripeConnect.syncStatus`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to sync Stripe onboarding status');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data;
+  },
+
+  async submitScVerificationApplication(data: {
+    storeId: string;
+    whyScEligible: string;
+    expectedVolume?: string;
+  }, walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/scVerification.submitApplication`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      // tRPC v11 wraps error details in a `json` envelope when no transformer is used
+      const message = result.error?.json?.message || result.error?.message || 'Failed to submit SC rewards application';
+      throw new Error(message);
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data ?? result.result?.data?.json;
+  },
+
+  async getMyScVerificationStatus(storeId: string, walletAddress: string) {
+    const input = encodeURIComponent(JSON.stringify({ storeId }));
+    const response = await fetch(`${API_BASE_URL}/trpc/scVerification.getMyApplicationStatus?input=${input}`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      const message = result.error?.json?.message || result.error?.message || 'Failed to get SC rewards status';
+      throw new Error(message);
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data ?? result.result?.data?.json;
   },
 
   /**
@@ -2010,5 +2146,53 @@ export const api = {
     }
 
     return result.result?.data;
+  },
+
+  async getActiveFeeConfig(walletAddress?: string | null): Promise<{
+    id: string;
+    platformMarkupBps: number;
+    merchantFeeBps: number;
+    treasuryFeeBps: number;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/trpc/treasuryLedger.getActiveFeeConfig`, {
+      method: 'GET',
+      headers: walletAddress ? createApiHeaders(walletAddress) : { ...networkConfig.defaultHeaders },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      const message = result.error?.json?.message || result.error?.message || 'Failed to load fee config';
+      throw new Error(message);
+    }
+
+    return result.result?.data ?? result.result?.data?.json ?? {
+      id: 'default',
+      platformMarkupBps: 400,
+      merchantFeeBps: 0,
+      treasuryFeeBps: 400,
+    };
+  },
+
+  async getPlatformConfig(): Promise<{
+    coin: { symbol: string; name: string; description: string };
+    platformName: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/trpc/platformConfig.getConfig`, {
+      method: 'GET',
+      headers: { ...networkConfig.defaultHeaders },
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to load platform config');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data ?? {
+      coin: { symbol: 'SC', name: 'Soulaan Coin', description: '' },
+      platformName: 'Cahootz',
+    };
   },
 };

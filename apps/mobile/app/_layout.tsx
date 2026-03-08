@@ -12,6 +12,7 @@ import Toast from 'react-native-toast-message';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/contexts/auth-context';
 import { CartProvider } from '@/contexts/cart-context';
+import { PlatformConfigProvider } from '@/contexts/platform-config-context';
 import { PaymentConfirmationProvider } from '@/components/payment-confirmation-provider';
 import StripeWrapper from '@/components/providers/StripeWrapper';
 import { toastConfig } from '@/lib/toast-config';
@@ -67,7 +68,7 @@ const queryClient = new QueryClient({
 });
 
 export const unstable_settings = {
-  anchor: 'onboarding',
+  anchor: 'index',
 };
 
 export default function RootLayout() {
@@ -94,6 +95,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <StripeWrapper>
+        <PlatformConfigProvider>
         <AuthProvider>
           <CartProvider>
             <PaymentConfirmationProvider>
@@ -107,6 +109,7 @@ export default function RootLayout() {
             </PaymentConfirmationProvider>
           </CartProvider>
         </AuthProvider>
+        </PlatformConfigProvider>
       </StripeWrapper>
     </QueryClientProvider>
   );

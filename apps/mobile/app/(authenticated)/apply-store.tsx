@@ -17,35 +17,21 @@ import {
   Store,
   Building2,
   User,
-  Heart,
   CheckCircle2,
   ChevronRight,
   ChevronDown,
   BadgeCheck,
-  Percent,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-import { coopConfig, coopName } from '@/lib/coop-config';
 
-const REVENUE_RANGES = [
-  { value: 'under_10k', label: 'Under $10,000' },
-  { value: '10k_50k', label: '$10,000 - $50,000' },
-  { value: '50k_100k', label: '$50,000 - $100,000' },
-  { value: '100k_500k', label: '$100,000 - $500,000' },
-  { value: 'over_500k', label: 'Over $500,000' },
-];
-
-type Step = 'store' | 'business' | 'owner' | 'community' | 'review';
+type Step = 'store' | 'business' | 'owner' | 'review';
 
 export default function ApplyStoreScreen() {
   const { user } = useAuth();
-  const config = coopConfig();
   const [currentStep, setCurrentStep] = useState<Step>('store');
   const [loading, setLoading] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [showRevenuePicker, setShowRevenuePicker] = useState(false);
-  const [showCommitmentPicker, setShowCommitmentPicker] = useState(false);
   const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
 
   // Form data
@@ -66,11 +52,6 @@ export default function ApplyStoreScreen() {
     ownerName: user?.name || '',
     ownerEmail: user?.email || '',
     ownerPhone: user?.phone || '',
-
-    // Community details
-    communityBenefitStatement: '',
-    communityCommitmentPercent: config.defaultStoreCommitment,
-    estimatedMonthlyRevenue: '',
     websiteUrl: '',
   });
 
@@ -82,7 +63,6 @@ export default function ApplyStoreScreen() {
     { key: 'store', label: 'Store', icon: Store },
     { key: 'business', label: 'Business', icon: Building2 },
     { key: 'owner', label: 'Owner', icon: User },
-    { key: 'community', label: 'Community', icon: Heart },
     { key: 'review', label: 'Review', icon: CheckCircle2 },
   ];
 
@@ -134,16 +114,6 @@ export default function ApplyStoreScreen() {
           return false;
         }
         return true;
-      case 'community':
-        if (!formData.communityBenefitStatement.trim() || formData.communityBenefitStatement.length < 20) {
-          Alert.alert('Required', 'Please describe how your store will benefit the community (at least 20 characters)');
-          return false;
-        }
-        if (formData.communityCommitmentPercent < config.minStoreCommitment) {
-          Alert.alert('Required', `Community commitment must be at least ${config.minStoreCommitment}%`);
-          return false;
-        }
-        return true;
       default:
         return true;
     }
@@ -179,7 +149,7 @@ export default function ApplyStoreScreen() {
         websiteUrl = `https://${websiteUrl}`;
       }
 
-      await api.applyForStore({
+      const result = await api.applyForStore({
         storeName: formData.storeName,
         storeDescription: formData.storeDescription,
         category: formData.category,
@@ -191,22 +161,21 @@ export default function ApplyStoreScreen() {
         ownerName: formData.ownerName,
         ownerEmail: formData.ownerEmail,
         ownerPhone: formData.ownerPhone,
-        communityBenefitStatement: formData.communityBenefitStatement,
-        communityCommitmentPercent: formData.communityCommitmentPercent,
-        estimatedMonthlyRevenue: formData.estimatedMonthlyRevenue || undefined,
         websiteUrl: websiteUrl || undefined,
       }, user.walletAddress);
 
-      Alert.alert(
-        'Application Submitted!',
-        'Your store application has been submitted for review. You will be notified once it is approved.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/stores'),
-          },
-        ]
-      );
+      if (result?.alreadyExists) {
+        Alert.alert(
+          'Store Already Exists',
+          'You already have a store application. Taking you to complete Stripe Connect.',
+          [{ text: 'OK' }],
+        );
+      }
+
+      router.replace({
+        pathname: '/stripe-onboarding',
+        params: { storeId: result.storeId },
+      });
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to submit application');
     } finally {
@@ -216,10 +185,6 @@ export default function ApplyStoreScreen() {
 
   const getCategoryLabel = (value: string) => {
     return storeCategories.find((c) => c.key === value)?.label || 'Select Category';
-  };
-
-  const getRevenueLabel = (value: string) => {
-    return REVENUE_RANGES.find((r) => r.value === value)?.label || 'Select Range';
   };
 
   const renderStoreStep = () => (
@@ -356,6 +321,24 @@ export default function ApplyStoreScreen() {
         keyboardType="numeric"
         maxLength={10}
       />
+
+      <View className="mb-4">
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Website URL (Optional)
+        </Text>
+        <TextInput
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
+          placeholder="yourwebsite.com or https://yourwebsite.com"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="url"
+          autoCapitalize="none"
+          value={formData.websiteUrl}
+          onChangeText={(v) => updateField('websiteUrl', v)}
+        />
+        <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          We&apos;ll add https:// if needed
+        </Text>
+      </View>
     </View>
   );
 
@@ -409,150 +392,6 @@ export default function ApplyStoreScreen() {
     </View>
   );
 
-  const renderCommunityStep = () => (
-    <View className="px-5">
-      <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Community Commitment
-      </Text>
-
-      <View className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 mb-6">
-        <View className="flex-row items-center mb-2">
-          <Heart size={20} color="#B45309" />
-          <Text className="text-amber-800 dark:text-amber-200 font-semibold ml-2">
-            Building Together
-          </Text>
-        </View>
-        <Text className="text-amber-700 dark:text-amber-300 text-sm">
-          As a {coopName()} store, you commit a percentage of your profits back to the cooperative
-          to help grow our community and support other members.
-        </Text>
-      </View>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Community Benefit Statement *
-        </Text>
-        <TextInput
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white h-32"
-          placeholder="How will your store benefit the community? What impact do you hope to make?"
-          placeholderTextColor="#9CA3AF"
-          multiline
-          textAlignVertical="top"
-          value={formData.communityBenefitStatement}
-          onChangeText={(v) => updateField('communityBenefitStatement', v)}
-        />
-        <Text className="text-xs text-gray-500 mt-1">
-          {formData.communityBenefitStatement.length}/20 minimum characters
-        </Text>
-      </View>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Community Commitment *
-        </Text>
-        <Text className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          Select the percentage of profits you&apos;ll contribute back to the coop
-        </Text>
-        <TouchableOpacity
-          onPress={() => setShowCommitmentPicker(!showCommitmentPicker)}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex-row items-center justify-between"
-        >
-          <View className="flex-row items-center">
-            <Percent size={18} color="#B45309" />
-            <Text className="text-gray-900 dark:text-white font-semibold ml-2">
-              {formData.communityCommitmentPercent}%
-            </Text>
-          </View>
-          <ChevronDown size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        {showCommitmentPicker && (
-          <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 overflow-hidden">
-            {config.storeCommitmentOptions.map((percent) => (
-              <TouchableOpacity
-                key={percent}
-                onPress={() => {
-                  updateField('communityCommitmentPercent', percent);
-                  setShowCommitmentPicker(false);
-                }}
-                className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex-row items-center justify-between ${
-                  formData.communityCommitmentPercent === percent ? 'bg-amber-50 dark:bg-amber-900/30' : ''
-                }`}
-              >
-                <Text className={`${
-                  formData.communityCommitmentPercent === percent
-                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                    : 'text-gray-700 dark:text-gray-300'
-                }`}>
-                  {percent}%
-                </Text>
-                {percent === config.defaultStoreCommitment && (
-                  <Text className="text-xs text-gray-500">(Recommended)</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Estimated Monthly Revenue (Optional)
-        </Text>
-        <TouchableOpacity
-          onPress={() => setShowRevenuePicker(!showRevenuePicker)}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex-row items-center justify-between"
-        >
-          <Text className={formData.estimatedMonthlyRevenue ? 'text-gray-900 dark:text-white' : 'text-gray-400'}>
-            {getRevenueLabel(formData.estimatedMonthlyRevenue)}
-          </Text>
-          <ChevronDown size={20} color="#9CA3AF" />
-        </TouchableOpacity>
-        {showRevenuePicker && (
-          <View className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl mt-2 overflow-hidden">
-            {REVENUE_RANGES.map((range) => (
-              <TouchableOpacity
-                key={range.value}
-                onPress={() => {
-                  updateField('estimatedMonthlyRevenue', range.value);
-                  setShowRevenuePicker(false);
-                }}
-                className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 ${
-                  formData.estimatedMonthlyRevenue === range.value ? 'bg-amber-50 dark:bg-amber-900/30' : ''
-                }`}
-              >
-                <Text className={`${
-                  formData.estimatedMonthlyRevenue === range.value
-                    ? 'text-amber-600 dark:text-amber-400 font-semibold'
-                    : 'text-gray-700 dark:text-gray-300'
-                }`}>
-                  {range.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Website URL (Optional)
-        </Text>
-        <TextInput
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-          placeholder="yourwebsite.com or https://yourwebsite.com"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="url"
-          autoCapitalize="none"
-          value={formData.websiteUrl}
-          onChangeText={(v) => updateField('websiteUrl', v)}
-        />
-        <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          We&apos;ll add https:// if needed
-        </Text>
-      </View>
-    </View>
-  );
-
   const renderReviewStep = () => (
     <View className="px-5">
       <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -591,31 +430,15 @@ export default function ApplyStoreScreen() {
         <Text className="text-gray-500 dark:text-gray-400 text-sm">{formData.ownerPhone}</Text>
       </View>
 
-      <View className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
-        <Text className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-2">
-          Community Commitment
-        </Text>
-        <View className="flex-row items-center mb-2">
-          <Percent size={16} color="#16A34A" />
-          <Text className="text-green-600 dark:text-green-400 font-bold ml-1">
-            {formData.communityCommitmentPercent}% of profits
-          </Text>
-        </View>
-        <Text className="text-gray-600 dark:text-gray-300 text-sm">
-          {formData.communityBenefitStatement}
-        </Text>
-      </View>
-
       <View className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 mb-4">
         <View className="flex-row items-center mb-2">
           <BadgeCheck size={20} color="#B45309" />
           <Text className="text-amber-800 dark:text-amber-200 font-semibold ml-2">
-            SC Verification
+            What Happens Next
           </Text>
         </View>
         <Text className="text-amber-700 dark:text-amber-300 text-sm">
-          Once approved, your store may be eligible for SC Verification, allowing you to
-          earn SC tokens from customer purchases and participate in the cooperative economy.
+          After you submit this form, you will complete Stripe Connect onboarding. Your store goes live as soon as Stripe enables charges, and then you can optionally apply for SC verification.
         </Text>
       </View>
     </View>
@@ -694,7 +517,6 @@ export default function ApplyStoreScreen() {
           {currentStep === 'store' && renderStoreStep()}
           {currentStep === 'business' && renderBusinessStep()}
           {currentStep === 'owner' && renderOwnerStep()}
-          {currentStep === 'community' && renderCommunityStep()}
           {currentStep === 'review' && renderReviewStep()}
         </ScrollView>
 

@@ -5,13 +5,43 @@ import { useAccount } from "wagmi";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Wallet, Shield, User, Copy, CheckCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Wallet, Shield, User, Copy, CheckCircle, Coins } from "lucide-react";
 import { useState } from "react";
+import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
 
 export default function SettingsPage() {
   const { isAdmin, adminRole, address: sessionAddress } = useWeb3Auth();
   const { address } = useAccount();
   const [copied, setCopied] = useState(false);
+  const coin = useCoin();
+
+  // Coin config editing state
+  const [editSymbol, setEditSymbol] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [configSaved, setConfigSaved] = useState(false);
+
+  const updateConfig = api.platformConfig.updateConfig.useMutation({
+    onSuccess: () => {
+      setConfigSaved(true);
+      setEditSymbol("");
+      setEditName("");
+      setEditDescription("");
+      setTimeout(() => setConfigSaved(false), 3000);
+    },
+  });
+
+  const handleSaveCoinConfig = () => {
+    const updates: { key: "coin.symbol" | "coin.name" | "coin.description" | "platform.name"; value: string }[] = [];
+    if (editSymbol.trim()) updates.push({ key: "coin.symbol", value: editSymbol.trim() });
+    if (editName.trim()) updates.push({ key: "coin.name", value: editName.trim() });
+    if (editDescription.trim()) updates.push({ key: "coin.description", value: editDescription.trim() });
+    if (updates.length > 0) {
+      updateConfig.mutate({ updates, updatedBy: sessionAddress ?? undefined });
+    }
+  };
 
   const copyAddress = () => {
     if (address) {
@@ -143,6 +173,70 @@ export default function SettingsPage() {
                   </li>
                 )}
               </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Coin & Platform Config — admin only */}
+      {isAdmin && (
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Coins className="h-5 w-5 text-amber-500" />
+              Coin & Platform Config
+            </CardTitle>
+            <CardDescription>
+              Change the reward token name and symbol used throughout the app.
+              Current: <span className="text-amber-400 font-semibold">{coin.name} ({coin.symbol})</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-gray-400">Symbol (e.g. SC)</Label>
+                <Input
+                  className="mt-1 bg-slate-800 border-slate-700 text-white"
+                  placeholder={coin.symbol}
+                  value={editSymbol}
+                  onChange={(e) => setEditSymbol(e.target.value)}
+                  maxLength={10}
+                />
+              </div>
+              <div>
+                <Label className="text-gray-400">Full Name (e.g. Soulaan Coin)</Label>
+                <Input
+                  className="mt-1 bg-slate-800 border-slate-700 text-white"
+                  placeholder={coin.name}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  maxLength={80}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-gray-400">Description (shown on coin detail screens)</Label>
+              <Input
+                className="mt-1 bg-slate-800 border-slate-700 text-white"
+                placeholder={coin.description || "Short description of the coin"}
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                maxLength={300}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleSaveCoinConfig}
+                disabled={updateConfig.isPending || (!editSymbol && !editName && !editDescription)}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                {updateConfig.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+              {configSaved && (
+                <span className="text-green-400 text-sm flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" /> Saved — restart app to see changes everywhere
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>

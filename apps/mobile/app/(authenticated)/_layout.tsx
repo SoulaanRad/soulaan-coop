@@ -98,6 +98,9 @@ export default function AuthenticatedLayout() {
         }}
       />
       {/* Hide these screens from tabs - accessed via navigation */}
+      <Tabs.Screen name="stripe-onboarding" options={{ href: null }} />
+      <Tabs.Screen name="apply-sc-verification" options={{ href: null }} />
+
       <Tabs.Screen name="store-orders" options={{ href: null }} />
       <Tabs.Screen name="pay" options={{ href: null }} />
       <Tabs.Screen name="scan-pay" options={{ href: null }} />

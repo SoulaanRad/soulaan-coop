@@ -14,9 +14,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   ShoppingBag,
-  Wallet,
   CreditCard,
-  Check,
   AlertCircle,
   BadgeCheck,
   Plus,
@@ -24,8 +22,8 @@ import {
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { useCart } from '@/contexts/cart-context';
-import { calculatePartialPaymentFee, requiresPaymentProcessor } from '@/lib/fee-calculator';
-import { FeeBreakdown, CompactFeeDisplay } from '@/components/fee-breakdown';
+import { useCoin } from '@/contexts/platform-config-context';
+import CheckoutHybrid from '@/components/checkout-hybrid';
 
 /**
  * Format SC balance as whole integers with comma separators.
@@ -46,12 +44,47 @@ interface PaymentMethod {
 
 export default function CheckoutScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
+  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
+
+  // Check if hybrid architecture is enabled
+  useEffect(() => {
+    async function checkFeatureFlag() {
+      try {
+        const response = await fetch('http://localhost:3001/api/feature-flags/hybrid-architecture');
+        const data = await response.json();
+        setUseHybrid(data.enabled);
+      } catch (error) {
+        console.error('Failed to check feature flag:', error);
+        setUseHybrid(false);
+      }
+    }
+    checkFeatureFlag();
+  }, []);
+
+  if (useHybrid === null) {
+    return (
+      <SafeAreaView className="flex-1 bg-slate-950">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (useHybrid && storeId) {
+    return <CheckoutHybrid storeId={storeId} />;
+  }
+
+  return <CheckoutLegacyScreen storeId={storeId} />;
+}
+
+function CheckoutLegacyScreen({ storeId }: { storeId?: string }) {
   const { user } = useAuth();
   const { getStoreItems, clearStoreItems } = useCart();
+  const coin = useCoin();
 
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [balance, setBalance] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [store, setStore] = useState<any>(null);
   const [shippingAddress, setShippingAddress] = useState('');
@@ -59,26 +92,24 @@ export default function CheckoutScreen() {
 
   const cartItems = storeId ? getStoreItems(storeId) : [];
   const subtotal = cartItems.reduce((sum, item) => sum + item.priceUSD * item.quantity, 0);
-  const needsCard = requiresPaymentProcessor(subtotal, balance);
-  const feeInfo = needsCard ? calculatePartialPaymentFee(subtotal, balance, 'stripe') : null;
-  const total = feeInfo ? feeInfo.total : subtotal;
+  // Stripe processing fee: 2.9% + $0.30
+  const stripeFee = parseFloat((subtotal * 0.029 + 0.30).toFixed(2));
+  const total = parseFloat((subtotal + stripeFee).toFixed(2));
 
-  const hasEnoughBalance = balance >= subtotal;
-  
-  // Calculate estimated SC reward (1% of subtotal for SC-verified stores)
-  const estimatedScReward = store?.isScVerified ? Math.round(subtotal * 10) : 0; // 10 SC per $1
+  const hasPaymentMethod = paymentMethods.length > 0;
+
+  // Estimated coin reward (10 per $1 for verified stores)
+  const estimatedScReward = store?.isScVerified ? Math.round(subtotal * 10) : 0;
 
   const loadData = useCallback(async () => {
     if (!user?.walletAddress || !storeId) return;
 
     try {
-      const [balanceResult, methodsResult, storeResult] = await Promise.all([
-        api.getTokenBalances(user.walletAddress),
+      const [methodsResult, storeResult] = await Promise.all([
         api.getPaymentMethods(user.id, user.walletAddress),
         api.getStore(storeId),
       ]);
 
-      setBalance(parseFloat(balanceResult?.uc || '0'));
       setPaymentMethods(methodsResult?.methods || []);
       setStore(storeResult);
     } catch (error) {
@@ -96,11 +127,10 @@ export default function CheckoutScreen() {
   const handleCheckout = async () => {
     if (!user?.walletAddress || !storeId || cartItems.length === 0) return;
 
-    // If insufficient balance and no payment method, prompt to add card
-    if (!hasEnoughBalance && paymentMethods.length === 0) {
+    if (!hasPaymentMethod) {
       Alert.alert(
         'Payment Method Required',
-        'You don\'t have enough balance. Please add a card to complete your purchase.',
+        'Please add a card to complete your purchase.',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Add Card', onPress: () => router.push('/payment-methods') },
@@ -127,13 +157,12 @@ export default function CheckoutScreen() {
       // Clear cart items for this store
       clearStoreItems(storeId);
 
-      // Build success message including actual SC earned (if any)
       let successMsg = `Your order for $${total.toFixed(2)} has been placed successfully.`;
       if (result.scRewardSC != null && result.scRewardSC > 0) {
         const scDisplay = formatSCBalance(String(result.scRewardSC));
-        successMsg += `\n\n🪙 You earned ${scDisplay} SC!`;
+        successMsg += `\n\n🪙 You earned ${scDisplay} ${coin.symbol}!`;
       } else if (store?.isScVerified) {
-        successMsg += `\n\n🪙 SC reward is being processed.`;
+        successMsg += `\n\n🪙 ${coin.symbol} reward is being processed.`;
       }
 
       // Show success and navigate to order detail
@@ -164,9 +193,9 @@ export default function CheckoutScreen() {
       } else if (errorMessage.includes('Recipient must be an active SC member')) {
         errorTitle = 'Membership Required';
         errorMessage = 'You need to be an active member to make purchases. Please contact support.';
-      } else if (errorMessage.includes('Insufficient balance')) {
-        errorTitle = 'Insufficient Balance';
-        errorMessage = 'You don\'t have enough balance to complete this purchase. Please add funds or use a payment method.';
+      } else if (errorMessage.includes('Insufficient balance') || errorMessage.includes('payment method')) {
+        errorTitle = 'Payment Failed';
+        errorMessage = 'Unable to charge the payment method on file. Please check your card or add a new one.';
       }
       
       Alert.alert(errorTitle, errorMessage);
@@ -297,70 +326,46 @@ export default function CheckoutScreen() {
           ))}
         </View>
 
-        {/* Payment Info */}
+        {/* Payment */}
         <View className="bg-white dark:bg-gray-800 mx-5 mt-4 rounded-xl p-4">
           <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Payment
           </Text>
 
-          {/* Wallet Balance */}
-          <View className="flex-row items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
-            <View className="flex-row items-center">
-              <Wallet size={20} color="#B45309" />
-              <Text className="text-gray-900 dark:text-white ml-3">Wallet Balance</Text>
-            </View>
-            <Text className={`font-semibold ${hasEnoughBalance ? 'text-green-600' : 'text-gray-500'}`}>
-              ${balance.toFixed(2)}
-            </Text>
-          </View>
-
-          {/* Payment Info */}
-          {hasEnoughBalance ? (
-            <View className="flex-row items-center mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <Check size={18} color="#16A34A" />
-              <Text className="text-green-700 dark:text-green-400 ml-2 flex-1">
-                Your wallet balance covers this purchase
+          {/* Card on file */}
+          {hasPaymentMethod ? (
+            <View className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <View className="flex-row items-center">
+                <CreditCard size={18} color="#B45309" />
+                <Text className="text-amber-700 dark:text-amber-400 ml-2 font-medium">
+                  {formatCardBrand(paymentMethods[0].brand)} ****{paymentMethods[0].last4}
+                </Text>
+              </View>
+              <Text className="text-amber-600 dark:text-amber-500 text-xs mt-1 ml-6">
+                Payment goes directly to the store via Stripe
               </Text>
             </View>
           ) : (
-            <View className="mt-3">
-              {paymentMethods.length > 0 ? (
-                <View className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                  <View className="flex-row items-center">
-                    <CreditCard size={18} color="#B45309" />
-                    <Text className="text-amber-700 dark:text-amber-400 ml-2 flex-1">
-                      ${Math.min(balance, subtotal).toFixed(2)} from wallet + ${(feeInfo?.fromCard || 0).toFixed(2)} from card (+${(feeInfo?.processorFee || 0).toFixed(2)} fee)
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center mt-2 ml-6">
-                    <Text className="text-gray-600 dark:text-gray-400 text-sm">
-                      {formatCardBrand(paymentMethods[0].brand)} ****{paymentMethods[0].last4}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <View className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                  <View className="flex-row items-center">
-                    <AlertCircle size={18} color="#DC2626" />
-                    <Text className="text-red-700 dark:text-red-400 ml-2 flex-1">
-                      Insufficient balance. Add a card to continue.
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => router.push('/payment-methods')}
-                    className="flex-row items-center justify-center mt-3 py-2 bg-red-100 dark:bg-red-900/30 rounded-lg"
-                  >
-                    <Plus size={16} color="#DC2626" />
-                    <Text className="text-red-600 dark:text-red-400 font-medium ml-2">
-                      Add Payment Method
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+            <View className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <View className="flex-row items-center">
+                <AlertCircle size={18} color="#DC2626" />
+                <Text className="text-red-700 dark:text-red-400 ml-2 flex-1">
+                  No card on file. Add one to continue.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push('/payment-methods')}
+                className="flex-row items-center justify-center mt-3 py-2 bg-red-100 dark:bg-red-900/30 rounded-lg"
+              >
+                <Plus size={16} color="#DC2626" />
+                <Text className="text-red-600 dark:text-red-400 font-medium ml-2">
+                  Add Payment Method
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* SC Reward Preview */}
+          {/* Coin Reward Preview */}
           {store && (
             <View className="mt-3">
               {store.isScVerified ? (
@@ -368,11 +373,11 @@ export default function CheckoutScreen() {
                   <View className="flex-row items-center">
                     <BadgeCheck size={18} color="#16A34A" />
                     <Text className="text-green-700 dark:text-green-400 ml-2 font-semibold">
-                      You&apos;ll earn SC rewards!
+                      You&apos;ll earn {coin.symbol} rewards!
                     </Text>
                   </View>
                   <Text className="text-green-600 dark:text-green-500 text-xs mt-1 ml-6">
-                    ~{estimatedScReward.toLocaleString()} SC (10 SC per $1, adjusted by pool rate)
+                    ~{estimatedScReward.toLocaleString()} {coin.symbol} (10 {coin.symbol} per $1, adjusted by pool rate)
                   </Text>
                 </View>
               ) : (
@@ -380,64 +385,14 @@ export default function CheckoutScreen() {
                   <View className="flex-row items-center">
                     <AlertCircle size={18} color="#6B7280" />
                     <Text className="text-gray-600 dark:text-gray-400 ml-2 text-sm">
-                      This store is not SC-verified
+                      This store is not {coin.symbol}-verified
                     </Text>
                   </View>
                   <Text className="text-gray-500 dark:text-gray-500 text-xs mt-1 ml-6">
-                    No SC rewards for this purchase
+                    No {coin.symbol} rewards for this purchase
                   </Text>
                 </View>
               )}
-            </View>
-          )}
-
-          {/* Card Pull Breakdown */}
-          {!hasEnoughBalance && feeInfo && paymentMethods.length > 0 && (
-            <View className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-              <Text className="text-gray-700 dark:text-gray-300 font-medium mb-3">
-                How this purchase is funded
-              </Text>
-              <View className="space-y-2">
-                {feeInfo.fromBalance > 0 && (
-                  <View className="flex-row justify-between">
-                    <Text className="text-gray-600 dark:text-gray-400">From wallet balance</Text>
-                    <Text className="text-gray-900 dark:text-white font-medium">
-                      ${feeInfo.fromBalance.toFixed(2)}
-                    </Text>
-                  </View>
-                )}
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 dark:text-gray-400">From card</Text>
-                  <Text className="text-gray-900 dark:text-white font-medium">
-                    ${feeInfo.fromCard.toFixed(2)}
-                  </Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 dark:text-gray-400">Processing fee</Text>
-                  <Text className="text-gray-900 dark:text-white font-medium">
-                    ${feeInfo.processorFee.toFixed(2)}
-                  </Text>
-                </View>
-                <View className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-900 dark:text-white font-semibold">Total charged to card</Text>
-                  <Text className="text-gray-900 dark:text-white font-semibold">
-                    ${(feeInfo.fromCard + feeInfo.processorFee).toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Fee Breakdown - only when card payment is needed */}
-          {!hasEnoughBalance && feeInfo && feeInfo.processorFee > 0 && (
-            <View className="mt-4">
-              <FeeBreakdown
-                subtotal={subtotal}
-                processorFee={feeInfo.processorFee}
-                processor="Stripe"
-                showDetails={true}
-              />
             </View>
           )}
         </View>
@@ -487,9 +442,10 @@ export default function CheckoutScreen() {
             </Text>
           </View>
 
-          {feeInfo && feeInfo.processorFee > 0 && (
-            <CompactFeeDisplay processorFee={feeInfo.processorFee} processor="Stripe" />
-          )}
+          <View className="flex-row justify-between items-center mt-1">
+            <Text className="text-gray-500 dark:text-gray-400 text-sm">Processing fee</Text>
+            <Text className="text-gray-500 dark:text-gray-400 text-sm">${stripeFee.toFixed(2)}</Text>
+          </View>
 
           <View className="border-t border-gray-200 dark:border-gray-700 my-2" />
 
@@ -502,9 +458,9 @@ export default function CheckoutScreen() {
         </View>
         <TouchableOpacity
           onPress={handleCheckout}
-          disabled={processing || (!hasEnoughBalance && paymentMethods.length === 0)}
+          disabled={processing || !hasPaymentMethod}
           className={`py-4 rounded-xl items-center ${
-            processing || (!hasEnoughBalance && paymentMethods.length === 0)
+            processing || !hasPaymentMethod
               ? 'bg-gray-300 dark:bg-gray-700'
               : 'bg-amber-500'
           }`}
@@ -515,18 +471,9 @@ export default function CheckoutScreen() {
               <Text className="text-white font-bold text-lg ml-2">Processing...</Text>
             </View>
           ) : (
-            <View>
-              <Text className="text-white font-bold text-lg">
-                Pay ${total.toFixed(2)}
-              </Text>
-              {feeInfo && feeInfo.processorFee > 0 && (
-                <Text className="text-white/80 text-xs mt-1">
-                  {feeInfo.fromBalance > 0
-                    ? `Card pull $${feeInfo.fromCard.toFixed(2)} + fee $${feeInfo.processorFee.toFixed(2)} = $${(feeInfo.fromCard + feeInfo.processorFee).toFixed(2)}`
-                    : `(Includes $${feeInfo.processorFee.toFixed(2)} processing fee)`}
-                </Text>
-              )}
-            </View>
+            <Text className="text-white font-bold text-lg">
+              Pay ${total.toFixed(2)}
+            </Text>
           )}
         </TouchableOpacity>
       </View>

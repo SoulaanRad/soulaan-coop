@@ -1,7 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
+import { Loader2 } from "lucide-react";
+import dynamic from 'next/dynamic';
+
+const SCRewardsHybrid = dynamic(() => import('@/components/portal/sc-rewards-hybrid'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,7 +43,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   Coins,
-  Loader2,
   RefreshCw,
   ExternalLink,
   CheckCircle2,
@@ -47,6 +58,40 @@ type StatusFilter = 'ALL' | 'PENDING' | 'COMPLETED' | 'FAILED';
 type ReasonFilter = 'ALL' | 'STORE_PURCHASE_REWARD' | 'STORE_SALE_REWARD' | 'MANUAL_ADJUSTMENT';
 
 export default function SCRewardsPage() {
+  const coin = useCoin();
+  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
+
+  // Check if hybrid architecture is enabled
+  useEffect(() => {
+    async function checkFeatureFlag() {
+      try {
+        const response = await fetch('/api/feature-flags/hybrid-architecture');
+        const data = await response.json();
+        setUseHybrid(data.enabled);
+      } catch (error) {
+        console.error('Failed to check feature flag:', error);
+        setUseHybrid(false);
+      }
+    }
+    checkFeatureFlag();
+  }, []);
+
+  if (useHybrid === null) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (useHybrid) {
+    return <SCRewardsHybrid />;
+  }
+
+  return <SCRewardsLegacyPage />;
+}
+
+function SCRewardsLegacyPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [reasonFilter, setReasonFilter] = useState<ReasonFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -340,7 +385,7 @@ export default function SCRewardsPage() {
           ) : (
             <div className="text-center py-12">
               <Coins className="h-12 w-12 mx-auto text-gray-600 mb-4" />
-              <p className="text-gray-400">No SC rewards found</p>
+              <p className="text-gray-400">No {coin.symbol} rewards found</p>
             </div>
           )}
         </CardContent>

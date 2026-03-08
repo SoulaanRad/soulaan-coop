@@ -117,7 +117,6 @@ export default function WalletScreen() {
         className="mx-4 mt-2 p-6 rounded-2xl"
         style={{ backgroundColor: '#DC2626' }}
       >
-        <Text className="text-white/80 text-sm font-medium mb-1">Available Balance</Text>
         <Text className="text-white text-4xl font-bold mb-4">{balance}</Text>
         <TouchableOpacity
           onPress={handleCopyAddress}

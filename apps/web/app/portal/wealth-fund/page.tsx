@@ -7,9 +7,52 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import dynamic from 'next/dynamic';
+
+const WealthFundHybridPage = dynamic(() => import('../wealth-fund-hybrid/page'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 
 export default function WealthFundPage() {
+  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
+
+  // Check if hybrid architecture is enabled
+  useEffect(() => {
+    async function checkFeatureFlag() {
+      try {
+        const response = await fetch('/api/feature-flags/hybrid-architecture');
+        const data = await response.json();
+        setUseHybrid(data.enabled);
+      } catch (error) {
+        console.error('Failed to check feature flag:', error);
+        setUseHybrid(false);
+      }
+    }
+    checkFeatureFlag();
+  }, []);
+
+  if (useHybrid === null) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (useHybrid) {
+    return <WealthFundHybridPage />;
+  }
+
+  return <WealthFundLegacyPage />;
+}
+
+function WealthFundLegacyPage() {
   const [isEditingRate, setIsEditingRate] = useState(false);
   const [newRate, setNewRate] = useState("");
   const [isEditingAddress, setIsEditingAddress] = useState(false);

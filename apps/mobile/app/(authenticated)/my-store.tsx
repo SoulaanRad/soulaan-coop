@@ -21,15 +21,14 @@ import {
   BadgeCheck,
   Clock,
   XCircle,
-  TrendingUp,
   Package,
-  DollarSign,
   AlertCircle,
   ChevronRight,
   Edit3,
   QrCode,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
+import { useCoin } from '@/contexts/platform-config-context';
 import { api } from '@/lib/api';
 
 interface ProductData {
@@ -48,6 +47,7 @@ interface ProductData {
 
 export default function MyStoreScreen() {
   const { user } = useAuth();
+  const coin = useCoin();
   const [store, setStore] = useState<any>(null);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,7 +193,7 @@ export default function MyStoreScreen() {
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-center mt-2">
             You haven&apos;t applied to become a store yet.
-            Apply now to start selling on Soulaan!
+            Apply now, connect Stripe, and start selling.
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/apply-store')}
@@ -257,6 +257,12 @@ export default function MyStoreScreen() {
                   <View className="bg-white/20 px-3 py-1 rounded-full flex-row items-center">
                     <BadgeCheck size={14} color="white" />
                     <Text className="text-white font-medium ml-1">SC Verified</Text>
+                  </View>
+                )}
+                {!store.isScVerified && store.scApplicationStatus === 'PENDING' && (
+                  <View className="bg-white/20 px-3 py-1 rounded-full flex-row items-center">
+                    <Clock size={14} color="white" />
+                    <Text className="text-white font-medium ml-1">SC Review Pending</Text>
                   </View>
                 )}
               </View>
@@ -331,6 +337,61 @@ export default function MyStoreScreen() {
               </View>
             )}
           </View>
+        </View>
+
+        {/* Stripe + SC Status */}
+        <View className="mx-5 mt-4 gap-3">
+          {store.status !== 'APPROVED' && (
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-5">
+              <View className="flex-row items-start">
+                <AlertCircle size={20} color="#B45309" />
+                <View className="flex-1 ml-3">
+                  <Text className="text-gray-900 dark:text-white font-semibold">Finish Stripe Connect to go live</Text>
+                  <Text className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                    Your store becomes active as soon as Stripe enables charges. You do not need a separate admin approval for the base store.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/stripe-onboarding', params: { storeId: store.id } })}
+                className="bg-amber-500 py-3 rounded-xl mt-4"
+              >
+                <Text className="text-center text-white font-semibold">
+                  {store.businessId ? 'Continue Stripe Connect' : 'Start Stripe Connect'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {store.status === 'APPROVED' && !store.isScVerified && (
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-5">
+              <View className="flex-row items-start">
+                <BadgeCheck size={20} color="#B45309" />
+                <View className="flex-1 ml-3">
+                  <Text className="text-gray-900 dark:text-white font-semibold">
+                    {store.scApplicationStatus === 'PENDING' ? `${coin.symbol} rewards application under review` : `Apply to earn ${coin.symbol} rewards`}
+                  </Text>
+                  <Text className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                    {store.scApplicationStatus === 'PENDING'
+                      ? `Your store is already live. ${coin.symbol} rewards will activate after your separate application is approved.`
+                      : store.scApplicationStatus === 'REJECTED'
+                      ? store.scVerificationApplication?.rejectionReason || `Your last ${coin.symbol} rewards application was rejected. You can apply again.`
+                      : `Your store is live. Apply separately if you want purchases to qualify for ${coin.symbol} rewards.`}
+                  </Text>
+                </View>
+              </View>
+              {store.scApplicationStatus !== 'PENDING' && (
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/apply-sc-verification', params: { storeId: store.id } })}
+                  className="bg-green-600 py-3 rounded-xl mt-4"
+                >
+                  <Text className="text-center text-white font-semibold">
+                    {store.scApplicationStatus === 'REJECTED' ? 'Reapply for SC Verification' : 'Apply for SC Verification'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -471,9 +532,7 @@ export default function MyStoreScreen() {
                 What happens next?
               </Text>
               <Text className="text-amber-700 dark:text-amber-300 text-sm text-center mt-2">
-                Once your application is approved, you&apos;ll be able to add products
-                and start selling on the Soulaan marketplace. We&apos;ll notify you by email
-                when your store is ready!
+                Complete Stripe Connect onboarding and refresh your status. Your store will go live as soon as Stripe enables charges.
               </Text>
             </View>
           </View>

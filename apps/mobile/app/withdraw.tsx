@@ -29,7 +29,6 @@ export default function WithdrawScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [balance, setBalance] = useState<number>(0);
-  const [balanceFormatted, setBalanceFormatted] = useState<string>('$0.00');
   const [amount, setAmount] = useState('');
 
   // Bank accounts
@@ -53,7 +52,6 @@ export default function WithdrawScreen() {
       ]);
 
       setBalance(balanceResult.balance);
-      setBalanceFormatted(balanceResult.formatted);
       setBankAccounts(accountsResult.accounts);
 
       // Select default account
@@ -157,12 +155,6 @@ export default function WithdrawScreen() {
         </View>
 
         <ScrollView className="flex-1">
-          {/* Balance Display */}
-          <View className="bg-white p-4 border-b border-gray-200">
-            <Text className="text-gray-500 text-sm">Available Balance</Text>
-            <Text className="text-2xl font-bold text-gray-900">{balanceFormatted}</Text>
-          </View>
-
           <View className="p-4">
             {/* Bank Account Selection */}
             <Text className="text-gray-900 font-semibold text-lg mb-3">Withdraw To</Text>

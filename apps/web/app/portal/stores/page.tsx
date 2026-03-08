@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -122,7 +123,7 @@ function AllStoresTab() {
 
   const batchVerify = api.store.batchVerifyStoresOnChain.useMutation({
     onSuccess: (data) => {
-      if (data.txHash) {
+      if ("txHash" in data && data.txHash) {
         setTxHash(data.txHash);
       }
       refetch();
@@ -257,7 +258,6 @@ function AllStoresTab() {
                     <div className="flex gap-4 text-sm text-gray-500">
                       <span><Package className="h-4 w-4 inline mr-1" />{store.productCount} products</span>
                       <span><DollarSign className="h-4 w-4 inline mr-1" />{store.orderCount} orders</span>
-                      <span>{store.communityCommitmentPercent}% commitment</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -643,7 +643,6 @@ function ApplicationsTab() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewNotes, setReviewNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
-  const [grantScVerification, setGrantScVerification] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | undefined>("PENDING");
 
   const { data, isLoading, error, refetch } = api.store.getStoreApplications.useQuery({
@@ -656,7 +655,6 @@ function ApplicationsTab() {
   const approveStore = api.store.approveStore.useMutation({
     onSuccess: () => {
       setReviewNotes("");
-      setGrantScVerification(false);
       refetch();
       setCurrentIndex(0);
     },
@@ -681,7 +679,6 @@ function ApplicationsTab() {
     approveStore.mutate({
       storeId: currentApp.id,
       reviewNotes: reviewNotes || undefined,
-      grantScVerification,
     });
   };
 
@@ -714,14 +711,17 @@ function ApplicationsTab() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-[40vh] gap-4">
-        <div className="text-red-500 text-center">
-          <p className="font-semibold">Error loading applications</p>
-          <p className="text-sm text-gray-400 mt-2">{error.message}</p>
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center h-[40vh] gap-4">
+          <div className="text-red-500 text-center">
+            <p className="font-semibold">Error loading applications</p>
+            <p className="text-sm text-gray-400 mt-2">{error.message}</p>
+          </div>
+          <Button onClick={() => refetch()} variant="outline">
+            Try Again
+          </Button>
         </div>
-        <Button onClick={() => refetch()} variant="outline">
-          Try Again
-        </Button>
+        <ScVerificationApplicationsPanel />
       </div>
     );
   }
@@ -756,6 +756,7 @@ function ApplicationsTab() {
             </p>
           </div>
         </div>
+        <ScVerificationApplicationsPanel />
       </div>
     );
   }
@@ -890,26 +891,9 @@ function ApplicationsTab() {
               </div>
             )}
 
-            {/* Commitment */}
-            <div>
-              <h4 className="font-medium text-amber-500 mb-2">Community Commitment</h4>
-              <Badge className="bg-green-600">{currentApp.communityCommitmentPercent}%</Badge>
-            </div>
-
             {/* Actions for pending */}
             {isPending && (
               <div className="pt-4 border-t border-slate-800 space-y-4">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={grantScVerification}
-                    onChange={(e) => setGrantScVerification(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <ShieldCheck className="h-4 w-4 text-amber-500" />
-                  <span>Grant SC Verification on approval</span>
-                </label>
-
                 <div>
                   <Label>Review Notes (optional)</Label>
                   <Textarea
@@ -953,6 +937,155 @@ function ApplicationsTab() {
             )}
           </CardContent>
         </Card>
+      )}
+      <ScVerificationApplicationsPanel />
+    </div>
+  );
+}
+
+function ScVerificationApplicationsPanel() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const { data, isLoading, refetch } = api.scVerification.listApplications.useQuery({
+    limit: 50,
+  });
+
+  const reviewApplication = api.scVerification.reviewApplication.useMutation({
+    onSuccess: () => {
+      setRejectionReason("");
+      setSelectedId(null);
+      refetch();
+    },
+  });
+
+  const applications = data?.applications ?? [];
+  const selected = applications.find((application: any) => application.id === selectedId) ?? applications[0];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">SC Verification Queue</h2>
+          <p className="text-sm text-gray-400">Stripe approval gets stores live. SC verification is reviewed separately here.</p>
+        </div>
+        <Button variant="outline" onClick={() => refetch()} className="border-slate-700">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      ) : applications.length === 0 ? (
+        <Card className="bg-slate-900 border-slate-800">
+          <CardContent className="p-6 text-sm text-gray-400">
+            No SC verification applications yet.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[280px,1fr]">
+          <div className="space-y-2">
+            {applications.map((application: any) => (
+              <button
+                key={application.id}
+                type="button"
+                onClick={() => setSelectedId(application.id)}
+                className={`w-full rounded-lg border p-3 text-left ${
+                  selected?.id === application.id ? "border-amber-500 bg-amber-500/10" : "border-slate-800 bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-white">{application.store.name}</p>
+                    <p className="text-xs text-gray-400">{application.store.owner.email}</p>
+                  </div>
+                  <Badge className={
+                    application.status === "PENDING"
+                      ? "bg-yellow-500/10 text-yellow-400"
+                      : application.status === "APPROVED"
+                      ? "bg-green-500/10 text-green-400"
+                      : "bg-red-500/10 text-red-400"
+                  }>
+                    {application.status}
+                  </Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selected && (
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-amber-500" />
+                  {selected.store.name}
+                </CardTitle>
+                <CardDescription>
+                  Stripe status: {selected.store.stripeAccount?.onboardingStatus || "No account"} · Charges enabled: {selected.store.stripeAccount?.chargesEnabled ? "Yes" : "No"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-amber-500 mb-2">Why SC Eligible</h4>
+                  <p className="text-sm text-gray-300 bg-slate-800 p-3 rounded-lg">{selected.whyScEligible}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-amber-500 mb-2">Expected Volume</h4>
+                  <p className="text-sm text-gray-300 bg-slate-800 p-3 rounded-lg">{selected.expectedVolume}</p>
+                </div>
+                {selected.status !== "APPROVED" && (
+                  <>
+                    <div>
+                      <Label>Rejection Reason (required if rejecting)</Label>
+                      <Textarea
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Reason for rejection..."
+                        className="mt-1 bg-slate-800 border-slate-700"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => {
+                          if (rejectionReason.trim().length < 10) {
+                            alert("Please provide a rejection reason with at least 10 characters.");
+                            return;
+                          }
+                          reviewApplication.mutate({
+                            applicationId: selected.id,
+                            approve: false,
+                            rejectionReason,
+                          });
+                        }}
+                        disabled={reviewApplication.isPending}
+                        variant="outline"
+                        className="flex-1 border-red-500/30 text-red-500 hover:bg-red-500/10"
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        onClick={() => reviewApplication.mutate({ applicationId: selected.id, approve: true })}
+                        disabled={reviewApplication.isPending}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                      >
+                        Approve SC
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {selected.status === "APPROVED" && (
+                  <Badge className="bg-green-500/10 text-green-400">SC verification approved</Badge>
+                )}
+                {selected.status === "REJECTED" && selected.rejectionReason && (
+                  <p className="text-sm text-red-400">{selected.rejectionReason}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1108,6 +1241,7 @@ function StoreOnChainStatusPanel({
 // STORE SC REWARDS PANEL
 // ============================================
 function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeName: string }) {
+  const coin = useCoin();
   const { data, isLoading, error } = api.scRewards.getSCRewardsForStore.useQuery({
     storeId,
     limit: 10,
@@ -1118,9 +1252,9 @@ function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeNam
       <div className="bg-slate-800 rounded-lg p-4">
         <h4 className="font-medium text-white mb-3 flex items-center gap-2">
           <Coins className="h-4 w-4 text-amber-500" />
-          SC Rewards
+          {coin.symbol} Rewards
         </h4>
-        <div className="py-4 text-center text-gray-400">Loading SC rewards...</div>
+        <div className="py-4 text-center text-gray-400">Loading {coin.symbol} rewards...</div>
       </div>
     );
   }
@@ -1130,10 +1264,10 @@ function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeNam
       <div className="bg-slate-800 rounded-lg p-4">
         <h4 className="font-medium text-white mb-3 flex items-center gap-2">
           <Coins className="h-4 w-4 text-amber-500" />
-          SC Rewards
+          {coin.symbol} Rewards
         </h4>
         <div className="py-4 text-center">
-          <p className="text-red-400 mb-2">Error loading SC rewards</p>
+          <p className="text-red-400 mb-2">Error loading {coin.symbol} rewards</p>
           <p className="text-sm text-gray-500">{error.message}</p>
         </div>
       </div>
@@ -1145,9 +1279,9 @@ function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeNam
       <div className="bg-slate-800 rounded-lg p-4">
         <h4 className="font-medium text-white mb-3 flex items-center gap-2">
           <Coins className="h-4 w-4 text-amber-500" />
-          SC Rewards
+          {coin.symbol} Rewards
         </h4>
-        <div className="py-4 text-center text-gray-400">No SC rewards distributed yet</div>
+        <div className="py-4 text-center text-gray-400">No {coin.symbol} rewards distributed yet</div>
       </div>
     );
   }

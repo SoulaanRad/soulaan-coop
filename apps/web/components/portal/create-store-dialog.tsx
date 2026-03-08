@@ -33,7 +33,6 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
-  const [communityCommitment, setCommunityCommitment] = useState("10");
 
   const { data: categories, isLoading: loadingCategories } = api.categories.getStoreCategories.useQuery({
     includeAdminOnly: true,
@@ -52,7 +51,6 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
     setName("");
     setDescription("");
     setCategory("");
-    setCommunityCommitment("10");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -62,7 +60,6 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
       name,
       description: description || undefined,
       category: category as any,
-      communityCommitmentPercent: parseFloat(communityCommitment),
     });
   };
 
@@ -145,23 +142,6 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
                 )}
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="commitment" className="text-gray-300">
-              Community Commitment % *
-            </Label>
-            <Input
-              id="commitment"
-              type="number"
-              min="5"
-              max="100"
-              step="0.1"
-              value={communityCommitment}
-              onChange={(e) => setCommunityCommitment(e.target.value)}
-              required
-              className="bg-slate-800 border-slate-700 text-white"
-            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

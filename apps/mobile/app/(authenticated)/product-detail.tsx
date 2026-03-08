@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useCart } from '@/contexts/cart-context';
+import { useCoin } from '@/contexts/platform-config-context';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +31,7 @@ export default function ProductDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const { addItem, totalItems } = useCart();
+  const coin = useCoin();
 
   const loadProduct = useCallback(async () => {
     if (!id) return;
@@ -272,12 +274,12 @@ export default function ProductDetailScreen() {
               <View className="flex-row items-center mb-2">
                 <BadgeCheck size={20} color="#B45309" />
                 <Text className="text-amber-800 dark:text-amber-200 font-semibold ml-2">
-                  SC Verified Purchase
+                  {coin.symbol} Verified Purchase
                 </Text>
               </View>
               <Text className="text-amber-700 dark:text-amber-300 text-sm">
-                When you purchase from this store, they earn SC tokens which helps
-                build community wealth and strengthens our cooperative economy.
+                When you purchase from this store, customers earn {coin.name} ({coin.symbol}) tokens which help
+                build community wealth and strengthen our cooperative economy.
               </Text>
             </View>
           )}

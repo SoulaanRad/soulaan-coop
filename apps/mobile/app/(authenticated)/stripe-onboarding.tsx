@@ -1,0 +1,354 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  CreditCard,
+  ExternalLink,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  ShieldCheck,
+  RefreshCw,
+} from 'lucide-react-native';
+import { useAuth } from '@/contexts/auth-context';
+import { useCoin } from '@/contexts/platform-config-context';
+import { api } from '@/lib/api';
+
+// Maps internal statuses to plain-English user-facing state
+function getStatusInfo(store: any): {
+  label: string;
+  description: string;
+  color: 'green' | 'amber' | 'red' | 'gray';
+  actionNeeded: boolean;
+  actionLabel?: string;
+} {
+  const onboarding = store?.stripeAccount?.onboardingStatus;
+  const charges = store?.stripeAccount?.chargesEnabled;
+  const requirements: string[] = store?.stripeAccount?.requirementsCurrentlyDue ?? [];
+
+  if (charges) {
+    return {
+      label: 'Approved — your store is live',
+      description: 'You can now accept payments from customers.',
+      color: 'green',
+      actionNeeded: false,
+    };
+  }
+
+  if (onboarding === 'SUBMITTED' || onboarding === 'PENDING') {
+    return {
+      label: 'Under review',
+      description: 'Your information has been submitted. This usually takes a few minutes. Tap "Check My Status" to see if you\'ve been approved.',
+      color: 'amber',
+      actionNeeded: false,
+    };
+  }
+
+  if (onboarding === 'RESTRICTED' || requirements.length > 0) {
+    return {
+      label: 'Action required',
+      description: 'There are a few things you need to finish before your account can be approved. Tap below to complete the remaining steps — it only takes a minute.',
+      color: 'red',
+      actionNeeded: true,
+      actionLabel: 'Finish Setup',
+    };
+  }
+
+  if (onboarding === 'REJECTED') {
+    return {
+      label: 'Not approved',
+      description: 'Your account was not approved. This can happen if some information couldn\'t be verified. Tap below to try again or contact support.',
+      color: 'red',
+      actionNeeded: true,
+      actionLabel: 'Try Again',
+    };
+  }
+
+  // Not started yet
+  return {
+    label: 'Payment setup not started',
+    description: 'Set up takes about 5 minutes. You\'ll need your business info and a bank account for payouts.',
+    color: 'gray',
+    actionNeeded: true,
+    actionLabel: 'Set Up Payments',
+  };
+}
+
+const COLOR_MAP = {
+  green: {
+    bg: 'bg-green-50 dark:bg-green-900/20',
+    text: 'text-green-700 dark:text-green-300',
+    icon: '#16A34A',
+  },
+  amber: {
+    bg: 'bg-amber-50 dark:bg-amber-900/20',
+    text: 'text-amber-700 dark:text-amber-300',
+    icon: '#B45309',
+  },
+  red: {
+    bg: 'bg-red-50 dark:bg-red-900/20',
+    text: 'text-red-700 dark:text-red-300',
+    icon: '#DC2626',
+  },
+  gray: {
+    bg: 'bg-gray-100 dark:bg-gray-800',
+    text: 'text-gray-600 dark:text-gray-300',
+    icon: '#9CA3AF',
+  },
+};
+
+export default function StripeOnboardingScreen() {
+  const { storeId } = useLocalSearchParams<{ storeId: string }>();
+  const { user } = useAuth();
+  const coin = useCoin();
+  const [store, setStore] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const loadStore = useCallback(async () => {
+    if (!user?.walletAddress) return;
+    const data = await api.getMyStore(user.walletAddress);
+    setStore(data);
+  }, [user?.walletAddress]);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        setLoading(true);
+        await loadStore();
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to load store');
+      } finally {
+        setLoading(false);
+      }
+    }
+    void init();
+  }, [loadStore]);
+
+  const syncStatus = useCallback(async (quiet = false) => {
+    if (!user?.walletAddress || !user?.id || !store?.businessId) return;
+    try {
+      setSyncing(true);
+      const status = await api.syncStripeBusinessStatus({
+        userId: user.id,
+        businessId: store.businessId,
+      }, user.walletAddress);
+      await loadStore();
+
+      if (!quiet) {
+        if (status.chargesEnabled) {
+          Alert.alert('You\'re approved!', 'Your store is now live and ready to accept payments.');
+        } else if (status.requirementsCurrentlyDue?.length > 0) {
+          Alert.alert(
+            'Action required',
+            'There are still a few steps to complete. Tap "Finish Setup" to continue.',
+          );
+        } else {
+          Alert.alert('Still under review', 'Hang tight — this usually takes just a few minutes. Check back soon.');
+        }
+      }
+    } catch (error: any) {
+      if (!quiet) Alert.alert('Error', error.message || 'Failed to check status');
+    } finally {
+      setSyncing(false);
+    }
+  }, [user, store?.businessId, loadStore]);
+
+  const handleSetupPayments = async () => {
+    if (!user?.walletAddress || !user?.id || !storeId) return;
+
+    try {
+      setStarting(true);
+      const result = await api.createBusinessForStore({
+        userId: user.id,
+        storeId,
+        email: user.email || store?.application?.ownerEmail || '',
+        businessType: 'company',
+        country: 'US',
+      }, user.walletAddress);
+
+      // Open Stripe's hosted onboarding in a browser
+      await WebBrowser.openBrowserAsync(result.onboardingUrl);
+
+      // Auto-check status once the browser closes
+      await syncStatus(true);
+    } catch (error: any) {
+      Alert.alert('Setup Error', error.message || 'Failed to start payment setup');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#B45309" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const stripeReady = !!store?.stripeAccount?.chargesEnabled;
+  const statusInfo = getStatusInfo(store);
+  const colors = COLOR_MAP[statusInfo.color];
+
+  const StatusIcon = statusInfo.color === 'green'
+    ? CheckCircle2
+    : statusInfo.color === 'red'
+      ? AlertTriangle
+      : statusInfo.color === 'amber'
+        ? Clock
+        : CreditCard;
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color="#374151" />
+        </TouchableOpacity>
+        <Text className="text-lg font-semibold text-gray-900 dark:text-white">Payment Setup</Text>
+        <View className="w-6" />
+      </View>
+
+      <ScrollView className="flex-1 px-5 py-5" showsVerticalScrollIndicator={false}>
+        {/* Intro card */}
+        <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
+          <View className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 items-center justify-center mb-4">
+            <CreditCard size={28} color="#B45309" />
+          </View>
+          <Text className="text-xl font-bold text-gray-900 dark:text-white">
+            {stripeReady ? 'Your store is live!' : 'Set up payments to open your store'}
+          </Text>
+          <Text className="text-gray-600 dark:text-gray-300 mt-2 leading-6">
+            {stripeReady
+              ? 'Customers can now purchase from your store. Payouts will be deposited to your bank account.'
+              : 'To accept payments from customers, we need to verify your identity and set up direct deposits to your bank. This takes about 5 minutes.'}
+          </Text>
+        </View>
+
+        {/* Status card */}
+        <View className={`rounded-2xl p-4 mb-4 ${colors.bg}`}>
+          <View className="flex-row items-start">
+            <StatusIcon size={20} color={colors.icon} />
+            <View className="flex-1 ml-3">
+              <Text className={`font-semibold ${colors.text}`}>{statusInfo.label}</Text>
+              <Text className={`text-sm mt-1 leading-5 ${colors.text}`}>{statusInfo.description}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Restricted — extra help */}
+        {store?.stripeAccount?.onboardingStatus === 'RESTRICTED' && (
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4 border border-red-200 dark:border-red-800">
+            <Text className="font-semibold text-gray-900 dark:text-white mb-2">What does "Action required" mean?</Text>
+            <Text className="text-gray-600 dark:text-gray-300 leading-6 text-sm">
+              Our payment provider needs a bit more information to verify your account. This is normal and usually just means confirming your identity or adding a bank account.
+              {'\n\n'}
+              Tap <Text className="font-semibold">"Finish Setup"</Text> and follow the steps. If you get stuck, contact support.
+            </Text>
+          </View>
+        )}
+
+        {/* What to expect card — only before setup */}
+        {!store?.stripeAccount && (
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
+            <Text className="font-semibold text-gray-900 dark:text-white mb-3">What you'll need</Text>
+            {[
+              'Your business name and address',
+              'Your date of birth and last 4 of SSN',
+              'A bank account for payouts',
+            ].map((item) => (
+              <View key={item} className="flex-row items-center mb-2">
+                <View className="w-2 h-2 rounded-full bg-amber-500 mr-3" />
+                <Text className="text-gray-600 dark:text-gray-300 text-sm">{item}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* SC upsell after approval */}
+        {stripeReady && (
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
+            <View className="flex-row items-center mb-3">
+              <ShieldCheck size={18} color="#B45309" />
+              <Text className="text-gray-900 dark:text-white font-semibold ml-2">Optional: Earn rewards on sales</Text>
+            </View>
+            <Text className="text-gray-600 dark:text-gray-300 leading-6 text-sm">
+              Once approved, purchases at your store can earn customers {coin.symbol} rewards. Apply now or later from My Store.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Action buttons */}
+      <View className="px-5 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 gap-3">
+        {/* Primary action — setup or finish */}
+        {!stripeReady && (
+          <TouchableOpacity
+            onPress={handleSetupPayments}
+            disabled={starting}
+            className="bg-amber-500 py-4 rounded-xl flex-row items-center justify-center"
+          >
+            {starting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text className="text-white font-bold mr-2">
+                  {statusInfo.actionLabel ?? 'Set Up Payments'}
+                </Text>
+                <ExternalLink size={18} color="white" />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Check status */}
+        {!stripeReady && (
+          <TouchableOpacity
+            onPress={() => syncStatus(false)}
+            disabled={syncing || !store?.businessId}
+            className="bg-gray-100 dark:bg-gray-700 py-4 rounded-xl flex-row items-center justify-center"
+          >
+            {syncing ? (
+              <ActivityIndicator color="#B45309" />
+            ) : (
+              <>
+                <RefreshCw size={16} color="#B45309" />
+                <Text className="text-center text-gray-900 dark:text-white font-semibold ml-2">Check My Status</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* Post-approval actions */}
+        {stripeReady ? (
+          <>
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/apply-sc-verification', params: { storeId: store.id } })}
+              className="bg-amber-500 py-4 rounded-xl"
+            >
+              <Text className="text-center text-white font-bold">Apply for {coin.symbol} Rewards</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.replace('/my-store')}
+              className="py-2"
+            >
+              <Text className="text-center text-amber-600 dark:text-amber-400 font-semibold">Go to My Store</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity onPress={() => router.replace('/my-store')} className="py-2">
+            <Text className="text-center text-gray-500 dark:text-gray-400 font-medium">I'll finish this later</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </SafeAreaView>
+  );
+}
