@@ -178,8 +178,14 @@ const businessBenefits: BusinessBenefitCard[] = [
   {
     title: "Community Influence",
     description:
-      "Help shape proposals, priorities, and the direction of the cooperative economy you are helping build.",
+      "Participate in governance, help shape proposals, and influence the direction of the cooperative economy you are helping build.",
     icon: Vote,
+  },
+  {
+    title: "AI-Assisted Proposals",
+    description:
+      "Use AI-supported proposal tools to turn business needs and community ideas into clearer plans the coop can evaluate and vote on.",
+    icon: Sparkles,
   },
   {
     title: "Stronger Local Loyalty",
@@ -196,10 +202,12 @@ const businessBenefits: BusinessBenefitCard[] = [
 ];
 
 const futureCoops = [
-  "Local food cooperatives",
-  "Housing cooperatives",
-  "Worker cooperatives",
-  "Creative cooperatives",
+  "NYC working-class families",
+  "Gen Z builders and creators",
+  "Bay Area renters",
+  "Parents and caregivers",
+  "First-generation professionals",
+  "Black artists and cultural workers",
 ];
 
 const heroLoop = [
@@ -579,8 +587,9 @@ export default function SoulaanLanding() {
                 </h2>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
                   Businesses do not just get listed. They join a system designed
-                  to drive customers, unlock funding, and build long-term
-                  community loyalty.
+                  to drive customers, unlock funding, support AI-assisted
+                  proposals, and build long-term community loyalty through
+                  shared governance.
                 </p>
 
                 <div className="mt-8 flex flex-wrap gap-3">
@@ -588,6 +597,8 @@ export default function SoulaanLanding() {
                     "Join the network",
                     "Get customers",
                     "Access funding",
+                    "Use AI proposals",
+                    "Participate in governance",
                     "Build local trust",
                     "Help shape the community economy",
                   ].map((item) => (
@@ -700,21 +711,22 @@ export default function SoulaanLanding() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
                   <Sparkles className="h-4 w-4" />
-                  Future Coops
+                  Community-Led Coops
                 </div>
                 <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
-                  More Coops Coming Soon
+                  Coops can be built around real communities, not just industries
                 </h2>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
-                  Communities across different industries and cities will be
-                  able to create cooperatives focused on their own economic
-                  goals.
+                  The next wave of coops does not have to be worker coops.
+                  They can form around shared place, generation, economic
+                  pressure, or lived experience so people with common needs can
+                  build economic power together.
                 </p>
                 <Link
                   href="#member-signup"
                   className="mt-8 inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-base font-medium text-white transition hover:border-white/25 hover:bg-white/10"
                 >
-                  Start a Coop
+                  Propose a Community Coop
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
@@ -808,8 +820,8 @@ export default function SoulaanLanding() {
               </h2>
               <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-400">
                 Join the network to reach aligned customers, gain visibility,
-                access community funding, and help shape an economy that keeps
-                value circulating locally.
+                access community funding, use AI-assisted proposals, and take
+                part in governance that keeps value circulating locally.
               </p>
             </div>
             <BusinessSignupForm />
