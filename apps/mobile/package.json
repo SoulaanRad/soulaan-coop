@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "android": "expo start --android",
     "export:web": "expo export --platform web",
+    "serve:web": "serve dist -p 3000",
     "lint": "expo lint",
     "clean": "git clean -xdf .expo .turbo node_modules",
     "lint:fix": "pnpm lint --fix",
@@ -86,6 +87,7 @@
     "jest-expo": "~50.0.1",
     "react-native-worklets": "^0.5.1",
     "react-test-renderer": "18.2.0",
+    "serve": "^14.2.6",
     "typescript": "catalog:"
   }
 }
