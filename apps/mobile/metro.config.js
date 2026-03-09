@@ -1,5 +1,10 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require('nativewind/metro');
+const os = require('os');
+
+if (!os.availableParallelism) {
+  os.availableParallelism = () => os.cpus().length;
+}
  
 const config = getDefaultConfig(__dirname)
  

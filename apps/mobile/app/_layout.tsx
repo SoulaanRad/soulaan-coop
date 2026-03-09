@@ -67,7 +67,7 @@ const queryClient = new QueryClient({
 });
 
 export const unstable_settings = {
-  anchor: 'onboarding',
+  anchor: 'index',
 };
 
 export default function RootLayout() {

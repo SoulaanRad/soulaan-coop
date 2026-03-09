@@ -9,6 +9,7 @@
     "dev:ios": "expo start --ios",
     "web": "expo start --web",
     "android": "expo start --android",
+    "export:web": "expo export --platform web",
     "lint": "expo lint",
     "clean": "git clean -xdf .expo .turbo node_modules",
     "lint:fix": "pnpm lint --fix",
