@@ -159,7 +159,7 @@ export default function OnboardingFlow() {
   const availableCoops = [
     {
       id: 'soulaan',
-      name: 'Soulaan Co-op',
+      name: 'Soulaan Black Wealth Coop',
       tagline: 'Building Black Economic Sovereignty',
       description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
       mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
@@ -1215,7 +1215,7 @@ export default function OnboardingFlow() {
                 <View className="gap-4">
                   <View>
                     <Label className="text-charcoal-700 font-medium">
-                      Why do you want to join the Soulaan Co-op? (Optional)
+                      Why do you want to join the Soulaan Black Wealth Coop? (Optional)
                     </Label>
                     <TextInput
                       value={formData.motivation}
