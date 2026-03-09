@@ -100,9 +100,9 @@ const activeCoops: CoopCard[] = [
   {
     name: "Soulaan Coop",
     description:
-      "A cooperative focused on building shared wealth through community businesses, investments, and collective action.",
+      "A cooperative for Black Americans to build economic independence through collective ownership, community investment, and democratic governance.",
     focus:
-      "Members help grow a shared treasury and vote on projects that improve economic opportunity and stability.",
+      "Members help grow a shared treasury, set co-op goals, and support solutions that build wealth, strengthen Black businesses, and expand economic opportunity.",
     buttonLabel: "Join Soulaan Coop",
     accent: "from-orange-400/30 to-amber-400/10",
     status: "Live Coop",
@@ -452,9 +452,10 @@ export default function SoulaanLanding() {
                 Vote On What Matters
               </h2>
               <p className="mt-5 text-lg leading-8 text-slate-400">
-                Members of each coop can vote on proposals that address real
-                challenges in the economy. The cooperative treasury can be used
-                to support solutions that improve everyday life.
+                Members vote on the co-op&apos;s goals, and proposals are judged
+                against those priorities. AI helps evaluate most proposals, while
+                the cooperative treasury funds solutions to real economic
+                challenges and members step in mainly for bigger projects.
               </p>
             </div>
 

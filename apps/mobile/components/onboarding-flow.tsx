@@ -149,7 +149,7 @@ export default function OnboardingFlow() {
       title: 'AI-Powered Governance',
       subtitle: 'Smart Proposals, Better Decisions',
       description:
-        'Every co-op has an AI proposal engine that helps members create, evaluate, and vote on projects. Make informed decisions backed by data and community wisdom.',
+        'Members vote on the co-op\'s goals, then submit proposals that address real economic challenges. AI evaluates each proposal based on those goals, and larger projects can still be sent to members for a vote.',
       icon: Vote,
       bgColor: 'bg-red-700',
     },
@@ -171,12 +171,12 @@ export default function OnboardingFlow() {
         },
         {
           title: 'SoulaaniCoin (SC)',
-          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Vote on proposals and earn yield.',
+          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Members use SC to help shape co-op goals and vote on bigger proposals when needed.',
           icon: Vote,
         },
         {
           title: 'AI Proposal Engine',
-          description: 'Submit and evaluate funding proposals with AI-powered charter compliance scoring and community feedback.',
+          description: 'Members can submit proposals that solve everyday economic problems, and the co-op treasury can fund the best solutions. AI evaluates proposals against the goals members voted for, while bigger projects can be escalated for member approval.',
           icon: TrendingUp,
         },
       ],
