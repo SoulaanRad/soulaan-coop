@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
     const { email, name, source, suggestedCoop } = body as WaitlistData;
     console.log("waitlist-form request", body);
 
+    // Capture the origin URL
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "Unknown";
+
     // Validation
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!email?.includes("@")) {
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Send to Slack first
-    await sendWaitlistToSlack(waitlistData);
+    await sendWaitlistToSlack(waitlistData, origin);
 
     // Save to database
     await db.waitlistEntry.upsert({
@@ -117,7 +120,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Send waitlist signup to Slack
-async function sendWaitlistToSlack(data: WaitlistData) {
+async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
   const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
 
   if (!slackWebhookUrl) {
@@ -126,7 +129,7 @@ async function sendWaitlistToSlack(data: WaitlistData) {
   }
 
   const message = {
-    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {

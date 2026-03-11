@@ -40,6 +40,9 @@ export async function POST(request: NextRequest) {
       description,
     } = body as BusinessData;
 
+    // Capture the origin URL
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "Unknown";
+
     // Validation
     if (!ownerName || !ownerEmail || !businessName || !businessAddress) {
       return NextResponse.json(
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send to Slack
-    await sendBusinessToSlack(businessData);
+    await sendBusinessToSlack(businessData, origin);
 
     // Identify user in PostHog
     try {
@@ -134,7 +137,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Send business signup to Slack
-async function sendBusinessToSlack(data: BusinessData) {
+async function sendBusinessToSlack(data: BusinessData, origin: string) {
   const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
 
   if (!slackWebhookUrl) {
@@ -143,7 +146,7 @@ async function sendBusinessToSlack(data: BusinessData) {
   }
 
   const message = {
-    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Monthly Revenue:* ${data.monthlyRevenue}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Monthly Revenue:* ${data.monthlyRevenue}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {
