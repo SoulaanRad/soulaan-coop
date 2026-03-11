@@ -21,7 +21,6 @@ interface BusinessData {
   businessName: string;
   businessAddress: string;
   businessType: string;
-  monthlyRevenue: string;
   coopInterest?: string;
   description?: string;
 }
@@ -35,7 +34,6 @@ export async function POST(request: NextRequest) {
       businessName,
       businessAddress,
       businessType,
-      monthlyRevenue,
       coopInterest,
       description,
     } = body as BusinessData;
@@ -64,7 +62,6 @@ export async function POST(request: NextRequest) {
       businessName,
       businessAddress,
       businessType,
-      monthlyRevenue,
       coopInterest: coopInterest?.trim() || undefined,
       description: [
         description?.trim(),
@@ -84,7 +81,6 @@ export async function POST(request: NextRequest) {
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
-        monthlyRevenue: businessData.monthlyRevenue,
         description: businessData.description,
       },
       create: {
@@ -93,7 +89,6 @@ export async function POST(request: NextRequest) {
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
-        monthlyRevenue: businessData.monthlyRevenue,
         description: businessData.description,
       },
     });
@@ -112,7 +107,6 @@ export async function POST(request: NextRequest) {
           businessName: businessData.businessName,
           businessAddress: businessData.businessAddress,
           businessType: businessData.businessType,
-          monthlyRevenue: businessData.monthlyRevenue,
           coopInterest: businessData.coopInterest,
           signupType: 'business',
         },
@@ -146,7 +140,7 @@ async function sendBusinessToSlack(data: BusinessData, origin: string) {
   }
 
   const message = {
-    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Monthly Revenue:* ${data.monthlyRevenue}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {

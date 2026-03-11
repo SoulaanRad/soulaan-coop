@@ -92,6 +92,7 @@ function WaitlistFormContent({
               placeholder="Your name"
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
               disabled={isSubmitting}
+              data-ph-capture-attribute-name="true"
             />
             <input
               type="email"
@@ -100,6 +101,7 @@ function WaitlistFormContent({
               required
               className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
               disabled={isSubmitting}
+              data-ph-capture-attribute-email="true"
             />
           </div>
 
@@ -116,6 +118,7 @@ function WaitlistFormContent({
                   className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
                   disabled={isSubmitting}
                   required={!customCoopSuggestion}
+                  data-ph-capture-attribute-suggestedcoop="true"
                 />
                 <datalist id={`coop-options-${variant}`}>
                   <option value="Soulaan Black Wealth Coop" />
@@ -142,6 +145,7 @@ function WaitlistFormContent({
                 onChange={(event) => setCustomCoopSuggestion(event.target.value)}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
                 disabled={isSubmitting}
+                data-ph-capture-attribute-customsuggestion="true"
               />
             </div>
           </div>
@@ -210,6 +214,7 @@ function WaitlistFormContent({
             placeholder="Your name"
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
+            data-ph-capture-attribute-name="true"
           />
           <input
             type="email"
@@ -218,6 +223,7 @@ function WaitlistFormContent({
             required
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
+            data-ph-capture-attribute-email="true"
           />
           <input
             type="text"
@@ -229,6 +235,7 @@ function WaitlistFormContent({
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
             required={!customCoopSuggestion}
+            data-ph-capture-attribute-suggestedcoop="true"
           />
           <datalist id={`coop-options-${variant}`}>
             <option value="Soulaan Black Wealth Coop" />
@@ -245,6 +252,7 @@ function WaitlistFormContent({
             onChange={(event) => setCustomCoopSuggestion(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
+            data-ph-capture-attribute-customsuggestion="true"
           />
           
           <button
