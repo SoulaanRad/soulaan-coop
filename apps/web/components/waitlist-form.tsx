@@ -103,16 +103,17 @@ function WaitlistFormContent({
                 type="text"
                 name="suggestedCoop"
                 list={`coop-options-${variant}`}
-                placeholder="Which coop do you want to join?"
+                placeholder="Which coop do you want to join? *"
                 value={suggestedCoop}
                 onChange={(event) => setSuggestedCoop(event.target.value)}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
                 disabled={isSubmitting}
+                required
               />
               <datalist id={`coop-options-${variant}`}>
-                <option value="Soulaan Coop" />
-                <option value="SF Artist Coop" />
-                <option value="East Bay Food Coop" />
+                <option value="Soulaan Black Wealth Coop" />
+                <option value="Nightlife Coop" />
+                <option value="I don't know yet" />
                 <option value="New coop idea" />
               </datalist>
             </div>
@@ -172,7 +173,7 @@ function WaitlistFormContent({
           )}
 
           <p className="text-center text-xs text-slate-500">
-            Choose an active coop or type the one you want to see next.
+            * Required: Choose an active coop, select "I don't know yet", or type a new one you want to see.
           </p>
         </form>
       </div>
@@ -202,16 +203,17 @@ function WaitlistFormContent({
             type="text"
             name="suggestedCoop"
             list={`coop-options-${variant}`}
-            placeholder="Which coop do you want to join?"
+            placeholder="Which coop do you want to join? *"
             value={suggestedCoop}
             onChange={(event) => setSuggestedCoop(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
+            required
           />
           <datalist id={`coop-options-${variant}`}>
-            <option value="Soulaan Coop" />
-            <option value="SF Artist Coop" />
-            <option value="East Bay Food Coop" />
+            <option value="Soulaan Black Wealth Coop" />
+            <option value="Nightlife Coop" />
+            <option value="I don't know yet" />
             <option value="New coop idea" />
           </datalist>
           <button
@@ -292,7 +294,7 @@ function WaitlistFormContent({
         )}
 
         <p className="text-xs leading-6 text-slate-500">
-          Pick an active coop or type a new one if you want to help shape what
+          * Required: Pick an active coop, select "I don't know yet", or type a new one if you want to help shape what
           launches next.
         </p>
       </form>

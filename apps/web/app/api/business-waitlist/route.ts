@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
+import PostHogClient from "@/lib/posthog";
 
 // Create database client directly
 const globalForPrisma = globalThis as unknown as {
@@ -96,6 +97,28 @@ export async function POST(request: NextRequest) {
 
     // Send to Slack
     await sendBusinessToSlack(businessData);
+
+    // Identify user in PostHog
+    try {
+      const posthog = PostHogClient();
+      posthog.identify({
+        distinctId: businessData.ownerEmail,
+        properties: {
+          email: businessData.ownerEmail,
+          name: businessData.ownerName,
+          businessName: businessData.businessName,
+          businessAddress: businessData.businessAddress,
+          businessType: businessData.businessType,
+          monthlyRevenue: businessData.monthlyRevenue,
+          coopInterest: businessData.coopInterest,
+          signupType: 'business',
+        },
+      });
+      await posthog.shutdown();
+    } catch (error) {
+      console.error("PostHog identification error:", error);
+      // Don't fail the request if PostHog fails
+    }
 
     return NextResponse.json({
       success: true,

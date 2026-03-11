@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
+import PostHogClient from "@/lib/posthog";
 
 // Create database client directly
 const globalForPrisma = globalThis as unknown as {
@@ -44,11 +45,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Require coop selection
+    if (!suggestedCoop?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Please select which coop you want to join" },
+        { status: 400 }
+      );
+    }
+
     const waitlistData: WaitlistData = {
       email,
       name: name || undefined,
       source: source,
-      suggestedCoop: suggestedCoop?.trim() || undefined,
+      suggestedCoop: suggestedCoop.trim(),
     };
 
     // Send to Slack first
@@ -74,6 +83,25 @@ export async function POST(request: NextRequest) {
           : undefined,
       },
     });
+
+    // Identify user in PostHog
+    try {
+      const posthog = PostHogClient();
+      posthog.identify({
+        distinctId: waitlistData.email,
+        properties: {
+          email: waitlistData.email,
+          name: waitlistData.name,
+          source: waitlistData.source,
+          suggestedCoop: waitlistData.suggestedCoop,
+          signupType: 'waitlist',
+        },
+      });
+      await posthog.shutdown();
+    } catch (error) {
+      console.error("PostHog identification error:", error);
+      // Don't fail the request if PostHog fails
+    }
 
     return NextResponse.json({
       success: true,

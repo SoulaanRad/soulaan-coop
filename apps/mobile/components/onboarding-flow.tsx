@@ -184,6 +184,33 @@ export default function OnboardingFlow() {
       bgColor: 'bg-red-700',
       accentColor: 'bg-gold-600',
     },
+    {
+      id: 'nightlife',
+      name: 'Nightlife Coop',
+      tagline: 'Empowering Nightlife Workers to Thrive',
+      description: 'A cooperative dedicated to helping nightlife industry workers find housing, secure stable employment, purchase venues, and achieve financial stability through collective support and resources.',
+      mission: 'To empower nightlife industry workers by providing access to affordable housing, stable employment opportunities, venue ownership, and financial advancement through cooperative ownership and mutual support.',
+      features: [
+        {
+          title: 'Housing Support',
+          description: 'Access co-op backed housing assistance, roommate matching, and rental support specifically designed for nightlife workers with non-traditional schedules.',
+          icon: Building,
+        },
+        {
+          title: 'Employment Network',
+          description: 'Connect with stable employment opportunities, skill development programs, and career advancement resources within and beyond the nightlife industry.',
+          icon: Users,
+        },
+        {
+          title: 'Venue Ownership',
+          description: 'Pool resources with fellow members to collectively purchase and operate nightlife venues, creating ownership opportunities and long-term wealth building.',
+          icon: Store,
+        },
+      ],
+      eligibility: 'Open to nightlife industry workers including DJs, bartenders, servers, security, promoters, and venue staff',
+      bgColor: 'bg-purple-700',
+      accentColor: 'bg-purple-600',
+    },
   ];
 
   const handleInputChange = (field: keyof FormData, value: string | boolean | string[]) => {
