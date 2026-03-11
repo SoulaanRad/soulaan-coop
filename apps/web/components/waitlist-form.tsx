@@ -18,6 +18,7 @@ function WaitlistFormContent({
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedCoop, setSuggestedCoop] = useState("");
+  const [customCoopSuggestion, setCustomCoopSuggestion] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -39,6 +40,10 @@ function WaitlistFormContent({
     const email = formData.get("email") as string;
     const name = formData.get("name") as string;
     const coop = formData.get("suggestedCoop") as string;
+    const customSuggestion = formData.get("customCoopSuggestion") as string;
+
+    // Use custom suggestion if provided, otherwise use selected coop
+    const finalCoopChoice = customSuggestion?.trim() || coop;
 
     try {
       const response = await fetch("/api/waitlist", {
@@ -50,7 +55,7 @@ function WaitlistFormContent({
           email,
           name,
           source,
-          suggestedCoop: coop,
+          suggestedCoop: finalCoopChoice,
         }),
       });
 
@@ -63,6 +68,7 @@ function WaitlistFormContent({
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         e?.currentTarget?.reset();
         setSuggestedCoop(searchParams.get("coop") ?? "");
+        setCustomCoopSuggestion("");
       }
     } catch (error) {
       console.error("Error joining waitlist", error);
@@ -97,33 +103,47 @@ function WaitlistFormContent({
             />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          <div className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <div>
+                <input
+                  type="text"
+                  name="suggestedCoop"
+                  list={`coop-options-${variant}`}
+                  placeholder="Which coop do you want to join? *"
+                  value={suggestedCoop}
+                  onChange={(event) => setSuggestedCoop(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
+                  disabled={isSubmitting}
+                  required={!customCoopSuggestion}
+                />
+                <datalist id={`coop-options-${variant}`}>
+                  <option value="Soulaan Black Wealth Coop" />
+                  <option value="Nightlife Coop" />
+                  <option value="I don't know yet" />
+                </datalist>
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-2xl bg-white px-6 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
+              >
+                {isSubmitting ? "Joining..." : "Join Waitlist"}
+              </button>
+            </div>
+            
+            {/* Custom Coop Suggestion */}
             <div>
               <input
                 type="text"
-                name="suggestedCoop"
-                list={`coop-options-${variant}`}
-                placeholder="Which coop do you want to join? *"
-                value={suggestedCoop}
-                onChange={(event) => setSuggestedCoop(event.target.value)}
+                name="customCoopSuggestion"
+                placeholder="Or suggest a new coop idea (optional)"
+                value={customCoopSuggestion}
+                onChange={(event) => setCustomCoopSuggestion(event.target.value)}
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
                 disabled={isSubmitting}
-                required
               />
-              <datalist id={`coop-options-${variant}`}>
-                <option value="Soulaan Black Wealth Coop" />
-                <option value="Nightlife Coop" />
-                <option value="I don't know yet" />
-                <option value="New coop idea" />
-              </datalist>
             </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-2xl bg-white px-6 py-3 font-medium text-slate-950 transition hover:bg-slate-200"
-            >
-              {isSubmitting ? "Joining..." : "Join Waitlist"}
-            </button>
           </div>
 
           {result && (
@@ -173,7 +193,7 @@ function WaitlistFormContent({
           )}
 
           <p className="text-center text-xs text-slate-500">
-            * Required: Choose an active coop, select "I don't know yet", or type a new one you want to see.
+            * Required: Choose an active coop, select "I don't know yet", or suggest a new coop below.
           </p>
         </form>
       </div>
@@ -208,14 +228,25 @@ function WaitlistFormContent({
             onChange={(event) => setSuggestedCoop(event.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
             disabled={isSubmitting}
-            required
+            required={!customCoopSuggestion}
           />
           <datalist id={`coop-options-${variant}`}>
             <option value="Soulaan Black Wealth Coop" />
             <option value="Nightlife Coop" />
             <option value="I don't know yet" />
-            <option value="New coop idea" />
           </datalist>
+          
+          {/* Custom Coop Suggestion */}
+          <input
+            type="text"
+            name="customCoopSuggestion"
+            placeholder="Or suggest a new coop idea (optional)"
+            value={customCoopSuggestion}
+            onChange={(event) => setCustomCoopSuggestion(event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-300/50"
+            disabled={isSubmitting}
+          />
+          
           <button
             type="submit"
             disabled={isSubmitting}
@@ -294,8 +325,7 @@ function WaitlistFormContent({
         )}
 
         <p className="text-xs leading-6 text-slate-500">
-          * Required: Pick an active coop, select "I don't know yet", or type a new one if you want to help shape what
-          launches next.
+          * Required: Pick an active coop, select "I don't know yet", or suggest a new coop above.
         </p>
       </form>
     </div>
