@@ -29,19 +29,19 @@ async function seedCoopDisplayInfo() {
           "To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.",
         displayFeatures: [
           {
-            title: "Unity Coin (UC)",
+            title: "Shared Wealth Fund",
             description:
-              "Stable digital currency for rent, retail, and routing co-op fees. Pegged 70% to USD, 30% to community goods.",
+              "A community fund that can back housing, training, businesses, and other projects that build long-term Black wealth.",
           },
           {
-            title: "SoulaaniCoin (SC)",
+            title: "Real Voice in Decisions",
             description:
-              "Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Members use SC to help shape co-op goals and vote on bigger proposals when needed.",
+              "Members help shape priorities, support proposals, and have a say in how resources are used to strengthen the community.",
           },
           {
-            title: "AI Proposal Engine",
+            title: "A Stronger Black Economy",
             description:
-              "Members can submit proposals that solve everyday economic problems, and the co-op treasury can fund the best solutions. AI evaluates proposals against the goals members voted for, while bigger projects can be escalated for member approval.",
+              "More of our money stays in our communities through Black-owned businesses, jobs, shared ownership, and practical economic support.",
           },
         ],
         eligibility:
