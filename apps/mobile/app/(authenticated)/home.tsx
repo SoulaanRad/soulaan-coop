@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Landmark, ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
@@ -32,8 +32,6 @@ function truncateAddress(address: string): string {
 export default function HomeScreen() {
   const { user } = useAuth();
   const config = coopConfig();
-  const [balance, setBalance] = useState<number>(0);
-  const [balanceFormatted, setBalanceFormatted] = useState<string>('$0.00');
   const [scBalance, setScBalance] = useState<string>('0');
   const [ucBalance, setUcBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(true);
@@ -73,13 +71,7 @@ export default function HomeScreen() {
         currentWalletAddress = walletResult.address;
       }
 
-      // Fetch balance first (critical)
-      const balanceResult = await api.getUSDBalance(user.id, currentWalletAddress);
-      console.log('Balance result:', balanceResult);
-      setBalance(balanceResult.balance);
-      setBalanceFormatted(balanceResult.formatted);
-
-      // Fetch history, orders, and SC rewards separately so they don't block balance display
+      // Fetch history, orders, and SC rewards
       try {
         const [historyResult, ordersResult, scRewardsResult] = await Promise.all([
           api.getP2PHistory(user.id, 10, 0, currentWalletAddress),
@@ -230,75 +222,35 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Balance Cards - USD and SC side by side */}
-          <View className="flex-row gap-3 mb-4">
-            {/* Available Balance (USD) */}
-            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
-              <LinearGradient
-                colors={['#DC2626', '#B91C1C', '#991B1B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ padding: 20, borderRadius: 16 }}
-              >
-                <View className="flex-row items-center mb-3">
-                  <Wallet size={18} color="white" />
-                  <Text className="text-white/90 text-xs font-medium ml-2">Available Balance</Text>
-                </View>
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text className="text-white text-2xl font-bold">{balanceFormatted}</Text>
-                )}
-              </LinearGradient>
-            </View>
-
-            {/* Soulaan Coin */}
-            <View className="flex-1 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
-              <LinearGradient
-                colors={['#F59E0B', '#D97706', '#B45309']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ padding: 20, borderRadius: 16 }}
-              >
-                <View className="flex-row items-center mb-3">
-                  <TrendingUp size={18} color="white" />
-                  <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
-                </View>
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} SC</Text>
-                )}
-              </LinearGradient>
-            </View>
+          {/* Balance Card - SC */}
+          <View className="mb-4 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+            <LinearGradient
+              colors={['#F59E0B', '#D97706', '#B45309']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ padding: 20, borderRadius: 16 }}
+            >
+              <View className="flex-row items-center mb-3">
+                <TrendingUp size={18} color="white" />
+                <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
+              </View>
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} SC</Text>
+              )}
+            </LinearGradient>
           </View>
 
           {/* Quick Action Buttons */}
           <View className="flex-row gap-3 mb-6">
             <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/pay' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
-            >
-              <Send size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Send</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/withdraw' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
-            >
-              <Landmark size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Withdraw</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-              className="bg-white rounded-2xl py-4 px-5 items-center justify-center border border-gray-100"
+              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
               style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
             >
               <Plus size={20} color="#B45309" />
+              <Text className="text-amber-700 font-bold ml-2">Add Card</Text>
             </TouchableOpacity>
           </View>
 

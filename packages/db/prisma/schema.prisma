@@ -3,66 +3,81 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 
-  schemas  = ["auth", "public"]
+  schemas = ["auth", "public"]
 }
 
 model User {
-  id                  String   @id @default(cuid())
-  email               String   @unique
+  id                  String     @id @default(cuid())
+  email               String     @unique
   name                String?
-  roles               String[] @default(["member"]) // member, business, admin, governor
+  roles               String[]   @default(["member"]) // member, business, admin, governor
   status              UserStatus @default(PENDING)
   password            String?
-  phone               String?  @unique  // E.164 format: +1XXXXXXXXXX
-  walletAddress       String?  @unique
-  encryptedPrivateKey String?  // Encrypted wallet private key for backend-managed wallets
-  walletCreatedAt     DateTime? // Timestamp when wallet was created
-  profileCompleted    Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  phone               String?    @unique // E.164 format: +1XXXXXXXXXX
+  walletAddress       String?    @unique // DEPRECATED: Use Wallet model instead
+  encryptedPrivateKey String? // DEPRECATED: Use Wallet model instead
+  walletCreatedAt     DateTime? // DEPRECATED: Use Wallet model instead
+  profileCompleted    Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   // Stripe integration for P2P payments
-  stripeCustomerId       String?  @unique
+  stripeCustomerId       String? @unique
   defaultPaymentMethodId String?
 
   // Relations
-  application         Application?
-  onrampTransactions  OnrampTransaction[]
-  paymentMethods      PaymentMethod[]
-  sentTransfers       P2PTransfer[] @relation("sender")
-  receivedTransfers   P2PTransfer[] @relation("recipient")
-  pendingTransfersSent PendingTransfer[] @relation("sender")
-  bankAccounts        BankAccount[]
-  withdrawals         Withdrawal[]
-  notifications       Notification[]
-  stores              Store[]
-  scRewards           SCRewardTransaction[]
+  application          Application?
+  wallets              Wallet[]
+  businesses           Business[]
+  onrampTransactions   OnrampTransaction[] // UC-era: preserved for future reactivation
+  paymentMethods       PaymentMethod[]
+  sentTransfers        P2PTransfer[]         @relation("sender") // UC-era: preserved
+  receivedTransfers    P2PTransfer[]         @relation("recipient") // UC-era: preserved
+  pendingTransfersSent PendingTransfer[]     @relation("sender") // UC-era: preserved
+  bankAccounts         BankAccount[]
+  withdrawals          Withdrawal[] // UC-era: preserved
+  notifications        Notification[]
+  stores               Store[]
+  scRewards            SCRewardTransaction[] // UC-era: preserved
+  commerceTransactions CommerceTransaction[]
+  scMintEvents         SCMintEvent[]
+  scBurnEvents         SCBurnEvent[]
 
   @@schema("public")
 }
 
 model Business {
-  id          String   @id @default(cuid())
-  ownerId     String
-  name        String
-  city        String
-  isApproved  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  // ...other fields
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  city       String
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  store                Store?
+  stripeAccount        StripeAccount?
+  onboardingEvents     BusinessOnboardingEvent[]
+  commerceTransactions CommerceTransaction[]
+
+  @@index([ownerId])
   @@schema("public")
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  fromUserId  String
+  id           String   @id @default(cuid())
+  fromUserId   String
   toBusinessId String?
-  toUserId    String?
-  amount      Float
-  createdAt   DateTime @default(now())
+  toUserId     String?
+  amount       Float
+  createdAt    DateTime @default(now())
+
   // ...other fields
   @@schema("public")
 }
@@ -70,12 +85,13 @@ model Transaction {
 model WaitlistEntry {
   id        String   @id @default(cuid())
   email     String   @unique
-  type      String   // "user" or "business"
+  type      String // "user" or "business"
   name      String?
   city      String?
   notes     String?
-  source    String?  // "hero" or "contact"
+  source    String? // "hero" or "contact"
   createdAt DateTime @default(now())
+
   @@schema("public")
 }
 
@@ -89,33 +105,34 @@ model BusinessWaitlist {
   monthlyRevenue  String
   description     String?
   createdAt       DateTime @default(now())
+
   @@schema("public")
 }
 
 // ── Application Models ────────────────────────────────
 model Application {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  status      ApplicationStatus @default(SUBMITTED)
+  id     String            @id @default(cuid())
+  userId String            @unique
+  status ApplicationStatus @default(SUBMITTED)
 
   // Application data stored as JSON blob for flexibility
-  data        Json
+  data Json
 
   // IPFS file uploads (CIDs - Content Identifiers)
-  photoCID    String?  // Profile photo or ID photo
-  videoCID    String?  // Introduction video (optional)
-  documentCID String?  // Additional supporting documents
+  photoCID    String? // Profile photo or ID photo
+  videoCID    String? // Introduction video (optional)
+  documentCID String? // Additional supporting documents
 
   // Review Process
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  reviewNotes   String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@schema("public")
 }
@@ -145,16 +162,16 @@ model CoopConfig {
   
   // Governance configuration
   charterText               String   @db.Text
-  missionGoals              Json     // [{ key, label, priorityWeight, description? }]
-  structuralWeights         Json     // { feasibility, risk, accountability } — sum to 1
-  scoreMix                  Json     // { missionWeight, structuralWeight } — sum to 1
-  screeningPassThreshold    Float    @default(0.6)  // 0..1
+  missionGoals              Json // [{ key, label, priorityWeight, description? }]
+  structuralWeights         Json // { feasibility, risk, accountability } — sum to 1
+  scoreMix                  Json // { missionWeight, structuralWeight } — sum to 1
+  screeningPassThreshold    Float    @default(0.6) // 0..1
   quorumPercent             Float    @default(15)
   approvalThresholdPercent  Float    @default(51)
   votingWindowDays          Int      @default(7)
   scVotingCapPercent        Float    @default(2)
-  proposalCategories        Json     // [{ key, label, isActive }]
-  sectorExclusions          Json     // ["fashion", "restaurant", ...]
+  proposalCategories        Json // [{ key, label, isActive }]
+  sectorExclusions          Json // ["fashion", "restaurant", ...]
   scorerAgents              Json     @default("[]") // [{ agentKey, label, enabled, promptTemplate?, model? }]
   minScBalanceToSubmit      Float    @default(0)
   aiAutoApproveThresholdUSD Float    @default(500)
@@ -164,10 +181,10 @@ model CoopConfig {
   structuralGate            Float    @default(0.65)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
-  createdBy                 String   // wallet address
+  createdBy                 String // wallet address
 
   // Relations
-  audits                    CoopConfigAudit[]
+  audits CoopConfigAudit[]
 
   @@unique([coopId, version])
   @@index([coopId, isActive])
@@ -176,17 +193,17 @@ model CoopConfig {
 
 // Proposed change to any config section — must be acknowledged before going live
 model ConfigAmendment {
-  id               String    @id @default(cuid())
-  coopId           String
-  section          String                        // e.g. "missionGoals", "votingRules"
-  proposedChanges  Json                          // { fieldName: newValue, ... }
-  currentSnapshot  Json                          // snapshot of the fields being replaced
-  reason           String
-  status           String    @default("PENDING") // PENDING | ACKNOWLEDGED | REJECTED | SUPERSEDED
-  proposedBy       String                        // wallet address
-  proposedAt       DateTime  @default(now())
-  reviewedBy       String?
-  reviewedAt       DateTime?
+  id              String    @id @default(cuid())
+  coopId          String
+  section         String // e.g. "missionGoals", "votingRules"
+  proposedChanges Json // { fieldName: newValue, ... }
+  currentSnapshot Json // snapshot of the fields being replaced
+  reason          String
+  status          String    @default("PENDING") // PENDING | ACKNOWLEDGED | REJECTED | SUPERSEDED
+  proposedBy      String // wallet address
+  proposedAt      DateTime  @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
 
   @@index([coopId, status])
   @@index([coopId, section, status])
@@ -198,12 +215,12 @@ model CharterAmendment {
   id           String    @id @default(cuid())
   coopId       String
   proposedText String    @db.Text
-  currentText  String    @db.Text   // snapshot of text being replaced
+  currentText  String    @db.Text // snapshot of text being replaced
   reason       String
   status       String    @default("PENDING") // PENDING | ACKNOWLEDGED | REJECTED
-  proposedBy   String                        // wallet address
+  proposedBy   String // wallet address
   proposedAt   DateTime  @default(now())
-  reviewedBy   String?                       // wallet address
+  reviewedBy   String? // wallet address
   reviewedAt   DateTime?
 
   @@index([coopId, status])
@@ -211,13 +228,13 @@ model CharterAmendment {
 }
 
 model CoopConfigAudit {
-  id            String     @id @default(cuid())
-  coopConfigId  String
-  coopConfig    CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
-  changedBy     String     // wallet address
-  changedAt     DateTime   @default(now())
-  reason        String
-  diff          Json       // [{ field, before, after }]
+  id           String     @id @default(cuid())
+  coopConfigId String
+  coopConfig   CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
+  changedBy    String // wallet address
+  changedAt    DateTime   @default(now())
+  reason       String
+  diff         Json // [{ field, before, after }]
 
   @@index([coopConfigId])
   @@schema("public")
@@ -225,81 +242,81 @@ model CoopConfigAudit {
 
 // ── Proposal Engine Models ────────────────────────────
 model Proposal {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  status      ProposalStatus @default(SUBMITTED)
+  id        String         @id @default(cuid())
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  status    ProposalStatus @default(SUBMITTED)
 
   // Core proposal data
-  title       String
-  summary     String
-  category    ProposalCategory
+  title    String
+  summary  String
+  category ProposalCategory
 
   // Proposer information
-  proposerWallet     String
-  proposerRole       ProposerRole
+  proposerWallet      String
+  proposerRole        ProposerRole
   proposerDisplayName String?
 
   // Region and budget
-  regionCode         String
-  regionName         String
-  budgetCurrency     Currency
-  budgetAmount       Float
+  regionCode     String
+  regionName     String
+  budgetCurrency Currency
+  budgetAmount   Float
 
   // Evaluation (new unified scoring model)
-  evaluation         Json?           // EvaluationZ: structural_scores, mission_impact_scores, computed_scores, violations, risk_flags, llm_summary
-  charterVersionId   String?         // snapshot of active CoopConfig.id at submission time
+  evaluation       Json? // EvaluationZ: structural_scores, mission_impact_scores, computed_scores, violations, risk_flags, llm_summary
+  charterVersionId String? // snapshot of active CoopConfig.id at submission time
 
   // Governance settings
-  quorumPercent              Float @default(20)
-  approvalThresholdPercent   Float @default(60)
-  votingWindowDays           Int @default(7)
+  quorumPercent            Float @default(20)
+  approvalThresholdPercent Float @default(60)
+  votingWindowDays         Int   @default(7)
 
   // Audit trail
-  engineVersion      String
+  engineVersion String
 
   // Enhanced engine output
-  coopId             String?         // links to CoopConfig.coopId
-  categoryKey        String?         // dynamic category from CoopConfig
-  alternatives       Json?           // persisted Alternative[]
-  bestAlternative    Json?           // top Alternative
-  decision           String?         // "advance" | "revise" | "block"
-  decisionReasons    String[]        // reason strings
-  missingData        Json?           // MissingData[]
+  coopId          String? // links to CoopConfig.coopId
+  categoryKey     String? // dynamic category from CoopConfig
+  alternatives    Json? // persisted Alternative[]
+  bestAlternative Json? // top Alternative
+  decision        String? // "advance" | "revise" | "block"
+  decisionReasons String[] // reason strings
+  missingData     Json? // MissingData[]
 
   // Original submission text (stored for re-submission / edit flow)
-  rawText            String?         @db.Text
+  rawText String? @db.Text
 
   // Governance additions
-  councilRequired    Boolean         @default(false)
-  withdrawnAt        DateTime?
-  withdrawnBy        String?         // wallet address
+  councilRequired Boolean   @default(false)
+  withdrawnAt     DateTime?
+  withdrawnBy     String? // wallet address
 
   // Relations
-  kpis               ProposalKPI[]
-  auditChecks        ProposalAuditCheck[]
-  votes              ProposalVote[]
-  comments           ProposalComment[]
-  reactions          ProposalReaction[]
-  revisions          ProposalRevision[]
+  kpis        ProposalKPI[]
+  auditChecks ProposalAuditCheck[]
+  votes       ProposalVote[]
+  comments    ProposalComment[]
+  reactions   ProposalReaction[]
+  revisions   ProposalRevision[]
 
   @@schema("public")
 }
 
 model ProposalRevision {
-  id             String   @id @default(cuid())
-  proposalId     String
-  revisionNumber Int
-  submittedAt    DateTime @default(now())
-  rawText        String?  @db.Text
-  evaluation     Json?
-  decision       String?
+  id              String   @id @default(cuid())
+  proposalId      String
+  revisionNumber  Int
+  submittedAt     DateTime @default(now())
+  rawText         String?  @db.Text
+  evaluation      Json?
+  decision        String?
   decisionReasons String[]
-  auditChecks    Json     // snapshot of audit checks at this revision
-  status         String
-  engineVersion  String
+  auditChecks     Json // snapshot of audit checks at this revision
+  status          String
+  engineVersion   String
 
-  proposal       Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@unique([proposalId, revisionNumber])
   @@schema("public")
@@ -307,13 +324,15 @@ model ProposalRevision {
 
 // ── Expert Scoring Models ──────────────────────────────
 
-/** Many-to-many mapping: a wallet can be expert for multiple domains */
+/**
+ * Many-to-many mapping: a wallet can be expert for multiple domains
+ */
 model ExpertAssignment {
   id            String   @id @default(cuid())
   walletAddress String
-  domain        String   // e.g. 'finance', 'market', 'community', 'ops', 'general'
+  domain        String // e.g. 'finance', 'market', 'community', 'ops', 'general'
   isActive      Boolean  @default(true)
-  assignedBy    String   // admin wallet that granted the assignment
+  assignedBy    String // admin wallet that granted the assignment
   assignedAt    DateTime @default(now())
 
   @@unique([walletAddress, domain])
@@ -321,22 +340,24 @@ model ExpertAssignment {
   @@schema("public")
 }
 
-/** Per-goal score record for a specific proposal revision.
- *  Stores both the AI score and optional expert override. */
+/**
+ * Per-goal score record for a specific proposal revision.
+ * Stores both the AI score and optional expert override.
+ */
 model ProposalGoalScore {
   id             String   @id @default(cuid())
   proposalId     String
   revisionNumber Int
-  goalId         String   // matches MissionGoal.key
-  domain         String   // agent domain that produced the AI score
+  goalId         String // matches MissionGoal.key
+  domain         String // agent domain that produced the AI score
   aiScore        Float
-  expertScore    Float?   // set when an expert provides an override
-  finalScore     Float    // aiScore unless expertScore is set (override policy)
-  expertWallet   String?  // wallet that submitted the expert override
-  expertReason   String?  // rationale for the override
+  expertScore    Float? // set when an expert provides an override
+  finalScore     Float // aiScore unless expertScore is set (override policy)
+  expertWallet   String? // wallet that submitted the expert override
+  expertReason   String? // rationale for the override
   updatedAt      DateTime @updatedAt
 
-  adjustmentLog  ProposalScoreAdjustmentLog[]
+  adjustmentLog ProposalScoreAdjustmentLog[]
 
   @@unique([proposalId, revisionNumber, goalId])
   @@index([proposalId, revisionNumber])
@@ -344,7 +365,9 @@ model ProposalGoalScore {
   @@schema("public")
 }
 
-/** Immutable audit trail of every expert score change */
+/**
+ * Immutable audit trail of every expert score change
+ */
 model ProposalScoreAdjustmentLog {
   id           String   @id @default(cuid())
   goalScoreId  String
@@ -354,7 +377,7 @@ model ProposalScoreAdjustmentLog {
   expertWallet String
   createdAt    DateTime @default(now())
 
-  goalScore    ProposalGoalScore @relation(fields: [goalScoreId], references: [id], onDelete: Cascade)
+  goalScore ProposalGoalScore @relation(fields: [goalScoreId], references: [id], onDelete: Cascade)
 
   @@index([goalScoreId])
   @@index([expertWallet, createdAt])
@@ -362,54 +385,54 @@ model ProposalScoreAdjustmentLog {
 }
 
 model ProposalKPI {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   proposalId String
   name       String
   target     Float
   unit       KPIUnit
-  
-  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
   @@schema("public")
 }
 
 model ProposalAuditCheck {
-  id         String   @id @default(cuid())
+  id         String  @id @default(cuid())
   proposalId String
   name       String
   passed     Boolean
   note       String?
-  
-  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
   @@schema("public")
 }
 
 model ProposalVote {
-  id         String   @id @default(cuid())
-  proposalId String
+  id          String   @id @default(cuid())
+  proposalId  String
   voterWallet String
-  vote       VoteType
-  timestamp  DateTime @default(now())
-  
-  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  
+  vote        VoteType
+  timestamp   DateTime @default(now())
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
   @@unique([proposalId, voterWallet])
   @@schema("public")
 }
 
 model ProposalComment {
-  id            String   @id @default(cuid())
-  proposalId    String
-  proposal      Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  authorWallet  String
-  authorName    String?
-  content       String   @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  proposalId   String
+  proposal     Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  authorWallet String
+  authorName   String?
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
-  aiEvaluation  CommentAIEvaluation?
+  aiEvaluation CommentAIEvaluation?
 
   @@index([proposalId, createdAt])
   @@schema("public")
@@ -433,7 +456,7 @@ model CommentAIEvaluation {
   commentId     String           @unique
   comment       ProposalComment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   alignment     CommentAlignment
-  score         Float            // 0-1
+  score         Float // 0-1
   analysis      String           @db.Text
   goalsImpacted String[]
   createdAt     DateTime         @default(now())
@@ -443,21 +466,21 @@ model CommentAIEvaluation {
 
 // ── Admin Authentication Models ────────────────────────────────
 model UserProfile {
-  id            String   @id @default(cuid())
-  walletAddress String   @unique
-  username      String?  @unique // Username for transfer recipient lookup
-  name          String
-  email         String?
-  phoneNumber   String
-  role          String   @default("member")
-  permissions   String[] @default([])
-  lastLogin     DateTime?
-  sessionToken  String?
+  id               String    @id @default(cuid())
+  walletAddress    String    @unique
+  username         String?   @unique // Username for transfer recipient lookup
+  name             String
+  email            String?
+  phoneNumber      String
+  role             String    @default("member")
+  permissions      String[]  @default([])
+  lastLogin        DateTime?
+  sessionToken     String?
   lastBalanceCheck DateTime?
-  loginAttempts Int      @default(0)
+  loginAttempts    Int       @default(0)
   lastLoginAttempt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@schema("auth")
 }
@@ -469,7 +492,7 @@ model AuthChallenge {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   @@index([address])
   @@schema("auth")
 }
@@ -481,7 +504,7 @@ model RateLimit {
   resetAt   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@schema("auth")
 }
 
@@ -492,9 +515,84 @@ model LoginCode {
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   @@index([email, code])
   @@schema("public")
+}
+
+// ── Enhanced Session Security ──────────────────────────────
+
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  token  String @unique
+
+  // Session metadata
+  deviceId   String?
+  deviceName String?
+  ipAddress  String
+  userAgent  String?
+
+  // Security
+  issuedAt      DateTime  @default(now())
+  expiresAt     DateTime
+  lastActiveAt  DateTime  @default(now())
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+
+  @@index([userId, isRevoked])
+  @@index([token])
+  @@index([expiresAt])
+  @@schema("auth")
+}
+
+model LoginAttempt {
+  id            String   @id @default(cuid())
+  identifier    String // Email, phone, or wallet address
+  ipAddress     String
+  userAgent     String?
+  success       Boolean
+  failureReason String?
+  attemptedAt   DateTime @default(now())
+
+  @@index([identifier, attemptedAt(sort: Desc)])
+  @@index([ipAddress, attemptedAt(sort: Desc)])
+  @@schema("auth")
+}
+
+model SuspiciousActivity {
+  id           String           @id @default(cuid())
+  userId       String?
+  activityType String // 'MULTIPLE_FAILED_LOGINS', 'NEW_DEVICE', 'UNUSUAL_LOCATION', etc.
+  severity     ActivitySeverity
+  description  String
+  metadata     Json?
+
+  // User notification
+  notified   Boolean   @default(false)
+  notifiedAt DateTime?
+
+  // Resolution
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolvedBy String?
+  resolution String?
+
+  detectedAt DateTime @default(now())
+
+  @@index([userId, detectedAt(sort: Desc)])
+  @@index([resolved, severity])
+  @@schema("auth")
+}
+
+enum ActivitySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@schema("auth")
 }
 
 // ── Enums ──────────────────────────────────────────
@@ -503,7 +601,7 @@ enum UserStatus {
   ACTIVE
   SUSPENDED
   REJECTED
-  
+
   @@schema("public")
 }
 
@@ -512,7 +610,7 @@ enum ApplicationStatus {
   UNDER_REVIEW
   APPROVED
   REJECTED
-  
+
   @@schema("public")
 }
 
@@ -543,7 +641,7 @@ enum ProposalCategory {
   WALLET_INCENTIVE
   GOVERNANCE
   OTHER
-  
+
   @@schema("public")
 }
 
@@ -552,7 +650,7 @@ enum ProposerRole {
   MERCHANT
   ANCHOR
   BOT
-  
+
   @@schema("public")
 }
 
@@ -560,7 +658,7 @@ enum Currency {
   UC
   USD
   MIXED
-  
+
   @@schema("public")
 }
 
@@ -570,7 +668,7 @@ enum KPIUnit {
   JOBS
   PERCENT
   COUNT
-  
+
   @@schema("public")
 }
 
@@ -592,24 +690,24 @@ enum CommentAlignment {
 
 // ── Onramp Transaction Models ────────────────────────────
 model OnrampTransaction {
-  id                String        @id @default(cuid())
-  userId            String
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  amountUSD         Float         // Amount paid in USD
-  amountUC          Float         // UC tokens to mint (usually 1:1 peg)
+  amountUSD Float // Amount paid in USD
+  amountUC  Float // UC tokens to mint (usually 1:1 peg)
 
-  paymentIntentId   String        @unique // Payment ID from processor
-  processor         String        // 'stripe', 'paypal', 'square' - which processor was used
-  status            OnrampStatus  @default(PENDING)
+  paymentIntentId String       @unique // Payment ID from processor
+  processor       String // 'stripe', 'paypal', 'square' - which processor was used
+  status          OnrampStatus @default(PENDING)
 
-  mintTxHash        String?       // Blockchain tx hash for UC minting
-  processorChargeId String?       // Processor's charge/transaction ID
+  mintTxHash        String? // Blockchain tx hash for UC minting
+  processorChargeId String? // Processor's charge/transaction ID
 
-  createdAt         DateTime      @default(now())
-  completedAt       DateTime?
-  failedAt          DateTime?
-  failureReason     String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
 
   @@index([userId, createdAt])
   @@index([processor, status])
@@ -629,19 +727,19 @@ enum OnrampStatus {
 
 // Saved payment methods (cards) for P2P payments
 model PaymentMethod {
-  id                    String   @id @default(cuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  stripePaymentMethodId String   @unique
-  type                  String   // 'card'
+  stripePaymentMethodId String  @unique
+  type                  String // 'card'
   last4                 String
-  brand                 String   // visa, mastercard, amex
+  brand                 String // visa, mastercard, amex
   expiryMonth           Int
   expiryYear            Int
-  isDefault             Boolean  @default(false)
+  isDefault             Boolean @default(false)
 
-  createdAt             DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@schema("public")
@@ -649,40 +747,40 @@ model PaymentMethod {
 
 // P2P transfer between two Soulaan users
 model P2PTransfer {
-  id                String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  senderId          String
-  sender            User     @relation("sender", fields: [senderId], references: [id])
-  recipientId       String
-  recipient         User     @relation("recipient", fields: [recipientId], references: [id])
+  senderId    String
+  sender      User   @relation("sender", fields: [senderId], references: [id])
+  recipientId String
+  recipient   User   @relation("recipient", fields: [recipientId], references: [id])
 
-  amountUSD         Float    // Display amount (what user sees)
-  amountUC          Float    // Settlement amount (internal, same as USD at 1:1)
+  amountUSD Float // Display amount (what user sees)
+  amountUC  Float // Settlement amount (internal, same as USD at 1:1)
 
   // Funding source
-  fundingSource     FundingSource  // BALANCE or CARD
-  stripePaymentIntentId String?    // If funded by card
-  stripeChargeId    String?
+  fundingSource         FundingSource // BALANCE or CARD
+  stripePaymentIntentId String? // If funded by card
+  stripeChargeId        String?
 
   // Settlement
-  blockchainTxHash  String?
-  status            P2PStatus @default(PENDING)
+  blockchainTxHash String?
+  status           P2PStatus @default(PENDING)
 
   // Transfer intent labeling
-  transferType      TransferType @default(PERSONAL)
-  transferMetadata  Json?       // Optional context (rentMonth, providerRole, storeName, etc.)
+  transferType     TransferType @default(PERSONAL)
+  transferMetadata Json? // Optional context (rentMonth, providerRole, storeName, etc.)
 
-  note              String?
-  createdAt         DateTime @default(now())
-  completedAt       DateTime?
-  failedAt          DateTime?
-  failureReason     String?
+  note          String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
 
   // Receipt created on completion
-  receipt           Receipt?
+  receipt Receipt?
 
   // Store payment request (if originated from one)
-  paymentRequest    StorePaymentRequest?
+  paymentRequest StorePaymentRequest?
 
   @@index([senderId, createdAt])
   @@index([recipientId, createdAt])
@@ -693,38 +791,38 @@ model P2PTransfer {
 
 // Pending transfer to non-user (escrow until claimed)
 model PendingTransfer {
-  id                String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  senderId          String
-  sender            User     @relation("sender", fields: [senderId], references: [id])
+  senderId String
+  sender   User   @relation("sender", fields: [senderId], references: [id])
 
-  recipientPhone    String   // Phone number of non-user
-  recipientEmail    String?  // Optional email
+  recipientPhone String // Phone number of non-user
+  recipientEmail String? // Optional email
 
-  amountUSD         Float
-  amountUC          Float
+  amountUSD Float
+  amountUC  Float
 
-  claimToken        String   @unique @default(cuid())  // For claim URL
-  status            PendingStatus @default(PENDING_CLAIM)
+  claimToken String        @unique @default(cuid()) // For claim URL
+  status     PendingStatus @default(PENDING_CLAIM)
 
   // Funding
-  fundingSource     FundingSource
+  fundingSource         FundingSource
   stripePaymentIntentId String?
-  stripeChargeId    String?
+  stripeChargeId        String?
 
   // Transfer intent labeling
-  transferType      TransferType @default(PERSONAL)
-  transferMetadata  Json?       // Optional context (rentMonth, providerRole, storeName, etc.)
+  transferType     TransferType @default(PERSONAL)
+  transferMetadata Json? // Optional context (rentMonth, providerRole, storeName, etc.)
 
-  note              String?
-  expiresAt         DateTime  // 7 days from creation
-  createdAt         DateTime @default(now())
-  claimedAt         DateTime?
-  claimedByUserId   String?   // User ID if they joined Soulaan
-  refundedAt        DateTime?
+  note            String?
+  expiresAt       DateTime // 7 days from creation
+  createdAt       DateTime  @default(now())
+  claimedAt       DateTime?
+  claimedByUserId String? // User ID if they joined Soulaan
+  refundedAt      DateTime?
 
   // Receipt created on completion
-  receipt           Receipt?
+  receipt Receipt?
 
   @@index([recipientPhone])
   @@index([claimToken])
@@ -735,29 +833,29 @@ model PendingTransfer {
 
 // Immutable receipt for transfer verification
 model Receipt {
-  id                String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Link to transfer (one of these will be set)
-  p2pTransferId     String?  @unique
-  p2pTransfer       P2PTransfer? @relation(fields: [p2pTransferId], references: [id])
-  pendingTransferId String?  @unique
+  p2pTransferId     String?          @unique
+  p2pTransfer       P2PTransfer?     @relation(fields: [p2pTransferId], references: [id])
+  pendingTransferId String?          @unique
   pendingTransfer   PendingTransfer? @relation(fields: [pendingTransferId], references: [id])
 
   // Copied from transfer (immutable snapshot)
-  senderId          String
-  recipientId       String?  // Null for pending transfers to non-users
-  recipientPhone    String?  // For pending transfers
+  senderId       String
+  recipientId    String? // Null for pending transfers to non-users
+  recipientPhone String? // For pending transfers
 
-  amountUSD         Float
-  transferType      TransferType
-  metadata          Json?    // Snapshot of transferMetadata
+  amountUSD    Float
+  transferType TransferType
+  metadata     Json? // Snapshot of transferMetadata
 
   // Verification
   verificationStatus ReceiptVerificationStatus @default(UNVERIFIED)
-  verifiedAt        DateTime?
-  verifiedBy        String?  // User ID who verified
+  verifiedAt         DateTime?
+  verifiedBy         String? // User ID who verified
 
-  createdAt         DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([senderId])
   @@index([recipientId])
@@ -768,19 +866,19 @@ model Receipt {
 
 // Bank account for withdrawals
 model BankAccount {
-  id                    String   @id @default(cuid())
-  userId                String
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  stripeBankAccountId   String?  @unique
-  accountHolderName     String
-  bankName              String
-  last4                 String   // Last 4 digits of account
-  routingLast4          String   // Last 4 of routing number
-  isDefault             Boolean  @default(false)
-  isVerified            Boolean  @default(false)
+  stripeBankAccountId String? @unique
+  accountHolderName   String
+  bankName            String
+  last4               String // Last 4 digits of account
+  routingLast4        String // Last 4 of routing number
+  isDefault           Boolean @default(false)
+  isVerified          Boolean @default(false)
 
-  createdAt             DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@schema("public")
@@ -788,21 +886,21 @@ model BankAccount {
 
 // Withdrawal request (USD to bank)
 model Withdrawal {
-  id                String   @id @default(cuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
-  bankAccountId     String
+  id            String @id @default(cuid())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id])
+  bankAccountId String
 
-  amountUSD         Float
-  amountUC          Float    // UC debited from balance
+  amountUSD Float
+  amountUC  Float // UC debited from balance
 
-  stripePayoutId    String?  @unique
-  status            WithdrawalStatus @default(PENDING)
+  stripePayoutId String?          @unique
+  status         WithdrawalStatus @default(PENDING)
 
-  createdAt         DateTime @default(now())
-  completedAt       DateTime?
-  failedAt          DateTime?
-  failureReason     String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
 
   @@index([userId, createdAt])
   @@index([status])
@@ -811,17 +909,17 @@ model Withdrawal {
 
 // In-app notifications
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type        String   // PAYMENT_RECEIVED, PAYMENT_SENT, WITHDRAWAL_COMPLETE, etc.
-  title       String
-  body        String
-  data        Json?    // Additional data (transferId, amount, etc)
-  read        Boolean  @default(false)
+  type  String // PAYMENT_RECEIVED, PAYMENT_SENT, WITHDRAWAL_COMPLETE, etc.
+  title String
+  body  String
+  data  Json? // Additional data (transferId, amount, etc)
+  read  Boolean @default(false)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId, read, createdAt])
   @@schema("public")
@@ -830,52 +928,52 @@ model Notification {
 // ── P2P Enums ──────────────────────────────────────────
 
 enum FundingSource {
-  BALANCE    // Funded from existing UC balance
-  CARD       // Funded via Stripe card charge
+  BALANCE // Funded from existing UC balance
+  CARD // Funded via Stripe card charge
 
   @@schema("public")
 }
 
 enum P2PStatus {
-  PENDING     // Transfer initiated
-  PROCESSING  // Card charge or blockchain tx in progress
-  COMPLETED   // Successfully settled
-  FAILED      // Failed (card declined, blockchain error, etc.)
+  PENDING // Transfer initiated
+  PROCESSING // Card charge or blockchain tx in progress
+  COMPLETED // Successfully settled
+  FAILED // Failed (card declined, blockchain error, etc.)
 
   @@schema("public")
 }
 
 enum TransferType {
-  PERSONAL    // Personal transfer (gift, friends/family)
-  RENT        // Rent payment
-  SERVICE     // Service or work payment
-  STORE       // Store/goods purchase
+  PERSONAL // Personal transfer (gift, friends/family)
+  RENT // Rent payment
+  SERVICE // Service or work payment
+  STORE // Store/goods purchase
 
   @@schema("public")
 }
 
 enum ReceiptVerificationStatus {
-  UNVERIFIED  // Default - not yet verified
-  VERIFIED    // Verified by recipient or system
-  DISPUTED    // Disputed by either party
+  UNVERIFIED // Default - not yet verified
+  VERIFIED // Verified by recipient or system
+  DISPUTED // Disputed by either party
 
   @@schema("public")
 }
 
 enum PendingStatus {
-  PENDING_CLAIM      // Waiting for recipient to claim
-  CLAIMED_TO_BANK    // Recipient withdrew to bank (dead end)
+  PENDING_CLAIM // Waiting for recipient to claim
+  CLAIMED_TO_BANK // Recipient withdrew to bank (dead end)
   CLAIMED_TO_SOULAAN // Recipient joined Soulaan
-  EXPIRED            // 7 days passed, refunded to sender
+  EXPIRED // 7 days passed, refunded to sender
 
   @@schema("public")
 }
 
 enum WithdrawalStatus {
-  PENDING     // Withdrawal requested
-  PROCESSING  // Payout initiated with Stripe
-  COMPLETED   // Funds sent to bank
-  FAILED      // Payout failed
+  PENDING // Withdrawal requested
+  PROCESSING // Payout initiated with Stripe
+  COMPLETED // Funds sent to bank
+  FAILED // Payout failed
 
   @@schema("public")
 }
@@ -883,59 +981,60 @@ enum WithdrawalStatus {
 // ── Store/Marketplace Models ────────────────────────────
 
 model Store {
-  id                String   @id @default(cuid())
-  ownerId           String
-  owner             User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  businessId String?   @unique
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
 
-  name              String
-  description       String?
-  category          StoreCategory
-  imageUrl          String?
-  bannerUrl         String?
+  name        String
+  description String?
+  category    StoreCategory
+  imageUrl    String?
+  bannerUrl   String?
 
   // Quick Pay settings
-  shortCode         String?  @unique  // e.g., "JOES-COFFEE" or "JC4K9X"
-  acceptsQuickPay   Boolean  @default(true)
+  shortCode       String? @unique // e.g., "JOES-COFFEE" or "JC4K9X"
+  acceptsQuickPay Boolean @default(true)
 
   // Location
-  address           String?
-  city              String?
-  state             String?
-  zipCode           String?
+  address String?
+  city    String?
+  state   String?
+  zipCode String?
 
   // Contact
-  phone             String?
-  email             String?
-  website           String?
+  phone   String?
+  email   String?
+  website String?
 
   // SC Verification - stores that can earn SC from transactions
-  isScVerified      Boolean  @default(false)
-  scVerifiedAt      DateTime?
-  acceptsUC         Boolean  @default(true)  // Accepts UC payments (20% discount)
-  ucDiscountPercent Float    @default(20)    // Discount for UC payments
-
-  // Community commitment - percentage of profits that go back to the coop
-  communityCommitmentPercent Float @default(10)
+  isScVerified         Boolean             @default(false)
+  scVerifiedAt         DateTime?
+  scApplicationStatus  SCApplicationStatus @default(NOT_APPLIED)
+  acceptsUC            Boolean             @default(true) // Accepts UC payments (20% discount)
+  ucDiscountPercent    Float               @default(20) // Discount for UC payments
 
   // Status
-  status            StoreStatus @default(PENDING)
-  isFeatured        Boolean  @default(false)
+  status     StoreStatus @default(PENDING)
+  isFeatured Boolean     @default(false)
 
   // Stats
-  totalSales        Float    @default(0)
-  totalOrders       Int      @default(0)
-  rating            Float?
-  reviewCount       Int      @default(0)
+  totalSales  Float  @default(0)
+  totalOrders Int    @default(0)
+  rating      Float?
+  reviewCount Int    @default(0)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  products          Product[]
-  application       StoreApplication?
-  orders            StoreOrder[]
-  paymentRequests   StorePaymentRequest[]
-  scRewards         SCRewardTransaction[]
+  products                  Product[]
+  application               StoreApplication?
+  scVerificationApplication SCVerificationApplication?
+  orders                    StoreOrder[]
+  paymentRequests           StorePaymentRequest[]
+  scRewards                 SCRewardTransaction[]
 
   @@index([ownerId])
   @@index([status])
@@ -945,39 +1044,39 @@ model Store {
 }
 
 model Product {
-  id                String   @id @default(cuid())
-  storeId           String
-  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  name              String
-  description       String?
-  category          ProductCategory
-  imageUrl          String?
-  images            String[] // Additional images
+  name        String
+  description String?
+  category    ProductCategory
+  imageUrl    String?
+  images      String[] // Additional images
 
   // Pricing
-  priceUSD          Float
-  compareAtPrice    Float?   // Original price for showing discounts (admin only)
-  ucDiscountPrice   Float?   // Price when paying with UC (auto-calculated or custom)
+  priceUSD        Float
+  compareAtPrice  Float? // Original price for showing discounts (admin only)
+  ucDiscountPrice Float? // Price when paying with UC (auto-calculated or custom)
 
   // Inventory
-  sku               String?
-  quantity          Int      @default(0)
-  trackInventory    Boolean  @default(true)
-  allowBackorder    Boolean  @default(false)
+  sku            String?
+  quantity       Int     @default(0)
+  trackInventory Boolean @default(true)
+  allowBackorder Boolean @default(false)
 
   // Status
-  isActive          Boolean  @default(true)
-  isFeatured        Boolean  @default(false)
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
 
   // Stats
-  totalSold         Int      @default(0)
+  totalSold Int @default(0)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  orderItems        StoreOrderItem[]
+  orderItems StoreOrderItem[]
 
   @@index([storeId])
   @@index([category])
@@ -986,75 +1085,74 @@ model Product {
 }
 
 model StoreApplication {
-  id                String   @id @default(cuid())
-  storeId           String   @unique
-  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   // Business information
-  businessName      String
-  businessAddress   String
-  businessCity      String
-  businessState     String
-  businessZip       String
+  businessName    String
+  businessAddress String
+  businessCity    String
+  businessState   String
+  businessZip     String
 
   // Owner information
-  ownerName         String
-  ownerEmail        String
-  ownerPhone        String
+  ownerName  String
+  ownerEmail String
+  ownerPhone String
 
   // Application details
-  storeDescription           String   @default("") // Description of what the store sells/offers
-  communityBenefitStatement  String   @default("") // How the store will benefit the community
-  communityCommitmentPercent Float    @default(10) // Percentage of profits committed back to coop
-  estimatedMonthlyRevenue    String?
-  websiteUrl                 String?
-  socialMediaUrls            String[]
+  storeDescription          String   @default("") // Description of what the store sells/offers
+  communityBenefitStatement String   @default("") // How the store will benefit the community
+  estimatedMonthlyRevenue   String?
+  websiteUrl                String?
+  socialMediaUrls           String[]
 
   // Documents (optional)
-  businessLicenseCID String?  // IPFS CID for business license
+  businessLicenseCID String? // IPFS CID for business license
 
   // Review
-  status            StoreApplicationStatus @default(PENDING)
-  reviewedBy        String?
-  reviewedAt        DateTime?
-  reviewNotes       String?
-  rejectionReason   String?
+  status          StoreApplicationStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  rejectionReason String?
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@schema("public")
 }
 
 model StoreOrder {
-  id                String   @id @default(cuid())
-  storeId           String
-  store             Store    @relation(fields: [storeId], references: [id])
-  buyerId           String
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+  buyerId String
 
   // Totals
-  subtotalUSD       Float
-  discountUSD       Float    @default(0)
-  totalUSD          Float
-  totalUC           Float?   // If paid with UC
+  subtotalUSD Float
+  discountUSD Float  @default(0)
+  totalUSD    Float
+  totalUC     Float? // If paid with UC
 
   // Payment
-  paymentMethod     PaymentType
-  paymentStatus     PaymentStatus @default(PENDING)
-  transactionHash   String?  // Blockchain tx if paid with UC
+  paymentMethod   PaymentType
+  paymentStatus   PaymentStatus @default(PENDING)
+  transactionHash String? // Blockchain tx if paid with UC
 
   // Fulfillment
   fulfillmentStatus FulfillmentStatus @default(PENDING)
   shippingAddress   String?
   trackingNumber    String?
 
-  note              String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  items             StoreOrderItem[]
-  scRewards         SCRewardTransaction[]
+  items     StoreOrderItem[]
+  scRewards SCRewardTransaction[]
 
   @@index([storeId])
   @@index([buyerId])
@@ -1062,46 +1160,46 @@ model StoreOrder {
 }
 
 model StoreOrderItem {
-  id                String   @id @default(cuid())
-  orderId           String
-  order             StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product  @relation(fields: [productId], references: [id])
+  id        String     @id @default(cuid())
+  orderId   String
+  order     StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product    @relation(fields: [productId], references: [id])
 
-  quantity          Int
-  priceUSD          Float    // Price at time of purchase
-  totalUSD          Float
+  quantity Int
+  priceUSD Float // Price at time of purchase
+  totalUSD Float
 
   @@schema("public")
 }
 
 // Store-initiated payment request (for QR codes and payment links)
 model StorePaymentRequest {
-  id                String   @id @default(cuid())
-  storeId           String
-  store             Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   // Request details
-  amount            Float?   // Optional - if null, customer enters amount
-  description       String?  // e.g., "Coffee + Pastry"
-  referenceId       String?  // Store's internal reference (receipt #, table #)
+  amount      Float? // Optional - if null, customer enters amount
+  description String? // e.g., "Coffee + Pastry"
+  referenceId String? // Store's internal reference (receipt #, table #)
 
   // Access token for the payment link
-  token             String   @unique @default(cuid())
+  token String @unique @default(cuid())
 
   // Status tracking
-  status            PaymentRequestStatus @default(PENDING)
+  status PaymentRequestStatus @default(PENDING)
 
   // Payment fulfillment (when paid)
-  p2pTransferId     String?  @unique
-  p2pTransfer       P2PTransfer? @relation(fields: [p2pTransferId], references: [id])
-  paidByUserId      String?
-  paidAt            DateTime?
+  p2pTransferId String?      @unique
+  p2pTransfer   P2PTransfer? @relation(fields: [p2pTransferId], references: [id])
+  paidByUserId  String?
+  paidAt        DateTime?
 
   // Expiration (optional - for time-limited requests)
-  expiresAt         DateTime?
+  expiresAt DateTime?
 
-  createdAt         DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([storeId, status])
   @@index([token])
@@ -1114,7 +1212,7 @@ model StorePaymentRequest {
 model StoreCategoryConfig {
   id          String   @id @default(cuid())
   key         String   @unique // e.g., "FOOD_BEVERAGE", "FOUNDER_STORE"
-  label       String   // e.g., "Food & Beverage"
+  label       String // e.g., "Food & Beverage"
   isAdminOnly Boolean  @default(false) // If true, only admins can create stores in this category
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
@@ -1128,7 +1226,7 @@ model StoreCategoryConfig {
 model ProductCategoryConfig {
   id          String   @id @default(cuid())
   key         String   @unique // e.g., "FOOD", "FOUNDER_BADGES"
-  label       String   // e.g., "Food", "Founder Badges"
+  label       String // e.g., "Food", "Founder Badges"
   isAdminOnly Boolean  @default(false) // If true, only admins can create products in this category
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
@@ -1142,10 +1240,10 @@ model ProductCategoryConfig {
 // ── Store Enums ──────────────────────────────────────────
 
 enum PaymentRequestStatus {
-  PENDING     // Awaiting payment
-  COMPLETED   // Payment received
-  EXPIRED     // Time limit exceeded
-  CANCELLED   // Store cancelled the request
+  PENDING // Awaiting payment
+  COMPLETED // Payment received
+  EXPIRED // Time limit exceeded
+  CANCELLED // Store cancelled the request
 
   @@schema("public")
 }
@@ -1185,10 +1283,10 @@ enum ProductCategory {
 }
 
 enum StoreStatus {
-  PENDING      // Application submitted, awaiting review
-  APPROVED     // Approved and active
-  SUSPENDED    // Temporarily suspended
-  REJECTED     // Application rejected
+  PENDING // Application submitted, awaiting Stripe approval
+  APPROVED // Stripe approved and active
+  SUSPENDED // Temporarily suspended
+  REJECTED // Application rejected
 
   @@schema("public")
 }
@@ -1196,6 +1294,15 @@ enum StoreStatus {
 enum StoreApplicationStatus {
   PENDING
   UNDER_REVIEW
+  APPROVED
+  REJECTED
+
+  @@schema("public")
+}
+
+enum SCApplicationStatus {
+  NOT_APPLIED
+  PENDING
   APPROVED
   REJECTED
 
@@ -1232,42 +1339,42 @@ enum FulfillmentStatus {
 // ── SC Reward Tracking Models ────────────────────────────
 
 model SCRewardTransaction {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
   // Reward details
-  amountSC      Float
-  reason        SCRewardReason
-  status        SCRewardStatus @default(PENDING)
-  
+  amountSC Float
+  reason   SCRewardReason
+  status   SCRewardStatus @default(PENDING)
+
   // Blockchain
-  txHash        String?  @unique
-  
+  txHash String? @unique
+
   // Source UC transaction tracking (ties SC mint to originating treasury transaction)
-  sourceUcTxHash   String?  // UC payment tx that triggered this SC reward
-  sourceType       String?  // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL' | null
-  sourceRecordId   String?  // ID of source record (StoreOrder.id or P2PTransfer.id)
-  
+  sourceUcTxHash String? // UC payment tx that triggered this SC reward
+  sourceType     String? // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL' | null
+  sourceRecordId String? // ID of source record (StoreOrder.id or P2PTransfer.id)
+
   // Context - link to store purchase
-  relatedStoreId   String?
-  relatedStore     Store?  @relation(fields: [relatedStoreId], references: [id])
-  relatedOrderId   String?
-  relatedOrder     StoreOrder? @relation(fields: [relatedOrderId], references: [id])
-  
+  relatedStoreId String?
+  relatedStore   Store?      @relation(fields: [relatedStoreId], references: [id])
+  relatedOrderId String?
+  relatedOrder   StoreOrder? @relation(fields: [relatedOrderId], references: [id])
+
   // On-chain event metadata (for trustless system auditability)
-  metadata      Json?
-  
+  metadata Json?
+
   // Timestamps
-  createdAt     DateTime @default(now())
-  completedAt   DateTime?
-  failedAt      DateTime?
-  
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  failedAt    DateTime?
+
   // Error tracking for retries
   failureReason String?
-  retryCount    Int      @default(0)
+  retryCount    Int       @default(0)
   lastRetryAt   DateTime?
-  
+
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@index([relatedStoreId])
@@ -1278,9 +1385,9 @@ model SCRewardTransaction {
 }
 
 enum SCRewardReason {
-  STORE_PURCHASE_REWARD  // Customer reward for shopping
-  STORE_SALE_REWARD      // Store owner reward for sale
-  MANUAL_ADJUSTMENT      // Admin manual grant/adjustment
+  STORE_PURCHASE_REWARD // Customer reward for shopping
+  STORE_SALE_REWARD // Store owner reward for sale
+  MANUAL_ADJUSTMENT // Admin manual grant/adjustment
 
   @@schema("public")
 }
@@ -1296,52 +1403,52 @@ enum SCRewardStatus {
 // ── Treasury Reserve Tracking Models ────────────────────────────
 
 model TreasuryReservePolicy {
-  id                    String   @id @default(cuid())
-  coopId                String   @default("soulaan")
-  
+  id     String @id @default(cuid())
+  coopId String @default("soulaan")
+
   // Default reserve rate in basis points (500 = 5%)
-  defaultReserveBps     Int      @default(500)
-  
+  defaultReserveBps Int @default(500)
+
   // Optional overrides for special programs
-  badgeReserveBps       Int?     // Override for badge-linked transactions
-  programReserveBps     Json?    // { "program_key": bps_value } for special programs
-  
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  createdBy             String   // wallet address
-  
+  badgeReserveBps   Int? // Override for badge-linked transactions
+  programReserveBps Json? // { "program_key": bps_value } for special programs
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String // wallet address
+
   @@index([coopId, isActive])
   @@schema("public")
 }
 
 model TreasuryReserveEntry {
-  id                    String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Source transaction linkage
-  sourceType            String   // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL'
-  sourceRecordId        String   // StoreOrder.id or P2PTransfer.id
-  sourceUcTxHash        String   // Original UC payment transaction
-  
+  sourceType     String // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL'
+  sourceRecordId String // StoreOrder.id or P2PTransfer.id
+  sourceUcTxHash String // Original UC payment transaction
+
   // Reserve calculation
-  transactionAmountUC   Float    // Original transaction amount in UC
-  reservePercentBps     Int      // Reserve rate used (basis points)
-  reserveAmountUC       Float    // Calculated reserve amount
-  
+  transactionAmountUC Float // Original transaction amount in UC
+  reservePercentBps   Int // Reserve rate used (basis points)
+  reserveAmountUC     Float // Calculated reserve amount
+
   // Treasury settlement
-  treasuryTxHash        String?  @unique  // On-chain transfer to treasury
-  status                TreasuryReserveStatus @default(PENDING)
-  
+  treasuryTxHash String?               @unique // On-chain transfer to treasury
+  status         TreasuryReserveStatus @default(PENDING)
+
   // Linkage to SC rewards created from this transaction
-  relatedScRewardIds    String[] // Array of SCRewardTransaction IDs
-  
+  relatedScRewardIds String[] // Array of SCRewardTransaction IDs
+
   // Timestamps
-  createdAt             DateTime @default(now())
-  settledAt             DateTime?
-  failedAt              DateTime?
-  failureReason         String?
-  retryCount            Int      @default(0)
-  
+  createdAt     DateTime  @default(now())
+  settledAt     DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  retryCount    Int       @default(0)
+
   @@index([sourceUcTxHash])
   @@index([sourceRecordId])
   @@index([status])
@@ -1350,13 +1457,570 @@ model TreasuryReserveEntry {
 }
 
 enum TreasuryReserveStatus {
-  PENDING      // Reserve calculated, transfer not yet attempted
-  SETTLING     // Transfer in progress
-  SETTLED      // Successfully transferred to treasury
-  FAILED       // Transfer failed
-  
+  PENDING // Reserve calculated, transfer not yet attempted
+  SETTLING // Transfer in progress
+  SETTLED // Successfully transferred to treasury
+  FAILED // Transfer failed
+
   @@schema("public")
 }
 
 // WealthFundAddressChange model removed - now tracked on-chain via contract events
 // See UnityCoin.sol PrivilegedAddressChanged event
+
+// ── Hybrid Architecture Models ────────────────────────────
+
+// ── Wallet Management ──────────────────────────────────────
+
+model Wallet {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  address    String     @unique
+  chain      String     @default("base-sepolia") // base-sepolia, base-mainnet, ethereum, etc.
+  walletType WalletType
+  isPrimary  Boolean    @default(false)
+
+  // Managed wallet custody (only for walletType = MANAGED)
+  encryptedPrivateKey String? // Encrypted private key for backend-managed wallets
+  custodyProvider     String? // 'backend' | future: 'fireblocks', 'aws-kms'
+
+  // Verification
+  verifiedAt DateTime?
+  lastSeenAt DateTime?
+
+  // SC balance cache
+  scBalanceCache SCBalanceCache?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isPrimary])
+  @@index([address])
+  @@schema("public")
+}
+
+enum WalletType {
+  EXTERNAL // User-controlled wallet (MetaMask, Coinbase Wallet, etc.)
+  MANAGED // Backend-managed wallet with encrypted key
+
+  @@schema("public")
+}
+
+// ── Stripe Connect & Business Onboarding ──────────────────
+
+model StripeAccount {
+  id         String   @id @default(cuid())
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  stripeAccountId String @unique
+  accountType     String // 'standard' | 'express' | 'custom'
+  country         String @default("US")
+
+  // Capability state
+  chargesEnabled   Boolean @default(false)
+  payoutsEnabled   Boolean @default(false)
+  detailsSubmitted Boolean @default(false)
+
+  // Requirements tracking
+  requirementsCurrentlyDue  String[] // ['individual.first_name', 'business.tax_id', ...]
+  requirementsEventuallyDue String[]
+  requirementsPastDue       String[]
+
+  // Verification status
+  verificationStatus StripeVerificationStatus @default(UNVERIFIED)
+
+  // Onboarding status (internal tracking)
+  onboardingStatus StripeOnboardingStatus @default(DRAFT)
+
+  // Future: card issuing eligibility (not implemented yet)
+  cardIssuingEligible Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stripeAccountId])
+  @@index([onboardingStatus])
+  @@schema("public")
+}
+
+enum StripeVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@schema("public")
+}
+
+enum StripeOnboardingStatus {
+  DRAFT // Account created, not yet submitted
+  SUBMITTED // Onboarding info submitted
+  RESTRICTED // Account restricted, needs more info
+  CHARGES_ENABLED // Can accept charges
+  PAYOUTS_ENABLED // Can receive payouts
+  REJECTED // Verification rejected
+
+  @@schema("public")
+}
+
+model BusinessOnboardingEvent {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  status     StripeOnboardingStatus
+  metadata   Json? // Snapshot of requirements, capabilities, etc.
+  occurredAt DateTime               @default(now())
+
+  @@index([businessId, occurredAt(sort: Desc)])
+  @@schema("public")
+}
+
+model SCVerificationApplication {
+  id      String @id @default(cuid())
+  storeId String @unique
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  whyScEligible  String
+  expectedVolume String
+
+  status          SCApplicationStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@schema("public")
+}
+
+// ── Commerce Transactions (Stripe Payments) ───────────────
+
+model CommerceTransaction {
+  id String @id @default(cuid())
+
+  // Parties
+  customerId String
+  customer   User     @relation(fields: [customerId], references: [id])
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  // Pricing breakdown
+  listedAmount             Float // Original item price
+  chargedAmount            Float // Total charged to customer (includes platform markup)
+  merchantSettlementAmount Float // Amount routed to merchant
+  treasuryFeeAmount        Float // Platform/treasury fee retained
+  currency                 String @default("USD")
+
+  // Fee snapshot (captured at purchase time)
+  platformMarkupBps Int? // Basis points used for this transaction
+  treasuryFeeBps    Int? // Basis points used for this transaction
+
+  // Stripe integration
+  stripePaymentIntentId      String? @unique
+  stripeChargeId             String?
+  stripeDestinationAccountId String? // Connected account ID
+
+  // Status
+  status     CommerceTransactionStatus @default(PENDING)
+  sourceType String                    @default("CHECKOUT") // CHECKOUT, QUICK_PAY, etc.
+
+  // Metadata
+  metadata Json? // Order details, line items, etc.
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  // Relations
+  treasuryLedgerEntries TreasuryLedgerEntry[]
+  scMintEvents          SCMintEvent[]
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@index([businessId, createdAt(sort: Desc)])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+  @@schema("public")
+}
+
+enum CommerceTransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+
+  @@schema("public")
+}
+
+// ── Stripe Webhook Events ─────────────────────────────────
+
+model StripePaymentEvent {
+  id String @id @default(cuid())
+
+  stripeEventId String  @unique // Stripe event ID for idempotency
+  eventType     String // 'payment_intent.succeeded', 'charge.refunded', etc.
+  accountId     String? // Connected account ID if applicable
+
+  payload     Json // Full Stripe event payload
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([stripeEventId])
+  @@index([processed, createdAt])
+  @@schema("public")
+}
+
+// ── Treasury Ledger (Fiat Accounting) ─────────────────────
+
+model TreasuryLedgerEntry {
+  id String @id @default(cuid())
+
+  // Source linkage
+  sourceTransactionId   String? // CommerceTransaction.id, ProposalId, etc.
+  sourceTransactionType String // 'COMMERCE_FEE', 'REFUND', 'ALLOCATION', 'ADJUSTMENT'
+  sourceTransaction     CommerceTransaction? @relation(fields: [sourceTransactionId], references: [id])
+
+  // Accounting
+  accountType TreasuryAccountType
+  entryType   TreasuryEntryType
+  amount      Float
+  currency    String              @default("USD")
+  direction   TreasuryDirection // CREDIT or DEBIT
+
+  // Metadata
+  description String?
+  metadata    Json?
+
+  occurredAt DateTime @default(now())
+
+  @@index([accountType, occurredAt(sort: Desc)])
+  @@index([sourceTransactionId])
+  @@index([entryType])
+  @@schema("public")
+}
+
+enum TreasuryAccountType {
+  PLATFORM_FEES // Platform markup fees
+  TREASURY_FEES // Community treasury fees
+  PENDING_SETTLEMENT // Pending Stripe payouts
+  ADJUSTMENTS // Manual adjustments
+  GRANTS // Approved proposal allocations
+
+  @@schema("public")
+}
+
+enum TreasuryEntryType {
+  FEE_COLLECTION
+  REFUND
+  ALLOCATION
+  ADJUSTMENT
+  SETTLEMENT
+
+  @@schema("public")
+}
+
+enum TreasuryDirection {
+  CREDIT // Increases balance
+  DEBIT // Decreases balance
+
+  @@schema("public")
+}
+
+// ── Fee Configuration ──────────────────────────────────────
+
+model FeeConfig {
+  id String @id @default(cuid())
+
+  // Fee structure (all in basis points, 100 bps = 1%)
+  platformMarkupBps Int @default(400) // 4% platform markup
+  merchantFeeBps    Int @default(0) // Merchant fee (future use)
+  treasuryFeeBps    Int @default(400) // 4% treasury fee
+
+  // Effective date range
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  isActive  Boolean  @default(true)
+  createdBy String // Admin wallet/user ID
+  createdAt DateTime @default(now())
+
+  @@index([isActive, effectiveFrom])
+  @@schema("public")
+}
+
+// ── SC Token Command/Event Tracking ───────────────────────
+
+model SCMintEvent {
+  id String @id @default(cuid())
+
+  // Idempotency
+  idempotencyKey String @unique
+
+  // Target
+  userId        String
+  user          User   @relation(fields: [userId], references: [id])
+  walletAddress String
+
+  // Token details
+  coopTokenClass  String // 'soulaan', 'sf-artist', etc.
+  requestedAmount Float
+  actualAmount    Float? // Actual amount minted (may differ due to contract rules)
+
+  // Source linkage
+  sourceTransactionId String?
+  sourceTransaction   CommerceTransaction? @relation(fields: [sourceTransactionId], references: [id])
+  sourceType          String? // 'COMMERCE_REWARD', 'MANUAL_GRANT', 'ONBOARDING', etc.
+
+  // Blockchain
+  contractTxHash String?       @unique
+  blockNumber    Int?
+  status         SCEventStatus @default(PENDING)
+
+  // Metadata
+  metadata Json?
+
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([walletAddress])
+  @@index([status])
+  @@index([idempotencyKey])
+  @@schema("public")
+}
+
+model SCBurnEvent {
+  id String @id @default(cuid())
+
+  // Idempotency
+  idempotencyKey String @unique
+
+  // Target
+  userId        String
+  user          User   @relation(fields: [userId], references: [id])
+  walletAddress String
+
+  // Token details
+  requestedAmount Float
+  actualAmount    Float?
+
+  // Reason
+  reason       String // 'VIOLATION', 'MANUAL_ADJUSTMENT', etc.
+  authorizedBy String // Admin wallet/user ID
+
+  // Blockchain
+  contractTxHash String?       @unique
+  blockNumber    Int?
+  status         SCEventStatus @default(PENDING)
+
+  // Metadata
+  metadata Json?
+
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([walletAddress])
+  @@index([status])
+  @@index([idempotencyKey])
+  @@schema("public")
+}
+
+enum SCEventStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@schema("public")
+}
+
+// ── SC Balance Cache ───────────────────────────────────────
+
+model SCBalanceCache {
+  id       String @id @default(cuid())
+  walletId String @unique
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  balance     Float
+  blockNumber Int
+  syncedAt    DateTime @default(now())
+
+  @@index([walletId, syncedAt])
+  @@schema("public")
+}
+
+// ── Feature Flags ──────────────────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("public")
+}
+
+// ── Admin Security (RBAC, MFA, Audit) ──────────────────────
+
+model AdminRole {
+  id        String        @id @default(cuid())
+  userId    String
+  role      AdminRoleType
+  grantedBy String // Admin user ID who granted the role
+  grantedAt DateTime      @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+
+  @@unique([userId, role])
+  @@index([userId])
+  @@schema("public")
+}
+
+enum AdminRoleType {
+  SUPER_ADMIN // Full system access
+  TREASURY_ADMIN // Treasury allocation and fee config
+  MERCHANT_ADMIN // Business onboarding approval
+  TOKEN_ADMIN // SC mint/burn operations
+  GOVERNANCE_ADMIN // Proposal moderation
+  SUPPORT_ADMIN // Read-only support access
+
+  @@schema("public")
+}
+
+model AdminMFAConfig {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  method     MFAMethod
+  secret     String // Encrypted TOTP secret or recovery codes
+  isEnabled  Boolean   @default(false)
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@schema("public")
+}
+
+enum MFAMethod {
+  TOTP // Time-based one-time password (Google Authenticator, etc.)
+  SMS // SMS-based (future)
+  EMAIL // Email-based (future)
+
+  @@schema("public")
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  // Actor
+  actorId   String // User ID or system identifier
+  actorType String // 'USER', 'ADMIN', 'SYSTEM'
+
+  // Action
+  action     String // 'SC_MINT', 'TREASURY_ALLOCATION', 'BUSINESS_APPROVAL', etc.
+  resource   String // 'SCMintEvent', 'TreasuryLedgerEntry', 'Business', etc.
+  resourceId String? // ID of affected resource
+
+  // Context
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+
+  // Result
+  status       AuditStatus
+  errorMessage String?
+
+  occurredAt DateTime @default(now())
+
+  @@index([actorId, occurredAt(sort: Desc)])
+  @@index([action, occurredAt(sort: Desc)])
+  @@index([resource, resourceId])
+  @@schema("public")
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+  PENDING_APPROVAL
+
+  @@schema("public")
+}
+
+model AdminApprovalRequest {
+  id String @id @default(cuid())
+
+  // Request details
+  requestType String // 'TREASURY_ALLOCATION', 'MANUAL_SC_MINT', 'FEE_CONFIG_CHANGE', etc.
+  requestedBy String // Admin user ID
+  description String
+  metadata    Json // Request-specific data
+
+  // Approval workflow
+  status          ApprovalStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Execution
+  executedAt      DateTime?
+  executionResult Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([requestedBy])
+  @@schema("public")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+
+  @@schema("public")
+}
+
+// ══════════════════════════════════════════════════════════════
+// PLATFORM CONFIG
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Key/value store for platform-wide configuration.
+ * Editable by admins. Cached at runtime.
+ *
+ * Well-known keys:
+ *   coin.symbol      — e.g. "SC"
+ *   coin.name        — e.g. "Soulaan Coin"
+ *   coin.description — short description shown in UI
+ *   platform.name    — e.g. "Cahootz"
+ */
+model PlatformConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?  // Admin user ID who last changed this
+
+  @@schema("public")
+}

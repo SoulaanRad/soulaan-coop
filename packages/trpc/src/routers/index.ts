@@ -22,7 +22,12 @@ import { proposalCommentRouter } from "./proposal-comment.js";
 import { proposalReactionRouter } from "./proposal-reaction.js";
 import { proposalExpertRouter } from "./proposal-expert.js";
 import { treasuryRouter } from "./treasury.js";
-
+import { commerceTransactionsRouter } from "./commerce-transactions.js";
+import { treasuryLedgerRouter } from "./treasury-ledger.js";
+import { scMintEventsRouter } from "./sc-mint-events.js";
+import { stripeConnectRouter } from "./stripe-connect.js";
+import { scVerificationRouter } from "./sc-verification.js";
+import { platformConfigRouter } from "./platform-config.js";
 
 export const appRouter = router({
   user: userRouter,
@@ -47,6 +52,12 @@ export const appRouter = router({
   proposalReaction: proposalReactionRouter,
   proposalExpert: proposalExpertRouter,
   treasury: treasuryRouter,
+  commerce: commerceTransactionsRouter,
+  treasuryLedger: treasuryLedgerRouter,
+  scMintEvents: scMintEventsRouter,
+  stripeConnect: stripeConnectRouter,
+  scVerification: scVerificationRouter,
+  platformConfig: platformConfigRouter,
 });
 
 export type AppRouter = typeof appRouter;

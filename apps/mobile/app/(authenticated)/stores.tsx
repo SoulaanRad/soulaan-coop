@@ -30,6 +30,7 @@ import {
 } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/auth-context';
+import { useCoin } from '@/contexts/platform-config-context';
 import { useCart } from '@/contexts/cart-context';
 import { api } from '@/lib/api';
 
@@ -75,6 +76,7 @@ type ViewMode = 'popular' | 'stores';
 
 export default function StoresScreen() {
   const { user } = useAuth();
+  const coin = useCoin();
   const { items: cartItems, addItem, updateQuantity, removeItem, totalItems } = useCart();
 
   const getCartQuantity = (productId: string) => {
@@ -272,7 +274,7 @@ export default function StoresScreen() {
                 <View className="flex-1">
                   <Text className="font-semibold text-white mb-1">Support Local, Build Wealth</Text>
                   <Text className="text-xs text-amber-100 leading-5">
-                    Every purchase supports community members. SC Verified stores earn SC from every transaction.
+                    Every purchase supports community members. {coin.symbol} Verified stores earn {coin.symbol} from every transaction.
                   </Text>
                 </View>
               </View>
@@ -285,7 +287,7 @@ export default function StoresScreen() {
               <CheckCircle size={16} color="#16A34A" style={{ marginTop: 2 }} />
               <View className="flex-1 ml-2">
                 <Text className="text-xs text-green-800 leading-5">
-                  <Text className="font-bold">Want to earn SC from sales?</Text> Create a store and submit a proposal. Only stores that pass AI review and community deliberation become SC Verified and earn SC from purchases.
+                  <Text className="font-bold">Want to earn {coin.symbol} from sales?</Text> Create a store and submit a proposal. Only stores that pass community deliberation become {coin.symbol} Verified and earn {coin.symbol} from purchases.
                 </Text>
               </View>
             </View>

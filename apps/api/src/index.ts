@@ -17,14 +17,13 @@ import { resolve } from "path";
 const app: Application = express();
 
 // Import webhook handlers
-import { handleStripeWebhook, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
+import { handleStripeWebhookNew, handlePayPalWebhook, handleSquareWebhook } from './webhooks';
 import uploadRouter from './routes/upload.js';
-
 // IMPORTANT: Stripe webhooks need raw body for signature verification
 // So we add this route BEFORE the general JSON parser
 app.post('/webhooks/stripe',
   express.raw({ type: 'application/json' }),
-  handleStripeWebhook
+  handleStripeWebhookNew
 );
 
 // Parse JSON bodies (for non-tRPC routes only)

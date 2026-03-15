@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,7 @@ import Link from "next/link";
 
 export default function SubmitProposalPage() {
   const router = useRouter();
+  const coin = useCoin();
   const [text, setText] = useState("");
   const [location, setLocation] = useState("");
 
@@ -69,7 +71,7 @@ export default function SubmitProposalPage() {
           <CardContent className="flex items-start gap-3 p-4">
             <Info className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-300">
-              Minimum SC balance to submit: <strong>{minBalance} SC</strong>
+              Minimum {coin.symbol} balance to submit: <strong>{minBalance} {coin.symbol}</strong>
             </p>
           </CardContent>
         </Card>

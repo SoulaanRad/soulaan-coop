@@ -1,11 +1,11 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { View, ScrollView, RefreshControl, TouchableOpacity, Image } from "react-native";
-import { useFocusEffect, router } from "expo-router";
+import { router } from "expo-router";
 import { Search, MapPin, Star, ShoppingBag } from "lucide-react-native";
 
 import { Text } from "@/components/ui/text";
-import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
+import { useCoin } from "@/contexts/platform-config-context";
 
 
 
@@ -25,27 +25,55 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export default function StoreScreen() {
-  const { user } = useAuth();
+  const coin = useCoin();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
+  const [featuredStores, setFeaturedStores] = useState<{
+    id: string;
+    name: string;
+    category: string;
+    imageUrl: string | null;
+    isScVerified: boolean;
+    rating: number | null;
+    reviewCount: number;
+    city?: string | null;
+    state?: string | null;
+  }[]>([]);
 
   // Load store categories on mount
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
-        const categories = await api.getStoreCategories(true); // Include admin-only for viewing
+        const [categories, storesResult] = await Promise.all([
+          api.getStoreCategories(true),
+          api.getStores({
+            featured: true,
+            category: selectedCategory || undefined,
+            limit: 20,
+          }),
+        ]);
         setStoreCategories(categories);
+        setFeaturedStores(storesResult?.stores || []);
       } catch (error) {
-        console.error('Failed to load store categories:', error);
+        console.error('Failed to load store data:', error);
       }
     };
-    loadCategories();
-  }, []);
+    loadData();
+  }, [selectedCategory]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // TODO: Fetch stores
+    try {
+      const storesResult = await api.getStores({
+        featured: true,
+        category: selectedCategory || undefined,
+        limit: 20,
+      });
+      setFeaturedStores(storesResult?.stores || []);
+    } catch (error) {
+      console.error('Failed to refresh stores:', error);
+    }
     setRefreshing(false);
   };
 
@@ -60,7 +88,7 @@ export default function StoreScreen() {
       {/* Header */}
       <View className="px-4 pt-14 pb-4">
         <Text className="text-xl font-bold text-gray-800">Community Store</Text>
-        <Text className="text-gray-500 text-sm">Support local businesses, earn SC rewards</Text>
+        <Text className="text-gray-500 text-sm">Support local businesses, earn {coin.symbol} rewards</Text>
       </View>
 
       {/* Search Bar */}
@@ -126,18 +154,25 @@ export default function StoreScreen() {
       <View className="px-4">
         <Text className="text-lg font-semibold text-gray-800 mb-3">Featured Stores</Text>
 
-        {FEATURED_STORES.map((store) => (
+        {featuredStores.map((store) => (
           <TouchableOpacity
             key={store.id}
             className="bg-white rounded-2xl p-4 mb-3 border border-amber-100"
             activeOpacity={0.7}
-            onPress={() => {/* TODO: Navigate to store */}}
+            onPress={() => router.push(`/store-detail?id=${store.id}`)}
           >
             <View className="flex-row">
               {/* Store Image */}
-              <View className="w-16 h-16 rounded-xl bg-amber-100 items-center justify-center mr-3">
-                <ShoppingBag size={24} color="#B45309" />
-              </View>
+              {store.imageUrl ? (
+                <Image
+                  source={{ uri: store.imageUrl }}
+                  className="w-16 h-16 rounded-xl mr-3"
+                />
+              ) : (
+                <View className="w-16 h-16 rounded-xl bg-amber-100 items-center justify-center mr-3">
+                  <ShoppingBag size={24} color="#B45309" />
+                </View>
+              )}
 
               {/* Store Info */}
               <View className="flex-1">
@@ -154,12 +189,16 @@ export default function StoreScreen() {
                 <View className="flex-row items-center mt-1">
                   <Star size={14} color="#F59E0B" fill="#F59E0B" />
                   <Text className="text-sm text-gray-600 ml-1">
-                    {store.rating} ({store.reviews})
+                    {store.rating ?? 0} ({store.reviewCount})
                   </Text>
-                  <View className="flex-row items-center ml-3">
-                    <MapPin size={12} color="#9CA3AF" />
-                    <Text className="text-sm text-gray-400 ml-1">{store.distance}</Text>
-                  </View>
+                  {(store.city || store.state) && (
+                    <View className="flex-row items-center ml-3">
+                      <MapPin size={12} color="#9CA3AF" />
+                      <Text className="text-sm text-gray-400 ml-1">
+                        {[store.city, store.state].filter(Boolean).join(', ')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>

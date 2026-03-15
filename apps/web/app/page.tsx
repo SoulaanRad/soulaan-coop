@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
 import { MobileAppRedirect } from "@/components/mobile-app-redirect";
@@ -672,8 +673,8 @@ export default function SoulaanLanding() {
                 </div>
                 <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-400">
                   <li>Users create value and someone else captures it.</li>
-                  <li>Communities generate data, demand, and revenue without control.</li>
-                  <li>Decisions happen far away from the people affected.</li>
+                  <li>Equity concentrates with investors, not contributors.</li>
+                  <li>Voting power stays with shareholders, not the people building it.</li>
                 </ul>
               </div>
 
@@ -684,7 +685,7 @@ export default function SoulaanLanding() {
                 </div>
                 <ul className="mt-5 space-y-3 text-sm leading-7 text-slate-300">
                   <li>Members support businesses that feed back into shared goals.</li>
-                  <li>Treasuries can fund housing, jobs, groceries, and infrastructure.</li>
+                  <li>Equity and ownership are shared among active contributors.</li>
                   <li>Voting power stays with the people building the network.</li>
                 </ul>
               </div>
@@ -823,7 +824,9 @@ export default function SoulaanLanding() {
                 part in governance that keeps value circulating locally.
               </p>
             </div>
-            <BusinessSignupForm />
+            <Suspense fallback={<div className="text-center text-slate-400">Loading...</div>}>
+              <BusinessSignupForm />
+            </Suspense>
           </div>
         </section>
       </main>

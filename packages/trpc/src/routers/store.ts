@@ -349,6 +349,12 @@ export const storeRouter = router({
         where: { ownerId: user.id },
         include: {
           application: true,
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
+          scVerificationApplication: true,
           _count: {
             select: { products: true },
           },
@@ -370,10 +376,31 @@ export const storeRouter = router({
         isScVerified: store.isScVerified,
         acceptsUC: store.acceptsUC,
         ucDiscountPercent: store.ucDiscountPercent,
-        communityCommitmentPercent: store.communityCommitmentPercent,
         totalSales: store.totalSales,
         totalOrders: store.totalOrders,
         productCount: store._count.products,
+        businessId: store.businessId,
+        stripeAccount: store.business?.stripeAccount
+          ? {
+              businessId: store.business.id,
+              stripeAccountId: store.business.stripeAccount.stripeAccountId,
+              onboardingStatus: store.business.stripeAccount.onboardingStatus,
+              verificationStatus: store.business.stripeAccount.verificationStatus,
+              chargesEnabled: store.business.stripeAccount.chargesEnabled,
+              payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+            }
+          : null,
+        scApplicationStatus: store.scApplicationStatus,
+        scVerificationApplication: store.scVerificationApplication
+          ? {
+              id: store.scVerificationApplication.id,
+              status: store.scVerificationApplication.status,
+              whyScEligible: store.scVerificationApplication.whyScEligible,
+              expectedVolume: store.scVerificationApplication.expectedVolume,
+              rejectionReason: store.scVerificationApplication.rejectionReason,
+              reviewedAt: store.scVerificationApplication.reviewedAt,
+            }
+          : null,
         application: store.application ? {
           status: store.application.status,
           reviewNotes: store.application.reviewNotes,
@@ -407,8 +434,7 @@ export const storeRouter = router({
       ownerPhone: z.string().min(10),
 
       // Application details
-      communityBenefitStatement: z.string().min(20).max(2000), // How store benefits community
-      communityCommitmentPercent: z.number().min(5).max(100), // Percentage committed to coop
+      communityBenefitStatement: z.string().min(20).max(2000).optional(), // Legacy field, no longer required in UI
       estimatedMonthlyRevenue: z.string().optional(),
       websiteUrl: z.preprocess(
         (val) => {
@@ -450,16 +476,19 @@ export const storeRouter = router({
         });
       }
 
-      // Check if user already has a store
+      // Check if user already has a store — return it so the mobile app can
+      // continue to Stripe onboarding instead of hitting a dead-end error.
       const existingStore = await context.db.store.findFirst({
         where: { ownerId: user.id },
       });
 
       if (existingStore) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "You already have a store application",
-        });
+        return {
+          success: true,
+          storeId: existingStore.id,
+          alreadyExists: true,
+          message: "You already have a store — continuing to Stripe Connect.",
+        };
       }
 
       // Create store and application in a transaction
@@ -471,7 +500,6 @@ export const storeRouter = router({
             name: input.storeName,
             description: input.storeDescription,
             category: input.category as StoreCategory,
-            communityCommitmentPercent: input.communityCommitmentPercent,
             status: "PENDING",
           },
         });
@@ -489,8 +517,7 @@ export const storeRouter = router({
             ownerEmail: input.ownerEmail,
             ownerPhone: input.ownerPhone,
             storeDescription: input.storeDescription,
-            communityBenefitStatement: input.communityBenefitStatement,
-            communityCommitmentPercent: input.communityCommitmentPercent,
+            communityBenefitStatement: input.communityBenefitStatement || "",
             estimatedMonthlyRevenue: input.estimatedMonthlyRevenue || null,
             websiteUrl: input.websiteUrl || null, // Convert empty string to null
             socialMediaUrls: input.socialMediaUrls || [],
@@ -505,7 +532,7 @@ export const storeRouter = router({
       return {
         success: true,
         storeId: store.id,
-        message: "Store application submitted successfully. You will be notified once it's reviewed.",
+        message: "Store application submitted successfully. Complete Stripe Connect to activate your store.",
       };
     }),
 
@@ -823,9 +850,7 @@ export const storeRouter = router({
       }
 
       const stores = await context.db.store.findMany({
-        where: {
-          application: status ? { status } : { isNot: null },
-        },
+        where: status ? { application: { status } } : {},
         take: limit + 1,
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { createdAt: "desc" },
@@ -856,7 +881,6 @@ export const storeRouter = router({
           category: store.category,
           status: store.application?.status || store.status, // Use application status for filtering display
           storeStatus: store.status,
-          communityCommitmentPercent: store.communityCommitmentPercent,
           isScVerified: store.isScVerified,
           acceptsUC: store.acceptsUC,
           ucDiscountPercent: store.ucDiscountPercent,
@@ -1220,7 +1244,6 @@ export const storeRouter = router({
           isFeatured: store.isFeatured,
           acceptsUC: store.acceptsUC,
           ucDiscountPercent: store.ucDiscountPercent,
-          communityCommitmentPercent: store.communityCommitmentPercent,
           owner: {
             id: store.owner.id,
             name: store.owner.name,
@@ -1484,7 +1507,6 @@ export const storeRouter = router({
       phone: z.string().optional(),
       email: z.string().email().optional(),
       website: z.string().url().optional(),
-      communityCommitmentPercent: z.number().min(5).max(100).optional().default(10),
       acceptsUC: z.boolean().optional().default(true),
       ucDiscountPercent: z.number().min(0).max(100).optional().default(20),
     }))
@@ -1530,7 +1552,6 @@ export const storeRouter = router({
           phone: input.phone,
           email: input.email,
           website: input.website,
-          communityCommitmentPercent: input.communityCommitmentPercent,
           acceptsUC: input.acceptsUC,
           ucDiscountPercent: input.ucDiscountPercent,
           status: "APPROVED", // Admin-created stores are auto-approved

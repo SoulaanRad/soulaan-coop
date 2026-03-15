@@ -72,11 +72,6 @@ export default function StoreDetailScreen() {
         name: product.name,
         imageUrl: product.imageUrl,
         priceUSD: product.priceUSD,
-        store: {
-          id: store.id,
-          name: store.name,
-          isScVerified: store.isScVerified,
-        },
       },
       {
         id: store.id,

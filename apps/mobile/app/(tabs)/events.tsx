@@ -3,6 +3,7 @@ import { View, ScrollView, RefreshControl, TouchableOpacity } from "react-native
 import { Calendar, Clock, MapPin, Users, Gift } from "lucide-react-native";
 
 import { Text } from "@/components/ui/text";
+import { useCoin } from "@/contexts/platform-config-context";
 
 // Mock events data
 const UPCOMING_EVENTS = [
@@ -61,6 +62,7 @@ const CATEGORIES = [
 ];
 
 export default function EventsScreen() {
+  const coin = useCoin();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -85,7 +87,7 @@ export default function EventsScreen() {
       {/* Header */}
       <View className="px-4 pt-14 pb-4">
         <Text className="text-xl font-bold text-gray-800">Community Events</Text>
-        <Text className="text-gray-500 text-sm">Join events and earn SC rewards</Text>
+        <Text className="text-gray-500 text-sm">Join events and earn {coin.symbol} rewards</Text>
       </View>
 
       {/* Categories Filter */}
@@ -130,7 +132,7 @@ export default function EventsScreen() {
               </View>
               <View className="flex-row items-center bg-green-100 px-2 py-1 rounded-full">
                 <Gift size={12} color="#16A34A" />
-                <Text className="text-xs text-green-700 font-medium ml-1">+{event.scReward} SC</Text>
+                <Text className="text-xs text-green-700 font-medium ml-1">+{event.scReward} {coin.symbol}</Text>
               </View>
             </View>
 

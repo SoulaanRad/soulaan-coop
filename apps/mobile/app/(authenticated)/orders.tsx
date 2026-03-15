@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
+import OrdersListHybrid from '@/components/orders-list-hybrid';
 
 interface Order {
   id: string;
@@ -140,6 +141,42 @@ function OrderCard({ order, onPress }: { order: Order; onPress: () => void }) {
 }
 
 export default function OrdersScreen() {
+  const { user } = useAuth();
+  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
+
+  // Check if hybrid architecture is enabled
+  useEffect(() => {
+    async function checkFeatureFlag() {
+      try {
+        const response = await fetch('http://localhost:3001/api/feature-flags/hybrid-architecture');
+        const data = await response.json();
+        setUseHybrid(data.enabled);
+      } catch (error) {
+        console.error('Failed to check feature flag:', error);
+        setUseHybrid(false);
+      }
+    }
+    checkFeatureFlag();
+  }, []);
+
+  if (useHybrid === null) {
+    return (
+      <SafeAreaView className="flex-1 bg-slate-950">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (useHybrid) {
+    return <OrdersListHybrid />;
+  }
+
+  return <OrdersLegacyScreen />;
+}
+
+function OrdersLegacyScreen() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);

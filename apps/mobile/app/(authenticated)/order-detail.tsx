@@ -25,6 +25,7 @@ import {
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import OrderDetailHybrid from '@/components/order-detail-hybrid';
 
 interface OrderItem {
   id: string;
@@ -65,6 +66,42 @@ type FulfillmentStatus = 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
+  const [useHybrid, setUseHybrid] = useState<boolean | null>(null);
+
+  // Check if hybrid architecture is enabled
+  useEffect(() => {
+    async function checkFeatureFlag() {
+      try {
+        const response = await fetch('http://localhost:3001/api/feature-flags/hybrid-architecture');
+        const data = await response.json();
+        setUseHybrid(data.enabled);
+      } catch (error) {
+        console.error('Failed to check feature flag:', error);
+        setUseHybrid(false);
+      }
+    }
+    checkFeatureFlag();
+  }, []);
+
+  if (useHybrid === null) {
+    return (
+      <SafeAreaView className="flex-1 bg-slate-950">
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#f97316" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (useHybrid && id) {
+    return <OrderDetailHybrid orderId={id as string} />;
+  }
+
+  return <OrderDetailLegacyScreen orderId={id as string} />;
+}
+
+function OrderDetailLegacyScreen({ orderId }: { orderId: string }) {
+  const { user } = useAuth();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -74,13 +111,13 @@ export default function OrderDetailScreen() {
 
   useEffect(() => {
     loadOrder();
-  }, [id]);
+  }, [orderId]);
 
   const loadOrder = async () => {
-    if (!user?.walletAddress || !id) return;
+    if (!user?.walletAddress || !orderId) return;
     try {
       setLoading(true);
-      const orderData = await api.getOrder(id as string, user.walletAddress);
+      const orderData = await api.getOrder(orderId, user.walletAddress);
       setOrder(orderData);
     } catch (error) {
       console.error('Failed to load order:', error);
@@ -92,7 +129,7 @@ export default function OrderDetailScreen() {
   };
 
   const handleUpdateStatus = async () => {
-    if (!user?.walletAddress || !id) return;
+    if (!user?.walletAddress || !orderId) return;
 
     // Validate tracking number for shipped status
     if (selectedStatus === 'SHIPPED' && !trackingNumber.trim()) {
@@ -103,7 +140,7 @@ export default function OrderDetailScreen() {
     try {
       setUpdating(true);
       await api.updateOrderStatus(
-        id as string,
+        orderId,
         selectedStatus,
         trackingNumber.trim() || undefined,
         user.walletAddress

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +12,7 @@ import { Loader2, ArrowLeft, ShieldAlert, PlusCircle, Bot, Users, Globe, X, Plus
 import Link from "next/link";
 import { ConfigSectionEditor } from "@/components/portal/proposals/config-section-editor";
 export default function CoopConfigPage() {
+  const coin = useCoin();
   const { isAdmin } = useWeb3Auth();
   const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
   const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId: "soulaan" });
@@ -839,7 +841,7 @@ export default function CoopConfigPage() {
       {/* Submission Requirements */}
       <ConfigSectionEditor
         title="Submission Requirements"
-        description="Minimum SC token balance a member must hold to submit a proposal."
+        description={`Minimum ${coin.symbol} token balance a member must hold to submit a proposal.`}
         isDirty={editMinSc !== ""}
         onSave={async (reason) => {
           const minScBalanceToSubmit = editMinSc ? parseFloat(editMinSc) : config.minScBalanceToSubmit;

@@ -1,12 +1,22 @@
 "use client";
 
-import { api } from "@/lib/trpc/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, FileText, CheckCircle2, XCircle, Loader2, TrendingUp, Coins, AlertTriangle } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import dynamic from 'next/dynamic';
+import { Loader2 } from "lucide-react";
+
+const DashboardHybrid = dynamic(() => import('@/components/portal/dashboard-hybrid'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 
 export default function DashboardPage() {
+  return <DashboardHybrid />;
+}
+
+function DashboardLegacyPage() {
   const { data: stats, isLoading } = api.admin.getApplicationStats.useQuery();
   const { data: scStats, isLoading: scLoading } = api.scRewards.getSCRewardStats.useQuery();
 

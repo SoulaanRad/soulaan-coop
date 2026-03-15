@@ -19,7 +19,7 @@ import {
   BadgeCheck,
   Info,
 } from 'lucide-react-native';
-import { api, API_BASE_URL, createApiHeaders } from '@/lib/api';
+import { api, API_BASE_URL } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { useCart } from '@/contexts/cart-context';
 
@@ -46,50 +46,27 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
     if (!user?.id || !storeId) return;
 
     try {
-      // First get the store to extract businessId
-      const storeResult = await api.getStore(storeId);
+      const [storeResult, readinessResult] = await Promise.all([
+        api.getStore(storeId),
+        // Get business readiness to check SC eligibility
+        fetch(`${API_BASE_URL}/trpc/stripeConnect.getBusinessReadiness?input=${encodeURIComponent(JSON.stringify({ businessId: storeId }))}`)
+          .then(res => res.json())
+          .catch(() => null),
+      ]);
+
       setStore(storeResult);
-
-      // Check if store has a businessId
-      if (!storeResult.businessId) {
-        throw new Error('This store is not set up for checkout yet. Please contact the store owner.');
-      }
-
-      const businessId = storeResult.businessId;
-
-      // Get business readiness to check SC eligibility
-      const readinessResult = await fetch(
-        `${API_BASE_URL}/trpc/stripeConnect.getBusinessReadiness?input=${encodeURIComponent(JSON.stringify({ businessId }))}`,
-        {
-          method: 'GET',
-          headers: createApiHeaders(user.walletAddress),
-        }
-      )
-        .then(res => res.json())
-        .catch(() => null);
-
       setBusinessReadiness(readinessResult?.result?.data);
 
       // Get checkout preview
       if (subtotal > 0) {
-        const previewResponse = await fetch(
+        const previewResult = await fetch(
           `${API_BASE_URL}/trpc/commerce.previewCheckout?input=${encodeURIComponent(JSON.stringify({
             userId: user.id,
-            businessId,
+            businessId: storeId,
             listedAmountCents: Math.round(subtotal * 100),
             currency: 'USD',
-          }))}`,
-          {
-            method: 'GET',
-            headers: createApiHeaders(user.walletAddress),
-          }
-        );
-
-        const previewResult = await previewResponse.json();
-        
-        if (previewResult.error) {
-          throw new Error(previewResult.error.message || 'Failed to load checkout preview');
-        }
+          }))}`
+        ).then(res => res.json());
 
         setPreview(previewResult?.result?.data);
       }
@@ -106,18 +83,18 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   }, [loadData]);
 
   const handleCheckout = async () => {
-    if (!user?.id || !storeId || cartItems.length === 0 || !store?.businessId) return;
+    if (!user?.id || !storeId || cartItems.length === 0) return;
 
     setProcessing(true);
 
     try {
       // Create commerce transaction
-      const checkoutResponse = await fetch(`${API_BASE_URL}/trpc/commerce.createCheckout`, {
+      const checkoutResult = await fetch('/api/trpc/commerce.createCheckout', {
         method: 'POST',
-        headers: createApiHeaders(user.walletAddress),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
-          businessId: store.businessId,
+          businessId: storeId,
           listedAmountCents: Math.round(subtotal * 100),
           currency: 'USD',
           metadata: {
@@ -131,12 +108,10 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
             note: note || undefined,
           },
         }),
-      });
-
-      const checkoutResult = await checkoutResponse.json();
+      }).then(res => res.json());
 
       if (checkoutResult.error) {
-        throw new Error(checkoutResult.error.message || 'Checkout failed');
+        throw new Error(checkoutResult.error.message);
       }
 
       const { transactionId, clientSecret } = checkoutResult.result.data;
