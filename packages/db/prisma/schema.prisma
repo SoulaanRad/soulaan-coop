@@ -143,6 +143,24 @@ model CoopConfig {
   coopId                    String
   version                   Int
   isActive                  Boolean  @default(true)
+  
+  // Display information for onboarding
+  name                      String?
+  slug                      String?
+  tagline                   String?
+  description               String?  @db.Text
+  displayMission            String?  @db.Text
+  displayFeatures           Json?    // [{ title, description }]
+  eligibility               String?  @db.Text
+  bgColor                   String   @default("bg-red-700")
+  accentColor               String   @default("bg-gold-600")
+  displayOrder              Int      @default(0)
+  
+  // Application form configuration
+  applicationQuestions      Json?    // [{ id, type, label, description?, placeholder?, required, options?, validation? }]
+  // Question types: text, textarea, email, phone, select, multiselect, radio, checkbox, number, date, file
+  
+  // Governance configuration
   charterText               String   @db.Text
   missionGoals              Json // [{ key, label, priorityWeight, description? }]
   structuralWeights         Json // { feasibility, risk, accountability } — sum to 1

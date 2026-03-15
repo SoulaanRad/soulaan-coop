@@ -50,6 +50,104 @@ function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>):
 
 export const coopConfigRouter = router({
   /**
+   * List all available coops for onboarding
+   * Fetches from the CoopConfig table
+   */
+  listAvailableCoops: publicProcedure
+    .output(z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      tagline: z.string(),
+      description: z.string(),
+      mission: z.string(),
+      features: z.array(z.object({
+        title: z.string(),
+        description: z.string(),
+      })),
+      eligibility: z.string(),
+      bgColor: z.string(),
+      accentColor: z.string(),
+    })))
+    .query(async ({ ctx }) => {
+      const coops = await ctx.db.coopConfig.findMany({
+        where: { 
+          isActive: true,
+          name: { not: null },
+        },
+        orderBy: { displayOrder: 'asc' },
+        select: {
+          coopId: true,
+          name: true,
+          tagline: true,
+          description: true,
+          displayMission: true,
+          displayFeatures: true,
+          eligibility: true,
+          bgColor: true,
+          accentColor: true,
+        },
+      });
+
+      return coops
+        .filter(coop => coop.name && coop.tagline && coop.description && coop.displayMission && coop.eligibility)
+        .map(coop => ({
+          id: coop.coopId,
+          name: coop.name!,
+          tagline: coop.tagline!,
+          description: coop.description!,
+          mission: coop.displayMission!,
+          features: (coop.displayFeatures as Array<{ title: string; description: string }>) || [],
+          eligibility: coop.eligibility!,
+          bgColor: coop.bgColor,
+          accentColor: coop.accentColor,
+        }));
+    }),
+
+  /**
+   * Get application questions for a specific coop
+   */
+  getApplicationQuestions: publicProcedure
+    .input(z.object({ coopId: z.string() }))
+    .output(z.object({
+      questions: z.array(z.object({
+        id: z.string(),
+        type: z.string(),
+        label: z.string(),
+        description: z.string().optional(),
+        placeholder: z.string().optional(),
+        required: z.boolean(),
+        options: z.array(z.object({
+          value: z.string(),
+          label: z.string(),
+        })).optional(),
+        validation: z.record(z.unknown()).optional(),
+      })),
+    }))
+    .query(async ({ input, ctx }) => {
+      const config = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        select: { applicationQuestions: true },
+      });
+
+      if (!config || !config.applicationQuestions) {
+        return { questions: [] };
+      }
+
+      return {
+        questions: config.applicationQuestions as Array<{
+          id: string;
+          type: string;
+          label: string;
+          description?: string;
+          placeholder?: string;
+          required: boolean;
+          options?: Array<{ value: string; label: string }>;
+          validation?: Record<string, unknown>;
+        }>,
+      };
+    }),
+
+  /**
    * Get active config for a coopId (default "soulaan")
    */
   getActive: publicProcedure

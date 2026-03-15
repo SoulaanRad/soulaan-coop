@@ -32,27 +32,6 @@ export interface ApplicationData {
   phone: string;
   password: string;
   confirmPassword: string;
-  
-  // Identity & Eligibility
-  identity: 'black-american' | 'afro-caribbean' | 'african-immigrant' | 'ally';
-  agreeToMission: 'yes' | 'no';
-  
-  // Spending Habits & Demand
-  spendingCategories: string[];
-  monthlyCommitment: 'less-250' | '250-500' | '500-1000' | 'over-1000';
-  
-  // Commitment & Participation
-  useUC: 'yes' | 'no';
-  acceptFees: 'yes' | 'no';
-  voteOnInvestments: 'yes' | 'no';
-  
-  // Trust & Accountability
-  coopExperience: 'yes' | 'no';
-  transparentTransactions: 'yes' | 'no';
-  
-  // Short Answer (optional)
-  motivation?: string;
-  desiredService?: string;
 
   // Media Uploads (optional)
   videoCID?: string;
@@ -62,6 +41,9 @@ export interface ApplicationData {
   agreeToCoopValues: boolean;
   agreeToTerms: boolean;
   agreeToPrivacy: boolean;
+  
+  // Allow dynamic question answers
+  [key: string]: any;
 }
 
 export interface LoginData {
@@ -1685,7 +1667,7 @@ export const api = {
   async createOrder(
     data: {
       storeId: string;
-      items: Array<{ productId: string; quantity: number }>;
+      items: { productId: string; quantity: number }[];
       shippingAddress?: string;
       note?: string;
     },
@@ -1925,6 +1907,34 @@ export const api = {
   // ── Coop Config ────────────────────────────────────────────────────────────
 
   /**
+   * Get list of available coops for onboarding
+   */
+  async listAvailableCoops() {
+    const response = await fetch(`${API_BASE_URL}/trpc/coopConfig.listAvailableCoops?input={}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to get available coops');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return result.result?.data as {
+      id: string;
+      name: string;
+      tagline: string;
+      description: string;
+      mission: string;
+      features: { title: string; description: string }[];
+      eligibility: string;
+      bgColor: string;
+      accentColor: string;
+    }[];
+  },
+
+  /**
    * Get the active CoopConfig (includes proposalCategories for label lookup)
    */
   async getCoopConfig(coopId = 'soulaan') {
@@ -2113,7 +2123,7 @@ export const api = {
     });
     const result = await response.json();
     if (result.error) throw new Error(result.error.message || 'Failed to load revision history');
-    return result.result?.data as Array<{
+    return result.result?.data as {
       id: string;
       revisionNumber: number;
       submittedAt: string;
@@ -2124,7 +2134,7 @@ export const api = {
       auditChecks: any[];
       status: string;
       engineVersion: string;
-    }>;
+    }[];
   },
 
   /**
@@ -2195,4 +2205,38 @@ export const api = {
       platformName: 'Cahootz',
     };
   },
+
+    /**
+   * Get application questions for a specific coop
+   */
+    async getApplicationQuestions(coopId: string) {
+      const response = await fetch(`${API_BASE_URL}/trpc/coopConfig.getApplicationQuestions?input=${encodeURIComponent(JSON.stringify({ coopId }))}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+  
+      const result = await response.json();
+      if (result.error) {
+        throw new Error(result.error.message || 'Failed to get application questions');
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+  
+      return result.result?.data as {
+        questions: {
+          id: string;
+          type: string;
+          label: string;
+          description?: string;
+          placeholder?: string;
+          required: boolean;
+          options?: { value: string; label: string }[];
+          validation?: Record<string, unknown>;
+        }[];
+      };
+    }
 };
+
+
+
