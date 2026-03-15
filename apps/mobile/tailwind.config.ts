@@ -6,6 +6,22 @@ module.exports = {
 
   presets: [require("nativewind/preset")],
   darkMode: 'class',
+  safelist: [
+    // Safelist dynamic coop background colors
+    'bg-red-700',
+    'bg-red-800',
+    'bg-red-900',
+    'bg-purple-700',
+    'bg-purple-800',
+    'bg-purple-900',
+    'bg-blue-700',
+    'bg-blue-800',
+    'bg-blue-900',
+    'bg-gold-600',
+    'bg-gold-700',
+    'bg-purple-600',
+    'bg-blue-600',
+  ],
   theme: {
     extend: {
       colors: {

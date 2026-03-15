@@ -20,7 +20,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
-import { WaitlistForm } from "@/components/waitlist-form";
+import { MobileAppRedirect } from "@/components/mobile-app-redirect";
 
 export const metadata: Metadata = {
   title: "Soulaan Co-op | Build Stability Together",
@@ -723,13 +723,13 @@ export default function SoulaanLanding() {
                   pressure, or lived experience so people with common needs can
                   build economic power together.
                 </p>
-                <Link
+                <a
                   href="#member-signup"
                   className="mt-8 inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-base font-medium text-white transition hover:border-white/25 hover:bg-white/10"
                 >
-                  Propose a Community Coop
+                  Join or Propose a Coop
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
+                </a>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -757,10 +757,8 @@ export default function SoulaanLanding() {
                 Choose your path into the coop economy
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
-                Sign up as a member, bring a business into the network, or tell
-                us which cooperative you want to join next. The forms stay on
-                this page so people can move from interest to action in one
-                step.
+                Sign up as a member through our mobile app, or bring a business into the network. 
+                Get started in minutes and join a cooperative that matches your needs.
               </p>
 
               <div className="mt-8 grid gap-4">
@@ -772,7 +770,7 @@ export default function SoulaanLanding() {
                     Member signup
                   </p>
                   <p className="mt-2 text-lg font-medium text-white">
-                    Join a coop and tell us which one you want.
+                    Sign up through our mobile app and choose your cooperative.
                   </p>
                 </Link>
 
@@ -794,17 +792,17 @@ export default function SoulaanLanding() {
               <div className="mb-6 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.24em] text-orange-200/80">
-                    Member waitlist
+                    Member signup
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold text-white">
-                    Get updates and choose your coop
+                    Join a cooperative today
                   </h3>
                 </div>
                 <div className="rounded-2xl border border-orange-400/20 bg-orange-400/10 px-3 py-2 text-sm text-orange-200">
                   User path
                 </div>
               </div>
-              <WaitlistForm source="contact" variant="card" />
+              <MobileAppRedirect variant="card" />
             </div>
           </div>
         </section>
