@@ -13,6 +13,7 @@ import { toE164 } from "../lib/phone.js";
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
 
 // Validation schema for application submission
+// Now accepts dynamic question answers via passthrough
 const applicationSchema = z.object({
   // Personal Information
   firstName: z.string().min(1, "First name is required"),
@@ -22,32 +23,16 @@ const applicationSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
   
-  // Identity & Eligibility
-  identity: z.enum(["black-american", "afro-caribbean", "african-immigrant", "ally"]),
-  agreeToMission: z.enum(["yes", "no"]),
-  
-  // Spending Habits & Demand
-  spendingCategories: z.array(z.string()).min(1, "Select at least one spending category"),
-  monthlyCommitment: z.enum(["less-250", "250-500", "500-1000", "over-1000"]),
-  
-  // Commitment & Participation
-  useUC: z.enum(["yes", "no"]),
-  acceptFees: z.enum(["yes", "no"]),
-  voteOnInvestments: z.enum(["yes", "no"]),
-  
-  // Trust & Accountability
-  coopExperience: z.enum(["yes", "no"]),
-  transparentTransactions: z.enum(["yes", "no"]),
-  
-  // Short Answer (optional)
-  motivation: z.string().optional(),
-  desiredService: z.string().optional(),
+  // Media uploads (optional)
+  videoCID: z.string().optional(),
+  photoCID: z.string().optional(),
   
   // Terms Agreement
   agreeToCoopValues: z.boolean().refine(val => val === true, "Must agree to co-op values"),
   agreeToTerms: z.boolean().refine(val => val === true, "Must agree to terms of service"),
   agreeToPrivacy: z.boolean().refine(val => val === true, "Must agree to privacy policy"),
-}).refine(data => data.password === data.confirmPassword, {
+}).passthrough() // Allow additional dynamic fields from application questions
+.refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
@@ -114,42 +99,18 @@ export const applicationRouter = router({
 
           // Create application with JSON data
           console.log('📝 Creating application...');
+          
+          // Extract password and confirmPassword from input (don't store these)
+          const { password, confirmPassword, ...applicationData } = input;
+          
+          // Store all application data including dynamic question answers
           const application = await tx.application.create({
             data: {
               userId: user.id,
               status: "SUBMITTED",
               data: {
-                // Personal Information
-                firstName: input.firstName,
-                lastName: input.lastName,
-                email: input.email,
-                phone: normalizedPhone,
-                
-                // Identity & Eligibility
-                identity: input.identity,
-                agreeToMission: input.agreeToMission,
-                
-                // Spending Habits & Demand
-                spendingCategories: input.spendingCategories,
-                monthlyCommitment: input.monthlyCommitment,
-                
-                // Commitment & Participation
-                useUC: input.useUC,
-                acceptFees: input.acceptFees,
-                voteOnInvestments: input.voteOnInvestments,
-                
-                // Trust & Accountability
-                coopExperience: input.coopExperience,
-                transparentTransactions: input.transparentTransactions,
-                
-                // Short Answer
-                motivation: input.motivation,
-                desiredService: input.desiredService,
-                
-                // Terms Agreement
-                agreeToCoopValues: input.agreeToCoopValues,
-                agreeToTerms: input.agreeToTerms,
-                agreeToPrivacy: input.agreeToPrivacy,
+                ...applicationData,
+                phone: normalizedPhone, // Use normalized phone
               },
             },
           });

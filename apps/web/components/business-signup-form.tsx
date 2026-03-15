@@ -107,7 +107,7 @@ function BusinessSignupFormContent() {
               name="coopInterest"
               type="text"
               list="business-coop-options"
-              placeholder="Soulaan Black Wealth Coop, Nightlife Coop, or your own idea"
+              placeholder="Soulaan Black Wealth Coop, The SF Nightlife Coop, or your own idea"
               value={coopInterest}
               onChange={(event) => setCoopInterest(event.target.value)}
               disabled={isSubmitting}
@@ -116,7 +116,7 @@ function BusinessSignupFormContent() {
             />
             <datalist id="business-coop-options">
               <option value="Soulaan Black Wealth Coop" />
-              <option value="Nightlife Coop" />
+              <option value="The SF Nightlife Coop" />
               <option value="I don't know yet" />
               <option value="New coop idea" />
             </datalist>

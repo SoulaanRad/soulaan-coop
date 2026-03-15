@@ -122,7 +122,7 @@ function WaitlistFormContent({
                 />
                 <datalist id={`coop-options-${variant}`}>
                   <option value="Soulaan Black Wealth Coop" />
-                  <option value="Nightlife Coop" />
+                  <option value="The SF Nightlife Coop" />
                   <option value="I don't know yet" />
                 </datalist>
               </div>
@@ -239,7 +239,7 @@ function WaitlistFormContent({
           />
           <datalist id={`coop-options-${variant}`}>
             <option value="Soulaan Black Wealth Coop" />
-            <option value="Nightlife Coop" />
+            <option value="The SF Nightlife Coop" />
             <option value="I don't know yet" />
           </datalist>
           

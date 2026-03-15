@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Pressable, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, View, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useSubmitApplication } from '@/hooks/use-api';
 import { useAuth } from '@/contexts/auth-context';
 import { getApiUrl } from '@/lib/config';
 import type { ApplicationData } from '@/lib/api';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,25 +42,22 @@ interface FormData {
   agreeToTerms: boolean;
   agreeToPrivacy: boolean;
   agreeToCoopValues: boolean;
-  // Identity & Eligibility
-  identity: string;
-  agreeToMission: string;
-  // Spending Habits & Demand
-  spendingCategories: string[];
-  monthlyCommitment: string;
-  // Commitment & Participation
-  useUC: string;
-  acceptFees: string;
-  voteOnInvestments: string;
-  // Trust & Accountability
-  coopExperience: string;
-  transparentTransactions: string;
-  // Short Answer
-  motivation: string;
-  desiredService: string;
   // Media uploads
   videoCID: string;
   photoCID: string;
+  // Dynamic question answers stored as key-value pairs
+  dynamicAnswers: Record<string, any>;
+}
+
+interface ApplicationQuestion {
+  id: string;
+  type: string;
+  label: string;
+  description?: string;
+  placeholder?: string;
+  required: boolean;
+  options?: { value: string; label: string }[];
+  validation?: Record<string, unknown>;
 }
 
 export default function OnboardingFlow() {
@@ -84,6 +82,114 @@ export default function OnboardingFlow() {
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const { login } = useAuth();
 
+  // Fetch available coops from backend
+  const [availableCoops, setAvailableCoops] = useState<{
+    id: string;
+    name: string;
+    tagline: string;
+    description: string;
+    mission: string;
+    features: { title: string; description: string }[];
+    eligibility: string;
+    bgColor: string;
+    accentColor: string;
+  }[]>([]);
+  const [isLoadingCoops, setIsLoadingCoops] = useState(true);
+  
+  // Dynamic application questions
+  const [applicationQuestions, setApplicationQuestions] = useState<ApplicationQuestion[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+
+  useEffect(() => {
+    const fetchCoops = async () => {
+      try {
+        const coops = await api.listAvailableCoops();
+        console.log('Fetched coops from backend:', coops);
+        setAvailableCoops(coops);
+      } catch (error) {
+        console.error('Failed to load coops:', error);
+        // Fallback to hardcoded data if fetch fails
+        const fallbackCoops = [
+          {
+            id: 'soulaan',
+            name: 'Soulaan Black Wealth Coop',
+            tagline: 'Building Black Economic Sovereignty',
+            description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
+            mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
+            features: [
+              {
+                title: 'Unity Coin (UC)',
+                description: 'Stable digital currency for rent, retail, and routing co-op fees. Pegged 70% to USD, 30% to community goods.',
+              },
+              {
+                title: 'SoulaaniCoin (SC)',
+                description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Members use SC to help shape co-op goals and vote on bigger proposals when needed.',
+              },
+              {
+                title: 'AI Proposal Engine',
+                description: 'Members can submit proposals that solve everyday economic problems, and the co-op treasury can fund the best solutions. AI evaluates proposals against the goals members voted for, while bigger projects can be escalated for member approval.',
+              },
+            ],
+            eligibility: 'Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)',
+            bgColor: 'bg-red-700',
+            accentColor: 'bg-gold-600',
+          },
+          {
+            id: 'sf-nightlife',
+            name: 'The SF Nightlife Coop',
+            tagline: 'Empowering SF Nightlife Workers to Thrive',
+            description: 'A cooperative dedicated to helping San Francisco nightlife industry workers find housing, secure stable employment, purchase venues, and achieve financial stability through collective support and resources.',
+            mission: 'To empower San Francisco nightlife industry workers by providing access to affordable housing, stable employment opportunities, venue ownership, and financial advancement through cooperative ownership and mutual support.',
+            features: [
+              {
+                title: 'Housing Support',
+                description: 'Access co-op backed housing assistance, roommate matching, and rental support specifically designed for nightlife workers with non-traditional schedules.',
+              },
+              {
+                title: 'Employment Network',
+                description: 'Connect with stable employment opportunities, skill development programs, and career advancement resources within and beyond the nightlife industry.',
+              },
+              {
+                title: 'Venue Ownership',
+                description: 'Pool resources with fellow members to collectively purchase and operate nightlife venues, creating ownership opportunities and long-term wealth building.',
+              },
+            ],
+            eligibility: 'Open to SF nightlife industry workers including DJs, bartenders, servers, security, promoters, and venue staff',
+            bgColor: 'bg-purple-700',
+            accentColor: 'bg-purple-600',
+          },
+        ];
+        console.log('Using fallback coops:', fallbackCoops);
+        setAvailableCoops(fallbackCoops);
+      } finally {
+        setIsLoadingCoops(false);
+      }
+    };
+    fetchCoops();
+  }, []);
+
+  // Fetch application questions when a coop is selected
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      if (!selectedCoopId) return;
+      
+      setIsLoadingQuestions(true);
+      try {
+        const result = await api.getApplicationQuestions(selectedCoopId);
+        setApplicationQuestions(result.questions);
+        console.log('Loaded questions for coop:', selectedCoopId, result.questions);
+      } catch (error) {
+        console.error('Failed to fetch application questions:', error);
+        // Use empty questions array as fallback
+        setApplicationQuestions([]);
+      } finally {
+        setIsLoadingQuestions(false);
+      }
+    };
+
+    fetchQuestions();
+  }, [selectedCoopId]);
+
   // Display errors if they exist
   if (submitError) {
     console.error('Submit error:', submitError);
@@ -98,31 +204,15 @@ export default function OnboardingFlow() {
     agreeToTerms: false,
     agreeToPrivacy: false,
     agreeToCoopValues: false,
-    // Identity & Eligibility
-    identity: '',
-    agreeToMission: '',
-    // Spending Habits & Demand
-    spendingCategories: [],
-    monthlyCommitment: '',
-    // Commitment & Participation
-    useUC: '',
-    acceptFees: '',
-    voteOnInvestments: '',
-    // Trust & Accountability
-    coopExperience: '',
-    transparentTransactions: '',
-    // Short Answer
-    motivation: '',
-    desiredService: '',
-    // Media uploads
     videoCID: '',
     photoCID: '',
+    dynamicAnswers: {},
   });
 
   // Generic platform introduction screens
   const splashScreens = [
     {
-      title: 'Welcome to Coop',
+      title: 'Welcome to Cahootz Coop Network',
       subtitle: 'Where Communities Build Together',
       description:
         'Join cooperative communities that invest together, support local businesses, and build shared wealth through collective economic power.',
@@ -149,72 +239,180 @@ export default function OnboardingFlow() {
       title: 'AI-Powered Governance',
       subtitle: 'Smart Proposals, Better Decisions',
       description:
-        'Members vote on the co-op\'s goals, then submit proposals that address real economic challenges. AI evaluates each proposal based on those goals, and larger projects can still be sent to members for a vote.',
+        'Every co-op has an AI proposal engine that helps members create, evaluate, and vote on projects. Make informed decisions backed by data and community wisdom.',
       icon: Vote,
       bgColor: 'bg-red-700',
     },
   ];
 
-  // Co-op specific information (currently only Soulaan, but designed to be extensible)
-  const availableCoops = [
-    {
-      id: 'soulaan',
-      name: 'Soulaan Black Wealth Coop',
-      tagline: 'Building Black Economic Sovereignty',
-      description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
-      mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
-      features: [
-        {
-          title: 'Unity Coin (UC)',
-          description: 'Stable digital currency for rent, retail, and routing co-op fees. Pegged 70% to USD, 30% to community goods.',
-          icon: Store,
-        },
-        {
-          title: 'SoulaaniCoin (SC)',
-          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Members use SC to help shape co-op goals and vote on bigger proposals when needed.',
-          icon: Vote,
-        },
-        {
-          title: 'AI Proposal Engine',
-          description: 'Members can submit proposals that solve everyday economic problems, and the co-op treasury can fund the best solutions. AI evaluates proposals against the goals members voted for, while bigger projects can be escalated for member approval.',
-          icon: TrendingUp,
-        },
-      ],
-      eligibility: 'Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)',
-      bgColor: 'bg-red-700',
-      accentColor: 'bg-gold-600',
-    },
-    {
-      id: 'nightlife',
-      name: 'Nightlife Coop',
-      tagline: 'Empowering Nightlife Workers to Thrive',
-      description: 'A cooperative dedicated to helping nightlife industry workers find housing, secure stable employment, purchase venues, and achieve financial stability through collective support and resources.',
-      mission: 'To empower nightlife industry workers by providing access to affordable housing, stable employment opportunities, venue ownership, and financial advancement through cooperative ownership and mutual support.',
-      features: [
-        {
-          title: 'Housing Support',
-          description: 'Access co-op backed housing assistance, roommate matching, and rental support specifically designed for nightlife workers with non-traditional schedules.',
-          icon: Building,
-        },
-        {
-          title: 'Employment Network',
-          description: 'Connect with stable employment opportunities, skill development programs, and career advancement resources within and beyond the nightlife industry.',
-          icon: Users,
-        },
-        {
-          title: 'Venue Ownership',
-          description: 'Pool resources with fellow members to collectively purchase and operate nightlife venues, creating ownership opportunities and long-term wealth building.',
-          icon: Store,
-        },
-      ],
-      eligibility: 'Open to nightlife industry workers including DJs, bartenders, servers, security, promoters, and venue staff',
-      bgColor: 'bg-purple-700',
-      accentColor: 'bg-purple-600',
-    },
-  ];
+  // Add icons to features from backend data
+  const coopsWithIcons = availableCoops?.map(coop => ({
+    ...coop,
+    features: coop.features.map((feature) => {
+      // Map feature titles to appropriate icons
+      let icon = Store; // default
+      if (feature.title.includes('Coin') || feature.title.includes('Governance')) icon = Vote;
+      if (feature.title.includes('AI') || feature.title.includes('Proposal')) icon = TrendingUp;
+      if (feature.title.includes('Housing')) icon = Building;
+      if (feature.title.includes('Employment') || feature.title.includes('Network')) icon = Users;
+      if (feature.title.includes('Venue') || feature.title.includes('Ownership')) icon = Store;
+      
+      return { ...feature, icon };
+    }),
+  })) || [];
+
+  // Debug logging
+  console.log('availableCoops:', availableCoops);
+  console.log('coopsWithIcons:', coopsWithIcons);
+  console.log('isLoadingCoops:', isLoadingCoops);
 
   const handleInputChange = (field: keyof FormData, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDynamicAnswerChange = (questionId: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      dynamicAnswers: {
+        ...prev.dynamicAnswers,
+        [questionId]: value,
+      },
+    }));
+    setErrorMessage('');
+  };
+
+  const renderDynamicQuestion = (question: ApplicationQuestion) => {
+    const answer = formData.dynamicAnswers[question.id];
+
+    switch (question.type) {
+      case 'radio':
+        return (
+          <View key={question.id}>
+            <Label className="text-charcoal-700 font-medium mb-3">
+              {question.label} {question.required && '*'}
+            </Label>
+            {question.description && (
+              <Text className="text-sm text-charcoal-600 mb-2">{question.description}</Text>
+            )}
+            <View className={question.options && question.options.length > 2 ? "gap-2" : "flex flex-row gap-4"}>
+              {question.options?.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={answer === option.value ? 'default' : 'outline'}
+                  onPress={() => handleDynamicAnswerChange(question.id, option.value)}
+                  className={question.options && question.options.length > 2 ? "justify-start" : "flex-1"}
+                >
+                  <Text className={answer === option.value ? 'text-white' : 'text-charcoal-700'}>
+                    {option.label}
+                  </Text>
+                </Button>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'select':
+        return (
+          <View key={question.id}>
+            <Label className="text-charcoal-700 font-medium mb-3">
+              {question.label} {question.required && '*'}
+            </Label>
+            {question.description && (
+              <Text className="text-sm text-charcoal-600 mb-2">{question.description}</Text>
+            )}
+            <View className="gap-2">
+              {question.options?.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={answer === option.value ? 'default' : 'outline'}
+                  onPress={() => handleDynamicAnswerChange(question.id, option.value)}
+                  className="justify-start"
+                >
+                  <Text className={answer === option.value ? 'text-white' : 'text-charcoal-700'}>
+                    {option.label}
+                  </Text>
+                </Button>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'multiselect':
+        const selectedValues = (answer as string[]) || [];
+        return (
+          <View key={question.id}>
+            <Label className="text-charcoal-700 font-medium mb-3">
+              {question.label} {question.required && '*'}
+            </Label>
+            {question.description && (
+              <Text className="text-sm text-charcoal-600 mb-2">{question.description}</Text>
+            )}
+            <View className="gap-2">
+              {question.options?.map((option) => (
+                <View key={option.value} className="flex flex-row items-center gap-2">
+                  <Checkbox
+                    checked={selectedValues.includes(option.value)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        handleDynamicAnswerChange(question.id, [...selectedValues, option.value]);
+                      } else {
+                        handleDynamicAnswerChange(
+                          question.id,
+                          selectedValues.filter((v) => v !== option.value)
+                        );
+                      }
+                    }}
+                  />
+                  <Text className="text-sm text-charcoal-700 flex-1">{option.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'textarea':
+        return (
+          <View key={question.id}>
+            <Label className="text-charcoal-700 font-medium">
+              {question.label} {question.required && '*'}
+            </Label>
+            {question.description && (
+              <Text className="text-sm text-charcoal-600 mt-1">{question.description}</Text>
+            )}
+            <TextInput
+              value={answer || ''}
+              onChangeText={(text) => handleDynamicAnswerChange(question.id, text)}
+              placeholder={question.placeholder || ''}
+              multiline
+              numberOfLines={3}
+              className="mt-2 w-full px-3 py-2 border border-cream-300 rounded-md text-base text-foreground"
+              style={{ textAlignVertical: 'top' }}
+            />
+          </View>
+        );
+
+      case 'text':
+      case 'email':
+      case 'phone':
+      default:
+        return (
+          <View key={question.id}>
+            <Label className="text-charcoal-700 font-medium">
+              {question.label} {question.required && '*'}
+            </Label>
+            {question.description && (
+              <Text className="text-sm text-charcoal-600 mt-1">{question.description}</Text>
+            )}
+            <TextInput
+              value={answer || ''}
+              onChangeText={(text) => handleDynamicAnswerChange(question.id, text)}
+              placeholder={question.placeholder || ''}
+              keyboardType={question.type === 'email' ? 'email-address' : question.type === 'phone' ? 'phone-pad' : 'default'}
+              className="mt-2 w-full px-3 py-2 border border-cream-300 rounded-md text-base text-foreground"
+            />
+          </View>
+        );
+    }
   };
 
   const nextStep = () => {
@@ -283,15 +481,15 @@ export default function OnboardingFlow() {
         return;
       }
       
-      if (!formData.identity) missingFields.push('Identity Selection');
-      if (!formData.agreeToMission) missingFields.push('Mission Agreement');
-      if (formData.spendingCategories.length === 0) missingFields.push('Spending Categories');
-      if (!formData.monthlyCommitment) missingFields.push('Monthly Commitment');
-      if (!formData.useUC) missingFields.push('UC Usage Agreement');
-      if (!formData.acceptFees) missingFields.push('Fees Agreement');
-      if (!formData.voteOnInvestments) missingFields.push('Voting Agreement');
-      if (!formData.coopExperience) missingFields.push('Co-op Experience');
-      if (!formData.transparentTransactions) missingFields.push('Transaction Transparency Agreement');
+      // Validate dynamic questions
+      applicationQuestions.forEach((question) => {
+        if (question.required) {
+          const answer = formData.dynamicAnswers[question.id];
+          if (!answer || (question.type === 'multiselect' && (answer as string[]).length === 0)) {
+            missingFields.push(question.label);
+          }
+        }
+      });
       
       if (!formData.agreeToCoopValues) missingFields.push('Co-op Values Agreement');
       if (!formData.agreeToTerms) missingFields.push('Terms of Service Agreement');
@@ -319,7 +517,7 @@ export default function OnboardingFlow() {
         return;
       }
 
-      // Prepare application data
+      // Prepare application data with dynamic answers
       const applicationData: ApplicationData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -327,23 +525,14 @@ export default function OnboardingFlow() {
         phone: formData.phone,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        identity: formData.identity as any,
-        agreeToMission: formData.agreeToMission as any,
-        spendingCategories: formData.spendingCategories,
-        monthlyCommitment: formData.monthlyCommitment as any,
-        useUC: formData.useUC as any,
-        acceptFees: formData.acceptFees as any,
-        voteOnInvestments: formData.voteOnInvestments as any,
-        coopExperience: formData.coopExperience as any,
-        transparentTransactions: formData.transparentTransactions as any,
-        motivation: formData.motivation,
-        desiredService: formData.desiredService,
+        // Include all dynamic answers
+        ...formData.dynamicAnswers,
         videoCID: formData.videoCID || undefined,
         photoCID: formData.photoCID || undefined,
         agreeToCoopValues: formData.agreeToCoopValues,
         agreeToTerms: formData.agreeToTerms,
         agreeToPrivacy: formData.agreeToPrivacy,
-      };
+      } as any;
 
       // Submit application using hook
       // Sanitize sensitive fields before logging
@@ -589,26 +778,43 @@ export default function OnboardingFlow() {
             </Text>
           </View>
 
+          {/* Loading State */}
+          {isLoadingCoops && (
+            <View className="items-center py-8">
+              <ActivityIndicator size="large" color="#D4AF37" />
+              <Text className="text-charcoal-600 mt-4">Loading available co-ops...</Text>
+            </View>
+          )}
+
           {/* Co-op Cards */}
-          <View className="gap-4">
-            {availableCoops.map((coop) => (
-              <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
-                <Card className={`${coop.bgColor} border-0 shadow-lg`}>
-                  <CardContent className="p-6">
-                    <Text className="text-xl font-bold text-white mb-1">{coop.name}</Text>
-                    <Text className="text-cream-100 font-semibold mb-3">{coop.tagline}</Text>
-                    <Text className="text-cream-100 text-sm mb-4">{coop.description}</Text>
-                    <View className="flex flex-row items-center justify-between">
-                      <Badge className="bg-white/20">
-                        <Text className="text-white text-xs">Learn More</Text>
-                      </Badge>
-                      <Icon as={ChevronRight} size={20} className="text-white" />
-                    </View>
-                  </CardContent>
-                </Card>
-              </Pressable>
-            ))}
-          </View>
+          {!isLoadingCoops && coopsWithIcons.length > 0 && (
+            <View className="gap-4">
+              {coopsWithIcons.map((coop) => (
+                <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
+                  <Card className={`${coop.bgColor} border-0 shadow-lg`}>
+                    <CardContent className="p-6">
+                      <Text className="text-xl font-bold text-white mb-1">{coop.name}</Text>
+                      <Text className="text-cream-100 font-semibold mb-3">{coop.tagline}</Text>
+                      <Text className="text-cream-100 text-sm mb-4">{coop.description}</Text>
+                      <View className="flex flex-row items-center justify-between">
+                        <Badge className="bg-white/20">
+                          <Text className="text-white text-xs">Learn More</Text>
+                        </Badge>
+                        <Icon as={ChevronRight} size={20} className="text-white" />
+                      </View>
+                    </CardContent>
+                  </Card>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* No Coops Available */}
+          {!isLoadingCoops && coopsWithIcons.length === 0 && (
+            <View className="items-center py-8">
+              <Text className="text-charcoal-600 text-center">No cooperatives available at this time.</Text>
+            </View>
+          )}
 
           {/* Navigation */}
           <View className="flex flex-row justify-between items-center mt-6">
@@ -627,7 +833,7 @@ export default function OnboardingFlow() {
   );
 
   const renderCoopDetails = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const selectedCoop = coopsWithIcons.find(c => c.id === selectedCoopId);
     if (!selectedCoop) return null;
 
     return (
@@ -710,7 +916,7 @@ export default function OnboardingFlow() {
   };
 
   const renderPersonalInfo = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const selectedCoop = coopsWithIcons.find(c => c.id === selectedCoopId);
     
     return (
     <ScrollView className="flex-1 bg-background">
@@ -864,7 +1070,7 @@ export default function OnboardingFlow() {
   };
 
   const renderApplicationQuestions = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const selectedCoop = coopsWithIcons.find(c => c.id === selectedCoopId);
     
     return (
     <ScrollView className="flex-1 bg-background">
@@ -881,120 +1087,30 @@ export default function OnboardingFlow() {
             <Text className="text-charcoal-600 text-center">Step 2 of 4: Tell us about yourself</Text>
           </View>
 
-          <Card className="bg-white border-cream-200">
-            <CardContent className="p-6">
-              <View className="gap-6">
-                {/* Identity & Eligibility */}
-                <View>
-                  <Label className="text-charcoal-700 font-medium mb-3">Are you applying as: *</Label>
-                  <View className="gap-2">
-                    {[
-                      { value: 'black-american', label: 'Black American (African American)' },
-                      { value: 'afro-caribbean', label: 'Afro-Caribbean' },
-                      { value: 'african-immigrant', label: 'African immigrant' },
-                      { value: 'ally', label: 'Ally (non-voting)' },
-                    ].map((option) => (
-                      <Button
-                        key={option.value}
-                        variant={formData.identity === option.value ? 'default' : 'outline'}
-                        onPress={() => handleInputChange('identity', option.value)}
-                        className="justify-start"
-                      >
-                        <Text className={formData.identity === option.value ? 'text-white' : 'text-charcoal-700'}>
-                          {option.label}
-                        </Text>
-                      </Button>
-                    ))}
-                  </View>
+          {isLoadingQuestions ? (
+            <Card className="bg-white border-cream-200">
+              <CardContent className="p-6">
+                <View className="items-center justify-center py-8">
+                  <ActivityIndicator size="large" color="#991b1b" />
+                  <Text className="text-charcoal-600 mt-4">Loading questions...</Text>
                 </View>
-
-                {/* Mission Agreement */}
-                <View>
-                  <Label className="text-charcoal-700 font-medium mb-3">
-                    Do you agree that the mission of the Co-op is to circulate and grow Black wealth through collective
-                    buying power? *
-                  </Label>
-                  <View className="flex flex-row gap-4">
-                    {[
-                      { value: 'yes', label: 'Yes' },
-                      { value: 'no', label: 'No' },
-                    ].map((option) => (
-                      <Button
-                        key={option.value}
-                        variant={formData.agreeToMission === option.value ? 'default' : 'outline'}
-                        onPress={() => handleInputChange('agreeToMission', option.value)}
-                        className="flex-1"
-                      >
-                        <Text className={formData.agreeToMission === option.value ? 'text-white' : 'text-charcoal-700'}>
-                          {option.label}
-                        </Text>
-                      </Button>
-                    ))}
-                  </View>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-white border-cream-200">
+              <CardContent className="p-6">
+                <View className="gap-6">
+                  {applicationQuestions.map((question) => renderDynamicQuestion(question))}
+                  
+                  {applicationQuestions.length === 0 && (
+                    <View className="items-center py-8">
+                      <Text className="text-charcoal-600">No questions available for this cooperative.</Text>
+                    </View>
+                  )}
                 </View>
-
-                {/* Spending Categories */}
-                <View>
-                  <Label className="text-charcoal-700 font-medium mb-3">
-                    What categories do you spend the most on monthly? (Select all that apply) *
-                  </Label>
-                  <View className="gap-2">
-                    {[
-                      'Rent/Housing',
-                      'Groceries',
-                      'Utilities/Phone/Internet',
-                      'Transportation (gas, rideshare, car service)',
-                      'Healthcare/Insurance',
-                      'Retail/Shopping',
-                    ].map((category) => (
-                      <View key={category} className="flex flex-row items-center gap-2">
-                        <Checkbox
-                          checked={formData.spendingCategories.includes(category)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              handleInputChange('spendingCategories', [...formData.spendingCategories, category]);
-                            } else {
-                              handleInputChange(
-                                'spendingCategories',
-                                formData.spendingCategories.filter((c) => c !== category)
-                              );
-                            }
-                          }}
-                        />
-                        <Text className="text-sm text-charcoal-700 flex-1">{category}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Monthly Commitment */}
-                <View>
-                  <Label className="text-charcoal-700 font-medium mb-3">
-                    Roughly how much of your monthly spending could you commit to route through the Co-op (in UC)? *
-                  </Label>
-                  <View className="gap-2">
-                    {[
-                      { value: 'less-250', label: 'Less than $250' },
-                      { value: '250-500', label: '$250–$500' },
-                      { value: '500-1000', label: '$500–$1,000' },
-                      { value: 'over-1000', label: 'Over $1,000' },
-                    ].map((option) => (
-                      <Button
-                        key={option.value}
-                        variant={formData.monthlyCommitment === option.value ? 'default' : 'outline'}
-                        onPress={() => handleInputChange('monthlyCommitment', option.value)}
-                        className="justify-start"
-                      >
-                        <Text className={formData.monthlyCommitment === option.value ? 'text-white' : 'text-charcoal-700'}>
-                          {option.label}
-                        </Text>
-                      </Button>
-                    ))}
-                  </View>
-                </View>
-              </View>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Navigation */}
           <View className="flex flex-row justify-between items-center mt-6">
@@ -1005,10 +1121,15 @@ export default function OnboardingFlow() {
             <Button
               onPress={nextStep}
               disabled={
-                !formData.identity ||
-                !formData.agreeToMission ||
-                formData.spendingCategories.length === 0 ||
-                !formData.monthlyCommitment
+                isLoadingQuestions ||
+                applicationQuestions.some((q) => {
+                  if (!q.required) return false;
+                  const answer = formData.dynamicAnswers[q.id];
+                  if (q.type === 'multiselect') {
+                    return !answer || (answer as string[]).length === 0;
+                  }
+                  return !answer || answer === '';
+                })
               }
               className="bg-red-700"
             >
@@ -1023,7 +1144,6 @@ export default function OnboardingFlow() {
   };
 
   const renderMediaUpload = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
     const apiUrl = getApiUrl();
 
     return (
@@ -1103,7 +1223,7 @@ export default function OnboardingFlow() {
   };
 
   const renderCommitmentQuestions = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const selectedCoop = coopsWithIcons.find(c => c.id === selectedCoopId);
 
     return (
     <ScrollView className="flex-1 bg-background">
@@ -1117,160 +1237,12 @@ export default function OnboardingFlow() {
             <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">
               {selectedCoop?.name} Application
             </Text>
-            <Text className="text-charcoal-600 text-center">Step 4 of 4: Commitment & Trust</Text>
+            <Text className="text-charcoal-600 text-center">Step 4 of 4: Review & Submit</Text>
           </View>
 
           <Card className="bg-white border-cream-200">
             <CardContent className="p-6">
               <View className="gap-6">
-                {/* Commitment Questions */}
-                <View className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <Text className="font-semibold text-charcoal-800 mb-4">Are you willing to:</Text>
-
-                  <View className="gap-4">
-                    <View>
-                      <Label className="text-charcoal-700 font-medium mb-2">
-                        Use UC (the co-op&apos;s stablecoin) for purchases and rent? *
-                      </Label>
-                      <View className="flex flex-row gap-4">
-                        {['yes', 'no'].map((option) => (
-                          <Button
-                            key={option}
-                            variant={formData.useUC === option ? 'default' : 'outline'}
-                            onPress={() => handleInputChange('useUC', option)}
-                            className="flex-1"
-                          >
-                            <Text className={formData.useUC === option ? 'text-white' : 'text-charcoal-700'}>
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </Button>
-                        ))}
-                      </View>
-                    </View>
-
-                    <View>
-                      <Label className="text-charcoal-700 font-medium mb-2">
-                        Accept small fees that go into the Co-op&apos;s wealth fund? *
-                      </Label>
-                      <View className="flex flex-row gap-4">
-                        {['yes', 'no'].map((option) => (
-                          <Button
-                            key={option}
-                            variant={formData.acceptFees === option ? 'default' : 'outline'}
-                            onPress={() => handleInputChange('acceptFees', option)}
-                            className="flex-1"
-                          >
-                            <Text className={formData.acceptFees === option ? 'text-white' : 'text-charcoal-700'}>
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </Button>
-                        ))}
-                      </View>
-                    </View>
-
-                    <View>
-                      <Label className="text-charcoal-700 font-medium mb-2">
-                        Vote on how the Co-op invests surplus funds (if eligible)? *
-                      </Label>
-                      <View className="flex flex-row gap-4">
-                        {['yes', 'no'].map((option) => (
-                          <Button
-                            key={option}
-                            variant={formData.voteOnInvestments === option ? 'default' : 'outline'}
-                            onPress={() => handleInputChange('voteOnInvestments', option)}
-                            className="flex-1"
-                          >
-                            <Text className={formData.voteOnInvestments === option ? 'text-white' : 'text-charcoal-700'}>
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </Button>
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Trust & Accountability */}
-                <View className="bg-gold-50 border border-gold-200 rounded-lg p-4">
-                  <Text className="font-semibold text-charcoal-800 mb-4">Trust & Accountability</Text>
-
-                  <View className="gap-4">
-                    <View>
-                      <Label className="text-charcoal-700 font-medium mb-2">
-                        Have you ever participated in a co-op, credit union, or sou-sou (rotating savings club)? *
-                      </Label>
-                      <View className="flex flex-row gap-4">
-                        {['yes', 'no'].map((option) => (
-                          <Button
-                            key={option}
-                            variant={formData.coopExperience === option ? 'default' : 'outline'}
-                            onPress={() => handleInputChange('coopExperience', option)}
-                            className="flex-1"
-                          >
-                            <Text className={formData.coopExperience === option ? 'text-white' : 'text-charcoal-700'}>
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </Button>
-                        ))}
-                      </View>
-                    </View>
-
-                    <View>
-                      <Label className="text-charcoal-700 font-medium mb-2">
-                        Are you willing to make your Co-op transactions visible on-chain (pseudonymous, but transparent to
-                        the community) to support trust? *
-                      </Label>
-                      <View className="flex flex-row gap-4">
-                        {['yes', 'no'].map((option) => (
-                          <Button
-                            key={option}
-                            variant={formData.transparentTransactions === option ? 'default' : 'outline'}
-                            onPress={() => handleInputChange('transparentTransactions', option)}
-                            className="flex-1"
-                          >
-                            <Text className={formData.transparentTransactions === option ? 'text-white' : 'text-charcoal-700'}>
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </Button>
-                        ))}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Optional Short Answers */}
-                <View className="gap-4">
-                  <View>
-                    <Label className="text-charcoal-700 font-medium">
-                      Why do you want to join the Soulaan Black Wealth Coop? (Optional)
-                    </Label>
-                    <TextInput
-                      value={formData.motivation}
-                      onChangeText={(text) => handleInputChange('motivation', text)}
-                      placeholder="Share your motivation for joining..."
-                      multiline
-                      numberOfLines={3}
-                      className="mt-2 w-full px-3 py-2 border border-cream-300 rounded-md text-base text-foreground"
-                      style={{ textAlignVertical: 'top' }}
-                    />
-                  </View>
-
-                  <View>
-                    <Label className="text-charcoal-700 font-medium">
-                      What&apos;s one product or service you&apos;d most like to see offered through the Co-op first? (Optional)
-                    </Label>
-                    <TextInput
-                      value={formData.desiredService}
-                      onChangeText={(text) => handleInputChange('desiredService', text)}
-                      placeholder="What would you like to see offered first..."
-                      multiline
-                      numberOfLines={3}
-                      className="mt-2 w-full px-3 py-2 border border-cream-300 rounded-md text-base text-foreground"
-                      style={{ textAlignVertical: 'top' }}
-                    />
-                  </View>
-                </View>
-
                 {/* Terms Agreement */}
                 <View className="gap-3 pt-4 border-t border-cream-200">
                   <View className="flex flex-row items-start gap-3">
@@ -1279,7 +1251,7 @@ export default function OnboardingFlow() {
                       onCheckedChange={(checked) => handleInputChange('agreeToCoopValues', !!checked)}
                     />
                     <Text className="text-charcoal-800 font-medium flex-1">
-                      I align with Soulaan&apos;s values and mission
+                      I align with this co-op&apos;s values and mission
                     </Text>
                   </View>
 
@@ -1333,11 +1305,6 @@ export default function OnboardingFlow() {
               disabled={
                 submissionStatus !== 'idle' ||
                 isSubmitting ||
-                !formData.useUC ||
-                !formData.acceptFees ||
-                !formData.voteOnInvestments ||
-                !formData.coopExperience ||
-                !formData.transparentTransactions ||
                 !formData.agreeToCoopValues ||
                 !formData.agreeToTerms ||
                 !formData.agreeToPrivacy
@@ -1366,7 +1333,7 @@ export default function OnboardingFlow() {
   };
 
   const renderApplicationSubmitted = () => {
-    const selectedCoop = availableCoops.find(c => c.id === selectedCoopId);
+    const selectedCoop = coopsWithIcons.find(c => c.id === selectedCoopId);
     
     return (
     <ScrollView className="flex-1 bg-background">

@@ -182,8 +182,7 @@ export const storeRouter = router({
         reviewCount: store.reviewCount,
         totalOrders: store.totalOrders,
         productCount: store._count.products,
-        owner: store.owner,
-        businessId: store.businessId,
+        owner: store.owner
       };
     }),
 
