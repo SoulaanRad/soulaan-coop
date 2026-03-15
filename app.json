@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "d6eac9aa-edde-46f3-b75e-6fcad6e89359"
+      }
+    },
+    "owner": "cahootz-coop",
+    "slug": "cahootz-coop",
+    "android": {
+      "package": "com.cahootzcoop.cahootzcoop"
+    },
+    "ios": {
+      "bundleIdentifier": "com.cahootzcoop.cahootzcoop",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

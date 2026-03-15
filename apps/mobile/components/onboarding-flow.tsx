@@ -149,7 +149,7 @@ export default function OnboardingFlow() {
       title: 'AI-Powered Governance',
       subtitle: 'Smart Proposals, Better Decisions',
       description:
-        'Every co-op has an AI proposal engine that helps members create, evaluate, and vote on projects. Make informed decisions backed by data and community wisdom.',
+        'Members vote on the co-op\'s goals, then submit proposals that address real economic challenges. AI evaluates each proposal based on those goals, and larger projects can still be sent to members for a vote.',
       icon: Vote,
       bgColor: 'bg-red-700',
     },
@@ -159,10 +159,10 @@ export default function OnboardingFlow() {
   const availableCoops = [
     {
       id: 'soulaan',
-      name: 'Soulaan Co-op',
+      name: 'Soulaan Black Wealth Coop',
       tagline: 'Building Black Economic Sovereignty',
-      description: 'A cooperative focused on circulating and growing Black wealth through collective buying power and community investment.',
-      mission: 'To empower Black communities by building economic sovereignty through cooperative ownership, local investment, and democratic governance.',
+      description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
+      mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
       features: [
         {
           title: 'Unity Coin (UC)',
@@ -171,18 +171,45 @@ export default function OnboardingFlow() {
         },
         {
           title: 'SoulaaniCoin (SC)',
-          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Vote on proposals and earn yield.',
+          description: 'Earn non-transferable governance tokens by spending UC, paying rent, or working on projects. Members use SC to help shape co-op goals and vote on bigger proposals when needed.',
           icon: Vote,
         },
         {
           title: 'AI Proposal Engine',
-          description: 'Submit and evaluate funding proposals with AI-powered charter compliance scoring and community feedback.',
+          description: 'Members can submit proposals that solve everyday economic problems, and the co-op treasury can fund the best solutions. AI evaluates proposals against the goals members voted for, while bigger projects can be escalated for member approval.',
           icon: TrendingUp,
         },
       ],
       eligibility: 'Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)',
       bgColor: 'bg-red-700',
       accentColor: 'bg-gold-600',
+    },
+    {
+      id: 'nightlife',
+      name: 'Nightlife Coop',
+      tagline: 'Empowering Nightlife Workers to Thrive',
+      description: 'A cooperative dedicated to helping nightlife industry workers find housing, secure stable employment, purchase venues, and achieve financial stability through collective support and resources.',
+      mission: 'To empower nightlife industry workers by providing access to affordable housing, stable employment opportunities, venue ownership, and financial advancement through cooperative ownership and mutual support.',
+      features: [
+        {
+          title: 'Housing Support',
+          description: 'Access co-op backed housing assistance, roommate matching, and rental support specifically designed for nightlife workers with non-traditional schedules.',
+          icon: Building,
+        },
+        {
+          title: 'Employment Network',
+          description: 'Connect with stable employment opportunities, skill development programs, and career advancement resources within and beyond the nightlife industry.',
+          icon: Users,
+        },
+        {
+          title: 'Venue Ownership',
+          description: 'Pool resources with fellow members to collectively purchase and operate nightlife venues, creating ownership opportunities and long-term wealth building.',
+          icon: Store,
+        },
+      ],
+      eligibility: 'Open to nightlife industry workers including DJs, bartenders, servers, security, promoters, and venue staff',
+      bgColor: 'bg-purple-700',
+      accentColor: 'bg-purple-600',
     },
   ];
 
@@ -1215,7 +1242,7 @@ export default function OnboardingFlow() {
                 <View className="gap-4">
                   <View>
                     <Label className="text-charcoal-700 font-medium">
-                      Why do you want to join the Soulaan Co-op? (Optional)
+                      Why do you want to join the Soulaan Black Wealth Coop? (Optional)
                     </Label>
                     <TextInput
                       value={formData.motivation}

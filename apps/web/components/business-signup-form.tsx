@@ -33,7 +33,6 @@ function BusinessSignupFormContent() {
       businessName: formData.get("businessName") as string,
       businessAddress: formData.get("businessAddress") as string,
       businessType: formData.get("businessType") as string,
-      monthlyRevenue: formData.get("monthlyRevenue") as string,
       coopInterest: formData.get("coopInterest") as string,
       description: formData.get("description") as string,
     };
@@ -80,7 +79,7 @@ function BusinessSignupFormContent() {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="h-6 w-6 text-cyan-300"
+            className="h-6 w-6 text-orange-300"
           >
             <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -108,16 +107,17 @@ function BusinessSignupFormContent() {
               name="coopInterest"
               type="text"
               list="business-coop-options"
-              placeholder="Soulaan Coop, SF Artist Coop, East Bay Food Coop, or your own idea"
+              placeholder="Soulaan Black Wealth Coop, Nightlife Coop, or your own idea"
               value={coopInterest}
               onChange={(event) => setCoopInterest(event.target.value)}
               disabled={isSubmitting}
-              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-300/50"
+              data-ph-capture-attribute-coopinterest="true"
             />
             <datalist id="business-coop-options">
-              <option value="Soulaan Coop" />
-              <option value="SF Artist Coop" />
-              <option value="East Bay Food Coop" />
+              <option value="Soulaan Black Wealth Coop" />
+              <option value="Nightlife Coop" />
+              <option value="I don't know yet" />
               <option value="New coop idea" />
             </datalist>
           </div>
@@ -134,7 +134,8 @@ function BusinessSignupFormContent() {
                 placeholder="John Smith"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
+                data-ph-capture-attribute-ownername="true"
               />
             </div>
             <div className="space-y-2">
@@ -148,7 +149,8 @@ function BusinessSignupFormContent() {
                 placeholder="john@yourbusiness.com"
                 required
                 disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
+                data-ph-capture-attribute-owneremail="true"
               />
             </div>
           </div>
@@ -165,6 +167,7 @@ function BusinessSignupFormContent() {
               required
               disabled={isSubmitting}
               className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              data-ph-capture-attribute-businessname="true"
             />
           </div>
 
@@ -183,59 +186,37 @@ function BusinessSignupFormContent() {
               required
               disabled={isSubmitting}
               className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              data-ph-capture-attribute-businessaddress="true"
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label
-                htmlFor="businessType"
-                className="block text-sm text-white"
-              >
-                Business Type *
-              </label>
-              <select
-                id="businessType"
-                name="businessType"
-                required
-                disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
-              >
-                <option value="">Select business type</option>
-                <option value="restaurant">Restaurant/Food Service</option>
-                <option value="retail">Retail Store</option>
-                <option value="salon">Beauty/Hair Salon</option>
-                <option value="automotive">Automotive Service</option>
-                <option value="professional">Professional Services</option>
-                <option value="health">Health/Wellness</option>
-                <option value="construction">Construction/Trades</option>
-                <option value="technology">Technology</option>
-                <option value="entertainment">Entertainment/Events</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="monthlyRevenue"
-                className="block text-sm text-white"
-              >
-                Monthly Revenue Range
-              </label>
-              <select
-                id="monthlyRevenue"
-                name="monthlyRevenue"
-                disabled={isSubmitting}
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
-              >
-                <option value="">Select range (optional)</option>
-                <option value="under-5k">Under $5,000</option>
-                <option value="5k-15k">$5,000 - $15,000</option>
-                <option value="15k-50k">$15,000 - $50,000</option>
-                <option value="50k-100k">$50,000 - $100,000</option>
-                <option value="over-100k">Over $100,000</option>
-                <option value="prefer-not-to-say">Prefer not to say</option>
-              </select>
-            </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="businessType"
+              className="block text-sm text-white"
+            >
+              Business Type *
+            </label>
+            <select
+              id="businessType"
+              name="businessType"
+              required
+              disabled={isSubmitting}
+              className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
+              data-ph-capture-attribute-businesstype="true"
+            >
+              <option value="">Select business type</option>
+              <option value="restaurant">Restaurant/Food Service</option>
+              <option value="retail">Retail Store</option>
+              <option value="salon">Beauty/Hair Salon</option>
+              <option value="automotive">Automotive Service</option>
+              <option value="professional">Professional Services</option>
+              <option value="health">Health/Wellness</option>
+              <option value="construction">Construction/Trades</option>
+              <option value="technology">Technology</option>
+              <option value="entertainment">Entertainment/Events</option>
+              <option value="other">Other</option>
+            </select>
           </div>
 
           <div className="space-y-2">
@@ -248,7 +229,8 @@ function BusinessSignupFormContent() {
               placeholder="What products/services do you offer? How many customers do you serve? Any questions about Unity Coin integration?"
               disabled={isSubmitting}
               rows={3}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/50"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-300/50"
+              data-ph-capture-attribute-description="true"
             />
           </div>
 
@@ -288,7 +270,7 @@ function BusinessSignupFormContent() {
             <div
               className={`flex items-center gap-2 rounded p-3 text-sm ${
                 result.success
-                  ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                  ? "border border-orange-400/20 bg-orange-400/10 text-orange-200"
                   : "border border-red-400/20 bg-red-400/10 text-red-200"
               }`}
             >

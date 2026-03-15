@@ -53,6 +53,12 @@ interface StepCard {
   description: string;
 }
 
+interface BusinessBenefitCard {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}
+
 const problemCards: ProblemCard[] = [
   {
     title: "Affordable Housing",
@@ -95,9 +101,9 @@ const activeCoops: CoopCard[] = [
   {
     name: "Soulaan Coop",
     description:
-      "A cooperative focused on building shared wealth through community businesses, investments, and collective action.",
+      "A cooperative for Black Americans to build economic independence through collective ownership, community investment, and democratic governance.",
     focus:
-      "Members help grow a shared treasury and vote on projects that improve economic opportunity and stability.",
+      "Members help grow a shared treasury, set co-op goals, and support solutions that build wealth, strengthen Black businesses, and expand economic opportunity.",
     buttonLabel: "Join Soulaan Coop",
     accent: "from-orange-400/30 to-amber-400/10",
     status: "Live Coop",
@@ -151,11 +157,58 @@ const steps: StepCard[] = [
   },
 ];
 
+const businessBenefits: BusinessBenefitCard[] = [
+  {
+    title: "New Customers",
+    description:
+      "Reach members who intentionally spend within the cooperative network and want to support participating businesses.",
+    icon: Users2,
+  },
+  {
+    title: "Access Capital",
+    description:
+      "Apply for funding from the community treasury to grow your capacity, launch new offerings, or invest in equipment.",
+    icon: Landmark,
+  },
+  {
+    title: "Greater Visibility",
+    description:
+      "Be featured inside the network so members can discover, trust, and choose your business more often.",
+    icon: Sparkles,
+  },
+  {
+    title: "Community Influence",
+    description:
+      "Participate in governance, help shape proposals, and influence the direction of the cooperative economy you are helping build.",
+    icon: Vote,
+  },
+  {
+    title: "AI-Assisted Proposals",
+    description:
+      "Use AI-supported proposal tools to turn business needs and community ideas into clearer plans the coop can evaluate and vote on.",
+    icon: Sparkles,
+  },
+  {
+    title: "Stronger Local Loyalty",
+    description:
+      "Build repeat relationships with customers who care about keeping value circulating close to home.",
+    icon: Handshake,
+  },
+  {
+    title: "Shared Growth",
+    description:
+      "Join a network where business success strengthens the treasury, expands demand, and creates more opportunity for everyone.",
+    icon: Coins,
+  },
+];
+
 const futureCoops = [
-  "Local food cooperatives",
-  "Housing cooperatives",
-  "Worker cooperatives",
-  "Creative cooperatives",
+  "NYC working-class families",
+  "Gen Z builders and creators",
+  "Bay Area renters",
+  "Parents and caregivers",
+  "First-generation professionals",
+  "Black artists and cultural workers",
 ];
 
 const heroLoop = [
@@ -229,6 +282,9 @@ export default function SoulaanLanding() {
             </Link>
             <Link href="#how-it-works" className="transition hover:text-white">
               How It Works
+            </Link>
+            <Link href="#business-benefits" className="transition hover:text-white">
+              For Businesses
             </Link>
             <Link href="#member-signup" className="transition hover:text-white">
               Join
@@ -306,11 +362,11 @@ export default function SoulaanLanding() {
             </div>
 
             <div className="relative">
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-orange-400/20 via-amber-400/10 to-yellow-500/20 blur-3xl" />
-              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-cyan-950/30">
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-orange-400/20 via-amber-400/10 to-orange-500/20 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 p-6 shadow-2xl shadow-orange-950/30">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/70">
+                    <p className="text-sm uppercase tracking-[0.3em] text-orange-200/70">
                       Impact loop
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold">
@@ -348,8 +404,8 @@ export default function SoulaanLanding() {
                                 index === 0
                                   ? "w-3/4 bg-gradient-to-r from-orange-300 to-amber-300"
                                   : index === 1
-                                    ? "w-2/3 bg-gradient-to-r from-amber-300 to-yellow-300"
-                                    : "w-4/5 bg-gradient-to-r from-orange-400 to-red-400"
+                                    ? "w-2/3 bg-gradient-to-r from-amber-300 to-orange-400"
+                                    : "w-4/5 bg-gradient-to-r from-orange-400 to-amber-500"
                               }`}
                             />
                           </div>
@@ -371,7 +427,7 @@ export default function SoulaanLanding() {
                     </p>
                   </div>
                   <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center gap-3 text-cyan-200">
+                    <div className="flex items-center gap-3 text-amber-200">
                       <Users2 className="h-5 w-5" />
                       <p className="font-medium">Member governance</p>
                     </div>
@@ -397,9 +453,10 @@ export default function SoulaanLanding() {
                 Vote On What Matters
               </h2>
               <p className="mt-5 text-lg leading-8 text-slate-400">
-                Members of each coop can vote on proposals that address real
-                challenges in the economy. The cooperative treasury can be used
-                to support solutions that improve everyday life.
+                Members vote on the co-op&apos;s goals, and proposals are judged
+                against those priorities. AI helps evaluate most proposals, while
+                the cooperative treasury funds solutions to real economic
+                challenges and members step in mainly for bigger projects.
               </p>
             </div>
 
@@ -501,7 +558,7 @@ export default function SoulaanLanding() {
                   key={step.step}
                   className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6"
                 >
-                  <div className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-cyan-200">
+                  <div className="inline-flex rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-orange-200">
                     {step.step}
                   </div>
                   <h3 className="mt-5 text-xl font-semibold text-white">
@@ -512,6 +569,77 @@ export default function SoulaanLanding() {
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="business-benefits"
+          className="border-y border-white/5 bg-white/[0.02] px-4 py-20 sm:px-6 lg:px-8"
+        >
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
+                  <Store className="h-4 w-4" />
+                  Why Businesses Join
+                </div>
+                <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
+                  A cooperative network can help businesses grow with their community
+                </h2>
+                <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
+                  Businesses do not just get listed. They join a system designed
+                  to drive customers, unlock funding, support AI-assisted
+                  proposals, and build long-term community loyalty through
+                  shared governance.
+                </p>
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  {[
+                    "Join the network",
+                    "Get customers",
+                    "Access funding",
+                    "Use AI proposals",
+                    "Participate in governance",
+                    "Build local trust",
+                    "Help shape the community economy",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-full border border-orange-300/15 bg-orange-300/10 px-4 py-2 text-sm text-orange-100"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  href="#business-signup"
+                  className="mt-8 inline-flex items-center rounded-2xl bg-white px-6 py-3 text-base font-medium text-slate-950 transition hover:bg-slate-200"
+                >
+                  Bring Your Business
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                {businessBenefits.map(({ title, description, icon: Icon }) => (
+                  <div
+                    key={title}
+                    className="rounded-[1.75rem] border border-white/10 bg-slate-950/80 p-6 transition hover:-translate-y-1 hover:border-orange-300/20"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-300/15 to-amber-300/15 text-orange-200">
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="mt-6 text-xl font-semibold text-white">
+                      {title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-slate-400">
+                      {description}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -563,7 +691,7 @@ export default function SoulaanLanding() {
               </div>
 
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-6 sm:col-span-2">
-                <div className="flex items-center gap-3 text-cyan-200">
+                <div className="flex items-center gap-3 text-amber-200">
                   <PiggyBank className="h-5 w-5" />
                   <h3 className="font-semibold text-white">
                     Coops are practical tools, not abstract ideals
@@ -585,25 +713,22 @@ export default function SoulaanLanding() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300">
                   <Sparkles className="h-4 w-4" />
-                  Future Coops
+                  Community-Led Coops
                 </div>
                 <h2 className="mt-6 text-4xl font-semibold md:text-5xl">
-                  More Coops Coming Soon
+                  Coops can be built around real communities, not just industries
                 </h2>
                 <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-400">
-                  Communities of members pool their purchasing power to support
-                  businesses, grow shared treasuries, and fund solutions to
-                  their economic challenges.
-                </p>
-                <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500">
-                  Each coop is built around members who shop, invest, and vote
-                  together—not employees running the businesses.
+                  The next wave of coops does not have to be worker coops.
+                  They can form around shared place, generation, economic
+                  pressure, or lived experience so people with common needs can
+                  build economic power together.
                 </p>
                 <Link
                   href="#member-signup"
                   className="mt-8 inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-base font-medium text-white transition hover:border-white/25 hover:bg-white/10"
                 >
-                  Start a Coop
+                  Propose a Community Coop
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </div>
@@ -654,9 +779,9 @@ export default function SoulaanLanding() {
 
                 <Link
                   href="#business-signup"
-                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-cyan-300/20 hover:bg-white/[0.05]"
+                  className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-orange-300/20 hover:bg-white/[0.05]"
                 >
-                  <p className="text-sm uppercase tracking-[0.2em] text-cyan-200">
+                  <p className="text-sm uppercase tracking-[0.2em] text-orange-200">
                     Business signup
                   </p>
                   <p className="mt-2 text-lg font-medium text-white">
@@ -698,9 +823,9 @@ export default function SoulaanLanding() {
                 Add a business to the coop network
               </h2>
               <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-                Businesses help the network grow, members gain more places to
-                circulate value, and the treasury gains more capacity to fund
-                useful projects.
+                Join the network to reach aligned customers, gain visibility,
+                access community funding, use AI-assisted proposals, and take
+                part in governance that keeps value circulating locally.
               </p>
             </div>
             <Suspense fallback={<div className="text-center text-slate-400">Loading...</div>}>

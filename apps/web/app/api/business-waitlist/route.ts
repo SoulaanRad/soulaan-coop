@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
+import PostHogClient from "@/lib/posthog";
 
 // Create database client directly
 const globalForPrisma = globalThis as unknown as {
@@ -20,7 +21,6 @@ interface BusinessData {
   businessName: string;
   businessAddress: string;
   businessType: string;
-  monthlyRevenue: string;
   coopInterest?: string;
   description?: string;
 }
@@ -34,10 +34,12 @@ export async function POST(request: NextRequest) {
       businessName,
       businessAddress,
       businessType,
-      monthlyRevenue,
       coopInterest,
       description,
     } = body as BusinessData;
+
+    // Capture the origin URL
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "Unknown";
 
     // Validation
     if (!ownerName || !ownerEmail || !businessName || !businessAddress) {
@@ -60,7 +62,6 @@ export async function POST(request: NextRequest) {
       businessName,
       businessAddress,
       businessType,
-      monthlyRevenue,
       coopInterest: coopInterest?.trim() || undefined,
       description: [
         description?.trim(),
@@ -80,7 +81,6 @@ export async function POST(request: NextRequest) {
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
-        monthlyRevenue: businessData.monthlyRevenue,
         description: businessData.description,
       },
       create: {
@@ -89,13 +89,33 @@ export async function POST(request: NextRequest) {
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
-        monthlyRevenue: businessData.monthlyRevenue,
         description: businessData.description,
       },
     });
 
     // Send to Slack
-    await sendBusinessToSlack(businessData);
+    await sendBusinessToSlack(businessData, origin);
+
+    // Identify user in PostHog
+    try {
+      const posthog = PostHogClient();
+      posthog.identify({
+        distinctId: businessData.ownerEmail,
+        properties: {
+          email: businessData.ownerEmail,
+          name: businessData.ownerName,
+          businessName: businessData.businessName,
+          businessAddress: businessData.businessAddress,
+          businessType: businessData.businessType,
+          coopInterest: businessData.coopInterest,
+          signupType: 'business',
+        },
+      });
+      await posthog.shutdown();
+    } catch (error) {
+      console.error("PostHog identification error:", error);
+      // Don't fail the request if PostHog fails
+    }
 
     return NextResponse.json({
       success: true,
@@ -111,7 +131,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Send business signup to Slack
-async function sendBusinessToSlack(data: BusinessData) {
+async function sendBusinessToSlack(data: BusinessData, origin: string) {
   const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
 
   if (!slackWebhookUrl) {
@@ -120,7 +140,7 @@ async function sendBusinessToSlack(data: BusinessData) {
   }
 
   const message = {
-    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Monthly Revenue:* ${data.monthlyRevenue}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🏪 New Business Partnership Interest!\n\n*Business Owner:* ${data.ownerName}\n*Email:* ${data.ownerEmail}\n*Business Name:* ${data.businessName}\n*Address:* ${data.businessAddress}\n*Business Type:* ${data.businessType}\n*Preferred Coop:* ${data.coopInterest || "Not provided"}\n*Description:* ${data.description || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {

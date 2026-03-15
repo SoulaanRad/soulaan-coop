@@ -2,6 +2,7 @@ import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
+import PostHogClient from "@/lib/posthog";
 
 // Create database client directly
 const globalForPrisma = globalThis as unknown as {
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
     const { email, name, source, suggestedCoop } = body as WaitlistData;
     console.log("waitlist-form request", body);
 
+    // Capture the origin URL
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "Unknown";
+
     // Validation
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!email?.includes("@")) {
@@ -44,15 +48,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Require coop selection
+    if (!suggestedCoop?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Please select which coop you want to join" },
+        { status: 400 }
+      );
+    }
+
     const waitlistData: WaitlistData = {
       email,
       name: name || undefined,
       source: source,
-      suggestedCoop: suggestedCoop?.trim() || undefined,
+      suggestedCoop: suggestedCoop.trim(),
     };
 
     // Send to Slack first
-    await sendWaitlistToSlack(waitlistData);
+    await sendWaitlistToSlack(waitlistData, origin);
 
     // Save to database
     await db.waitlistEntry.upsert({
@@ -75,6 +87,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Identify user in PostHog
+    try {
+      const posthog = PostHogClient();
+      posthog.identify({
+        distinctId: waitlistData.email,
+        properties: {
+          email: waitlistData.email,
+          name: waitlistData.name,
+          source: waitlistData.source,
+          suggestedCoop: waitlistData.suggestedCoop,
+          signupType: 'waitlist',
+        },
+      });
+      await posthog.shutdown();
+    } catch (error) {
+      console.error("PostHog identification error:", error);
+      // Don't fail the request if PostHog fails
+    }
+
     return NextResponse.json({
       success: true,
       message: "You're on the list! We'll be in touch soon.",
@@ -89,7 +120,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Send waitlist signup to Slack
-async function sendWaitlistToSlack(data: WaitlistData) {
+async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
   const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
 
   if (!slackWebhookUrl) {
@@ -98,7 +129,7 @@ async function sendWaitlistToSlack(data: WaitlistData) {
   }
 
   const message = {
-    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Time:* ${new Date().toLocaleString()}`,
+    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
   };
 
   const response = await fetch(slackWebhookUrl, {
