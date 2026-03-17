@@ -42,9 +42,9 @@ export const env = createEnv({
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+    SESSION_SECRET: process.env.SESSION_SECRET,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
-    SESSION_SECRET: process.env.SESSION_SECRET,
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,
     NEXT_PUBLIC_CHAIN_NAME: process.env.NEXT_PUBLIC_CHAIN_NAME,
     NEXT_PUBLIC_RPC_URL: process.env.NEXT_PUBLIC_RPC_URL,
@@ -57,5 +57,6 @@ export const env = createEnv({
   },
   emptyStringAsUndefined: true,
   skipValidation:
-    !!process.env.CI || process.env.npm_lifecycle_event === "lint",
+    process.env.SKIP_ENV_VALIDATION === "true" ||
+    process.env.npm_lifecycle_event === "lint",
 });

@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Loader2, DollarSign, Coins } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import CheckoutForm from "@/components/buy/checkout-form";
+import { env } from "@/env";
 
 // Load Stripe publishable key from environment
 const stripePromise = loadStripe(
-  // eslint-disable-next-line no-restricted-properties
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+  env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
 );
 
 const PRESET_AMOUNTS = [25, 50, 100, 250];

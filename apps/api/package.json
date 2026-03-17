@@ -12,6 +12,7 @@
   "dependencies": {
     "@repo/db": "workspace:*",
     "@repo/trpc": "workspace:*",
+    "@t3-oss/env-core": "^0.9.2",
     "@trpc/server": "catalog:",
     "@types/multer": "^2.0.0",
     "body-parser": "^2.2.2",

@@ -35,17 +35,16 @@ export const config = {
   // Feature flags
   features: {
     // Skip blockchain checks in test/development mode
-    // eslint-disable-next-line no-restricted-properties
-    skipBlockchainChecks: process.env.NODE_ENV === 'test' || 
-                          // eslint-disable-next-line no-restricted-properties
-                          (process.env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
+    skipBlockchainChecks:
+      env.NODE_ENV === 'test' ||
+      (env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
   },
 };
 
 // Server-only configuration (use only in API routes, middleware, and server components)
 export function getServerConfig() {
-  // eslint-disable-next-line no-restricted-properties -- Server-side only function
-  const sessionSecret = process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development';
+  const sessionSecret =
+    env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_for_development';
   
   return {
     session: {
@@ -60,8 +59,7 @@ export function getServerConfig() {
 export function validateConfig() {
   const errors: string[] = [];
   
-  // eslint-disable-next-line no-restricted-properties -- Server-side validation only
-  if (process.env.NODE_ENV === 'production') {
+  if (env.NODE_ENV === 'production') {
     if (!config.contracts.soulaaniCoin) {
       errors.push('NEXT_PUBLIC_SOULAANI_COIN_ADDRESS is required in production');
     }
