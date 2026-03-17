@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "next build",
+    "validate-env": "tsx ./scripts/validate-env.ts",
+    "build": "pnpm run validate-env && next build",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
