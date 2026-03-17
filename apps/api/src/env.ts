@@ -15,16 +15,20 @@ export const env = createEnv({
     STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_").optional(),
     RPC_URL: z.string().url().default("https://sepolia.base.org"),
     BASE_SEPOLIA_RPC_URL: z.string().url().optional(),
-    UNITY_COIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    SOULAANI_COIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    REDEMPTION_VAULT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    MOCK_USDC_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    VERIFIED_STORE_REGISTRY_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    SC_REWARD_ENGINE_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-    STORE_PAYMENT_ROUTER_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+    UNITY_COIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    SOULAANI_COIN_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    REDEMPTION_VAULT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    MOCK_USDC_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    VERIFIED_STORE_REGISTRY_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    SC_REWARD_ENGINE_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    STORE_PAYMENT_ROUTER_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
     HOOKDECK_SIGNATURE_KEY: z.string().optional(),
     USE_HOOKDECK: z.enum(["true", "false"]).optional(),
     OPENAI_API_KEY: z.string().optional(),
+    PAYPAL_WEBHOOK_ID: z.string().optional(),
+    PAYPAL_CLIENT_ID: z.string().optional(),
+    PAYPAL_CLIENT_SECRET: z.string().optional(),
+    SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().optional(),
   },
   clientPrefix: "PUBLIC_",
   client: {},
@@ -33,4 +37,4 @@ export const env = createEnv({
   skipValidation: process.env.npm_lifecycle_event === "lint",
 });
 
-void env;
+console.log("✅ API environment variables validated successfully");

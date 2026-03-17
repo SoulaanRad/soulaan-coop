@@ -3,10 +3,11 @@ import { db } from '@repo/db';
 import { mintUCToUser } from '@repo/trpc/services/wallet-service';
 import crypto from 'crypto';
 import type Stripe from 'stripe';
+import { env } from '../env.js';
 
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
-const HOOKDECK_SIGNATURE_KEY = process.env.HOOKDECK_SIGNATURE_KEY;
-const USE_HOOKDECK = process.env.USE_HOOKDECK === 'true';
+const STRIPE_WEBHOOK_SECRET = env.STRIPE_WEBHOOK_SECRET;
+const HOOKDECK_SIGNATURE_KEY = env.HOOKDECK_SIGNATURE_KEY;
+const USE_HOOKDECK = env.USE_HOOKDECK === 'true';
 
 /**
  * Stripe webhook handler
@@ -80,7 +81,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
 
       // Import Stripe dynamically to avoid issues if not installed
       const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
         apiVersion: '2024-12-18.acacia',
       });
 
@@ -169,7 +170,7 @@ export async function handleStripeWebhook(req: Request, res: Response) {
         console.log('💸 Initiating automatic refund...');
         try {
           const Stripe = (await import('stripe')).default;
-          const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+          const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
             apiVersion: '2024-12-18.acacia',
           });
 

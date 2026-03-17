@@ -1,16 +1,8 @@
 import { PinataSDK } from "pinata-web3";
-
-// Initialize Pinata SDK
-const pinataJWT = process.env.PINATA_JWT;
-
-if (!pinataJWT) {
-  console.error('❌ PINATA_JWT environment variable not set!');
-  console.error('   Please add PINATA_JWT to your .env file');
-  console.error('   Get your JWT from https://app.pinata.cloud/keys');
-}
+import { env } from "../env.js";
 
 export const pinata = new PinataSDK({
-  pinataJwt: pinataJWT || '',
+  pinataJwt: env.PINATA_JWT,
 });
 
 /**

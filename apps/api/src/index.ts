@@ -1,10 +1,3 @@
-// Environment variables are preloaded via -r dotenv/config flag (see package.json)
-// Verify they're loaded correctly
-console.log(`\n🔐 Environment Variables Check:`);
-console.log(`  WALLET_ENCRYPTION_KEY: ${process.env.WALLET_ENCRYPTION_KEY ? '✅ Set (' + process.env.WALLET_ENCRYPTION_KEY.substring(0, 8) + '...)' : '❌ NOT SET'}`);
-console.log(`  DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Set' : '❌ NOT SET'}`);
-
-// Import modules
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cors from "cors";
 import { trpcExpress } from "@repo/trpc/server";
@@ -13,6 +6,7 @@ import express from "express";
 import os from "os";
 import { fileURLToPath } from "url";
 import { resolve } from "path";
+import { env } from "./env.js";
 
 const app: Application = express();
 
@@ -115,7 +109,7 @@ app.use("/trpc", trpcExpress);
 // TODO: Fix Sashimo middleware path-to-regexp compatibility issue
 // Temporarily commented out - causing PathError with '*' route pattern
 // app.use("/sashi", createMiddleware({
-//   openAIKey: process.env.OPENAI_API_KEY || ""
+//   openAIKey: env.OPENAI_API_KEY || ""
 // }));
 
 // Error handling middleware (MUST be after all routes)
@@ -131,7 +125,7 @@ app.use((err: any, req: any, res: any, next: any) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-const port = process.env.PORT || 3001;
+const port = env.PORT;
 
 // Helper function to get local IP address
 function getLocalIpAddress() {
@@ -157,12 +151,11 @@ app.listen(port, () => {
   console.log(`📱 Network: http://${localIp}:${port}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-  // Log environment variable status
   console.log('\n📋 Environment Variables:');
-  console.log(`  PINATA_JWT: ${process.env.PINATA_JWT ? '✅ Set' : '❌ Not set'}`);
-  console.log(`  WALLET_ENCRYPTION_KEY: ${process.env.WALLET_ENCRYPTION_KEY ? '✅ Set' : '❌ Not set'}`);
-  console.log(`  DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Set' : '❌ Not set'}`);
-  console.log(`  STRIPE_SECRET_KEY: ${process.env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  PINATA_JWT: ${env.PINATA_JWT ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  WALLET_ENCRYPTION_KEY: ${env.WALLET_ENCRYPTION_KEY ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  STRIPE_SECRET_KEY: ${env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Not set'}`);
 
   console.log('\n💡 For mobile testing, update your mobile app config to:');
   console.log(`   API_BASE_URL: 'http://${localIp}:${port}'\n`);

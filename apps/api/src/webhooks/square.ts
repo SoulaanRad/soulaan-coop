@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
 import { db } from '@repo/db';
 import { mintUCToUser } from '@repo/trpc/services/wallet-service';
+import { env } from '../env.js';
 
-const SQUARE_WEBHOOK_SIGNATURE_KEY = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY;
+const SQUARE_WEBHOOK_SIGNATURE_KEY = env.SQUARE_WEBHOOK_SIGNATURE_KEY;
 
 /**
  * Square webhook handler

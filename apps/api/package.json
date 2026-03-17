@@ -4,10 +4,11 @@
   "type": "module",
   "description": "",
   "scripts": {
-    "build": "rm -rf ./dist && tsup",
+    "validate-env": "tsx --import ./dotenv.config.js src/env.ts",
+    "build": "pnpm run validate-env && rm -rf ./dist && tsup",
     "dev": "nodemon --watch src --ext ts --exec tsx --import ./dotenv.config.js src/index.ts",
     "tsc": "tsc --noEmit",
-    "start": "node --import ./dotenv.config.js dist/index.js"
+    "start": "pnpm run validate-env && node --import ./dotenv.config.js dist/index.js"
   },
   "dependencies": {
     "@repo/db": "workspace:*",

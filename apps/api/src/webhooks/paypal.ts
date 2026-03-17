@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
 import { db } from '@repo/db';
 import { mintUCToUser } from '@repo/trpc/services/wallet-service';
+import { env } from '../env.js';
 
-const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID;
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
+const PAYPAL_WEBHOOK_ID = env.PAYPAL_WEBHOOK_ID;
+const PAYPAL_CLIENT_ID = env.PAYPAL_CLIENT_ID;
+const PAYPAL_CLIENT_SECRET = env.PAYPAL_CLIENT_SECRET;
 
 /**
  * PayPal webhook handler
