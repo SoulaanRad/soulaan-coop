@@ -16,6 +16,9 @@
   - [ ] Add logic to calculate and deduct transaction fees during transfers. � �
   - [ ] Document the fee structure and its implications for users. � �
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Add caching mechanisms to improve performance of directory lookups. � �
+
 ---
 
 ## Step 3 — Membership & Identity
@@ -36,7 +39,6 @@
   - [ ] Add logging for proposal submissions and their outcomes to monitor usage and detect issues. � �
   - [ ] Document the proposal submission process and the criteria for approval. � �
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Create performance benchmarks for profile retrieval and updates to ensure scalability. � �
 
 ---
@@ -73,4 +75,4 @@
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
 ---
-*🤖 Roadmap updated 2026-01-31 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-03-17 - AI-generated sub-items added based on completed work analysis*
