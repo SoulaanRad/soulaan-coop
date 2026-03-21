@@ -27,10 +27,8 @@ const config: HardhatUserConfig = {
         ? [process.env.DEPLOYER_PRIVATE_KEY]
         : [],
       chainId: 84532,
-      gasPrice: "auto",
-      // Increase gas settings to avoid "replacement transaction underpriced" errors
-      gas: "auto",
-      timeout: 60000, // 60 seconds
+      gasPrice: 50000000, // 0.05 gwei - minimal with retry logic
+      timeout: 120000, // 2 minutes
     },
     base: {
       url: process.env.BASE_MAINNET_RPC_URL || "https://mainnet.base.org",

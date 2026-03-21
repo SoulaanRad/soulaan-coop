@@ -19,9 +19,10 @@ async function waitForTx(tx: any, description: string) {
  * Deploy all Soulaan Co-op contracts to Base Sepolia
  *
  * This script deploys:
- * 1. UnityCoin (UC) - ERC-20 stablecoin
- * 2. SoulaaniCoin (SC) - Non-transferable governance token
- * 3. RedemptionVault - Vault for UC redemptions
+ * 1. AllyCoin (ALLY) - Non-transferable ally token
+ * 2. UnityCoin (UC) - ERC-20 stablecoin
+ * 3. SoulaaniCoin (SC) - Non-transferable governance token
+ * 4. RedemptionVault - Vault for UC redemptions
  *
  * It then grants roles to appropriate addresses and saves deployment info.
  */
@@ -61,6 +62,21 @@ async function main() {
   const scAddress = await soulaaniCoin.getAddress();
   console.log("✅ SoulaaniCoin deployed to:", scAddress);
 
+  console.log("\n1.5️⃣  Deploying AllyCoin (ALLY)...");
+  const AllyCoin = await ethers.getContractFactory("AllyCoin");
+  const allyCoin = await AllyCoin.deploy(governanceBot, scAddress);
+  await allyCoin.waitForDeployment();
+  const allyAddress = await allyCoin.getAddress();
+  console.log("✅ AllyCoin deployed to:", allyAddress);
+
+  console.log("   Linking SC to AllyCoin...");
+  const linkAllyTx = await soulaaniCoin.setAllyCoin(
+    allyAddress,
+    "Initial deployment - linking AllyCoin"
+  );
+  await waitForTx(linkAllyTx, "setAllyCoin");
+  console.log("   ✅ SoulaaniCoin linked to AllyCoin");
+
   // ========== GIVE DEPLOYER 1 SC ==========
   console.log("\n2️⃣  Setting up deployer with 1 SC...");
 
@@ -74,7 +90,7 @@ async function main() {
   console.log("   Awarding 1 SC to deployer...");
   const oneToken = ethers.parseEther("1"); // 1 SC
   const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_ADMIN_ALLOCATION"));
-  const awardTx = await soulaaniCoin["mintReward(address,uint256,bytes32)"](deployer.address, oneToken, reason);
+  const awardTx = await soulaaniCoin.mintReward(deployer.address, oneToken, reason);
   await waitForTx(awardTx, "mintReward");
   console.log("   ✅ 1 SC awarded to deployer");
 
@@ -153,6 +169,7 @@ async function main() {
   console.log("=".repeat(60));
   console.log("SoulaaniCoin (SC):   ", scAddress);
   console.log("Mock USDC:           ", usdcAddress);
+  console.log("AllyCoin (ALLY):     ", allyAddress);
   console.log("RedemptionVault:     ", vaultAddress);
   console.log("UnityCoin (UC):      ", ucAddress);
   console.log("=".repeat(60));
@@ -161,8 +178,10 @@ async function main() {
   console.log("=".repeat(60));
   console.log("UC Admin/Treasurer/Pauser:     ", treasurySafe);
   console.log("SC Admin:                      ", governanceBot);
+  console.log("SC GOVERNANCE_MANAGER:         ", governanceBot);
   console.log("SC GOVERNANCE_AWARD (minting): ", governanceBot);
   console.log("SC MEMBER_MANAGER (add members):", governanceBot);
+  console.log("ALLY Admin:                    ", governanceBot);
   console.log("Vault Admin/Treasurer:         ", treasurySafe);
   console.log("=".repeat(60));
   console.log("");
@@ -189,6 +208,10 @@ async function main() {
     contracts: {
       SoulaaniCoin: {
         address: scAddress,
+        admin: governanceBot,
+      },
+      AllyCoin: {
+        address: allyAddress,
         admin: governanceBot,
       },
       MockUSDC: {

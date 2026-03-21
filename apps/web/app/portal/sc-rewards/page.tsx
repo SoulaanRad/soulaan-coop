@@ -190,7 +190,7 @@ function SCRewardsLegacyPage() {
             onClick={handleRefresh}
             variant="ghost"
             disabled={statsLoading || rewardsLoading}
-            className="border border-slate-700 hover:bg-slate-800"
+            className="border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-200"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${statsLoading || rewardsLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -199,7 +199,7 @@ function SCRewardsLegacyPage() {
             onClick={() => retryAll.mutate()}
             variant="outline"
             disabled={retryAll.isPending}
-            className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+            className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
           >
             {retryAll.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -211,7 +211,7 @@ function SCRewardsLegacyPage() {
           <Button
             onClick={() => setShowReconcileDialog(true)}
             variant="outline"
-            className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
           >
             <CheckCircle2 className="h-4 w-4 mr-2" />
             Reconcile All

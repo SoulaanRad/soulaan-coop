@@ -10,6 +10,10 @@ interface ICoopClearing {
     function recordCrossCoopActivity(uint256 fromCoopId, uint256 toCoopId, address member, bytes32 activityType) external;
 }
 
+interface IAllyCoinStatus {
+    function isMember(address account) external view returns (bool);
+}
+
 // Custom errors for better debugging
 error NotActiveMember(address account, uint8 currentStatus);
 error ZeroAddress();
@@ -58,6 +62,7 @@ error AlreadyBanned(address account);
  * - Must be active member to receive SC
  *
  * Roles:
+ * - GOVERNANCE_MANAGER: Can manage inheritance and linked governance addresses
  * - GOVERNANCE_AWARD: Can award SC to members (governance bot/backend)
  * - GOVERNANCE_SLASH: Can slash/reduce SC (for violations)
  * - MEMBER_MANAGER: Can manage member status (add, suspend, ban members)
@@ -65,6 +70,7 @@ error AlreadyBanned(address account);
  */
 contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     // Role definitions
+    bytes32 public constant GOVERNANCE_MANAGER = keccak256("GOVERNANCE_MANAGER");
     bytes32 public constant GOVERNANCE_AWARD = keccak256("GOVERNANCE_AWARD");
     bytes32 public constant GOVERNANCE_SLASH = keccak256("GOVERNANCE_SLASH");
     bytes32 public constant MEMBER_MANAGER = keccak256("MEMBER_MANAGER");
@@ -103,6 +109,17 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     MintRecord[] public mintHistory;
     mapping(bytes32 => uint256[]) public mintsBySourceTx; // UC tx hash => mint record indices
 
+    struct BeneficiaryDesignation {
+        address beneficiary;
+        uint96 shareBps;
+        bool active;
+        uint256 updatedAt;
+    }
+    
+    uint96 public constant BASIS_POINTS = 10_000;
+    mapping(address => BeneficiaryDesignation[]) private inheritanceBeneficiaries;
+    mapping(bytes32 => bool) public executedInheritanceCases;
+
     // Voting power cap (adjustable, default 2% of total supply)
     uint256 public maxVotingPowerPercent = 2;
 
@@ -128,6 +145,7 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     // Multi-coop foundation (minimal)
     uint256 public coopId = 1; // Default to Soulaan Co-op
     address public clearingContract = address(0); // Future cross-coop clearing
+    address public allyCoin = address(0);
 
     // Events
     event Awarded(address indexed recipient, uint256 amount, bytes32 indexed reason, address indexed awarder);
@@ -203,6 +221,16 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
 
     // Store verification events
     event StoreVerificationChanged(address indexed store, bool isVerified, address indexed changedBy);
+    event AllyCoinChanged(address indexed oldAllyCoin, address indexed newAllyCoin, address indexed changedBy);
+    event InheritanceBeneficiariesUpdated(address indexed member, address indexed updatedBy);
+    event InheritanceExecuted(
+        bytes32 indexed caseId,
+        address indexed deceased,
+        address indexed beneficiary,
+        uint256 amount,
+        bytes32 reason,
+        address executedBy
+    );
 
     /**
      * @notice Constructor - initializes SC token
@@ -215,6 +243,7 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
         // Admin starts with governance roles, can transfer them later
+        _grantRole(GOVERNANCE_MANAGER, admin);
         _grantRole(GOVERNANCE_AWARD, admin);
         _grantRole(GOVERNANCE_SLASH, admin);
         _grantRole(MEMBER_MANAGER, admin);
@@ -616,6 +645,117 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         return memberStatus[account] == MemberStatus.Active;
     }
 
+    /**
+     * @notice Check if an address is also registered in AllyCoin
+     * @param account Address to check
+     * @return bool True if the address is registered in AllyCoin
+     */
+    function isAllyMember(address account) external view returns (bool) {
+        if (allyCoin == address(0)) return false;
+        return IAllyCoinStatus(allyCoin).isMember(account);
+    }
+
+    // ========== INHERITANCE MANAGEMENT ==========
+
+    /**
+     * @notice Set the beneficiary list for the caller's SC inheritance plan
+     * @param beneficiaries Beneficiary wallet addresses
+     * @param sharesBps Beneficiary shares in basis points (must total 10,000)
+     */
+    function setInheritanceBeneficiaries(
+        address[] calldata beneficiaries,
+        uint96[] calldata sharesBps
+    ) external whenNotPaused {
+        require(isMember(msg.sender), "Only registered members can set beneficiaries");
+        require(beneficiaries.length == sharesBps.length, "Array length mismatch");
+        require(beneficiaries.length > 0, "At least one beneficiary required");
+
+        delete inheritanceBeneficiaries[msg.sender];
+
+        uint256 totalShare;
+        for (uint256 i = 0; i < beneficiaries.length; i++) {
+            address beneficiary = beneficiaries[i];
+            uint96 shareBps = sharesBps[i];
+
+            require(beneficiary != address(0), "Beneficiary cannot be zero address");
+            require(shareBps > 0, "Beneficiary share must be greater than 0");
+
+            for (uint256 j = 0; j < i; j++) {
+                require(beneficiaries[j] != beneficiary, "Duplicate beneficiary");
+            }
+
+            inheritanceBeneficiaries[msg.sender].push(BeneficiaryDesignation({
+                beneficiary: beneficiary,
+                shareBps: shareBps,
+                active: true,
+                updatedAt: block.timestamp
+            }));
+
+            totalShare += shareBps;
+        }
+
+        require(totalShare == BASIS_POINTS, "Beneficiary shares must total 10,000 bps");
+        emit InheritanceBeneficiariesUpdated(msg.sender, msg.sender);
+    }
+
+    /**
+     * @notice Get the beneficiary designations for a member
+     * @param member Address of the member
+     * @return BeneficiaryDesignation[] Active beneficiary records
+     */
+    function getInheritanceBeneficiaries(address member) external view returns (BeneficiaryDesignation[] memory) {
+        return inheritanceBeneficiaries[member];
+    }
+
+    /**
+     * @notice Check whether an address is an active designated beneficiary for a member
+     * @param member Address of the member
+     * @param beneficiary Address of the beneficiary
+     * @return bool True if active beneficiary record exists
+     */
+    function isDesignatedBeneficiary(address member, address beneficiary) public view returns (bool) {
+        BeneficiaryDesignation[] storage designations = inheritanceBeneficiaries[member];
+        for (uint256 i = 0; i < designations.length; i++) {
+            if (designations[i].active && designations[i].beneficiary == beneficiary) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @notice Execute an inheritance remint for a designated beneficiary
+     * @param caseId Unique case identifier to prevent duplicate execution
+     * @param deceased Address of the deceased member
+     * @param beneficiary Address of the beneficiary receiving inherited SC
+     * @param amount Amount of SC to reissue
+     * @param reason Reason code for the inheritance execution
+     */
+    function executeInheritance(
+        bytes32 caseId,
+        address deceased,
+        address beneficiary,
+        uint256 amount,
+        bytes32 reason
+    ) external onlyRole(GOVERNANCE_MANAGER) whenNotPaused {
+        require(caseId != bytes32(0), "Case ID cannot be zero");
+        require(!executedInheritanceCases[caseId], "Inheritance case already executed");
+        require(deceased != address(0), "Deceased cannot be zero address");
+        require(beneficiary != address(0), "Beneficiary cannot be zero address");
+        require(amount > 0, "Amount must be greater than 0");
+        require(isDesignatedBeneficiary(deceased, beneficiary), "Beneficiary is not designated");
+        require(balanceOf(deceased) >= amount, "Insufficient balance to inherit");
+
+        executedInheritanceCases[caseId] = true;
+        _activateInheritanceBeneficiary(beneficiary);
+
+        _burn(deceased, amount);
+        _mint(beneficiary, amount);
+        lastActivity[beneficiary] = block.timestamp;
+
+        emit InheritanceExecuted(caseId, deceased, beneficiary, amount, reason, msg.sender);
+    }
+
     // ========== ACTIVITY TRACKING ==========
 
     /**
@@ -787,6 +927,19 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
         uint256 oldLimit = maxSlashPerTransaction;
         maxSlashPerTransaction = newLimit;
         emit SlashLimitChanged(oldLimit, newLimit, msg.sender);
+    }
+
+    /**
+     * @notice Set the linked AllyCoin contract address
+     * @param newAllyCoin Address of the AllyCoin contract
+     * @dev Only callable by GOVERNANCE_MANAGER
+     */
+    function setAllyCoin(address newAllyCoin, string calldata reason) external onlyRole(GOVERNANCE_MANAGER) {
+        require(newAllyCoin != address(0), "AllyCoin cannot be zero address");
+        address oldAllyCoin = allyCoin;
+        allyCoin = newAllyCoin;
+        emit AllyCoinChanged(oldAllyCoin, newAllyCoin, msg.sender);
+        emit PrivilegedAddressChanged("ALLY_COIN", oldAllyCoin, newAllyCoin, msg.sender, reason, block.timestamp);
     }
 
     /**
@@ -1060,5 +1213,22 @@ contract SoulaaniCoin is ERC20, ERC20Pausable, AccessControlEnumerable {
     function revokeRoleWithReason(bytes32 role, address account, string calldata reason) external {
         revokeRole(role, account);
         emit RoleRevoked(role, account, msg.sender, reason, block.timestamp);
+    }
+
+    function _activateInheritanceBeneficiary(address beneficiary) internal {
+        require(memberStatus[beneficiary] != MemberStatus.Banned, "Beneficiary is banned");
+
+        MemberStatus oldStatus = memberStatus[beneficiary];
+        if (oldStatus == MemberStatus.Active) {
+            return;
+        }
+
+        memberStatus[beneficiary] = MemberStatus.Active;
+        if (oldStatus == MemberStatus.NotMember) {
+            memberSince[beneficiary] = block.timestamp;
+            emit MemberAdded(beneficiary, block.timestamp, msg.sender);
+        }
+
+        emit MemberStatusChanged(beneficiary, oldStatus, MemberStatus.Active, msg.sender);
     }
 }

@@ -15,7 +15,7 @@ const execAsync = promisify(exec);
  * 
  * This script performs a complete deployment:
  * 1. Compile contracts
- * 2. Deploy all contracts (SC, UC, RedemptionVault, MockUSDC)
+ * 2. Deploy all contracts (SC, ALLY, UC, RedemptionVault, MockUSDC)
  * 3. Verify contracts on BaseScan
  * 4. Sync active users from database to blockchain
  * 
@@ -96,6 +96,20 @@ async function main() {
   const scAddress = await soulaaniCoin.getAddress();
   console.log(`   ✅ SC deployed to: ${scAddress}`);
 
+  console.log("\n   Deploying AllyCoin (ALLY)...");
+  const AllyCoin = await ethers.getContractFactory("AllyCoin");
+  const allyCoin = await AllyCoin.deploy(governanceBot, scAddress);
+  await allyCoin.waitForDeployment();
+  const allyAddress = await allyCoin.getAddress();
+  console.log(`   ✅ ALLY deployed to: ${allyAddress}`);
+
+  const linkAllyTx = await soulaaniCoin.setAllyCoin(
+    allyAddress,
+    "Initial deployment - linking AllyCoin"
+  );
+  await waitForTx(linkAllyTx, "link AllyCoin");
+  console.log("   ✅ SC linked to ALLY");
+
   // Deploy Mock USDC
   console.log("\n   Deploying Mock USDC...");
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
@@ -143,6 +157,7 @@ async function main() {
     deployer: deployer.address,
     contracts: {
       SoulaaniCoin: { address: scAddress, admin: governanceBot },
+      AllyCoin: { address: allyAddress, admin: governanceBot, scReference: scAddress },
       MockUSDC: { address: usdcAddress },
       RedemptionVault: { address: vaultAddress, admin: treasurySafe },
       UnityCoin: { address: ucAddress, admin: treasurySafe },
@@ -169,6 +184,7 @@ async function main() {
   
   const contractsToVerify = [
     { name: "SoulaaniCoin", address: scAddress, args: [governanceBot] },
+    { name: "AllyCoin", address: allyAddress, args: [governanceBot, scAddress] },
     { name: "MockUSDC", address: usdcAddress, args: [] },
     { name: "RedemptionVault", address: vaultAddress, args: [ucAddress, usdcAddress, treasurySafe] },
     { name: "UnityCoin", address: ucAddress, args: [treasurySafe, scAddress, vaultAddress] },
@@ -288,7 +304,7 @@ async function main() {
         const amountWei = ethers.parseEther(user.amount);
         
         try {
-          const tx = await soulaaniCoin["mintReward(address,uint256,bytes32)"](
+          const tx = await soulaaniCoin.mintReward(
             user.walletAddress,
             amountWei,
             awardReason
@@ -319,6 +335,7 @@ async function main() {
   console.log("📋 CONTRACT ADDRESSES:");
   console.log("=".repeat(70));
   console.log("SoulaaniCoin (SC):   ", scAddress);
+  console.log("AllyCoin (ALLY):     ", allyAddress);
   console.log("Mock USDC:           ", usdcAddress);
   console.log("RedemptionVault:     ", vaultAddress);
   console.log("UnityCoin (UC):      ", ucAddress);
@@ -327,6 +344,7 @@ async function main() {
   console.log("📝 UPDATE YOUR .ENV FILE:");
   console.log("=".repeat(70));
   console.log(`SOULAANI_COIN_ADDRESS=${scAddress}`);
+  console.log(`ALLY_COIN_ADDRESS=${allyAddress}`);
   console.log(`UNITY_COIN_ADDRESS=${ucAddress}`);
   console.log(`REDEMPTION_VAULT_ADDRESS=${vaultAddress}`);
   console.log(`MOCK_USDC_ADDRESS=${usdcAddress}`);
@@ -334,6 +352,7 @@ async function main() {
   console.log("");
   console.log("🔗 VIEW ON BASESCAN:");
   console.log(`   SoulaaniCoin: https://sepolia.basescan.org/address/${scAddress}#code`);
+  console.log(`   AllyCoin:    https://sepolia.basescan.org/address/${allyAddress}#code`);
   console.log(`   UnityCoin: https://sepolia.basescan.org/address/${ucAddress}#code`);
   console.log(`   RedemptionVault: https://sepolia.basescan.org/address/${vaultAddress}#code`);
   console.log(`   MockUSDC: https://sepolia.basescan.org/address/${usdcAddress}#code`);

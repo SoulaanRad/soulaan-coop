@@ -124,9 +124,9 @@ export default function TreasuryDashboardHybrid() {
 
       {/* Wealth Fund Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wealth Fund Balance</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Wealth Fund Balance</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -134,7 +134,7 @@ export default function TreasuryDashboardHybrid() {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-slate-100">
                   {formatAmount((treasurySummaryQuery.data?.totalBalance || 0) / 100)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -145,9 +145,9 @@ export default function TreasuryDashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payment Volume</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Payment Volume</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -155,7 +155,7 @@ export default function TreasuryDashboardHybrid() {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-slate-100">
                   {formatAmount((paymentStatsQuery.data?.totalVolumeCents || 0) / 100)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -166,9 +166,9 @@ export default function TreasuryDashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SC Rewards Issued</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">SC Rewards Issued</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -176,7 +176,7 @@ export default function TreasuryDashboardHybrid() {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-slate-100">
                   {formatSC(scStatsQuery.data?.totalMintedDB || 0)} SC
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -187,9 +187,9 @@ export default function TreasuryDashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Success Rate</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -197,7 +197,7 @@ export default function TreasuryDashboardHybrid() {
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-slate-100">
                   {scStatsQuery.data?.successRate || 0}%
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -250,9 +250,9 @@ export default function TreasuryDashboardHybrid() {
       )}
 
       {/* Wealth Fund Breakdown */}
-      <Card>
+      <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>
-          <CardTitle>Wealth Fund Breakdown</CardTitle>
+          <CardTitle className="text-slate-200">Wealth Fund Breakdown</CardTitle>
           <CardDescription>
             Fiat treasury fees collected from platform operations
           </CardDescription>
@@ -265,32 +265,32 @@ export default function TreasuryDashboardHybrid() {
           ) : (
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-green-500/10 rounded-lg">
                       <ArrowDownLeft className="h-5 w-5 text-green-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Treasury Fees</p>
+                      <p className="text-sm font-medium text-slate-200">Treasury Fees</p>
                       <p className="text-xs text-muted-foreground">Collected from sales</p>
                     </div>
                   </div>
-                  <p className="text-lg font-bold">
+                  <p className="text-lg font-bold text-slate-100">
                     {formatAmount((treasurySummaryQuery.data?.accountBalances.TREASURY_FEES || 0) / 100)}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/10 rounded-lg">
                       <DollarSign className="h-5 w-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Platform Fees</p>
+                      <p className="text-sm font-medium text-slate-200">Platform Fees</p>
                       <p className="text-xs text-muted-foreground">Operations revenue</p>
                     </div>
                   </div>
-                  <p className="text-lg font-bold">
+                  <p className="text-lg font-bold text-slate-100">
                     {formatAmount((treasurySummaryQuery.data?.accountBalances.PLATFORM_FEES || 0) / 100)}
                   </p>
                 </div>
@@ -301,16 +301,16 @@ export default function TreasuryDashboardHybrid() {
       </Card>
 
       {/* Recent Ledger Activity */}
-      <Card>
+      <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Recent Wealth Fund Activity</CardTitle>
+              <CardTitle className="text-slate-200">Recent Wealth Fund Activity</CardTitle>
               <CardDescription>
                 Latest treasury ledger entries
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="text-slate-300 hover:text-slate-200">
               View All
             </Button>
           </div>
@@ -329,7 +329,7 @@ export default function TreasuryDashboardHybrid() {
               {ledgerEntriesQuery.data?.entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800/70 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${
@@ -348,7 +348,7 @@ export default function TreasuryDashboardHybrid() {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium text-slate-200">
                         {entry.entryType.replace(/_/g, ' ')}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
@@ -388,9 +388,9 @@ export default function TreasuryDashboardHybrid() {
       </Card>
 
       {/* Payment Stats */}
-      <Card>
+      <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>
-          <CardTitle>Payment Activity ({chartPeriod})</CardTitle>
+          <CardTitle className="text-slate-200">Payment Activity ({chartPeriod})</CardTitle>
           <CardDescription>
             Commerce transaction breakdown
           </CardDescription>
@@ -403,21 +403,21 @@ export default function TreasuryDashboardHybrid() {
           ) : (
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="p-4 bg-slate-800/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Volume</p>
-                  <p className="text-2xl font-bold mt-1">
+                  <p className="text-2xl font-bold mt-1 text-slate-100">
                     {formatAmount((paymentStatsQuery.data?.totalVolumeCents || 0) / 100)}
                   </p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="p-4 bg-slate-800/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Avg Transaction</p>
-                  <p className="text-2xl font-bold mt-1">
+                  <p className="text-2xl font-bold mt-1 text-slate-100">
                     {formatAmount((paymentStatsQuery.data?.averageTransactionCents || 0) / 100)}
                   </p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="p-4 bg-slate-800/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Payments</p>
-                  <p className="text-2xl font-bold mt-1">
+                  <p className="text-2xl font-bold mt-1 text-slate-100">
                     {paymentStatsQuery.data?.totalPayments || 0}
                   </p>
                 </div>
@@ -449,9 +449,9 @@ export default function TreasuryDashboardHybrid() {
       </Card>
 
       {/* SC Rewards Health */}
-      <Card>
+      <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>
-          <CardTitle>SC Rewards Health</CardTitle>
+          <CardTitle className="text-slate-200">SC Rewards Health</CardTitle>
           <CardDescription>
             On-chain reward minting status
           </CardDescription>
@@ -464,9 +464,9 @@ export default function TreasuryDashboardHybrid() {
           ) : (
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-4">
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="p-4 bg-slate-800/50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Total Minted</p>
-                  <p className="text-xl font-bold mt-1">
+                  <p className="text-xl font-bold mt-1 text-slate-200">
                     {formatSC(scStatsQuery.data?.totalMintedDB || 0)} SC
                   </p>
                 </div>

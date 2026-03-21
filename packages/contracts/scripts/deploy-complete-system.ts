@@ -10,12 +10,13 @@ dotenv.config();
  * 
  * Deploys all contracts in the correct order:
  * 1. SoulaaniCoin (SC)
- * 2. Mock USDC
- * 3. UnityCoin (UC) - with SC reference
- * 4. RedemptionVault
- * 5. VerifiedStoreRegistry
- * 6. SCRewardEngine
- * 7. StorePaymentRouter
+ * 2. AllyCoin (ALLY) - with SC reference
+ * 3. Mock USDC
+ * 4. UnityCoin (UC) - with SC reference
+ * 5. RedemptionVault
+ * 6. VerifiedStoreRegistry
+ * 7. SCRewardEngine
+ * 8. StorePaymentRouter
  * 
  * Sets up all roles and permissions correctly.
  */
@@ -23,8 +24,77 @@ dotenv.config();
 async function waitForTx(tx: any, description: string) {
   console.log(`   ⏳ ${description}...`);
   const receipt = await tx.wait();
-  await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s between txs
+  await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s between txs
   return receipt;
+}
+
+async function sendTxWithRetry(txFunc: () => Promise<any>, description: string, maxRetries = 3) {
+  let lastError;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      console.log(`   ⏳ ${description} (attempt ${i + 1}/${maxRetries})...`);
+      
+      const tx = await txFunc();
+      const receipt = await tx.wait();
+      
+      console.log(`   ✅ ${description} complete`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      return receipt;
+    } catch (error: any) {
+      lastError = error;
+      console.log(`   ⚠️  Attempt ${i + 1} failed:`, error.message);
+      
+      if (error.message.includes('replacement transaction underpriced') || 
+          error.message.includes('nonce has already been used') ||
+          error.message.includes('nonce too low')) {
+        console.log(`   Waiting 10 seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } else {
+        throw error;
+      }
+    }
+  }
+  
+  throw new Error(`Failed ${description} after ${maxRetries} attempts: ${lastError.message}`);
+}
+
+async function deployWithRetry(factory: any, args: any[], name: string, maxRetries = 3) {
+  let lastError;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      console.log(`   Attempt ${i + 1}/${maxRetries} for ${name}...`);
+      
+      // Let Hardhat manage nonces automatically
+      const contract = await factory.deploy(...args);
+      
+      await contract.waitForDeployment();
+      const address = await contract.getAddress();
+      console.log(`   ✅ ${name} deployed at: ${address}`);
+      
+      // Wait for network to settle
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      return contract;
+    } catch (error: any) {
+      lastError = error;
+      console.log(`   ⚠️  Attempt ${i + 1} failed:`, error.message);
+      
+      if (error.message.includes('replacement transaction underpriced') ||
+          error.message.includes('nonce has already been used') ||
+          error.message.includes('nonce too low')) {
+        console.log(`   Waiting 10 seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } else {
+        // Unknown error, don't retry
+        throw error;
+      }
+    }
+  }
+  
+  throw new Error(`Failed to deploy ${name} after ${maxRetries} attempts: ${lastError.message}`);
 }
 
 async function main() {
@@ -55,10 +125,18 @@ async function main() {
   // ========================================
   console.log("1️⃣  Deploying SoulaaniCoin (SC)...");
   const SoulaaniCoin = await ethers.getContractFactory("SoulaaniCoin");
-  const soulaaniCoin = await SoulaaniCoin.deploy(governanceBot);
-  await soulaaniCoin.waitForDeployment();
+  const soulaaniCoin = await deployWithRetry(SoulaaniCoin, [governanceBot], "SoulaaniCoin");
   const scAddress = await soulaaniCoin.getAddress();
-  console.log("✅ SoulaaniCoin:", scAddress);
+
+  console.log("\n1.5️⃣  Deploying AllyCoin (ALLY)...");
+  const AllyCoin = await ethers.getContractFactory("AllyCoin");
+  const allyCoin = await deployWithRetry(AllyCoin, [governanceBot, scAddress], "AllyCoin");
+  const allyAddress = await allyCoin.getAddress();
+
+  await sendTxWithRetry(
+    () => soulaaniCoin.setAllyCoin(allyAddress, "Initial deployment - linking AllyCoin"),
+    "Linking AllyCoin to SC"
+  );
 
   // Add deployer as member and give 1 SC
   console.log("\n   Setting up deployer...");
@@ -75,9 +153,10 @@ async function main() {
     deployerStatus = 0n; // Assume NotMember
   }
   if (deployerStatus === 0n) { // NotMember
-    const addMemberTx = await soulaaniCoin.addMember(deployer.address);
-    await waitForTx(addMemberTx, "Adding deployer as member");
-    console.log("   ✅ Deployer added as member");
+    await sendTxWithRetry(
+      () => soulaaniCoin.addMember(deployer.address),
+      "Adding deployer as member"
+    );
   } else {
     console.log("   ✅ Deployer already a member");
   }
@@ -92,15 +171,12 @@ async function main() {
     deployerBalance = 0n;
   }
   if (deployerBalance === 0n) {
-    const seedAmount = ethers.parseEther("100000"); // 100,000 SC initial reserve
+    const seedAmount = ethers.parseEther("100000");
     const reason = ethers.keccak256(ethers.toUtf8Bytes("INITIAL_RESERVE_SEED"));
-    const awardTx = await soulaaniCoin["mintReward(address,uint256,bytes32)"](
-      deployer.address,
-      seedAmount,
-      reason
+    await sendTxWithRetry(
+      () => soulaaniCoin.mintReward(deployer.address, seedAmount, reason),
+      "Minting 100,000 SC initial reserve seed"
     );
-    await waitForTx(awardTx, "Minting 100,000 SC initial reserve seed");
-    console.log("   ✅ 100,000 SC initial reserve minted (2% cap = ~2,000 SC per user)");
   } else {
     console.log(`   ✅ Deployer already has ${ethers.formatEther(deployerBalance)} SC`);
   }
@@ -133,24 +209,20 @@ async function main() {
   // ========================================
   console.log("\n2️⃣  Deploying Mock USDC...");
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
-  const mockUSDC = await MockUSDC.deploy();
-  await mockUSDC.waitForDeployment();
+  const mockUSDC = await deployWithRetry(MockUSDC, [], "MockUSDC");
   const usdcAddress = await mockUSDC.getAddress();
-  console.log("✅ Mock USDC:", usdcAddress);
 
   // ========================================
   // STEP 3: Deploy UnityCoin (UC)
   // ========================================
   console.log("\n3️⃣  Deploying UnityCoin (UC)...");
   const UnityCoin = await ethers.getContractFactory("UnityCoin");
-  const unityCoin = await UnityCoin.deploy(
-    treasurySafe,      // admin
-    scAddress,         // SoulaaniCoin address (CORRECT from the start!)
-    deployer.address   // Temporary vault address
+  const unityCoin = await deployWithRetry(
+    UnityCoin,
+    [treasurySafe, scAddress, deployer.address],
+    "UnityCoin"
   );
-  await unityCoin.waitForDeployment();
   const ucAddress = await unityCoin.getAddress();
-  console.log("✅ UnityCoin:", ucAddress);
 
   // Wait for contract to be indexed
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -174,21 +246,20 @@ async function main() {
   // ========================================
   console.log("\n4️⃣  Deploying RedemptionVault...");
   const RedemptionVault = await ethers.getContractFactory("RedemptionVault");
-  const redemptionVault = await RedemptionVault.deploy(
-    ucAddress,
-    usdcAddress,
-    treasurySafe
+  const redemptionVault = await deployWithRetry(
+    RedemptionVault,
+    [ucAddress, usdcAddress, treasurySafe],
+    "RedemptionVault"
   );
-  await redemptionVault.waitForDeployment();
   const vaultAddress = await redemptionVault.getAddress();
-  console.log("✅ RedemptionVault:", vaultAddress);
 
   // Grant vault permission to mint UC
   console.log("\n   Granting vault permissions...");
   const TREASURER_MINT = ethers.keccak256(ethers.toUtf8Bytes("TREASURER_MINT"));
-  const grantVaultTx = await unityCoin.grantRole(TREASURER_MINT, vaultAddress);
-  await waitForTx(grantVaultTx, "Granting TREASURER_MINT to vault");
-  console.log("   ✅ Vault can mint UC");
+  await sendTxWithRetry(
+    () => unityCoin.grantRole(TREASURER_MINT, vaultAddress),
+    "Granting TREASURER_MINT to vault"
+  );
 
   // Set wealth fund address (for tax collection from store purchases)
   console.log("\n   Setting wealth fund address...");
@@ -210,33 +281,30 @@ async function main() {
   // ========================================
   console.log("\n5️⃣  Deploying VerifiedStoreRegistry...");
   const VerifiedStoreRegistry = await ethers.getContractFactory("VerifiedStoreRegistry");
-  const storeRegistry = await VerifiedStoreRegistry.deploy(governanceBot);
-  await storeRegistry.waitForDeployment();
+  const storeRegistry = await deployWithRetry(
+    VerifiedStoreRegistry,
+    [governanceBot],
+    "VerifiedStoreRegistry"
+  );
   const registryAddress = await storeRegistry.getAddress();
-  console.log("✅ VerifiedStoreRegistry:", registryAddress);
 
   console.log("\n6️⃣  Deploying SCRewardEngine...");
   const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
-  const rewardEngine = await SCRewardEngine.deploy(
-    governanceBot,    // admin (CORRECT ORDER!)
-    scAddress,        // soulaaniCoin
-    registryAddress   // storeRegistry
+  const rewardEngine = await deployWithRetry(
+    SCRewardEngine,
+    [governanceBot, scAddress, registryAddress],
+    "SCRewardEngine"
   );
-  await rewardEngine.waitForDeployment();
   const engineAddress = await rewardEngine.getAddress();
-  console.log("✅ SCRewardEngine:", engineAddress);
 
   console.log("\n7️⃣  Deploying StorePaymentRouter...");
   const StorePaymentRouter = await ethers.getContractFactory("StorePaymentRouter");
-  const paymentRouter = await StorePaymentRouter.deploy(
-    governanceBot,    // admin (CORRECT ORDER!)
-    ucAddress,        // unityCoin
-    registryAddress,  // storeRegistry
-    engineAddress     // rewardEngine
+  const paymentRouter = await deployWithRetry(
+    StorePaymentRouter,
+    [governanceBot, ucAddress, registryAddress, engineAddress],
+    "StorePaymentRouter"
   );
-  await paymentRouter.waitForDeployment();
   const routerAddress = await paymentRouter.getAddress();
-  console.log("✅ StorePaymentRouter:", routerAddress);
 
   // ========================================
   // STEP 6: Grant Trustless Roles
@@ -244,25 +312,18 @@ async function main() {
   console.log("\n8️⃣  Setting up trustless system roles...");
 
   // Grant GOVERNANCE_AWARD to SCRewardEngine on SoulaaniCoin
-  console.log("\n   Granting SC minting permission to reward engine...");
   const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
-  const grantEngineTx = await soulaaniCoin.grantRole(GOVERNANCE_AWARD, engineAddress);
-  await waitForTx(grantEngineTx, "Granting GOVERNANCE_AWARD to engine");
-  console.log("   ✅ Reward engine can mint SC");
+  await sendTxWithRetry(
+    () => soulaaniCoin.grantRole(GOVERNANCE_AWARD, engineAddress),
+    "Granting GOVERNANCE_AWARD to engine"
+  );
 
   // Grant REWARD_EXECUTOR to StorePaymentRouter on SCRewardEngine
-  console.log("\n   Granting reward execution permission to router...");
   const REWARD_EXECUTOR = ethers.keccak256(ethers.toUtf8Bytes("REWARD_EXECUTOR"));
-  
-  try {
-    const grantRouterTx = await rewardEngine.grantRole(REWARD_EXECUTOR, routerAddress);
-    await waitForTx(grantRouterTx, "Granting REWARD_EXECUTOR to router");
-    console.log("   ✅ Router can execute rewards");
-  } catch (error: any) {
-    console.log("   ❌ Failed to grant REWARD_EXECUTOR:", error.message);
-    console.log("   ⚠️  You'll need to grant this role manually:");
-    console.log(`   rewardEngine.grantRole(REWARD_EXECUTOR, "${routerAddress}")`);
-  }
+  await sendTxWithRetry(
+    () => rewardEngine.grantRole(REWARD_EXECUTOR, routerAddress),
+    "Granting REWARD_EXECUTOR to router"
+  );
 
   // Grant manager roles to governance bot (if different from deployer)
   if (governanceBot !== deployer.address) {
@@ -312,6 +373,7 @@ async function main() {
     deployer: deployer.address,
     contracts: {
       SoulaaniCoin: { address: scAddress, admin: governanceBot },
+      AllyCoin: { address: allyAddress, admin: governanceBot, scReference: scAddress },
       MockUSDC: { address: usdcAddress },
       UnityCoin: { address: ucAddress, admin: treasurySafe, scReference: scAddress },
       RedemptionVault: { address: vaultAddress, admin: treasurySafe },
@@ -345,6 +407,7 @@ async function main() {
   console.log("📋 CORE CONTRACTS:");
   console.log("=".repeat(70));
   console.log("SoulaaniCoin (SC):    ", scAddress);
+  console.log("AllyCoin (ALLY):      ", allyAddress);
   console.log("UnityCoin (UC):       ", ucAddress);
   console.log("RedemptionVault:      ", vaultAddress);
   console.log("Mock USDC:            ", usdcAddress);
@@ -365,6 +428,7 @@ async function main() {
   console.log("📝 UPDATE YOUR .ENV FILE:");
   console.log("=".repeat(70));
   console.log(`SOULAANI_COIN_ADDRESS=${scAddress}`);
+  console.log(`ALLY_COIN_ADDRESS=${allyAddress}`);
   console.log(`UNITY_COIN_ADDRESS=${ucAddress}`);
   console.log(`REDEMPTION_VAULT_ADDRESS=${vaultAddress}`);
   console.log(`MOCK_USDC_ADDRESS=${usdcAddress}`);
@@ -375,6 +439,7 @@ async function main() {
   console.log("");
   console.log("🔗 VIEW ON BASESCAN:");
   console.log(`   SC:       https://sepolia.basescan.org/address/${scAddress}#code`);
+  console.log(`   ALLY:     https://sepolia.basescan.org/address/${allyAddress}#code`);
   console.log(`   UC:       https://sepolia.basescan.org/address/${ucAddress}#code`);
   console.log(`   Vault:    https://sepolia.basescan.org/address/${vaultAddress}#code`);
   console.log(`   Registry: https://sepolia.basescan.org/address/${registryAddress}#code`);

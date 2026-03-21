@@ -8,6 +8,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, '../../.env') });
 
 // Then load local .env to allow overrides
-config({ path: resolve(__dirname, '.env'), override: false });
+config({ path: resolve(__dirname, '.env'), override: true });
 
 console.log('✅ Loaded environment variables from root .env');
