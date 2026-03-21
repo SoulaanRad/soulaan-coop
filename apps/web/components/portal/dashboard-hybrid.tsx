@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/trpc/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Users, DollarSign, Coins, TrendingUp, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -72,13 +72,13 @@ export default function DashboardHybrid() {
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payment Volume</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Payment Volume</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-slate-100">
               {formatAmount((paymentStatsQuery.data?.totalVolumeCents || 0) / 100)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -87,13 +87,13 @@ export default function DashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wealth Fund</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Wealth Fund</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-slate-100">
               {formatAmount((treasurySummaryQuery.data?.totalBalance || 0) / 100)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -102,13 +102,13 @@ export default function DashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SC Rewards</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">SC Rewards</CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-slate-100">
               {formatSC(scStatsQuery.data?.totalMintedDB || 0)} SC
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -117,13 +117,13 @@ export default function DashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-200">Success Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-slate-100">
               {scStatsQuery.data?.successRate || 0}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -135,9 +135,9 @@ export default function DashboardHybrid() {
 
       {/* Recent Activity */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader>
-            <CardTitle>Recent Payments</CardTitle>
+            <CardTitle className="text-slate-200">Recent Payments</CardTitle>
             <CardDescription>Latest commerce transactions</CardDescription>
           </CardHeader>
           <CardContent>
@@ -148,15 +148,15 @@ export default function DashboardHybrid() {
             ) : (
               <div className="space-y-3">
                 {paymentStatsQuery.data?.recentTransactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div key={tx.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                     <div>
-                      <p className="font-medium">{tx.business.name}</p>
+                      <p className="font-medium text-slate-200">{tx.business.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {tx.customer.name}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold">
+                      <p className="font-bold text-slate-100">
                         {formatAmount(tx.chargedAmount)}
                       </p>
                       <Badge variant="outline" className="text-xs mt-1">
@@ -170,19 +170,19 @@ export default function DashboardHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader>
-            <CardTitle>System Health</CardTitle>
+            <CardTitle className="text-slate-200">System Health</CardTitle>
             <CardDescription>Current operational status</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${
                     (scStatsQuery.data?.failed || 0) === 0 ? 'bg-green-500' : 'bg-red-500'
                   }`} />
-                  <span className="text-sm">SC Minting</span>
+                  <span className="text-sm text-slate-300">SC Minting</span>
                 </div>
                 <Badge variant={
                   (scStatsQuery.data?.failed || 0) === 0 ? 'default' : 'destructive'
@@ -191,12 +191,12 @@ export default function DashboardHybrid() {
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${
                     (scStatsQuery.data?.pending || 0) < 5 ? 'bg-green-500' : 'bg-amber-500'
                   }`} />
-                  <span className="text-sm">Processing Queue</span>
+                  <span className="text-sm text-slate-300">Processing Queue</span>
                 </div>
                 <Badge variant={
                   (scStatsQuery.data?.pending || 0) < 5 ? 'default' : 'secondary'
@@ -205,10 +205,10 @@ export default function DashboardHybrid() {
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-sm">Payment Processing</span>
+                  <span className="text-sm text-slate-300">Payment Processing</span>
                 </div>
                 <Badge variant="default">
                   Operational
