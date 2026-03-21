@@ -45,7 +45,7 @@ runs:
         echo "🔒 Checking for security vulnerabilities..."
         
         # Check for known vulnerabilities (only fail on high/critical)
-        pnpm audit --audit-level high
+        pnpm audit --audit-level low
         
         if [ $? -ne 0 ]; then
           echo "⚠️  Security vulnerabilities found!"
