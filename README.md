@@ -42,8 +42,6 @@ Deploy contracts and configure your co-op in one seamless flow:
 #### **Phase 1: Deploy the Economic Infrastructure**
 The co-op runs on blockchain-based tokens that power the economy:
 
-- **[Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md)** - Deploy Unity Coin (UC) and SoulaaniCoin (SC) in 5 minutes (CLI)
-- **[Full Deployment Guide](packages/contracts/DEPLOYMENT_GUIDE.md)** - Complete instructions for deploying the co-op's economic system (CLI)
 - **[Understanding the Contracts](packages/contracts/README.md)** - Learn how UC (payments) and SC (governance) work together
 
 **What you're deploying:**
