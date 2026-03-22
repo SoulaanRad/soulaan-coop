@@ -7,6 +7,7 @@ import { Loader2, FileText, Plus, CheckSquare, Square, ChevronDown } from "lucid
 import Link from "next/link";
 import { ProposalCard } from "@/components/portal/proposals/proposal-card";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
+import { env } from "@/env";
 
 type StatusFilter = "active" | "all" | "submitted" | "votable" | "approved" | "funded" | "rejected" | "failed" | "withdrawn";
 
@@ -32,6 +33,7 @@ export default function ProposalsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [offset, setOffset] = useState(0);
   const [allProposals, setAllProposals] = useState<any[]>([]);
+  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   // Bulk management state
   const [bulkMode, setBulkMode] = useState(false);
@@ -50,7 +52,7 @@ export default function ProposalsPage() {
     offset,
   });
 
-  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId });
   const categoryLabels: Record<string, string> = Object.fromEntries(
     (coopConfig?.proposalCategories ?? []).map((c: { key: string; label: string }) => [c.key, c.label])
   );

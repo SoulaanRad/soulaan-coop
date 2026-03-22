@@ -651,6 +651,9 @@ importers:
       '@openzeppelin/contracts':
         specifier: ^5.2.0
         version: 5.4.0
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../db/dist
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1

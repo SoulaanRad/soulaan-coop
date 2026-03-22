@@ -30,11 +30,18 @@ Soulaan Co-op is a community-owned economic platform and digital wallet system. 
 
 ### 🏗️ Setting Up Your Co-op
 
+#### **🎯 NEW: One-Click Co-op Initialization**
+Deploy contracts and configure your co-op in one seamless flow:
+
+- **[Initialize Your Co-op (Web UI)](apps/web/DEPLOY_YOUR_COOP.md)** - Deploy all contracts and configure your co-op via web interface
+  - No authentication required
+  - Visual step-by-step deployment
+  - Automatic configuration export
+  - Visit: `/initialize` on your web app
+
 #### **Phase 1: Deploy the Economic Infrastructure**
 The co-op runs on blockchain-based tokens that power the economy:
 
-- **[Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md)** - Deploy Unity Coin (UC) and SoulaaniCoin (SC) in 5 minutes
-- **[Full Deployment Guide](packages/contracts/DEPLOYMENT_GUIDE.md)** - Complete instructions for deploying the co-op's economic system
 - **[Understanding the Contracts](packages/contracts/README.md)** - Learn how UC (payments) and SC (governance) work together
 
 **What you're deploying:**

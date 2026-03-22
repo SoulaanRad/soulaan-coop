@@ -11,11 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft, ShieldAlert, PlusCircle, Bot, Users, Globe, X, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import Link from "next/link";
 import { ConfigSectionEditor } from "@/components/portal/proposals/config-section-editor";
+import { env } from "@/env";
+
 export default function CoopConfigPage() {
   const coin = useCoin();
   const { isAdmin } = useWeb3Auth();
-  const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
-  const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId: "soulaan" });
+  const coopId = env.NEXT_PUBLIC_COOP_ID;
+  const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId });
+  const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId });
 
   const createConfig = api.coopConfig.create.useMutation({
     onSuccess: () => refetch(),
@@ -23,7 +26,7 @@ export default function CoopConfigPage() {
 
   // Generic config amendment flow
   const { data: pendingAmendments = [], refetch: refetchAmendments } = api.coopConfig.getPendingConfigAmendments.useQuery(
-    { coopId: "soulaan" },
+    { coopId },
   );
   const pendingBySection = Object.fromEntries(pendingAmendments.map(a => [a.section, a]));
 
@@ -32,7 +35,7 @@ export default function CoopConfigPage() {
   });
   // Charter amendment flow (specialized — keeps text diff UI)
   const { data: pendingCharterData, refetch: refetchCharter } = api.coopConfig.getPendingCharterAmendment.useQuery(
-    { coopId: "soulaan" },
+    { coopId },
   );
   const pendingCharter = pendingCharterData?.amendment ?? null;
 
@@ -44,7 +47,7 @@ export default function CoopConfigPage() {
   // Helper: propose a section change
   const propose = (section: string, proposedChanges: Record<string, unknown>, currentSnapshot: Record<string, unknown>) =>
     async (reason: string) => {
-      await proposeChange.mutateAsync({ coopId: "soulaan", section, proposedChanges, currentSnapshot, reason });
+      await proposeChange.mutateAsync({ coopId, section, proposedChanges, currentSnapshot, reason });
     };
 
   // Helper: pass pending amendment for a section (review happens on the amendments page)
@@ -53,7 +56,7 @@ export default function CoopConfigPage() {
   });
 
   // Create form state
-  const [createCoopId, setCreateCoopId] = useState("soulaan");
+  const [createCoopId, setCreateCoopId] = useState(coopId);
   const [createCharterText, setCreateCharterText] = useState("");
   const [createReason, setCreateReason] = useState("Initial configuration");
 
@@ -189,7 +192,7 @@ export default function CoopConfigPage() {
               <button
                 onClick={() =>
                   createConfig.mutate({
-                    coopId: createCoopId.trim() || "soulaan",
+                    coopId: createCoopId.trim() || coopId,
                     reason: createReason.trim() || "Initial configuration",
                     ...(createCharterText.trim() ? { charterText: createCharterText.trim() } : {}),
                   })

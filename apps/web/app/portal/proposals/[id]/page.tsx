@@ -18,6 +18,7 @@ import { ProposalScores } from "@/components/portal/proposals/proposal-scores";
 import { ProposalDecisionBanner } from "@/components/portal/proposals/proposal-decision-badge";
 import { CommentForm } from "@/components/portal/proposals/comment-form";
 import { CommentList } from "@/components/portal/proposals/comment-list";
+import { env } from "@/env";
 
 function prettifyKey(key: string) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -65,6 +66,7 @@ export default function ProposalDetailPage() {
   const [showTransitions, setShowTransitions] = useState(false);
   const [withdrawConfirm, setWithdrawConfirm] = useState(false);
   const [councilVotePending, setCouncilVotePending] = useState(false);
+  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   // Edit & resubmit state
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -73,7 +75,7 @@ export default function ProposalDetailPage() {
   const [expandedRevision, setExpandedRevision] = useState<number | null>(null);
 
   const { data: proposal, isLoading, refetch: refetchProposal } = api.proposal.getById.useQuery({ id });
-  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId });
   const categoryLabels: Record<string, string> = Object.fromEntries(
     (coopConfig?.proposalCategories ?? []).map((c: { key: string; label: string }) => [c.key, c.label])
   );

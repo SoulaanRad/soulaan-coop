@@ -20,6 +20,7 @@
     "db:seed-coops": "pnpm -F @repo/db seed:coop-display",
     "db:deploy-setup": "pnpm db:migrate-prod && pnpm db:seed-coops",
     "update-env": "bash scripts/update-all-env-files.sh",
+    "update-contract-artifacts": "bash scripts/update-contract-artifacts.sh",
     "dev": "turbo watch dev --continue",
     "dev:api": "pnpm -F @soulaan-coop/api dev",
     "dev:web": "pnpm -F @soulaan-coop/web dev",
