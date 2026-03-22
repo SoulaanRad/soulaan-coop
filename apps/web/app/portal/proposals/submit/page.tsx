@@ -10,14 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Info, Send, MapPin } from "lucide-react";
 import Link from "next/link";
+import { env } from "@/env";
 
 export default function SubmitProposalPage() {
   const router = useRouter();
   const coin = useCoin();
   const [text, setText] = useState("");
   const [location, setLocation] = useState("");
+  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
-  const { data: config } = api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+  const { data: config } = api.coopConfig.getActive.useQuery({ coopId });
 
   const createProposal = api.proposal.create.useMutation({
     onSuccess: (data) => {
@@ -35,7 +37,7 @@ export default function SubmitProposalPage() {
 
     await createProposal.mutateAsync({
       text: fullText,
-      coopId: "soulaan",
+      coopId,
     });
   };
 

@@ -94,7 +94,10 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
+  res.json({ 
+    status: "OK",
+    coopId: env.COOP_ID,
+  });
 });
 
 // Webhook endpoints (PayPal and Square use JSON body)
@@ -152,6 +155,7 @@ app.listen(port, () => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   console.log('\n📋 Environment Variables:');
+  console.log(`  COOP_ID: ${env.COOP_ID}`);
   console.log(`  PINATA_JWT: ${env.PINATA_JWT ? '✅ Set' : '❌ Not set'}`);
   console.log(`  WALLET_ENCRYPTION_KEY: ${env.WALLET_ENCRYPTION_KEY ? '✅ Set' : '❌ Not set'}`);
   console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Not set'}`);

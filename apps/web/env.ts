@@ -24,6 +24,7 @@ export const env = createEnv({
    * For them to be exposed to the client, prefix them with `NEXT_PUBLIC_`.
    */
   client: {
+    NEXT_PUBLIC_COOP_ID: z.string().min(1),
     NEXT_PUBLIC_API_URL: z.string().url().optional(),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_CHAIN_ID: z.string().optional(),
@@ -43,6 +44,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     SESSION_SECRET: process.env.SESSION_SECRET,
+    NEXT_PUBLIC_COOP_ID: process.env.NEXT_PUBLIC_COOP_ID,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID,

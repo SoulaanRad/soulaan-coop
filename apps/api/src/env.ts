@@ -7,6 +7,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().min(1),
     PORT: z.coerce.number().int().positive().default(3001),
     APP_URL: z.string().url(),
+    COOP_ID: z.string().min(1),
     PINATA_JWT: z.string().min(1),
     WALLET_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/),
     BACKEND_WALLET_PRIVATE_KEY: z.string().regex(/^(0x)?[a-fA-F0-9]{64}$/),

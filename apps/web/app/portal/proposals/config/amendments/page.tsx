@@ -17,6 +17,7 @@ import {
   FileText,
   Filter,
 } from "lucide-react";
+import { env } from "@/env";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -319,13 +320,14 @@ function AmendmentCard({
 export default function AmendmentsPage() {
   const { isAdmin } = useWeb3Auth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   const { data, isLoading, refetch } = api.coopConfig.getAllAmendments.useQuery(
-    { coopId: "soulaan" },
+    { coopId },
   );
 
   const { data: configData, refetch: refetchConfig } =
-    api.coopConfig.getActive.useQuery({ coopId: "soulaan" });
+    api.coopConfig.getActive.useQuery({ coopId });
 
   const acknowledgeConfig = api.coopConfig.acknowledgeConfigAmendment.useMutation({
     onSuccess: () => { void refetch(); void refetchConfig(); },
@@ -348,9 +350,9 @@ export default function AmendmentsPage() {
 
   const handleAcknowledge = (amendment: AnyAmendment) => {
     if (amendment.type === "charter") {
-      acknowledgeCharter.mutate({ amendmentId: amendment.id, coopId: "soulaan" });
+      acknowledgeCharter.mutate({ amendmentId: amendment.id, coopId });
     } else {
-      acknowledgeConfig.mutate({ amendmentId: amendment.id, coopId: "soulaan" });
+      acknowledgeConfig.mutate({ amendmentId: amendment.id, coopId });
     }
   };
 
