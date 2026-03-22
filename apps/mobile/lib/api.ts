@@ -1937,10 +1937,8 @@ export const api = {
   /**
    * Get the active CoopConfig (includes proposalCategories for label lookup)
    */
-  async getCoopConfig(coopId?: string) {
-    const defaultCoopId = process.env.EXPO_PUBLIC_COOP_ID || 'testcoop';
-    const finalCoopId = coopId || defaultCoopId;
-    const input = encodeURIComponent(JSON.stringify({ coopId: finalCoopId }));
+  async getCoopConfig(coopId: string) {
+    const input = encodeURIComponent(JSON.stringify({ coopId }));
     const response = await fetch(`${API_BASE_URL}/trpc/coopConfig.getActive?input=${input}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },

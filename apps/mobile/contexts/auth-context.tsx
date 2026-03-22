@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { secureStorage } from '@/lib/secure-storage';
 import { setActiveCoopConfig, resetCoopConfig, type CoopConfig } from '@/lib/coop-config';
-import { validateCoopId } from '@/lib/coop-validation';
-import { Alert } from 'react-native';
 
 interface User {
   id: string;
@@ -46,23 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load session on mount
   useEffect(() => {
     loadSession();
-    validateCoopConfiguration();
   }, []);
-
-  // Validate co-op configuration matches API server
-  const validateCoopConfiguration = async () => {
-    const validation = await validateCoopId();
-    if (!validation.isValid && validation.error) {
-      console.error('Co-op validation failed:', validation.error);
-      Alert.alert(
-        'Configuration Mismatch',
-        `Mobile app co-op ID (${validation.clientCoopId}) doesn't match API server (${validation.serverCoopId || 'unknown'}). Please update EXPO_PUBLIC_COOP_ID in your .env file.`,
-        [{ text: 'OK' }]
-      );
-    } else {
-      console.log(`✓ Co-op validation successful: ${validation.clientCoopId}`);
-    }
-  };
 
   // Handle navigation based on auth state
   useEffect(() => {
