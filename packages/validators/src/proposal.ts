@@ -303,6 +303,18 @@ export const CoopConfigInputZ = z.object({
   /** The structural score must clear this gate or the proposal fails regardless of mission scores. Default 0.65. */
   structuralGate: z.number().min(0).max(1).optional(),
   reason: z.string().min(3).max(500),
+  // Display fields for mobile app onboarding
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+  tagline: z.string().min(1).optional(),
+  description: z.string().optional(),
+  displayMission: z.string().optional(),
+  displayFeatures: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
+  eligibility: z.string().optional(),
+  bgColor: z.string().optional(),
+  accentColor: z.string().optional(),
+  displayOrder: z.number().int().optional(),
+  applicationQuestions: z.array(z.any()).optional(),
 });
 
 export const CoopConfigOutputZ = z.object({

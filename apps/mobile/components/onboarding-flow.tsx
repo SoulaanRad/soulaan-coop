@@ -764,11 +764,11 @@ export default function OnboardingFlow() {
   };
 
   const renderBrowseCoops = () => (
-    <ScrollView className="flex-1 bg-background">
-      <View className="min-h-screen flex-1 justify-center p-6">
+    <View className="flex-1 bg-background">
+      {/* Sticky Header */}
+      <View className="bg-background border-b border-cream-200 p-6 pb-4">
         <View className="w-full max-w-md mx-auto">
-          {/* Header */}
-          <View className="items-center mb-8">
+          <View className="items-center">
             <View className="bg-gold-600 p-3 rounded-full mb-4">
               <Icon as={Store} size={32} className="text-white" />
             </View>
@@ -777,7 +777,12 @@ export default function OnboardingFlow() {
               Select a cooperative community to join. Each co-op has its own mission and benefits.
             </Text>
           </View>
+        </View>
+      </View>
 
+      {/* Scrollable Co-op List */}
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16 }}>
+        <View className="w-full max-w-md mx-auto">
           {/* Loading State */}
           {isLoadingCoops && (
             <View className="items-center py-8">
@@ -789,23 +794,60 @@ export default function OnboardingFlow() {
           {/* Co-op Cards */}
           {!isLoadingCoops && coopsWithIcons.length > 0 && (
             <View className="gap-4">
-              {coopsWithIcons.map((coop) => (
-                <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
-                  <Card className={`${coop.bgColor} border-0 shadow-lg`}>
-                    <CardContent className="p-6">
-                      <Text className="text-xl font-bold text-white mb-1">{coop.name}</Text>
-                      <Text className="text-cream-100 font-semibold mb-3">{coop.tagline}</Text>
-                      <Text className="text-cream-100 text-sm mb-4">{coop.description}</Text>
-                      <View className="flex flex-row items-center justify-between">
-                        <Badge className="bg-white/20">
-                          <Text className="text-white text-xs">Learn More</Text>
-                        </Badge>
-                        <Icon as={ChevronRight} size={20} className="text-white" />
-                      </View>
-                    </CardContent>
-                  </Card>
-                </Pressable>
-              ))}
+              {coopsWithIcons.map((coop) => {
+                // Helper function to determine if a color is dark (needs white text)
+                const isColorDark = (color: string): boolean => {
+                  if (!color) return false;
+                  
+                  // If it's a hex color, calculate luminance
+                  if (color.startsWith('#')) {
+                    const hex = color.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    // Calculate relative luminance
+                    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    return luminance < 0.5;
+                  }
+                  
+                  // If it's a Tailwind class, check for dark colors
+                  return color.includes('red-') || color.includes('blue-') || 
+                         color.includes('purple-') || color.includes('gold-') ||
+                         color.includes('gray-7') || color.includes('gray-8') ||
+                         color.includes('gray-9') || color.includes('black');
+                };
+                
+                // Parse color - could be hex (#2563eb) or Tailwind class (bg-blue-700)
+                const isHexColor = coop.bgColor?.startsWith('#');
+                const bgColorStyle = isHexColor ? coop.bgColor : undefined;
+                const bgColorClass = !isHexColor && coop.bgColor ? coop.bgColor : 'bg-white';
+                
+                // Determine text color based on background luminance
+                const useWhiteText = isColorDark(coop.bgColor || '');
+                const textColorClass = useWhiteText ? 'text-white' : 'text-charcoal-800';
+                const subtextColorClass = useWhiteText ? 'text-cream-100' : 'text-charcoal-600';
+                
+                return (
+                  <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
+                    <Card 
+                      className={`${bgColorClass} border-cream-200 shadow-lg`}
+                      style={bgColorStyle ? { backgroundColor: bgColorStyle } : undefined}
+                    >
+                      <CardContent className="p-6">
+                        <Text className={`text-xl font-bold ${textColorClass} mb-1`}>{coop.name}</Text>
+                        <Text className={`${subtextColorClass} font-semibold mb-3`}>{coop.tagline}</Text>
+                        <Text className={`${subtextColorClass} text-sm mb-4`}>{coop.description}</Text>
+                        <View className="flex flex-row items-center justify-between">
+                          <Badge className={useWhiteText ? "bg-white/20" : "bg-charcoal-100"}>
+                            <Text className={`text-xs ${useWhiteText ? 'text-white' : 'text-charcoal-700'}`}>Learn More</Text>
+                          </Badge>
+                          <Icon as={ChevronRight} size={20} className={textColorClass} />
+                        </View>
+                      </CardContent>
+                    </Card>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
 
@@ -815,9 +857,13 @@ export default function OnboardingFlow() {
               <Text className="text-charcoal-600 text-center">No cooperatives available at this time.</Text>
             </View>
           )}
+        </View>
+      </ScrollView>
 
-          {/* Navigation */}
-          <View className="flex flex-row justify-between items-center mt-6">
+      {/* Sticky Footer */}
+      <View className="bg-background border-t border-cream-200 p-6 pt-4">
+        <View className="w-full max-w-md mx-auto">
+          <View className="flex flex-row justify-between items-center">
             <Button variant="ghost" onPress={prevStep}>
               <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
               <Text className="text-charcoal-600 ml-1">Back</Text>
@@ -829,7 +875,7 @@ export default function OnboardingFlow() {
           </View>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 
   const renderCoopDetails = () => {

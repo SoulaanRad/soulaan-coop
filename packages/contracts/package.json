@@ -77,6 +77,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.2.0",
+    "@repo/db": "workspace:*",
     "dotenv": "^16.6.1",
     "ethers": "^6.13.0"
   },

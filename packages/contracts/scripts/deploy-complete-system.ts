@@ -2,21 +2,48 @@ import { ethers } from "hardhat";
 import * as dotenv from "dotenv";
 import * as fs from "fs";
 import * as path from "path";
+import * as readline from "readline";
+import { PrismaClient } from "@prisma/client";
 
 dotenv.config();
+
+const prisma = new PrismaClient();
+
+function askQuestion(query: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(query, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
 
 /**
  * Complete System Deployment
  * 
- * Deploys all contracts in the correct order:
+ * Deploys contracts with optional components:
+ * 
+ * REQUIRED:
  * 1. SoulaaniCoin (SC)
  * 2. AllyCoin (ALLY) - with SC reference
- * 3. Mock USDC
- * 4. UnityCoin (UC) - with SC reference
- * 5. RedemptionVault
- * 6. VerifiedStoreRegistry
- * 7. SCRewardEngine
- * 8. StorePaymentRouter
+ * 3. UnityCoin (UC) - with SC reference
+ * 
+ * OPTIONAL (use flags to enable):
+ * 4. Mock USDC (--usdc)
+ * 5. RedemptionVault (--vault)
+ * 6. VerifiedStoreRegistry (--registry)
+ * 7. SCRewardEngine (--engine, requires --registry)
+ * 8. StorePaymentRouter (--router, requires --registry and --engine)
+ * 
+ * Usage:
+ *   pnpm deploy:complete              # Minimal (UC + SC + ALLY only)
+ *   pnpm deploy:complete --vault      # Add RedemptionVault
+ *   pnpm deploy:complete --all        # Deploy everything
  * 
  * Sets up all roles and permissions correctly.
  */
@@ -98,6 +125,15 @@ async function deployWithRetry(factory: any, args: any[], name: string, maxRetri
 }
 
 async function main() {
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  const deployAll = args.includes("--all");
+  const deployVault = deployAll || args.includes("--vault");
+  const deployUsdc = deployAll || args.includes("--usdc") || deployVault; // USDC needed for vault
+  const deployRegistry = deployAll || args.includes("--registry");
+  const deployEngine = deployAll || args.includes("--engine");
+  const deployRouter = deployAll || args.includes("--router");
+
   console.log("\n🚀 COMPLETE SYSTEM DEPLOYMENT\n");
   console.log("=".repeat(70));
 
@@ -117,6 +153,14 @@ async function main() {
 
   console.log("🏛️  Treasury Safe:", treasurySafe);
   console.log("🤖 Governance Bot:", governanceBot);
+  console.log("");
+  console.log("📦 Deployment Configuration:");
+  console.log("   Required: UC, SC, ALLY");
+  if (deployUsdc) console.log("   Optional: Mock USDC");
+  if (deployVault) console.log("   Optional: RedemptionVault");
+  if (deployRegistry) console.log("   Optional: VerifiedStoreRegistry");
+  if (deployEngine) console.log("   Optional: SCRewardEngine");
+  if (deployRouter) console.log("   Optional: StorePaymentRouter");
   console.log("=".repeat(70));
   console.log("");
 
@@ -205,12 +249,17 @@ async function main() {
   }
 
   // ========================================
-  // STEP 2: Deploy Mock USDC
+  // STEP 2: Deploy Mock USDC (Optional)
   // ========================================
-  console.log("\n2️⃣  Deploying Mock USDC...");
-  const MockUSDC = await ethers.getContractFactory("MockUSDC");
-  const mockUSDC = await deployWithRetry(MockUSDC, [], "MockUSDC");
-  const usdcAddress = await mockUSDC.getAddress();
+  let usdcAddress = "";
+  if (deployUsdc) {
+    console.log("\n2️⃣  Deploying Mock USDC...");
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    const mockUSDC = await deployWithRetry(MockUSDC, [], "MockUSDC");
+    usdcAddress = await mockUSDC.getAddress();
+  } else {
+    console.log("\n2️⃣  Skipping Mock USDC (not selected)");
+  }
 
   // ========================================
   // STEP 3: Deploy UnityCoin (UC)
@@ -242,24 +291,32 @@ async function main() {
   }
 
   // ========================================
-  // STEP 4: Deploy RedemptionVault
+  // STEP 4: Deploy RedemptionVault (Optional)
   // ========================================
-  console.log("\n4️⃣  Deploying RedemptionVault...");
-  const RedemptionVault = await ethers.getContractFactory("RedemptionVault");
-  const redemptionVault = await deployWithRetry(
-    RedemptionVault,
-    [ucAddress, usdcAddress, treasurySafe],
-    "RedemptionVault"
-  );
-  const vaultAddress = await redemptionVault.getAddress();
+  let vaultAddress = "";
+  if (deployVault) {
+    if (!usdcAddress) {
+      throw new Error("❌ RedemptionVault requires USDC address. Use --usdc flag.");
+    }
+    console.log("\n4️⃣  Deploying RedemptionVault...");
+    const RedemptionVault = await ethers.getContractFactory("RedemptionVault");
+    const redemptionVault = await deployWithRetry(
+      RedemptionVault,
+      [ucAddress, usdcAddress, treasurySafe],
+      "RedemptionVault"
+    );
+    vaultAddress = await redemptionVault.getAddress();
 
-  // Grant vault permission to mint UC
-  console.log("\n   Granting vault permissions...");
-  const TREASURER_MINT = ethers.keccak256(ethers.toUtf8Bytes("TREASURER_MINT"));
-  await sendTxWithRetry(
-    () => unityCoin.grantRole(TREASURER_MINT, vaultAddress),
-    "Granting TREASURER_MINT to vault"
-  );
+    // Grant vault permission to mint UC
+    console.log("\n   Granting vault permissions...");
+    const TREASURER_MINT = ethers.keccak256(ethers.toUtf8Bytes("TREASURER_MINT"));
+    await sendTxWithRetry(
+      () => unityCoin.grantRole(TREASURER_MINT, vaultAddress),
+      "Granting TREASURER_MINT to vault"
+    );
+  } else {
+    console.log("\n4️⃣  Skipping RedemptionVault (not selected)");
+  }
 
   // Set wealth fund address (for tax collection from store purchases)
   console.log("\n   Setting wealth fund address...");
@@ -277,110 +334,164 @@ async function main() {
   }
 
   // ========================================
-  // STEP 5: Deploy Trustless Contracts
+  // STEP 5: Deploy Trustless Contracts (Optional)
   // ========================================
-  console.log("\n5️⃣  Deploying VerifiedStoreRegistry...");
-  const VerifiedStoreRegistry = await ethers.getContractFactory("VerifiedStoreRegistry");
-  const storeRegistry = await deployWithRetry(
-    VerifiedStoreRegistry,
-    [governanceBot],
-    "VerifiedStoreRegistry"
-  );
-  const registryAddress = await storeRegistry.getAddress();
+  let registryAddress = "";
+  let engineAddress = "";
+  let routerAddress = "";
 
-  console.log("\n6️⃣  Deploying SCRewardEngine...");
-  const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
-  const rewardEngine = await deployWithRetry(
-    SCRewardEngine,
-    [governanceBot, scAddress, registryAddress],
-    "SCRewardEngine"
-  );
-  const engineAddress = await rewardEngine.getAddress();
+  if (deployRegistry) {
+    console.log("\n5️⃣  Deploying VerifiedStoreRegistry...");
+    const VerifiedStoreRegistry = await ethers.getContractFactory("VerifiedStoreRegistry");
+    const storeRegistry = await deployWithRetry(
+      VerifiedStoreRegistry,
+      [governanceBot],
+      "VerifiedStoreRegistry"
+    );
+    registryAddress = await storeRegistry.getAddress();
+  } else {
+    console.log("\n5️⃣  Skipping VerifiedStoreRegistry (not selected)");
+  }
 
-  console.log("\n7️⃣  Deploying StorePaymentRouter...");
-  const StorePaymentRouter = await ethers.getContractFactory("StorePaymentRouter");
-  const paymentRouter = await deployWithRetry(
-    StorePaymentRouter,
-    [governanceBot, ucAddress, registryAddress, engineAddress],
-    "StorePaymentRouter"
-  );
-  const routerAddress = await paymentRouter.getAddress();
-
-  // ========================================
-  // STEP 6: Grant Trustless Roles
-  // ========================================
-  console.log("\n8️⃣  Setting up trustless system roles...");
-
-  // Grant GOVERNANCE_AWARD to SCRewardEngine on SoulaaniCoin
-  const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
-  await sendTxWithRetry(
-    () => soulaaniCoin.grantRole(GOVERNANCE_AWARD, engineAddress),
-    "Granting GOVERNANCE_AWARD to engine"
-  );
-
-  // Grant REWARD_EXECUTOR to StorePaymentRouter on SCRewardEngine
-  const REWARD_EXECUTOR = ethers.keccak256(ethers.toUtf8Bytes("REWARD_EXECUTOR"));
-  await sendTxWithRetry(
-    () => rewardEngine.grantRole(REWARD_EXECUTOR, routerAddress),
-    "Granting REWARD_EXECUTOR to router"
-  );
-
-  // Grant manager roles to governance bot (if different from deployer)
-  if (governanceBot !== deployer.address) {
-    console.log("\n   Granting manager roles to governance bot...");
-    
-    try {
-      const REGISTRY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REGISTRY_MANAGER"));
-      const grantRegistryTx = await storeRegistry.grantRole(REGISTRY_MANAGER, governanceBot);
-      await waitForTx(grantRegistryTx, "Granting REGISTRY_MANAGER");
-
-      const POLICY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("POLICY_MANAGER"));
-      const grantPolicyTx = await rewardEngine.grantRole(POLICY_MANAGER, governanceBot);
-      await waitForTx(grantPolicyTx, "Granting POLICY_MANAGER");
-
-      console.log("   ✅ Governance bot has manager roles");
-    } catch (error: any) {
-      console.log("   ⚠️  Failed to grant some manager roles:", error.message);
+  if (deployEngine) {
+    if (!registryAddress) {
+      throw new Error("❌ SCRewardEngine requires VerifiedStoreRegistry. Use --registry flag.");
     }
+    console.log("\n6️⃣  Deploying SCRewardEngine...");
+    const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
+    const rewardEngine = await deployWithRetry(
+      SCRewardEngine,
+      [governanceBot, scAddress, registryAddress],
+      "SCRewardEngine"
+    );
+    engineAddress = await rewardEngine.getAddress();
+  } else {
+    console.log("\n6️⃣  Skipping SCRewardEngine (not selected)");
+  }
+
+  if (deployRouter) {
+    if (!registryAddress || !engineAddress) {
+      throw new Error("❌ StorePaymentRouter requires VerifiedStoreRegistry and SCRewardEngine. Use --registry and --engine flags.");
+    }
+    console.log("\n7️⃣  Deploying StorePaymentRouter...");
+    const StorePaymentRouter = await ethers.getContractFactory("StorePaymentRouter");
+    const paymentRouter = await deployWithRetry(
+      StorePaymentRouter,
+      [governanceBot, ucAddress, registryAddress, engineAddress],
+      "StorePaymentRouter"
+    );
+    routerAddress = await paymentRouter.getAddress();
+  } else {
+    console.log("\n7️⃣  Skipping StorePaymentRouter (not selected)");
   }
 
   // ========================================
-  // STEP 7: Set Initial Reward Policy
+  // STEP 6: Grant Trustless Roles (Only if contracts deployed)
   // ========================================
-  console.log("\n9️⃣  Setting initial reward policy...");
-  try {
-    const setGlobalPolicyTx = await rewardEngine.setGlobalPolicy(
-      100,                          // 1% (100 bps)
-      ethers.parseEther("5"),       // +5 SC fixed
-      ethers.parseEther("1"),       // Min 1 UC purchase
-      ethers.parseEther("100"),     // Max 100 SC per tx
-      true                          // Active
-    );
-    await waitForTx(setGlobalPolicyTx, "Setting global reward policy");
-    console.log("   ✅ Policy: 1% + 5 SC (min 1 UC, max 100 SC)");
-  } catch (error: any) {
-    console.log("   ⚠️  Failed to set policy:", error.message);
-    console.log("   You can set it manually later");
+  if (engineAddress || routerAddress) {
+    console.log("\n8️⃣  Setting up trustless system roles...");
+
+    // Grant GOVERNANCE_AWARD to SCRewardEngine on SoulaaniCoin
+    if (engineAddress) {
+      const GOVERNANCE_AWARD = ethers.keccak256(ethers.toUtf8Bytes("GOVERNANCE_AWARD"));
+      await sendTxWithRetry(
+        () => soulaaniCoin.grantRole(GOVERNANCE_AWARD, engineAddress),
+        "Granting GOVERNANCE_AWARD to engine"
+      );
+    }
+
+    // Grant REWARD_EXECUTOR to StorePaymentRouter on SCRewardEngine
+    if (routerAddress && engineAddress) {
+      const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
+      const rewardEngine = SCRewardEngine.attach(engineAddress) as any;
+      const REWARD_EXECUTOR = ethers.keccak256(ethers.toUtf8Bytes("REWARD_EXECUTOR"));
+      await sendTxWithRetry(
+        () => rewardEngine.grantRole(REWARD_EXECUTOR, routerAddress),
+        "Granting REWARD_EXECUTOR to router"
+      );
+    }
+
+    // Grant manager roles to governance bot (if different from deployer)
+    if (governanceBot !== deployer.address && registryAddress && engineAddress) {
+      console.log("\n   Granting manager roles to governance bot...");
+      
+      try {
+        const VerifiedStoreRegistry = await ethers.getContractFactory("VerifiedStoreRegistry");
+        const storeRegistry = VerifiedStoreRegistry.attach(registryAddress) as any;
+        const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
+        const rewardEngine = SCRewardEngine.attach(engineAddress) as any;
+
+        const REGISTRY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("REGISTRY_MANAGER"));
+        const grantRegistryTx = await storeRegistry.grantRole(REGISTRY_MANAGER, governanceBot);
+        await waitForTx(grantRegistryTx, "Granting REGISTRY_MANAGER");
+
+        const POLICY_MANAGER = ethers.keccak256(ethers.toUtf8Bytes("POLICY_MANAGER"));
+        const grantPolicyTx = await rewardEngine.grantRole(POLICY_MANAGER, governanceBot);
+        await waitForTx(grantPolicyTx, "Granting POLICY_MANAGER");
+
+        console.log("   ✅ Governance bot has manager roles");
+      } catch (error: any) {
+        console.log("   ⚠️  Failed to grant some manager roles:", error.message);
+      }
+    }
+  } else {
+    console.log("\n8️⃣  Skipping role grants (no trustless contracts deployed)");
+  }
+
+  // ========================================
+  // STEP 7: Set Initial Reward Policy (Only if engine deployed)
+  // ========================================
+  if (engineAddress) {
+    console.log("\n9️⃣  Setting initial reward policy...");
+    try {
+      const SCRewardEngine = await ethers.getContractFactory("SCRewardEngine");
+      const rewardEngine = SCRewardEngine.attach(engineAddress) as any;
+      const setGlobalPolicyTx = await rewardEngine.setGlobalPolicy(
+        100,                          // 1% (100 bps)
+        ethers.parseEther("5"),       // +5 SC fixed
+        ethers.parseEther("1"),       // Min 1 UC purchase
+        ethers.parseEther("100"),     // Max 100 SC per tx
+        true                          // Active
+      );
+      await waitForTx(setGlobalPolicyTx, "Setting global reward policy");
+      console.log("   ✅ Policy: 1% + 5 SC (min 1 UC, max 100 SC)");
+    } catch (error: any) {
+      console.log("   ⚠️  Failed to set policy:", error.message);
+      console.log("   You can set it manually later");
+    }
+  } else {
+    console.log("\n9️⃣  Skipping reward policy (engine not deployed)");
   }
 
   // ========================================
   // SAVE DEPLOYMENT INFO
   // ========================================
+  const contracts: any = {
+    SoulaaniCoin: { address: scAddress, admin: governanceBot },
+    AllyCoin: { address: allyAddress, admin: governanceBot, scReference: scAddress },
+    UnityCoin: { address: ucAddress, admin: treasurySafe, scReference: scAddress },
+  };
+
+  if (usdcAddress) contracts.MockUSDC = { address: usdcAddress };
+  if (vaultAddress) contracts.RedemptionVault = { address: vaultAddress, admin: treasurySafe };
+  if (registryAddress) contracts.VerifiedStoreRegistry = { address: registryAddress, admin: governanceBot };
+  if (engineAddress) contracts.SCRewardEngine = { address: engineAddress, admin: governanceBot };
+  if (routerAddress) contracts.StorePaymentRouter = { address: routerAddress, admin: governanceBot };
+
   const deploymentInfo = {
     network: "baseSepolia",
     chainId: 84532,
     deployedAt: new Date().toISOString(),
     deployer: deployer.address,
-    contracts: {
-      SoulaaniCoin: { address: scAddress, admin: governanceBot },
-      AllyCoin: { address: allyAddress, admin: governanceBot, scReference: scAddress },
-      MockUSDC: { address: usdcAddress },
-      UnityCoin: { address: ucAddress, admin: treasurySafe, scReference: scAddress },
-      RedemptionVault: { address: vaultAddress, admin: treasurySafe },
-      VerifiedStoreRegistry: { address: registryAddress, admin: governanceBot },
-      SCRewardEngine: { address: engineAddress, admin: governanceBot },
-      StorePaymentRouter: { address: routerAddress, admin: governanceBot },
+    deploymentType: deployAll ? "full" : "custom",
+    optionalContracts: {
+      usdc: deployUsdc,
+      vault: deployVault,
+      registry: deployRegistry,
+      engine: deployEngine,
+      router: deployRouter,
     },
+    contracts,
     roles: {
       treasurySafe,
       governanceBot,
@@ -400,23 +511,123 @@ async function main() {
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
 
   // ========================================
+  // SAVE TO DATABASE
+  // ========================================
+  console.log("\n📝 SAVING TO DATABASE...\n");
+  
+  try {
+    // Prompt for co-op details
+    console.log("Please provide co-op information for mobile app visibility:");
+    const coopName = await askQuestion("Co-op Name (e.g., 'Soulaan Co-operative'): ");
+    const coopSlug = await askQuestion("Slug (e.g., 'soulaan', leave empty to auto-generate): ");
+    const coopTagline = await askQuestion("Tagline (e.g., 'Building Generational Wealth Together'): ");
+    const coopDescription = await askQuestion("Description (optional, press Enter to skip): ");
+
+    if (!coopName.trim()) {
+      console.log("⚠️  Skipping database save - co-op name is required");
+    } else {
+      const finalSlug = coopSlug.trim() || coopName.toLowerCase().replace(/\s+/g, "-").substring(0, 30);
+      const finalTagline = coopTagline.trim() || "Building economic empowerment together";
+      const finalDescription = coopDescription.trim() || `${coopName} - A cooperative for economic empowerment.`;
+
+      await prisma.coopConfig.create({
+        data: {
+          coopId: finalSlug,
+          version: 1,
+          isActive: true,
+          // Display fields
+          name: coopName.trim(),
+          slug: finalSlug,
+          tagline: finalTagline,
+          description: finalDescription,
+          displayMission: finalDescription,
+          displayFeatures: [
+            { title: "Shared Wealth Fund", description: "Community fund for collective investment and support." },
+            { title: "Democratic Governance", description: "Members vote on proposals and shape priorities." },
+            { title: "Local Economy", description: "Support local businesses and keep wealth in the community." },
+          ],
+          eligibility: "Open to all community members",
+          bgColor: "bg-blue-700",
+          accentColor: "bg-amber-600",
+          displayOrder: 999,
+          // Governance fields
+          charterText: `${coopName} Charter - Building economic empowerment through cooperative ownership.`,
+          missionGoals: [
+            { key: "income_stability", label: "Income Stability", priorityWeight: 0.35 },
+            { key: "asset_creation", label: "Asset Creation", priorityWeight: 0.25 },
+            { key: "leakage_reduction", label: "Leakage Reduction", priorityWeight: 0.20 },
+            { key: "export_expansion", label: "Export Expansion", priorityWeight: 0.20 },
+          ],
+          structuralWeights: { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+          scoreMix: { missionWeight: 0.60, structuralWeight: 0.40 },
+          screeningPassThreshold: 0.6,
+          quorumPercent: 15,
+          approvalThresholdPercent: 51,
+          votingWindowDays: 7,
+          scVotingCapPercent: 2,
+          proposalCategories: [
+            { key: "business_funding", label: "Business Funding", isActive: true },
+            { key: "procurement", label: "Procurement", isActive: true },
+            { key: "infrastructure", label: "Infrastructure", isActive: true },
+            { key: "governance", label: "Governance", isActive: true },
+            { key: "other", label: "Other", isActive: true },
+          ],
+          sectorExclusions: [
+            { value: "fashion", description: "Low community multiplier" },
+            { value: "restaurant", description: "High failure rate" },
+          ],
+          scorerAgents: [
+            { agentKey: "finance", label: "Finance & Treasury", enabled: true },
+            { agentKey: "market", label: "Market & Revenue", enabled: true },
+            { agentKey: "community", label: "Community Economy", enabled: true },
+            { agentKey: "ops", label: "Operations & Execution", enabled: true },
+            { agentKey: "general", label: "General (Fallback)", enabled: true },
+          ],
+          minScBalanceToSubmit: 0,
+          aiAutoApproveThresholdUSD: 500,
+          councilVoteThresholdUSD: 5000,
+          strongGoalThreshold: 0.70,
+          missionMinThreshold: 0.50,
+          structuralGate: 0.65,
+          createdBy: deployer.address,
+        },
+      });
+
+      console.log("✅ Co-op saved to database!");
+      console.log(`   Co-op ID: ${finalSlug}`);
+      console.log(`   Name: ${coopName}`);
+      console.log("   Your co-op will now appear in the mobile app!");
+    }
+  } catch (dbError: any) {
+    console.log("⚠️  Failed to save to database:", dbError.message);
+    console.log("   Contracts are deployed, but co-op won't appear in mobile app");
+    console.log("   You can manually add it to the database later");
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  // ========================================
   // FINAL SUMMARY
   // ========================================
-  console.log("\n\n🎉 COMPLETE SYSTEM DEPLOYMENT SUCCESSFUL!\n");
+  console.log("\n\n🎉 DEPLOYMENT SUCCESSFUL!\n");
   console.log("=".repeat(70));
-  console.log("📋 CORE CONTRACTS:");
+  console.log("📋 REQUIRED CONTRACTS (Always Deployed):");
   console.log("=".repeat(70));
   console.log("SoulaaniCoin (SC):    ", scAddress);
   console.log("AllyCoin (ALLY):      ", allyAddress);
   console.log("UnityCoin (UC):       ", ucAddress);
-  console.log("RedemptionVault:      ", vaultAddress);
-  console.log("Mock USDC:            ", usdcAddress);
-  console.log("");
-  console.log("📋 TRUSTLESS CONTRACTS:");
-  console.log("=".repeat(70));
-  console.log("VerifiedStoreRegistry:", registryAddress);
-  console.log("SCRewardEngine:       ", engineAddress);
-  console.log("StorePaymentRouter:   ", routerAddress);
+  
+  if (usdcAddress || vaultAddress || registryAddress || engineAddress || routerAddress) {
+    console.log("");
+    console.log("📋 OPTIONAL CONTRACTS (Deployed):");
+    console.log("=".repeat(70));
+    if (usdcAddress) console.log("Mock USDC:            ", usdcAddress);
+    if (vaultAddress) console.log("RedemptionVault:      ", vaultAddress);
+    if (registryAddress) console.log("VerifiedStoreRegistry:", registryAddress);
+    if (engineAddress) console.log("SCRewardEngine:       ", engineAddress);
+    if (routerAddress) console.log("StorePaymentRouter:   ", routerAddress);
+  }
+  
   console.log("=".repeat(70));
   console.log("");
   console.log("✅ VERIFICATION:");
@@ -430,29 +641,34 @@ async function main() {
   console.log(`SOULAANI_COIN_ADDRESS=${scAddress}`);
   console.log(`ALLY_COIN_ADDRESS=${allyAddress}`);
   console.log(`UNITY_COIN_ADDRESS=${ucAddress}`);
-  console.log(`REDEMPTION_VAULT_ADDRESS=${vaultAddress}`);
-  console.log(`MOCK_USDC_ADDRESS=${usdcAddress}`);
-  console.log(`VERIFIED_STORE_REGISTRY_ADDRESS=${registryAddress}`);
-  console.log(`SC_REWARD_ENGINE_ADDRESS=${engineAddress}`);
-  console.log(`STORE_PAYMENT_ROUTER_ADDRESS=${routerAddress}`);
+  if (vaultAddress) console.log(`REDEMPTION_VAULT_ADDRESS=${vaultAddress}`);
+  if (usdcAddress) console.log(`MOCK_USDC_ADDRESS=${usdcAddress}`);
+  if (registryAddress) console.log(`VERIFIED_STORE_REGISTRY_ADDRESS=${registryAddress}`);
+  if (engineAddress) console.log(`SC_REWARD_ENGINE_ADDRESS=${engineAddress}`);
+  if (routerAddress) console.log(`STORE_PAYMENT_ROUTER_ADDRESS=${routerAddress}`);
   console.log("=".repeat(70));
   console.log("");
   console.log("🔗 VIEW ON BASESCAN:");
   console.log(`   SC:       https://sepolia.basescan.org/address/${scAddress}#code`);
   console.log(`   ALLY:     https://sepolia.basescan.org/address/${allyAddress}#code`);
   console.log(`   UC:       https://sepolia.basescan.org/address/${ucAddress}#code`);
-  console.log(`   Vault:    https://sepolia.basescan.org/address/${vaultAddress}#code`);
-  console.log(`   Registry: https://sepolia.basescan.org/address/${registryAddress}#code`);
-  console.log(`   Engine:   https://sepolia.basescan.org/address/${engineAddress}#code`);
-  console.log(`   Router:   https://sepolia.basescan.org/address/${routerAddress}#code`);
+  if (vaultAddress) console.log(`   Vault:    https://sepolia.basescan.org/address/${vaultAddress}#code`);
+  if (registryAddress) console.log(`   Registry: https://sepolia.basescan.org/address/${registryAddress}#code`);
+  if (engineAddress) console.log(`   Engine:   https://sepolia.basescan.org/address/${engineAddress}#code`);
+  if (routerAddress) console.log(`   Router:   https://sepolia.basescan.org/address/${routerAddress}#code`);
   console.log("");
   console.log("📝 NEXT STEPS:");
   console.log("1. Update .env with the addresses above");
-  console.log("2. Run: pnpm seed-stores:sepolia (to migrate verified stores)");
-  console.log("3. Run: pnpm test-flows:sepolia (to test the system)");
-  console.log("4. Verify contracts: pnpm verify:sepolia");
+  if (registryAddress) console.log("2. Run: pnpm seed-stores:sepolia (to migrate verified stores)");
+  if (engineAddress || routerAddress) console.log("3. Run: pnpm test-flows:sepolia (to test the system)");
+  console.log(`${registryAddress ? "4" : "2"}. Verify contracts: pnpm verify:sepolia`);
   console.log("");
   console.log(`💾 Deployment saved to: ${deploymentFile}\n`);
+  console.log("💡 TIP: Deploy optional contracts later with flags:");
+  console.log("   pnpm deploy:complete --vault");
+  console.log("   pnpm deploy:complete --registry --engine --router");
+  console.log("   pnpm deploy:complete --all");
+  console.log("");
 }
 
 main()
