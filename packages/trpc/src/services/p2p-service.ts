@@ -82,6 +82,7 @@ export async function sendToSoulaanUser(params: {
   senderId: string;
   recipientId: string;
   amountUSD: number;
+  coopId: string;
   note?: string;
   transferType?: TransferType;
   transferMetadata?: TransferMetadata;
@@ -91,7 +92,7 @@ export async function sendToSoulaanUser(params: {
   fundingSource: 'BALANCE' | 'CARD';
   receiptId: string;
 }> {
-  const { senderId, recipientId, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
+  const { senderId, recipientId, amountUSD, coopId, note, transferType = 'PERSONAL', transferMetadata } = params;
   const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer: ${amountUSD} USD (${amountUC} UC)`);
@@ -204,6 +205,7 @@ export async function sendToSoulaanUser(params: {
       recipientId,
       amountUSD,
       amountUC,
+      coopId,
       fundingSource,
       stripePaymentIntentId,
       stripeChargeId,
@@ -253,6 +255,7 @@ export async function sendToSoulaanUser(params: {
         senderId,
         recipientId,
         amountUSD,
+        coopId,
         transferType,
         metadata: transferMetadata ? transferMetadata : undefined,
         verificationStatus: 'UNVERIFIED',
@@ -260,7 +263,7 @@ export async function sendToSoulaanUser(params: {
     });
 
     // Create notifications
-    await createPaymentNotifications(transfer.id, senderId, recipientId, amountUSD, transferType);
+    await createPaymentNotifications(transfer.id, senderId, recipientId, amountUSD, coopId, transferType);
 
     console.log(`   ✅ Transfer complete: ${txHash}`);
     console.log(`   📝 Receipt created: ${receipt.id}`);
@@ -295,6 +298,7 @@ export async function sendToSoulaanUser(params: {
         await db.notification.create({
           data: {
             userId: senderId,
+            coopId,
             type: 'PAYMENT_REFUNDED',
             title: 'Payment Refunded',
             body: `Your $${amountUSD.toFixed(2)} payment failed and has been refunded to your card.`,
@@ -311,6 +315,7 @@ export async function sendToSoulaanUser(params: {
         await db.notification.create({
           data: {
             userId: senderId,
+            coopId,
             type: 'PAYMENT_REFUND_FAILED',
             title: 'Payment Issue',
             body: `Your $${amountUSD.toFixed(2)} payment failed. Please contact support for a refund.`,
@@ -336,6 +341,7 @@ export async function sendToNonUser(params: {
   recipientPhone: string;
   recipientEmail?: string;
   amountUSD: number;
+  coopId: string;
   note?: string;
   transferType?: TransferType;
   transferMetadata?: TransferMetadata;
@@ -345,7 +351,7 @@ export async function sendToNonUser(params: {
   fundingSource: 'BALANCE' | 'CARD';
   receiptId: string;
 }> {
-  const { senderId, recipientPhone, recipientEmail, amountUSD, note, transferType = 'PERSONAL', transferMetadata } = params;
+  const { senderId, recipientPhone, recipientEmail, amountUSD, coopId, note, transferType = 'PERSONAL', transferMetadata } = params;
   const { amountUC } = createParityAmounts(amountUSD);
 
   console.log(`\n💸 P2P Transfer to non-user: ${amountUSD} USD`);
@@ -408,6 +414,7 @@ export async function sendToNonUser(params: {
       recipientEmail,
       amountUSD,
       amountUC,
+      coopId,
       fundingSource,
       stripePaymentIntentId,
       stripeChargeId,
@@ -426,6 +433,7 @@ export async function sendToNonUser(params: {
       senderId,
       recipientPhone,
       amountUSD,
+      coopId,
       transferType,
       metadata: transferMetadata ? transferMetadata : undefined,
       verificationStatus: 'UNVERIFIED',
@@ -440,6 +448,7 @@ export async function sendToNonUser(params: {
   await db.notification.create({
     data: {
       userId: senderId,
+      coopId,
       type: 'PAYMENT_SENT',
       title: 'Payment Sent',
       body: `You sent $${amountUSD.toFixed(2)} to ${recipientPhone}. They have ${config.claimExpirationDays} days to claim it.`,
@@ -517,6 +526,7 @@ export async function processExpiredTransfers(): Promise<number> {
       await db.notification.create({
         data: {
           userId: transfer.senderId,
+          coopId: transfer.coopId,
           type: 'PAYMENT_EXPIRED',
           title: 'Payment Returned',
           body: `Your $${transfer.amountUSD.toFixed(2)} payment to ${transfer.recipientPhone} was not claimed and has been returned.`,
@@ -558,6 +568,7 @@ async function createPaymentNotifications(
   senderId: string,
   recipientId: string,
   amountUSD: number,
+  coopId: string,
   transferType: TransferType = 'PERSONAL'
 ): Promise<void> {
   const [sender, recipient] = await Promise.all([
@@ -571,6 +582,7 @@ async function createPaymentNotifications(
   await db.notification.create({
     data: {
       userId: senderId,
+      coopId,
       type: 'PAYMENT_SENT',
       title: 'Payment Sent',
       body: `You sent $${amountUSD.toFixed(2)} to ${recipient?.name || 'a user'} — ${typeLabel}`,
@@ -582,6 +594,7 @@ async function createPaymentNotifications(
   await db.notification.create({
     data: {
       userId: recipientId,
+      coopId,
       type: 'PAYMENT_RECEIVED',
       title: 'Payment Received',
       body: `${sender?.name || 'Someone'} sent you $${amountUSD.toFixed(2)} — ${typeLabel}`,

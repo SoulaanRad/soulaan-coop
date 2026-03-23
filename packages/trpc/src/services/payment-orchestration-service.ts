@@ -123,6 +123,7 @@ export async function createCommerceTransaction(params: {
   customerId: string;
   businessId: string;
   listedAmountCents: number;
+  coopId: string;
   currency?: string;
   metadata?: Record<string, unknown>;
 }): Promise<{
@@ -192,6 +193,7 @@ export async function createCommerceTransaction(params: {
     data: {
       customerId,
       businessId,
+      coopId: params.coopId,
       listedAmount: breakdown.listedAmount / 100, // Store as dollars
       chargedAmount: breakdown.chargedAmount / 100,
       merchantSettlementAmount: breakdown.merchantSettlementAmount / 100,

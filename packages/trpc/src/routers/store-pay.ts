@@ -9,6 +9,7 @@ import { db } from "@repo/db";
 
 import { authenticatedProcedure, publicProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
+import { CoopScopedContext } from "../context.js";
 import {
   generateUniqueShortCode,
   validateShortCode,
@@ -40,11 +41,13 @@ export const storePayRouter = router({
       shortCode: z.string(),
       qrCodeData: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      
       // Get user's store
       const store = await db.store.findFirst({
-        where: { ownerId: input.userId, status: 'APPROVED' },
-        select: { id: true, name: true, shortCode: true },
+        where: { ownerId: input.userId, coopId, status: 'APPROVED' },
+        select: { id: true, name: true, shortCode: true, coopId: true },
       });
 
       if (!store) {
@@ -69,7 +72,7 @@ export const storePayRouter = router({
 
         // Check availability (unless it's the same as current)
         if (normalized !== store.shortCode) {
-          const available = await isShortCodeAvailable(normalized);
+          const available = await isShortCodeAvailable(normalized, store.coopId);
           if (!available) {
             throw new TRPCError({
               code: "CONFLICT",
@@ -81,7 +84,7 @@ export const storePayRouter = router({
         shortCode = normalized;
       } else {
         // Generate a unique code
-        shortCode = await generateUniqueShortCode(store.name);
+        shortCode = await generateUniqueShortCode(store.name, store.coopId);
       }
 
       // Update store
@@ -109,7 +112,7 @@ export const storePayRouter = router({
       normalized: z.string(),
       message: z.string().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       if (!validateShortCode(input.code)) {
         return {
           valid: false,
@@ -119,8 +122,9 @@ export const storePayRouter = router({
         };
       }
 
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
       const normalized = normalizeShortCode(input.code);
-      const available = await isShortCodeAvailable(normalized);
+      const available = await isShortCodeAvailable(normalized, coopId);
 
       return {
         valid: true,
@@ -404,6 +408,7 @@ export const storePayRouter = router({
   getStoreByCode: publicProcedure
     .input(z.object({
       code: z.string(),
+      coopId: z.string(),
     }))
     .output(z.object({
       found: z.boolean(),
@@ -417,7 +422,7 @@ export const storePayRouter = router({
       }).optional(),
     }))
     .query(async ({ input }) => {
-      const store = await getStoreByShortCode(input.code);
+      const store = await getStoreByShortCode(input.code, input.coopId);
 
       if (!store) {
         return { found: false };
@@ -451,12 +456,14 @@ export const storePayRouter = router({
       transferId: z.string(),
       message: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       try {
+        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
         const result = await payByStoreCode({
           storeCode: input.storeCode,
           payerId: input.userId,
           amount: input.amount,
+          coopId,
           note: input.note,
         });
 

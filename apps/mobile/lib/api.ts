@@ -25,6 +25,9 @@ export function createApiHeaders(walletAddress?: string | null): HeadersInit {
 
 // Application submission types
 export interface ApplicationData {
+  // Coop identification
+  coopId: string;
+  
   // Personal Information
   firstName: string;
   lastName: string;

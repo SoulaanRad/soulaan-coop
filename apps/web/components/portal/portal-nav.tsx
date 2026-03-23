@@ -76,10 +76,18 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export function PortalNav() {
+export function PortalNav({ coopId }: { coopId?: string }) {
   const pathname = usePathname();
   const { logout, isLoading, isAdmin, adminRole } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  
+  // Prefix all nav links with coopId if provided
+  const prefixHref = (href: string) => {
+    if (coopId) {
+      return `/portal/${coopId}${href.replace('/portal', '')}`;
+    }
+    return href;
+  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -95,11 +103,12 @@ export function PortalNav() {
   };
 
   const isGroupActive = (group: NavGroup) => {
+    const checkHref = prefixHref(group.href || '');
     if (group.href) {
-      return pathname === group.href;
+      return pathname === checkHref;
     }
     if (group.items) {
-      return group.items.some(item => pathname === item.href);
+      return group.items.some(item => pathname === prefixHref(item.href));
     }
     return false;
   };
@@ -110,7 +119,7 @@ export function PortalNav() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center gap-8">
-            <Link href="/portal" className="flex items-center gap-2">
+            <Link href={prefixHref("/portal")} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">SC</span>
               </div>
@@ -132,7 +141,7 @@ export function PortalNav() {
                   return (
                     <Link
                       key={group.href}
-                      href={group.href}
+                      href={prefixHref(group.href)}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                         isActive
@@ -167,7 +176,8 @@ export function PortalNav() {
                     >
                       {group.items?.map((item) => {
                         const ItemIcon = item.icon;
-                        const isItemActive = pathname === item.href;
+                        const itemHref = prefixHref(item.href);
+                        const isItemActive = pathname === itemHref;
 
                         return (
                           <DropdownMenuItem
@@ -179,7 +189,7 @@ export function PortalNav() {
                             )}
                           >
                             <Link
-                              href={item.href}
+                              href={itemHref}
                               className="flex items-center gap-2 px-2 py-2"
                             >
                               <ItemIcon className="h-4 w-4" />

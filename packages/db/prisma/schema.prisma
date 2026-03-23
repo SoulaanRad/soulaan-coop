@@ -30,7 +30,8 @@ model User {
   defaultPaymentMethodId String?
 
   // Relations
-  application          Application?
+  applications         Application[]
+  memberships          UserCoopMembership[]
   wallets              Wallet[]
   businesses           Business[]
   onrampTransactions   OnrampTransaction[] // UC-era: preserved for future reactivation
@@ -54,6 +55,7 @@ model Business {
   id         String   @id @default(cuid())
   ownerId    String
   owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  coopId     String
   name       String
   city       String
   isApproved Boolean  @default(false)
@@ -67,6 +69,7 @@ model Business {
   commerceTransactions CommerceTransaction[]
 
   @@index([ownerId])
+  @@index([coopId])
   @@schema("public")
 }
 
@@ -84,7 +87,8 @@ model Transaction {
 
 model WaitlistEntry {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String
+  coopId    String
   type      String // "user" or "business"
   name      String?
   city      String?
@@ -92,13 +96,16 @@ model WaitlistEntry {
   source    String? // "hero" or "contact"
   createdAt DateTime @default(now())
 
+  @@unique([email, coopId])
+  @@index([coopId])
   @@schema("public")
 }
 
 model BusinessWaitlist {
   id              String   @id @default(cuid())
   ownerName       String
-  ownerEmail      String   @unique
+  ownerEmail      String
+  coopId          String
   businessName    String
   businessAddress String
   businessType    String
@@ -106,13 +113,16 @@ model BusinessWaitlist {
   description     String?
   createdAt       DateTime @default(now())
 
+  @@unique([ownerEmail, coopId])
+  @@index([coopId])
   @@schema("public")
 }
 
 // ── Application Models ────────────────────────────────
 model Application {
   id     String            @id @default(cuid())
-  userId String            @unique
+  userId String
+  coopId String
   status ApplicationStatus @default(SUBMITTED)
 
   // Application data stored as JSON blob for flexibility
@@ -134,32 +144,78 @@ model Application {
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, coopId])
+  @@index([coopId, status])
+  @@index([userId])
+  @@schema("public")
+}
+
+// ── User Coop Membership ────────────────────────────────
+model UserCoopMembership {
+  id     String @id @default(cuid())
+  userId String
+  coopId String
+
+  // Membership state
+  status MembershipStatus @default(PENDING)
+  roles  String[]         @default(["member"]) // member, business, admin, governor (per-coop)
+
+  // Approval tracking
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Activity
+  joinedAt     DateTime?
+  lastActiveAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, coopId])
+  @@index([coopId, status])
+  @@index([userId])
+  @@schema("public")
+}
+
+enum MembershipStatus {
+  PENDING // Application submitted, awaiting review
+  ACTIVE // Approved and active member
+  SUSPENDED // Temporarily suspended
+  REJECTED // Application rejected
+  INACTIVE // Voluntarily left or inactive
+
   @@schema("public")
 }
 
 // ── Coop Configuration Models ────────────────────────────
 model CoopConfig {
-  id                        String   @id @default(cuid())
-  coopId                    String
-  version                   Int
-  isActive                  Boolean  @default(true)
-  
+  id       String  @id @default(cuid())
+  coopId   String
+  version  Int
+  isActive Boolean @default(true)
+
   // Display information for onboarding
-  name                      String?
-  slug                      String?
-  tagline                   String?
-  description               String?  @db.Text
-  displayMission            String?  @db.Text
-  displayFeatures           Json?    // [{ title, description }]
-  eligibility               String?  @db.Text
-  bgColor                   String   @default("bg-red-700")
-  accentColor               String   @default("bg-gold-600")
-  displayOrder              Int      @default(0)
-  
+  name            String?
+  slug            String?
+  tagline         String?
+  description     String? @db.Text
+  displayMission  String? @db.Text
+  displayFeatures Json? // [{ title, description }]
+  eligibility     String? @db.Text
+  bgColor         String  @default("bg-red-700")
+  accentColor     String  @default("bg-gold-600")
+  displayOrder    Int     @default(0)
+
   // Application form configuration
-  applicationQuestions      Json?    // [{ id, type, label, description?, placeholder?, required, options?, validation? }]
+  applicationQuestions Json? // [{ id, type, label, description?, placeholder?, required, options?, validation? }]
   // Question types: text, textarea, email, phone, select, multiselect, radio, checkbox, number, date, file
-  
+
   // Governance configuration
   charterText               String   @db.Text
   missionGoals              Json // [{ key, label, priorityWeight, description? }]
@@ -179,6 +235,21 @@ model CoopConfig {
   strongGoalThreshold       Float    @default(0.70)
   missionMinThreshold       Float    @default(0.50)
   structuralGate            Float    @default(0.65)
+
+  // Chain configuration (merged from CoopChainConfig)
+  chainId                      Int?
+  chainName                    String? // e.g., "base-sepolia", "base-mainnet"
+  rpcUrl                       String? // Optional override; falls back to platform default
+  scTokenAddress               String? // SoulaaniCoin (or equivalent coop coin) address
+  ucTokenAddress               String? // UnityCoin address
+  redemptionVaultAddress       String?
+  treasurySafeAddress          String?
+  verifiedStoreRegistryAddress String?
+  storePaymentRouterAddress    String?
+  rewardEngineAddress          String?
+  scTokenSymbol                String? @default("SC") // e.g., "SC", "SFNC"
+  scTokenName                  String? @default("SoulaaniCoin") // e.g., "SoulaaniCoin", "SF Nightlife Coin"
+
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   createdBy                 String // wallet address
@@ -325,18 +396,19 @@ model ProposalRevision {
 // ── Expert Scoring Models ──────────────────────────────
 
 /**
- * Many-to-many mapping: a wallet can be expert for multiple domains
+ * Many-to-many mapping: a wallet can be expert for multiple domains per coop
  */
 model ExpertAssignment {
   id            String   @id @default(cuid())
   walletAddress String
+  coopId        String
   domain        String // e.g. 'finance', 'market', 'community', 'ops', 'general'
   isActive      Boolean  @default(true)
   assignedBy    String // admin wallet that granted the assignment
   assignedAt    DateTime @default(now())
 
-  @@unique([walletAddress, domain])
-  @@index([domain, isActive])
+  @@unique([walletAddress, coopId, domain])
+  @@index([coopId, domain, isActive])
   @@schema("public")
 }
 
@@ -467,8 +539,9 @@ model CommentAIEvaluation {
 // ── Admin Authentication Models ────────────────────────────────
 model UserProfile {
   id               String    @id @default(cuid())
-  walletAddress    String    @unique
-  username         String?   @unique // Username for transfer recipient lookup
+  walletAddress    String
+  coopId           String
+  username         String? // Username for transfer recipient lookup
   name             String
   email            String?
   phoneNumber      String
@@ -482,6 +555,9 @@ model UserProfile {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  @@unique([walletAddress, coopId])
+  @@unique([username, coopId])
+  @@index([coopId])
   @@schema("auth")
 }
 
@@ -753,6 +829,7 @@ model P2PTransfer {
   sender      User   @relation("sender", fields: [senderId], references: [id])
   recipientId String
   recipient   User   @relation("recipient", fields: [recipientId], references: [id])
+  coopId      String
 
   amountUSD Float // Display amount (what user sees)
   amountUC  Float // Settlement amount (internal, same as USD at 1:1)
@@ -784,6 +861,7 @@ model P2PTransfer {
 
   @@index([senderId, createdAt])
   @@index([recipientId, createdAt])
+  @@index([coopId])
   @@index([status])
   @@index([transferType])
   @@schema("public")
@@ -795,6 +873,7 @@ model PendingTransfer {
 
   senderId String
   sender   User   @relation("sender", fields: [senderId], references: [id])
+  coopId   String
 
   recipientPhone String // Phone number of non-user
   recipientEmail String? // Optional email
@@ -826,6 +905,7 @@ model PendingTransfer {
 
   @@index([recipientPhone])
   @@index([claimToken])
+  @@index([coopId])
   @@index([status, expiresAt])
   @@index([transferType])
   @@schema("public")
@@ -845,6 +925,7 @@ model Receipt {
   senderId       String
   recipientId    String? // Null for pending transfers to non-users
   recipientPhone String? // For pending transfers
+  coopId         String
 
   amountUSD    Float
   transferType TransferType
@@ -859,6 +940,7 @@ model Receipt {
 
   @@index([senderId])
   @@index([recipientId])
+  @@index([coopId])
   @@index([transferType])
   @@index([verificationStatus])
   @@schema("public")
@@ -912,6 +994,7 @@ model Notification {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coopId String
 
   type  String // PAYMENT_RECEIVED, PAYMENT_SENT, WITHDRAWAL_COMPLETE, etc.
   title String
@@ -921,7 +1004,8 @@ model Notification {
 
   createdAt DateTime @default(now())
 
-  @@index([userId, read, createdAt])
+  @@index([userId, coopId, read, createdAt])
+  @@index([coopId])
   @@schema("public")
 }
 
@@ -981,9 +1065,10 @@ enum WithdrawalStatus {
 // ── Store/Marketplace Models ────────────────────────────
 
 model Store {
-  id      String @id @default(cuid())
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  ownerId    String
+  owner      User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  coopId     String
   businessId String?   @unique
   business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
 
@@ -994,7 +1079,7 @@ model Store {
   bannerUrl   String?
 
   // Quick Pay settings
-  shortCode       String? @unique // e.g., "JOES-COFFEE" or "JC4K9X"
+  shortCode       String? // e.g., "JOES-COFFEE" or "JC4K9X"
   acceptsQuickPay Boolean @default(true)
 
   // Location
@@ -1009,11 +1094,11 @@ model Store {
   website String?
 
   // SC Verification - stores that can earn SC from transactions
-  isScVerified         Boolean             @default(false)
-  scVerifiedAt         DateTime?
-  scApplicationStatus  SCApplicationStatus @default(NOT_APPLIED)
-  acceptsUC            Boolean             @default(true) // Accepts UC payments (20% discount)
-  ucDiscountPercent    Float               @default(20) // Discount for UC payments
+  isScVerified        Boolean             @default(false)
+  scVerifiedAt        DateTime?
+  scApplicationStatus SCApplicationStatus @default(NOT_APPLIED)
+  acceptsUC           Boolean             @default(true) // Accepts UC payments (20% discount)
+  ucDiscountPercent   Float               @default(20) // Discount for UC payments
 
   // Status
   status     StoreStatus @default(PENDING)
@@ -1036,10 +1121,10 @@ model Store {
   paymentRequests           StorePaymentRequest[]
   scRewards                 SCRewardTransaction[]
 
+  @@unique([coopId, shortCode])
   @@index([ownerId])
-  @@index([status])
+  @@index([coopId, status])
   @@index([category])
-  @@index([shortCode])
   @@schema("public")
 }
 
@@ -1609,6 +1694,7 @@ model CommerceTransaction {
   customer   User     @relation(fields: [customerId], references: [id])
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
+  coopId     String
 
   // Pricing breakdown
   listedAmount             Float // Original item price
@@ -1645,6 +1731,7 @@ model CommerceTransaction {
 
   @@index([customerId, createdAt(sort: Desc)])
   @@index([businessId, createdAt(sort: Desc)])
+  @@index([coopId])
   @@index([status])
   @@index([stripePaymentIntentId])
   @@schema("public")
@@ -1884,14 +1971,16 @@ model FeatureFlag {
 model AdminRole {
   id        String        @id @default(cuid())
   userId    String
+  coopId    String
   role      AdminRoleType
   grantedBy String // Admin user ID who granted the role
   grantedAt DateTime      @default(now())
   revokedAt DateTime?
   revokedBy String?
 
-  @@unique([userId, role])
+  @@unique([userId, coopId, role])
   @@index([userId])
+  @@index([coopId])
   @@schema("public")
 }
 
@@ -2009,18 +2098,17 @@ enum ApprovalStatus {
 /**
  * Key/value store for platform-wide configuration.
  * Editable by admins. Cached at runtime.
- *
  * Well-known keys:
- *   coin.symbol      — e.g. "SC"
- *   coin.name        — e.g. "Soulaan Coin"
- *   coin.description — short description shown in UI
- *   platform.name    — e.g. "Cahootz"
+ * coin.symbol      — e.g. "SC"
+ * coin.name        — e.g. "Soulaan Coin"
+ * coin.description — short description shown in UI
+ * platform.name    — e.g. "Cahootz"
  */
 model PlatformConfig {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
-  updatedBy String?  // Admin user ID who last changed this
+  updatedBy String? // Admin user ID who last changed this
 
   @@schema("public")
 }

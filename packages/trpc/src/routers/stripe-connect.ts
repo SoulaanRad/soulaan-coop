@@ -62,6 +62,7 @@ export const stripeConnectRouter = router({
         business = await db.business.create({
           data: {
             ownerId: store.ownerId,
+            coopId: store.coopId,
             name: store.application.businessName || store.name,
             city: store.application.businessCity,
             isApproved: false,
@@ -77,7 +78,7 @@ export const stripeConnectRouter = router({
         });
       }
 
-      if (business.stripeAccount) {
+      if (business?.stripeAccount) {
         
         const onboardingUrl = await generateOnboardingLink({
           accountId: business.stripeAccount.stripeAccountId,

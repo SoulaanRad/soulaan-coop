@@ -1,10 +1,10 @@
 import { createPublicClient, http, type Address, formatUnits } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { db } from '@repo/db';
+import { getChainConfig } from './coop-chain-config-service.js';
 
 // Environment configuration
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
-const SOULAANI_COIN_ADDRESS = (process.env.SOULAANI_COIN_ADDRESS || '') as Address;
 
 // ERC20 ABI for balance and transfer queries
 const ERC20_ABI = [
@@ -43,9 +43,10 @@ const publicClient = createPublicClient({
 /**
  * Get user's on-chain SC balance
  * @param userId - User ID to check balance for
+ * @param coopId - Coop ID to get SC token address for
  * @returns SC balance as a number
  */
-export async function validateSCBalance(userId: string): Promise<number> {
+export async function validateSCBalance(userId: string, coopId: string): Promise<number> {
   try {
     // Get user's wallet address from database
     const user = await db.user.findUnique({
@@ -58,9 +59,13 @@ export async function validateSCBalance(userId: string): Promise<number> {
       return 0;
     }
 
+    // Get SC token address for this coop
+    const chainConfig = await getChainConfig(coopId);
+    const scTokenAddress = chainConfig.scTokenAddress as Address;
+
     // Query on-chain balance
     const balance = await publicClient.readContract({
-      address: SOULAANI_COIN_ADDRESS,
+      address: scTokenAddress,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [user.walletAddress as Address],
@@ -80,9 +85,10 @@ export async function validateSCBalance(userId: string): Promise<number> {
 /**
  * Verify that a transaction exists and succeeded on-chain
  * @param txHash - Transaction hash to verify
+ * @param coopId - Coop ID to get SC token address for
  * @returns Transaction details if found and successful
  */
-export async function verifySCTransaction(txHash: string): Promise<{
+export async function verifySCTransaction(txHash: string, coopId: string): Promise<{
   exists: boolean;
   success: boolean;
   from?: string;
@@ -107,6 +113,10 @@ export async function verifySCTransaction(txHash: string): Promise<{
     // Check if transaction was successful
     const success = receipt.status === 'success';
 
+    // Get SC token address for this coop
+    const chainConfig = await getChainConfig(coopId);
+    const scTokenAddress = chainConfig.scTokenAddress;
+
     // Try to extract transfer details from logs
     let from: string | undefined;
     let to: string | undefined;
@@ -114,7 +124,7 @@ export async function verifySCTransaction(txHash: string): Promise<{
 
     // Look for Transfer event in logs
     const transferLog = receipt.logs.find(
-      (log) => log.address.toLowerCase() === SOULAANI_COIN_ADDRESS.toLowerCase()
+      (log) => log.address.toLowerCase() === scTokenAddress.toLowerCase()
     );
 
     if (transferLog && transferLog.topics.length >= 3) {
@@ -151,12 +161,17 @@ export async function verifySCTransaction(txHash: string): Promise<{
 
 /**
  * Get total SC minted from the contract
+ * @param coopId - Coop ID to get SC token address for
  * @returns Total supply of SC tokens
  */
-export async function getTotalSCMinted(): Promise<number> {
+export async function getTotalSCMinted(coopId: string): Promise<number> {
   try {
+    // Get SC token address for this coop
+    const chainConfig = await getChainConfig(coopId);
+    const scTokenAddress = chainConfig.scTokenAddress as Address;
+
     const totalSupply = await publicClient.readContract({
-      address: SOULAANI_COIN_ADDRESS,
+      address: scTokenAddress,
       abi: ERC20_ABI,
       functionName: 'totalSupply',
     });
@@ -173,9 +188,10 @@ export async function getTotalSCMinted(): Promise<number> {
 /**
  * Reconcile SC records with blockchain state
  * Compares database records with on-chain balances to identify discrepancies
+ * @param coopId - Coop ID for chain config
  * @returns Reconciliation report
  */
-export async function reconcileSCRecords(): Promise<{
+export async function reconcileSCRecords(coopId: string): Promise<{
   totalRecords: number;
   checkedRecords: number;
   discrepancies: Array<{
@@ -210,6 +226,11 @@ export async function reconcileSCRecords(): Promise<{
         status: true,
         txHash: true,
         amountSC: true,
+        relatedStore: {
+          select: {
+            coopId: true,
+          },
+        },
       },
     });
 
@@ -233,7 +254,8 @@ export async function reconcileSCRecords(): Promise<{
     for (const record of records) {
       if (!record.txHash) continue;
 
-      const verification = await verifySCTransaction(record.txHash);
+      const recordCoopId = record.relatedStore?.coopId || coopId;
+      const verification = await verifySCTransaction(record.txHash, recordCoopId);
 
       let onChainStatus: 'not_found' | 'failed' | 'success';
       let shouldUpdate = false;
@@ -310,17 +332,19 @@ export async function reconcileSCRecords(): Promise<{
  * Useful for validating if a reward was already minted
  * @param userId - User ID to check
  * @param expectedAmount - Expected SC amount
+ * @param coopId - Coop ID for chain config
  * @param tolerance - Tolerance for amount matching (default 0.01 SC)
  * @returns True if user likely received the SC
  */
 export async function hasUserReceivedSC(
   userId: string,
   expectedAmount: number,
+  coopId: string,
   tolerance: number = 0.01
 ): Promise<boolean> {
   try {
     // Get user's current balance
-    const currentBalance = await validateSCBalance(userId);
+    const currentBalance = await validateSCBalance(userId, coopId);
 
     // Get sum of all COMPLETED SC rewards for this user
     const completedRewards = await db.sCRewardTransaction.findMany({
@@ -354,9 +378,10 @@ export async function hasUserReceivedSC(
 /**
  * Check if a user is an active member on-chain
  * @param userId - User ID to check
+ * @param coopId - Coop ID for chain config
  * @returns Object with member status and details
  */
-export async function checkMemberStatus(userId: string): Promise<{
+export async function checkMemberStatus(userId: string, coopId: string): Promise<{
   isActiveMember: boolean;
   memberStatus: number;
   memberSince: number;
@@ -373,10 +398,13 @@ export async function checkMemberStatus(userId: string): Promise<{
       throw new Error(`User ${userId} has no wallet address`);
     }
 
+    // Get SC token address for this coop
+    const scTokenAddress = await getChainConfig(coopId).then(config => config.scTokenAddress as Address);
+
     // Check member status on-chain
     const [isActiveMember, memberStatus, memberSince] = await Promise.all([
       publicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+        address: scTokenAddress,
         abi: [
           {
             inputs: [{ name: 'account', type: 'address' }],
@@ -390,7 +418,7 @@ export async function checkMemberStatus(userId: string): Promise<{
         args: [user.walletAddress as Address],
       }),
       publicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+        address: scTokenAddress,
         abi: [
           {
             inputs: [{ name: 'account', type: 'address' }],
@@ -404,7 +432,7 @@ export async function checkMemberStatus(userId: string): Promise<{
         args: [user.walletAddress as Address],
       }),
       publicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+        address: scTokenAddress,
         abi: [
           {
             inputs: [{ name: 'account', type: 'address' }],

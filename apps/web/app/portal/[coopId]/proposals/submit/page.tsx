@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Info, Send, MapPin } from "lucide-react";
 import Link from "next/link";
-import { env } from "@/env";
 
 export default function SubmitProposalPage() {
   const router = useRouter();
+  const params = useParams();
+  const coopId = params.coopId as string;
   const coin = useCoin();
   const [text, setText] = useState("");
   const [location, setLocation] = useState("");
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   const { data: config } = api.coopConfig.getActive.useQuery({ coopId });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
@@ -11,12 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft, ShieldAlert, PlusCircle, Bot, Users, Globe, X, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import Link from "next/link";
 import { ConfigSectionEditor } from "@/components/portal/proposals/config-section-editor";
-import { env } from "@/env";
 
 export default function CoopConfigPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const coin = useCoin();
   const { isAdmin } = useWeb3Auth();
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
   const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId });
   const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId });
 

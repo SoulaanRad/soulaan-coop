@@ -98,10 +98,10 @@ export default function TreasuryDashboardHybrid() {
         </div>
         <div className="flex items-center gap-2">
           <Select value={chartPeriod} onValueChange={(v) => setChartPeriod(v as ChartPeriod)}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 bg-background text-foreground border-input">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-background text-foreground border-input">
               <SelectItem value="7d">Last 7 days</SelectItem>
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>

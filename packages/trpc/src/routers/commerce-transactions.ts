@@ -9,6 +9,7 @@ import {
   getTransactionByPaymentIntent 
 } from '../services/payment-orchestration-service.js';
 import { validateRewardEligibility } from '../services/reward-policy-service.js';
+import { CoopScopedContext } from '../context.js';
 
 export const commerceTransactionsRouter = router({
   /**
@@ -113,13 +114,15 @@ export const commerceTransactionsRouter = router({
       currency: z.string().default('USD'),
       metadata: z.record(z.unknown()).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { userId, businessId, listedAmountCents, currency, metadata } = input;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       const result = await createCommerceTransaction({
         customerId: userId,
         businessId,
         listedAmountCents,
+        coopId,
         currency,
         metadata,
       });

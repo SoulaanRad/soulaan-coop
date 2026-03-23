@@ -8,6 +8,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasProfile: boolean;
+  activeCoopId: string | null;
   isAdmin: boolean;
   adminRole: string | null;
   error: string | null;
@@ -24,6 +25,7 @@ export function useWeb3Auth() {
     isLoading: true,
     isAuthenticated: false,
     hasProfile: false,
+    activeCoopId: null,
     isAdmin: false,
     adminRole: null,
     error: null,
@@ -43,6 +45,7 @@ export function useWeb3Auth() {
           isLoading: false,
           isAuthenticated: true,
           hasProfile: data.hasProfile,
+          activeCoopId: data.activeCoopId || null,
           isAdmin: data.isAdmin || false,
           adminRole: data.adminRole || null,
           error: null,
@@ -53,6 +56,7 @@ export function useWeb3Auth() {
           isLoading: false,
           isAuthenticated: false,
           hasProfile: false,
+          activeCoopId: null,
           isAdmin: false,
           adminRole: null,
           error: null,
@@ -64,6 +68,7 @@ export function useWeb3Auth() {
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        activeCoopId: null,
         isAdmin: false,
         adminRole: null,
         error: 'Failed to check authentication status',
@@ -113,12 +118,13 @@ export function useWeb3Auth() {
         throw new Error(errorData.error || 'Failed to verify signature');
       }
       
-      const { hasProfile, isAdmin, adminRole } = await verifyResponse.json();
+      const { hasProfile, activeCoopId, isAdmin, adminRole } = await verifyResponse.json();
 
       setAuthState({
         isLoading: false,
         isAuthenticated: true,
         hasProfile,
+        activeCoopId: activeCoopId || null,
         isAdmin: isAdmin || false,
         adminRole: adminRole || null,
         error: null,
@@ -139,6 +145,7 @@ export function useWeb3Auth() {
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        activeCoopId: null,
         isAdmin: false,
         adminRole: null,
         error: error.message || 'Authentication failed',
@@ -162,6 +169,7 @@ export function useWeb3Auth() {
         isLoading: false,
         isAuthenticated: false,
         hasProfile: false,
+        activeCoopId: null,
         isAdmin: false,
         adminRole: null,
         error: null,
@@ -175,6 +183,7 @@ export function useWeb3Auth() {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
+        activeCoopId: null,
         error: 'Failed to logout',
       }));
       return false;

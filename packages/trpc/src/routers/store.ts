@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { StoreCategory, ProductCategory, Prisma } from "@repo/db";
 
-import { Context, AuthenticatedContext } from "../context.js";
+import { Context, AuthenticatedContext, CoopScopedContext } from "../context.js";
 import { publicProcedure, privateProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { chargePaymentMethod } from "../services/stripe-customer.js";
@@ -455,6 +455,7 @@ export const storeRouter = router({
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       // Find user by wallet address
       const user = await context.db.user.findUnique({
@@ -479,7 +480,7 @@ export const storeRouter = router({
       // Check if user already has a store — return it so the mobile app can
       // continue to Stripe onboarding instead of hitting a dead-end error.
       const existingStore = await context.db.store.findFirst({
-        where: { ownerId: user.id },
+        where: { ownerId: user.id, coopId },
       });
 
       if (existingStore) {
@@ -497,6 +498,7 @@ export const storeRouter = router({
         const newStore = await tx.store.create({
           data: {
             ownerId: user.id,
+            coopId,
             name: input.storeName,
             description: input.storeDescription,
             category: input.category as StoreCategory,
@@ -1512,6 +1514,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       // Verify owner exists
       const owner = await context.db.user.findUnique({
@@ -1527,7 +1530,7 @@ export const storeRouter = router({
 
       // Check if owner already has a store
       const existingStore = await context.db.store.findFirst({
-        where: { ownerId: input.ownerId },
+        where: { ownerId: input.ownerId, coopId },
       });
 
       if (existingStore) {
@@ -1540,6 +1543,7 @@ export const storeRouter = router({
       const store = await context.db.store.create({
         data: {
           ownerId: input.ownerId,
+          coopId,
           name: input.name,
           description: input.description,
           category: input.category as StoreCategory,
@@ -1761,6 +1765,7 @@ export const storeRouter = router({
           senderId: buyer.id,
           recipientId: store.owner.id,
           amountUSD: totalUSD,
+          coopId: store.coopId,
           note: `Order from ${store.name}`,
           transferType: 'STORE',
           transferMetadata: {
@@ -1877,6 +1882,7 @@ export const storeRouter = router({
         data: [
           {
             userId: buyer.id,
+            coopId: store.coopId,
             type: 'ORDER_PLACED',
             title: 'Order Placed',
             body: `Your order from ${store.name} for $${totalUSD.toFixed(2)} has been placed.`,
@@ -1884,6 +1890,7 @@ export const storeRouter = router({
           },
           {
             userId: store.owner.id,
+            coopId: store.coopId,
             type: 'ORDER_RECEIVED',
             title: 'New Order',
             body: `You have a new order for $${totalUSD.toFixed(2)}.`,
@@ -2234,6 +2241,7 @@ export const storeRouter = router({
       await context.db.notification.create({
         data: {
           userId: order.buyerId,
+          coopId: store.coopId,
           type: 'ORDER_STATUS_UPDATE',
           title: 'Order Update',
           body: `Your order ${statusMessages[input.status]}.${input.trackingNumber ? ` Tracking: ${input.trackingNumber}` : ''}`,

@@ -25,6 +25,7 @@ describe('Application Router - submitApplication', () => {
       db: mockPrismaClient as any,
       req: {} as any,
       res: {} as any,
+      coopId: 'soulaan',
     };
     
     caller = appRouter.createCaller(mockContext);
@@ -60,6 +61,7 @@ describe('Application Router - submitApplication', () => {
     });
 
     const validApplicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -108,6 +110,7 @@ describe('Application Router - submitApplication', () => {
     });
 
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -140,6 +143,7 @@ describe('Application Router - submitApplication', () => {
 
   it('should reject application with mismatched passwords', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -170,6 +174,7 @@ describe('Application Router - submitApplication', () => {
 
   it('should reject application with invalid email', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'invalid-email',
@@ -200,6 +205,7 @@ describe('Application Router - submitApplication', () => {
 
   it('should reject application with short password', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -249,6 +255,7 @@ describe('Application Router - submitApplication', () => {
     });
 
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',

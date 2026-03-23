@@ -45,7 +45,7 @@ export default function InitializePage() {
   const publicClient = usePublicClient();
   const { open } = useWeb3Modal();
 
-  // tRPC mutation for saving co-op config
+  // tRPC mutation for saving co-op config (includes chain config)
   const createCoopConfig = api.coopConfig.create.useMutation();
 
   const [currentPhase, setCurrentPhase] = useState<"config" | "deploy" | "complete">("config");
@@ -136,11 +136,17 @@ export default function InitializePage() {
   };
 
   const deployContracts = async () => {
+    console.log("🚀 Deploy button clicked");
+    console.log("Wallet client:", !!walletClient);
+    console.log("Public client:", !!publicClient);
+    console.log("Address:", address);
+    
     if (!walletClient || !publicClient || !address) {
       alert("Please connect your wallet first");
       return;
     }
 
+    console.log("✅ Starting deployment...");
     setDeploymentSteps(getDeploymentSteps());
     setCurrentPhase("deploy");
 
@@ -155,60 +161,117 @@ export default function InitializePage() {
       const treasuryAddress = (coopConfig.treasuryAddress || address) as `0x${string}`;
       const governanceBotAddress = (coopConfig.governanceBotAddress || address) as `0x${string}`;
 
+      // Declare contract addresses at function scope
+      let soulaaniCoinAddress: string;
+      let allyCoinAddress: string;
+      let unityCoinAddress: string;
+
       // Step 1: Deploy SoulaaniCoin
-      updateStepStatus("sc", "deploying");
-      const scHash = await walletClient.deployContract({
-        abi: soulaaniCoinArtifact.abi,
-        bytecode: soulaaniCoinArtifact.bytecode as `0x${string}`,
-        args: [governanceBotAddress],
-        chain: selectedChain,
-      });
-      updateStepStatus("sc", "deploying", { txHash: scHash });
-      
-      const scReceipt = await publicClient.waitForTransactionReceipt({ hash: scHash });
-      const soulaaniCoinAddress = scReceipt.contractAddress!;
-      updateStepStatus("sc", "completed", { txHash: scHash, contractAddress: soulaaniCoinAddress });
-      setDeployedContracts((prev) => ({ ...prev, soulaaniCoin: soulaaniCoinAddress }));
+      try {
+        console.log("📝 Step 1: Deploying SoulaaniCoin...");
+        updateStepStatus("sc", "deploying");
+        console.log("Governance bot address:", governanceBotAddress);
+        console.log("Chain:", selectedChain.name, "ID:", selectedChain.id);
+        
+        const scHash = await walletClient.deployContract({
+          abi: soulaaniCoinArtifact.abi,
+          bytecode: soulaaniCoinArtifact.bytecode as `0x${string}`,
+          args: [governanceBotAddress],
+          chain: selectedChain,
+        });
+        console.log("✅ SoulaaniCoin deployment tx sent:", scHash);
+        updateStepStatus("sc", "deploying", { txHash: scHash });
+        
+        console.log("⏳ Waiting for SoulaaniCoin deployment receipt...");
+        const scReceipt = await publicClient.waitForTransactionReceipt({ hash: scHash });
+        soulaaniCoinAddress = scReceipt.contractAddress!;
+        console.log("✅ SoulaaniCoin deployed at:", soulaaniCoinAddress);
+        updateStepStatus("sc", "completed", { txHash: scHash, contractAddress: soulaaniCoinAddress });
+        setDeployedContracts((prev) => ({ ...prev, soulaaniCoin: soulaaniCoinAddress }));
+      } catch (scError: any) {
+        console.error("❌ SoulaaniCoin deployment failed:", scError);
+        console.error("Error details:", {
+          message: scError.message,
+          code: scError.code,
+          data: scError.data,
+        });
+        throw new Error(`SoulaaniCoin deployment failed: ${scError.message || scError.toString()}`);
+      }
 
       // Step 2: Deploy AllyCoin
-      updateStepStatus("ally", "deploying");
-      const allyHash = await walletClient.deployContract({
-        abi: allyCoinArtifact.abi,
-        bytecode: allyCoinArtifact.bytecode as `0x${string}`,
-        args: [governanceBotAddress, soulaaniCoinAddress],
-        chain: selectedChain,
-      });
-      updateStepStatus("ally", "deploying", { txHash: allyHash });
-      
-      const allyReceipt = await publicClient.waitForTransactionReceipt({ hash: allyHash });
-      const allyCoinAddress = allyReceipt.contractAddress!;
-      updateStepStatus("ally", "completed", { txHash: allyHash, contractAddress: allyCoinAddress });
-      setDeployedContracts((prev) => ({ ...prev, allyCoin: allyCoinAddress }));
+      try {
+        console.log("📝 Step 2: Deploying AllyCoin...");
+        updateStepStatus("ally", "deploying");
+        console.log("Args:", { governanceBotAddress, soulaaniCoinAddress });
+        
+        const allyHash = await walletClient.deployContract({
+          abi: allyCoinArtifact.abi,
+          bytecode: allyCoinArtifact.bytecode as `0x${string}`,
+          args: [governanceBotAddress, soulaaniCoinAddress],
+          chain: selectedChain,
+        });
+        console.log("✅ AllyCoin deployment tx sent:", allyHash);
+        updateStepStatus("ally", "deploying", { txHash: allyHash });
+        
+        console.log("⏳ Waiting for AllyCoin deployment receipt...");
+        const allyReceipt = await publicClient.waitForTransactionReceipt({ hash: allyHash });
+        allyCoinAddress = allyReceipt.contractAddress!;
+        console.log("✅ AllyCoin deployed at:", allyCoinAddress);
+        updateStepStatus("ally", "completed", { txHash: allyHash, contractAddress: allyCoinAddress });
+        setDeployedContracts((prev) => ({ ...prev, allyCoin: allyCoinAddress }));
 
-      // Link AllyCoin to SoulaaniCoin
-      const linkHash = await walletClient.writeContract({
-        address: soulaaniCoinAddress,
-        abi: soulaaniCoinArtifact.abi,
-        functionName: "setAllyCoin",
-        args: [allyCoinAddress, "Initial deployment - linking AllyCoin"],
-        chain: selectedChain,
-      });
-      await publicClient.waitForTransactionReceipt({ hash: linkHash });
+        // Link AllyCoin to SoulaaniCoin
+        console.log("🔗 Linking AllyCoin to SoulaaniCoin...");
+        const linkHash = await walletClient.writeContract({
+          address: soulaaniCoinAddress,
+          abi: soulaaniCoinArtifact.abi,
+          functionName: "setAllyCoin",
+          args: [allyCoinAddress, "Initial deployment - linking AllyCoin"],
+          chain: selectedChain,
+        });
+        console.log("⏳ Waiting for link transaction...");
+        await publicClient.waitForTransactionReceipt({ hash: linkHash });
+        console.log("✅ AllyCoin linked to SoulaaniCoin");
+      } catch (allyError: any) {
+        console.error("❌ AllyCoin deployment failed:", allyError);
+        console.error("Error details:", {
+          message: allyError.message,
+          code: allyError.code,
+          data: allyError.data,
+        });
+        throw new Error(`AllyCoin deployment failed: ${allyError.message || allyError.toString()}`);
+      }
 
       // Step 3: Deploy UnityCoin
-      updateStepStatus("uc", "deploying");
-      const ucHash = await walletClient.deployContract({
-        abi: unityCoinArtifact.abi,
-        bytecode: unityCoinArtifact.bytecode as `0x${string}`,
-        args: [treasuryAddress, soulaaniCoinAddress, address],
-        chain: selectedChain,
-      });
-      updateStepStatus("uc", "deploying", { txHash: ucHash });
-      
-      const ucReceipt = await publicClient.waitForTransactionReceipt({ hash: ucHash });
-      const unityCoinAddress = ucReceipt.contractAddress!;
-      updateStepStatus("uc", "completed", { txHash: ucHash, contractAddress: unityCoinAddress });
-      setDeployedContracts((prev) => ({ ...prev, unityCoin: unityCoinAddress }));
+      try {
+        console.log("📝 Step 3: Deploying UnityCoin...");
+        updateStepStatus("uc", "deploying");
+        console.log("Args:", { treasuryAddress, soulaaniCoinAddress, memberManager: address });
+        
+        const ucHash = await walletClient.deployContract({
+          abi: unityCoinArtifact.abi,
+          bytecode: unityCoinArtifact.bytecode as `0x${string}`,
+          args: [treasuryAddress, soulaaniCoinAddress, address],
+          chain: selectedChain,
+        });
+        console.log("✅ UnityCoin deployment tx sent:", ucHash);
+        updateStepStatus("uc", "deploying", { txHash: ucHash });
+        
+        console.log("⏳ Waiting for UnityCoin deployment receipt...");
+        const ucReceipt = await publicClient.waitForTransactionReceipt({ hash: ucHash });
+        unityCoinAddress = ucReceipt.contractAddress!;
+        console.log("✅ UnityCoin deployed at:", unityCoinAddress);
+        updateStepStatus("uc", "completed", { txHash: ucHash, contractAddress: unityCoinAddress });
+        setDeployedContracts((prev) => ({ ...prev, unityCoin: unityCoinAddress }));
+      } catch (ucError: any) {
+        console.error("❌ UnityCoin deployment failed:", ucError);
+        console.error("Error details:", {
+          message: ucError.message,
+          code: ucError.code,
+          data: ucError.data,
+        });
+        throw new Error(`UnityCoin deployment failed: ${ucError.message || ucError.toString()}`);
+      }
 
       let redemptionVaultAddress: string | undefined;
       let verifiedStoreRegistryAddress: string | undefined;
@@ -358,8 +421,22 @@ export default function InitializePage() {
           quorumPercent: coopConfig.quorumPercent,
           approvalThresholdPercent: coopConfig.approvalThresholdPercent,
           votingWindowDays: coopConfig.votingWindowDays,
+          // Chain configuration fields (merged into CoopConfig)
+          chainId: selectedChain.id,
+          chainName: network === "baseSepolia" ? "base-sepolia" : "base-mainnet",
+          rpcUrl: selectedChain.rpcUrls.default.http[0],
+          scTokenAddress: soulaaniCoinAddress,
+          ucTokenAddress: unityCoinAddress,
+          redemptionVaultAddress: redemptionVaultAddress || soulaaniCoinAddress,
+          treasurySafeAddress: treasuryAddress,
+          verifiedStoreRegistryAddress: verifiedStoreRegistryAddress || soulaaniCoinAddress,
+          rewardEngineAddress: scRewardEngineAddress || soulaaniCoinAddress,
+          storePaymentRouterAddress: storePaymentRouterAddress || soulaaniCoinAddress,
+          scTokenSymbol: "SC",
+          scTokenName: coopConfig.name ? `${coopConfig.name} Coin` : "SoulaaniCoin",
         });
-        console.log("✅ Co-op configuration saved to database");
+        console.log("✅ Co-op configuration (including chain config) saved to database");
+        
         updateStepStatus("save-db", "completed");
       } catch (dbError: any) {
         console.error("Failed to save to database:", dbError);
@@ -369,7 +446,13 @@ export default function InitializePage() {
 
       setCurrentPhase("complete");
     } catch (error: any) {
-      console.error("Deployment failed:", error);
+      console.error("💥 Deployment failed:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      alert(`Deployment failed: ${error.message || "Unknown error"}`);
       const failedStep = deploymentSteps.find((s) => s.status === "deploying");
       if (failedStep) {
         updateStepStatus(failedStep.id, "failed", { error: error.message });

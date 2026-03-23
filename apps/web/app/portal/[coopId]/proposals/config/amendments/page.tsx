@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
@@ -17,7 +18,6 @@ import {
   FileText,
   Filter,
 } from "lucide-react";
-import { env } from "@/env";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -318,9 +318,10 @@ function AmendmentCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AmendmentsPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const { isAdmin } = useWeb3Auth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   const { data, isLoading, refetch } = api.coopConfig.getAllAmendments.useQuery(
     { coopId },

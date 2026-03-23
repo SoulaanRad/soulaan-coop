@@ -4,7 +4,7 @@ import { getTreasuryReserveFromTransaction } from "./uc-event-parser.js";
 /**
  * Get active treasury reserve policy for a coop
  */
-export async function getActiveReservePolicy(coopId: string = "soulaan"): Promise<{
+export async function getActiveReservePolicy(coopId: string): Promise<{
   defaultReserveBps: number;
   badgeReserveBps?: number;
   programReserveBps?: Record<string, number>;
@@ -100,7 +100,7 @@ export async function trackReserveFromTransaction(params: {
 /**
  * Get treasury reserve statistics
  */
-export async function getTreasuryReserveStats(): Promise<{
+export async function getTreasuryReserveStats(coopId: string): Promise<{
   totalReservedUC: number;
   settledUC: number;
   pendingUC: number;
@@ -146,7 +146,7 @@ export async function getTreasuryReserveStats(): Promise<{
       },
       _sum: { reserveAmountUC: true },
     }),
-    getActiveReservePolicy(),
+    getActiveReservePolicy(coopId),
   ]);
 
   const settledUC = totalSettled._sum.reserveAmountUC || 0;

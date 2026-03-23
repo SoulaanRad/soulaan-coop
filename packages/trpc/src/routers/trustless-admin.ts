@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { Context } from "../context.js";
+import { Context, CoopScopedContext } from "../context.js";
 import { privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { 
@@ -61,9 +61,10 @@ export const trustlessAdminRouter = router({
    * Get global reward policy from on-chain
    */
   getGlobalRewardPolicy: privateProcedure
-    .query(async () => {
+    .query(async ({ ctx }) => {
       try {
-        const policy = await getGlobalRewardPolicy();
+        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+        const policy = await getGlobalRewardPolicy(coopId);
         return policy;
       } catch (error: any) {
         throw new TRPCError({
@@ -108,8 +109,8 @@ export const trustlessAdminRouter = router({
       }
 
       try {
-        const isVerified = await isStoreVerifiedOnChain(store.owner.walletAddress);
-        const info = isVerified ? await getStoreInfoOnChain(store.owner.walletAddress) : null;
+        const isVerified = await isStoreVerifiedOnChain(store.owner.walletAddress, store.coopId);
+        const info = isVerified ? await getStoreInfoOnChain(store.owner.walletAddress, store.coopId) : null;
 
         return {
           storeId: store.id,
@@ -156,7 +157,7 @@ export const trustlessAdminRouter = router({
       }
 
       try {
-        const result = await calculateExpectedReward(store.owner.walletAddress, input.amountUC);
+        const result = await calculateExpectedReward(store.owner.walletAddress, input.amountUC, store.coopId);
         return {
           storeId: store.id,
           storeName: store.name,
@@ -450,7 +451,7 @@ export const trustlessAdminRouter = router({
         if (!store.owner.walletAddress) continue;
 
         try {
-          const isVerified = await isStoreVerifiedOnChain(store.owner.walletAddress);
+          const isVerified = await isStoreVerifiedOnChain(store.owner.walletAddress, store.coopId);
           
           if (isVerified !== store.isScVerified) {
             mismatches.push({

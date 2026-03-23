@@ -111,6 +111,7 @@ export const ucTransferRouter = router({
   getUserByUsername: privateProcedure
     .input(z.object({
       username: z.string(),
+      coopId: z.string(),
     }))
     .output(z.object({
       walletAddress: z.string(),
@@ -126,7 +127,12 @@ export const ucTransferRouter = router({
       try {
         // Search in UserProfile table
         const profile = await context.db.userProfile.findUnique({
-          where: { username: input.username },
+          where: { 
+            username_coopId: {
+              username: input.username,
+              coopId: input.coopId,
+            }
+          },
           select: {
             walletAddress: true,
             name: true,

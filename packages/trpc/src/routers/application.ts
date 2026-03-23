@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
 
-import { Context } from "../context.js";
+import { Context, AuthenticatedContext } from "../context.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { createWalletForUser } from "../services/wallet-service.js";
@@ -15,6 +15,9 @@ const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
 // Validation schema for application submission
 // Now accepts dynamic question answers via passthrough
 const applicationSchema = z.object({
+  // Coop identification
+  coopId: z.string().min(1, "Coop ID is required"),
+  
   // Personal Information
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -39,7 +42,7 @@ const applicationSchema = z.object({
 
 export const applicationRouter = router({
   /**
-   * Submit a new application to join the Soulaan co-op
+   * Submit a new application to join a co-op
    */
   submitApplication: publicProcedure
     .input(applicationSchema)
@@ -54,22 +57,28 @@ export const applicationRouter = router({
       
       console.log('\n🔷 submitApplication - START');
       console.log('📧 Email:', input.email);
+      console.log('🏢 Coop ID:', input.coopId);
       
       try {
-        // Check if user already exists
+        // Check if user already has an application for this coop
         console.log('🔍 Checking for existing user...');
         const existingUser = await context.db.user.findUnique({
           where: { email: input.email },
+          include: {
+            applications: {
+              where: { coopId: input.coopId },
+            },
+          },
         });
 
-        if (existingUser) {
-          console.log('❌ User already exists');
+        if (existingUser?.applications && existingUser.applications.length > 0) {
+          console.log('❌ User already has an application for this coop');
           throw new TRPCError({
             code: "CONFLICT",
-            message: "An account with this email already exists",
+            message: "You have already submitted an application to this co-op",
           });
         }
-        console.log('✅ No existing user found');
+        console.log('✅ No existing application found for this coop');
 
         // Hash the password
         console.log('🔒 Hashing password...');
@@ -79,38 +88,52 @@ export const applicationRouter = router({
         // Create user and application in a transaction
         console.log('💾 Starting database transaction...');
         const result = await context.db.$transaction(async (tx) => {
-          // Create user with PENDING status
-          console.log('👤 Creating user...');
-          // Normalize phone to E.164 format
-          const normalizedPhone = toE164(input.phone);
-          console.log(`📱 Phone: "${input.phone}" -> "${normalizedPhone}"`);
+          let user = existingUser;
+          
+          // Create user if doesn't exist
+          if (!user) {
+            console.log('👤 Creating user...');
+            // Normalize phone to E.164 format
+            const normalizedPhone = toE164(input.phone);
+            console.log(`📱 Phone: "${input.phone}" -> "${normalizedPhone}"`);
 
-          const user = await tx.user.create({
-            data: {
-              email: input.email,
-              name: `${input.firstName} ${input.lastName}`,
-              phone: normalizedPhone,
-              password: hashedPassword,
-              roles: ["member"],
-              status: "PENDING",
-            },
-          });
-          console.log('✅ User created:', user.id);
+            user = await tx.user.create({
+              data: {
+                email: input.email,
+                name: `${input.firstName} ${input.lastName}`,
+                phone: normalizedPhone,
+                password: hashedPassword,
+                roles: ["member"],
+                status: "PENDING",
+              },
+              include: {
+                applications: true,
+              },
+            });
+            console.log('✅ User created:', user.id);
+          } else {
+            console.log('✅ Using existing user:', user.id);
+          }
+
+          if (!user) {
+            throw new Error('User is required but was not created or found');
+          }
 
           // Create application with JSON data
           console.log('📝 Creating application...');
           
-          // Extract password and confirmPassword from input (don't store these)
-          const { password, confirmPassword, ...applicationData } = input;
+          // Extract password, confirmPassword, and coopId from input (don't store these in data)
+          const { password, confirmPassword, coopId, ...applicationData } = input;
           
           // Store all application data including dynamic question answers
           const application = await tx.application.create({
             data: {
               userId: user.id,
+              coopId: input.coopId,
               status: "SUBMITTED",
               data: {
                 ...applicationData,
-                phone: normalizedPhone, // Use normalized phone
+                phone: user.phone, // Use normalized phone from user record
               },
             },
           });
@@ -154,10 +177,13 @@ export const applicationRouter = router({
     }),
 
   /**
-   * Get application status by user ID
+   * Get application status by user ID and coop ID
    */
   getApplicationStatus: publicProcedure
-    .input(z.object({ userId: z.string() }))
+    .input(z.object({ 
+      userId: z.string(),
+      coopId: z.string(),
+    }))
     .output(z.object({
       status: z.string(),
       applicationId: z.string(),
@@ -170,7 +196,12 @@ export const applicationRouter = router({
       const context = ctx as Context;
       
       const application = await context.db.application.findUnique({
-        where: { userId: input.userId },
+        where: { 
+          userId_coopId: {
+            userId: input.userId,
+            coopId: input.coopId,
+          },
+        },
         select: {
           id: true,
           status: true,
@@ -199,10 +230,13 @@ export const applicationRouter = router({
     }),
 
   /**
-   * Get application data by user ID (for admin/review purposes)
+   * Get application data by user ID and coop ID (for admin/review purposes)
    */
   getApplicationData: publicProcedure
-    .input(z.object({ userId: z.string() }))
+    .input(z.object({ 
+      userId: z.string(),
+      coopId: z.string(),
+    }))
     .output(z.object({
       applicationId: z.string(),
       status: z.string(),
@@ -215,7 +249,12 @@ export const applicationRouter = router({
       const context = ctx as Context;
       
       const application = await context.db.application.findUnique({
-        where: { userId: input.userId },
+        where: { 
+          userId_coopId: {
+            userId: input.userId,
+            coopId: input.coopId,
+          },
+        },
       });
 
       if (!application) {
@@ -237,11 +276,12 @@ export const applicationRouter = router({
 
   /**
    * Approve an application (admin only)
-   * Automatically creates a wallet for the user
+   * Automatically creates a wallet for the user and membership record
    */
   approveApplication: privateProcedure
     .input(z.object({
       userId: z.string(),
+      coopId: z.string(),
       reviewNotes: z.string().optional(),
     }))
     .output(z.object({
@@ -252,15 +292,22 @@ export const applicationRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const { walletAddress: reviewerWallet } = ctx as AuthenticatedContext;
 
       console.log('\n🔷 approveApplication - START');
       console.log('👤 User ID:', input.userId);
+      console.log('🏢 Coop ID:', input.coopId);
 
       try {
         // Check if application exists
         console.log('🔍 Checking for application...');
         const application = await context.db.application.findUnique({
-          where: { userId: input.userId },
+          where: { 
+            userId_coopId: {
+              userId: input.userId,
+              coopId: input.coopId,
+            },
+          },
           include: { user: true },
         });
 
@@ -268,7 +315,7 @@ export const applicationRouter = router({
           console.log('❌ Application not found');
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Application not found for this user",
+            message: "Application not found for this user and coop",
           });
         }
 
@@ -288,11 +335,17 @@ export const applicationRouter = router({
           // 1. Update application status to APPROVED
           console.log('📝 Updating application status to APPROVED...');
           await tx.application.update({
-            where: { userId: input.userId },
+            where: { 
+              userId_coopId: {
+                userId: input.userId,
+                coopId: input.coopId,
+              },
+            },
             data: {
               status: "APPROVED",
               reviewedAt: new Date(),
               reviewNotes: input.reviewNotes,
+              reviewedBy: reviewerWallet,
             },
           });
           console.log('✅ Application approved');
@@ -308,7 +361,34 @@ export const applicationRouter = router({
             console.log('ℹ️ User already has wallet:', walletAddress);
           }
 
-          // 3. Update user status to ACTIVE
+          // 3. Create or update membership record
+          console.log('👥 Creating membership record...');
+          await tx.userCoopMembership.upsert({
+            where: {
+              userId_coopId: {
+                userId: input.userId,
+                coopId: input.coopId,
+              },
+            },
+            create: {
+              userId: input.userId,
+              coopId: input.coopId,
+              status: "ACTIVE",
+              roles: ["member"],
+              approvedBy: walletAddress,
+              approvedAt: new Date(),
+              joinedAt: new Date(),
+            },
+            update: {
+              status: "ACTIVE",
+              approvedBy: walletAddress,
+              approvedAt: new Date(),
+              joinedAt: new Date(),
+            },
+          });
+          console.log('✅ Membership record created');
+
+          // 4. Update user status to ACTIVE (global status)
           console.log('👤 Updating user status to ACTIVE...');
           await tx.user.update({
             where: { id: input.userId },
@@ -383,6 +463,7 @@ export const applicationRouter = router({
   rejectApplication: privateProcedure
     .input(z.object({
       userId: z.string(),
+      coopId: z.string(),
       reviewNotes: z.string(),
     }))
     .output(z.object({
@@ -392,39 +473,68 @@ export const applicationRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const { walletAddress } = ctx as AuthenticatedContext;
 
       console.log('\n🔷 rejectApplication - START');
       console.log('👤 User ID:', input.userId);
+      console.log('🏢 Coop ID:', input.coopId);
 
       try {
         // Check if application exists
         const application = await context.db.application.findUnique({
-          where: { userId: input.userId },
+          where: { 
+            userId_coopId: {
+              userId: input.userId,
+              coopId: input.coopId,
+            },
+          },
         });
 
         if (!application) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Application not found for this user",
+            message: "Application not found for this user and coop",
           });
         }
 
-        // Update application and user in transaction
+        // Update application and membership in transaction
         await context.db.$transaction(async (tx) => {
           // Update application status to REJECTED
           await tx.application.update({
-            where: { userId: input.userId },
+            where: { 
+              userId_coopId: {
+                userId: input.userId,
+                coopId: input.coopId,
+              },
+            },
             data: {
               status: "REJECTED",
               reviewedAt: new Date(),
               reviewNotes: input.reviewNotes,
+              reviewedBy: walletAddress,
             },
           });
 
-          // Update user status to REJECTED
-          await tx.user.update({
-            where: { id: input.userId },
-            data: { status: "REJECTED" },
+          // Create or update membership record as REJECTED
+          await tx.userCoopMembership.upsert({
+            where: {
+              userId_coopId: {
+                userId: input.userId,
+                coopId: input.coopId,
+              },
+            },
+            create: {
+              userId: input.userId,
+              coopId: input.coopId,
+              status: "REJECTED",
+              rejectedBy: walletAddress,
+              rejectedAt: new Date(),
+            },
+            update: {
+              status: "REJECTED",
+              rejectedBy: walletAddress,
+              rejectedAt: new Date(),
+            },
           });
         });
 

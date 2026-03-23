@@ -519,6 +519,7 @@ export default function OnboardingFlow() {
 
       // Prepare application data with dynamic answers
       const applicationData: ApplicationData = {
+        coopId: selectedCoopId!,
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,

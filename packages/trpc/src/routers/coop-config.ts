@@ -50,6 +50,27 @@ function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>):
 
 export const coopConfigRouter = router({
   /**
+   * Validate if a coopId exists and is active
+   */
+  validateCoopId: publicProcedure
+    .input(z.object({ coopId: z.string() }))
+    .output(z.object({
+      exists: z.boolean(),
+      name: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const config = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        select: { coopId: true, name: true },
+      });
+
+      return {
+        exists: !!config,
+        name: config?.name ?? undefined,
+      };
+    }),
+
+  /**
    * List all available coops for onboarding
    * Fetches from the CoopConfig table
    */
@@ -148,10 +169,10 @@ export const coopConfigRouter = router({
     }),
 
   /**
-   * Get active config for a coopId (default "soulaan")
+   * Get active config for a coopId
    */
   getActive: publicProcedure
-    .input(z.object({ coopId: z.string().default("soulaan") }))
+    .input(z.object({ coopId: z.string() }))
     .output(CoopConfigOutputZ.nullable())
     .query(async ({ input, ctx }) => {
       const config = await ctx.db.coopConfig.findFirst({
@@ -180,7 +201,7 @@ export const coopConfigRouter = router({
    * List all versions for a coopId
    */
   listVersions: publicProcedure
-    .input(z.object({ coopId: z.string().default("soulaan") }))
+    .input(z.object({ coopId: z.string() }))
     .output(z.array(z.object({
       id: z.string(),
       version: z.number(),
@@ -283,6 +304,19 @@ export const coopConfigRouter = router({
           strongGoalThreshold: fields.strongGoalThreshold ?? 0.70,
           missionMinThreshold: fields.missionMinThreshold ?? 0.50,
           structuralGate: fields.structuralGate ?? 0.65,
+          // Chain configuration fields
+          chainId: fields.chainId,
+          chainName: fields.chainName,
+          rpcUrl: fields.rpcUrl,
+          scTokenAddress: fields.scTokenAddress,
+          ucTokenAddress: fields.ucTokenAddress,
+          redemptionVaultAddress: fields.redemptionVaultAddress,
+          treasurySafeAddress: fields.treasurySafeAddress,
+          verifiedStoreRegistryAddress: fields.verifiedStoreRegistryAddress,
+          storePaymentRouterAddress: fields.storePaymentRouterAddress,
+          rewardEngineAddress: fields.rewardEngineAddress,
+          scTokenSymbol: fields.scTokenSymbol ?? 'SC',
+          scTokenName: fields.scTokenName ?? 'SoulaaniCoin',
           createdBy: walletAddress,
         },
       });
@@ -842,7 +876,7 @@ export const coopConfigRouter = router({
    */
   getAuditTrail: privateProcedure
     .input(z.object({
-      coopId: z.string().default("soulaan"),
+      coopId: z.string(),
       limit: z.number().min(1).max(100).default(20),
       offset: z.number().min(0).default(0),
     }))

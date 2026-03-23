@@ -24,7 +24,15 @@ export const proposalRouter = router({
     .output(ProposalOutputZ)
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
-      const coopId = input.coopId || "soulaan";
+      
+      if (!input.coopId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "coopId is required",
+        });
+      }
+      
+      const coopId = input.coopId;
 
       // Fetch active CoopConfig
       let configData: CoopConfigData | undefined;
@@ -462,7 +470,14 @@ export const proposalRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Only submitted or votable proposals can be edited." });
       }
 
-      const coopId = existing.coopId || "soulaan";
+      if (!existing.coopId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Proposal has no coopId - cannot edit",
+        });
+      }
+      
+      const coopId = existing.coopId;
       let configData: CoopConfigData | undefined;
       let aiAutoApproveThreshold = 500;
       let councilVoteThreshold = 5000;
@@ -612,7 +627,14 @@ export const proposalRouter = router({
       });
 
       // Now resubmit through the full engine pipeline with the rewritten text
-      const coopId = existing.coopId || "soulaan";
+      if (!existing.coopId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Proposal has no coopId - cannot resubmit",
+        });
+      }
+      
+      const coopId = existing.coopId;
       let configData: CoopConfigData | undefined;
       let aiAutoApproveThreshold = 500;
       let councilVoteThreshold = 5000;

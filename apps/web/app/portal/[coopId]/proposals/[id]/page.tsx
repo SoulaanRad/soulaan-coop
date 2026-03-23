@@ -18,7 +18,6 @@ import { ProposalScores } from "@/components/portal/proposals/proposal-scores";
 import { ProposalDecisionBanner } from "@/components/portal/proposals/proposal-decision-badge";
 import { CommentForm } from "@/components/portal/proposals/comment-form";
 import { CommentList } from "@/components/portal/proposals/comment-list";
-import { env } from "@/env";
 
 function prettifyKey(key: string) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -62,11 +61,11 @@ const adminTransitions: Record<string, { value: string; label: string }[]> = {
 export default function ProposalDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const coopId = params.coopId as string;
   const { isAdmin, address: walletAddress } = useWeb3Auth();
   const [showTransitions, setShowTransitions] = useState(false);
   const [withdrawConfirm, setWithdrawConfirm] = useState(false);
   const [councilVotePending, setCouncilVotePending] = useState(false);
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   // Edit & resubmit state
   const [showEditPanel, setShowEditPanel] = useState(false);

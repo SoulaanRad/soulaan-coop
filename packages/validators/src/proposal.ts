@@ -315,6 +315,19 @@ export const CoopConfigInputZ = z.object({
   accentColor: z.string().optional(),
   displayOrder: z.number().int().optional(),
   applicationQuestions: z.array(z.any()).optional(),
+  // Chain configuration fields
+  chainId: z.number().int().optional(),
+  chainName: z.string().optional(),
+  rpcUrl: z.string().url().optional(),
+  scTokenAddress: z.string().optional(),
+  ucTokenAddress: z.string().optional(),
+  redemptionVaultAddress: z.string().optional(),
+  treasurySafeAddress: z.string().optional(),
+  verifiedStoreRegistryAddress: z.string().optional(),
+  storePaymentRouterAddress: z.string().optional(),
+  rewardEngineAddress: z.string().optional(),
+  scTokenSymbol: z.string().optional(),
+  scTokenName: z.string().optional(),
 });
 
 export const CoopConfigOutputZ = z.object({
