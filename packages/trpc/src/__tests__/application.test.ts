@@ -12,6 +12,9 @@ const mockPrismaClient = {
     create: vi.fn(),
     findUnique: vi.fn(),
   },
+  coopConfig: {
+    findFirst: vi.fn().mockResolvedValue({ name: 'Test Coop' }),
+  },
   $transaction: vi.fn(),
 };
 
