@@ -109,56 +109,7 @@ export default function OnboardingFlow() {
       } catch (error) {
         console.error('Failed to load coops:', error);
         // Fallback to hardcoded data if fetch fails
-        const fallbackCoops = [
-          {
-            id: 'soulaan',
-            name: 'Soulaan Black Wealth Coop',
-            tagline: 'Building Black Economic Sovereignty',
-            description: 'A cooperative for Black Americans to achieve economic independence through collective ownership, community investment, and democratic governance. Build wealth, support Black businesses, and create opportunities together.',
-            mission: 'To empower Black Americans by building economic independence and sovereignty through cooperative ownership, local investment, and democratic governance.',
-            features: [
-              {
-                title: 'Shared Wealth Fund',
-                description: 'A community fund that can back housing, training, businesses, and other projects that build long-term Black wealth.',
-              },
-              {
-                title: 'Real Voice in Decisions',
-                description: 'Members help shape priorities, support proposals, and have a say in how resources are used to strengthen the community.',
-              },
-              {
-                title: 'A Stronger Black Economy',
-                description: 'More of our money stays in our communities through Black-owned businesses, jobs, shared ownership, and practical economic support.',
-              },
-            ],
-            eligibility: 'Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)',
-            bgColor: 'bg-red-700',
-            accentColor: 'bg-gold-600',
-          },
-          {
-            id: 'sf-nightlife',
-            name: 'The SF Nightlife Coop',
-            tagline: 'Empowering SF Nightlife Workers to Thrive',
-            description: 'A cooperative dedicated to helping San Francisco nightlife industry workers find housing, secure stable employment, purchase venues, and achieve financial stability through collective support and resources.',
-            mission: 'To empower San Francisco nightlife industry workers by providing access to affordable housing, stable employment opportunities, venue ownership, and financial advancement through cooperative ownership and mutual support.',
-            features: [
-              {
-                title: 'Housing Support',
-                description: 'Access co-op backed housing assistance, roommate matching, and rental support specifically designed for nightlife workers with non-traditional schedules.',
-              },
-              {
-                title: 'Employment Network',
-                description: 'Connect with stable employment opportunities, skill development programs, and career advancement resources within and beyond the nightlife industry.',
-              },
-              {
-                title: 'Venue Ownership',
-                description: 'Pool resources with fellow members to collectively purchase and operate nightlife venues, creating ownership opportunities and long-term wealth building.',
-              },
-            ],
-            eligibility: 'Open to SF nightlife industry workers including DJs, bartenders, servers, security, promoters, and venue staff',
-            bgColor: 'bg-purple-700',
-            accentColor: 'bg-purple-600',
-          },
-        ];
+        const fallbackCoops:any[] = []
         console.log('Using fallback coops:', fallbackCoops);
         setAvailableCoops(fallbackCoops);
       } finally {
