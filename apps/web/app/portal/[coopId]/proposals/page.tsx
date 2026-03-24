@@ -139,7 +139,7 @@ export default function ProposalsPage() {
               {bulkMode ? "Cancel Bulk" : "Bulk Edit"}
             </Button>
           )}
-          <Link href="/portal/proposals/submit">
+          <Link href={`/portal/${coopId}/proposals/submit`}>
             <Button className="bg-amber-600 hover:bg-amber-700">
               <Plus className="h-4 w-4 mr-2" />
               Submit Proposal

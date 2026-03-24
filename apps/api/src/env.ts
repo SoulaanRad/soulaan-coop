@@ -22,6 +22,7 @@ export const env = createEnv({
     PAYPAL_CLIENT_ID: z.string().optional(),
     PAYPAL_CLIENT_SECRET: z.string().optional(),
     SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().optional(),
+    SLACK_WEBHOOK_URL: z.string().url().optional(),
   },
   clientPrefix: "PUBLIC_",
   client: {},

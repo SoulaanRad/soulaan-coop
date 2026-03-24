@@ -389,7 +389,7 @@ export default function AmendmentsPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          href="/portal/proposals/config"
+          href={`/portal/${coopId}/proposals/config`}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />

@@ -8,6 +8,7 @@ import { router } from "../trpc.js";
 import { createWalletForUser } from "../services/wallet-service.js";
 import { syncMembershipToContract } from "../services/blockchain.js";
 import { toE164 } from "../lib/phone.js";
+import { sendApplicationSubmittedNotification } from "../services/slack-notification-service.js";
 
 // Backend wallet for contract interactions
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
@@ -142,6 +143,22 @@ export const applicationRouter = router({
           return { user, application };
         });
         console.log('✅ Transaction completed successfully');
+
+        // Send Slack notification (non-blocking)
+        const coopConfig = await context.db.coopConfig.findFirst({
+          where: { coopId: input.coopId, isActive: true },
+          select: { name: true },
+        });
+        
+        sendApplicationSubmittedNotification({
+          coopId: input.coopId,
+          coopName: coopConfig?.name ?? undefined,
+          applicantEmail: input.email,
+          applicantName: `${input.firstName} ${input.lastName}`,
+          applicationId: result.application.id,
+        }).catch((err) => {
+          console.error('Failed to send Slack notification:', err);
+        });
 
         const response = {
           success: true,

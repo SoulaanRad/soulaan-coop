@@ -356,6 +356,18 @@ export const CoopConfigOutputZ = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.string(),
+  // Display/onboarding fields
+  name: z.string().optional(),
+  slug: z.string().optional(),
+  tagline: z.string().optional(),
+  description: z.string().optional(),
+  displayMission: z.string().optional(),
+  displayFeatures: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
+  eligibility: z.string().optional(),
+  bgColor: z.string().optional(),
+  accentColor: z.string().optional(),
+  displayOrder: z.number().optional(),
+  applicationQuestions: z.array(z.any()).optional(),
 });
 
 // ── Comment Schemas ──────────────────────────────────────────────────────

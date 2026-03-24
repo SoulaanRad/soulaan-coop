@@ -166,7 +166,7 @@ export default function ProposalDetailPage() {
     return (
       <div className="max-w-4xl mx-auto py-12 text-center">
         <p className="text-gray-400">Proposal not found</p>
-        <Link href="/portal/proposals" className="text-amber-500 hover:underline mt-2 inline-block">
+        <Link href={`/portal/${coopId}/proposals`} className="text-amber-500 hover:underline mt-2 inline-block">
           Back to proposals
         </Link>
       </div>
@@ -182,7 +182,7 @@ export default function ProposalDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Back Link */}
-      <Link href="/portal/proposals" className="inline-flex items-center text-gray-400 hover:text-white text-sm">
+      <Link href={`/portal/${coopId}/proposals`} className="inline-flex items-center text-gray-400 hover:text-white text-sm">
         <ArrowLeft className="h-4 w-4 mr-1" />
         Back to proposals
       </Link>

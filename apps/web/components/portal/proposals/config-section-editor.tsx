@@ -29,6 +29,8 @@ interface ConfigSectionEditorProps {
   onAcknowledge?: (amendmentId: string) => Promise<void>;
   onReject?: (amendmentId: string, reason: string) => Promise<void>;
   isReviewing?: boolean;
+  /** The coopId for proper link scoping */
+  coopId: string;
 }
 
 export function ConfigSectionEditor({
@@ -39,6 +41,7 @@ export function ConfigSectionEditor({
   onSave,
   isSaving,
   pendingAmendment,
+  coopId,
 }: ConfigSectionEditorProps) {
   const [reason, setReason] = useState("");
 
@@ -57,7 +60,7 @@ export function ConfigSectionEditor({
             <h3 className="font-semibold text-white">{title}</h3>
             {pendingAmendment && (
               <Link
-                href="/portal/proposals/config/amendments"
+                href={`/portal/${coopId}/proposals/config/amendments`}
                 className="inline-flex items-center gap-1 rounded-full bg-amber-900/30 border border-amber-600/40 px-2 py-0.5 text-xs text-amber-300 font-medium hover:bg-amber-900/50 transition-colors"
               >
                 <Clock className="h-3 w-3" />
@@ -85,7 +88,7 @@ export function ConfigSectionEditor({
           <p className="text-xs text-gray-400">
             Your changes won't go live until acknowledged.{" "}
             <Link
-              href="/portal/proposals/config/amendments"
+              href={`/portal/${coopId}/proposals/config/amendments`}
               className="text-amber-400 hover:text-amber-300 underline-offset-2 hover:underline"
             >
               View proposed changes
