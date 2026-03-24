@@ -451,7 +451,7 @@ export default function AmendmentsPage() {
             <AmendmentCard
               key={amendment.id}
               amendment={amendment}
-              isAdmin={isAdmin ?? false}
+              isAdmin={isAdmin}
               onAcknowledge={() => handleAcknowledge(amendment)}
               onReject={(_, reason) => handleReject(amendment, reason)}
               isMutating={isMutating}

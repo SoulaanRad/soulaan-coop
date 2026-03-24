@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-type Question = {
+interface Question {
   id: string;
   type: string;
   label: string;
@@ -23,7 +23,7 @@ type Question = {
   required: boolean;
   options?: { value: string; label: string }[];
   validation?: Record<string, unknown>;
-};
+}
 
 const QUESTION_TYPES = [
   { value: "text", label: "Short Text" },
@@ -40,7 +40,6 @@ const QUESTION_TYPES = [
 
 export default function ApplicationFormEditor() {
   const params = useParams();
-  const router = useRouter();
   const coopId = params.coopId as string;
   const { isAdmin } = useWeb3Auth();
 
