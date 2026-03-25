@@ -6,7 +6,6 @@ import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { Web3Provider } from "@/lib/web3-provider";
-import { CoopValidationBanner } from "@/components/coop-validation-banner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -169,7 +168,6 @@ export default function RootLayout({
         <PostHogProvider>
           <Web3Provider>
             <TRPCProvider>
-              <CoopValidationBanner />
               {children}
             </TRPCProvider>
           </Web3Provider>

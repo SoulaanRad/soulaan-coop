@@ -7,6 +7,7 @@
 
 import { ethers } from "ethers";
 import { TRPCError } from "@trpc/server";
+import { getContractAddresses } from './coop-chain-config-service.js';
 
 // Typed contract method interfaces (for type-safe contract calls)
 interface UnityCoinMethods {
@@ -46,29 +47,13 @@ const SC_REWARD_ENGINE_ABI = [
 
 // Environment configuration
 const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
-const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS;
-const STORE_PAYMENT_ROUTER_ADDRESS = process.env.STORE_PAYMENT_ROUTER_ADDRESS;
-const VERIFIED_STORE_REGISTRY_ADDRESS = process.env.VERIFIED_STORE_REGISTRY_ADDRESS;
-const SC_REWARD_ENGINE_ADDRESS = process.env.SC_REWARD_ENGINE_ADDRESS;
 const GOVERNANCE_BOT_PRIVATE_KEY = process.env.GOVERNANCE_BOT_PRIVATE_KEY;
 
-if (!UNITY_COIN_ADDRESS || !STORE_PAYMENT_ROUTER_ADDRESS || !VERIFIED_STORE_REGISTRY_ADDRESS || !SC_REWARD_ENGINE_ADDRESS) {
-  console.warn("⚠️  Trustless store contracts not configured. Set environment variables:");
-  console.warn("   - UNITY_COIN_ADDRESS");
-  console.warn("   - STORE_PAYMENT_ROUTER_ADDRESS");
-  console.warn("   - VERIFIED_STORE_REGISTRY_ADDRESS");
-  console.warn("   - SC_REWARD_ENGINE_ADDRESS");
-}
-
-// Initialize provider and contracts
+// Initialize provider and contracts per-coop
 let provider: ethers.JsonRpcProvider | null = null;
 let signer: ethers.Wallet | null = null;
-let routerContract: ethers.Contract | null = null;
-let ucContract: ethers.Contract | null = null;
-let registryContract: ethers.Contract | null = null;
-let engineContract: ethers.Contract | null = null;
 
-function initializeContracts() {
+async function initializeContracts(coopId: string) {
   if (!provider) {
     provider = new ethers.JsonRpcProvider(RPC_URL);
   }
@@ -77,45 +62,49 @@ function initializeContracts() {
     signer = new ethers.Wallet(GOVERNANCE_BOT_PRIVATE_KEY, provider);
   }
 
-  if (!routerContract && STORE_PAYMENT_ROUTER_ADDRESS) {
-    routerContract = new ethers.Contract(
-      STORE_PAYMENT_ROUTER_ADDRESS,
+  // Get contract addresses for this coop
+  const addresses = await getContractAddresses(coopId);
+
+  const routerContract = addresses.storePaymentRouterAddress ? new ethers.Contract(
+      addresses.storePaymentRouterAddress,
       STORE_PAYMENT_ROUTER_ABI,
       signer || provider
-    );
-  }
+    ) : null;
 
-  if (!ucContract && UNITY_COIN_ADDRESS) {
-    ucContract = new ethers.Contract(
-      UNITY_COIN_ADDRESS,
+  const ucContract = addresses.ucTokenAddress ? new ethers.Contract(
+      addresses.ucTokenAddress,
       UNITY_COIN_ABI,
       signer || provider
-    );
-  }
+    ) : null;
 
-  if (!registryContract && VERIFIED_STORE_REGISTRY_ADDRESS) {
-    registryContract = new ethers.Contract(
-      VERIFIED_STORE_REGISTRY_ADDRESS,
+  const registryContract = addresses.verifiedStoreRegistryAddress ? new ethers.Contract(
+      addresses.verifiedStoreRegistryAddress,
       VERIFIED_STORE_REGISTRY_ABI,
       provider
-    );
-  }
+    ) : null;
 
-  if (!engineContract && SC_REWARD_ENGINE_ADDRESS) {
-    engineContract = new ethers.Contract(
-      SC_REWARD_ENGINE_ADDRESS,
+  const engineContract = addresses.rewardEngineAddress ? new ethers.Contract(
+      addresses.rewardEngineAddress,
       SC_REWARD_ENGINE_ABI,
       provider
-    );
-  }
+    ) : null;
+
+  return { 
+    provider, 
+    routerContract, 
+    ucContract, 
+    registryContract, 
+    engineContract,
+    routerAddress: addresses.storePaymentRouterAddress,
+  };
 }
 
 /**
  * Check if a store is verified on-chain
  */
-export async function isStoreVerifiedOnChain(storeOwnerWallet: string): Promise<boolean> {
+export async function isStoreVerifiedOnChain(storeOwnerWallet: string, coopId: string): Promise<boolean> {
   try {
-    initializeContracts();
+    const { registryContract } = await initializeContracts(coopId);
     
     if (!registryContract) {
       console.warn("⚠️  Registry contract not initialized");
@@ -133,9 +122,9 @@ export async function isStoreVerifiedOnChain(storeOwnerWallet: string): Promise<
 /**
  * Get store info from on-chain registry
  */
-export async function getStoreInfoOnChain(storeOwnerWallet: string) {
+export async function getStoreInfoOnChain(storeOwnerWallet: string, coopId: string) {
   try {
-    initializeContracts();
+    const { registryContract } = await initializeContracts(coopId);
     
     if (!registryContract) {
       throw new Error("Registry contract not initialized");
@@ -160,10 +149,11 @@ export async function getStoreInfoOnChain(storeOwnerWallet: string) {
  */
 export async function calculateExpectedReward(
   storeOwnerWallet: string,
-  amountUC: string
+  amountUC: string,
+  coopId: string
 ): Promise<{ reward: string; policyKey: string }> {
   try {
-    initializeContracts();
+    const { engineContract } = await initializeContracts(coopId);
     
     if (!engineContract) {
       throw new Error("Reward engine contract not initialized");
@@ -199,21 +189,23 @@ export async function payVerifiedStore({
   amountUC,
   orderRef,
   buyerPrivateKey,
+  coopId,
 }: {
   buyerWallet: string;
   storeOwnerWallet: string;
   amountUC: string;
   orderRef: string;
   buyerPrivateKey: string;
+  coopId: string;
 }): Promise<{
   transactionHash: string;
   purchaseId: string;
   blockNumber: number;
 }> {
   try {
-    initializeContracts();
+    const { provider, routerContract, ucContract, routerAddress } = await initializeContracts(coopId);
 
-    if (!provider || !routerContract || !ucContract || !STORE_PAYMENT_ROUTER_ADDRESS) {
+    if (!provider || !routerContract || !ucContract || !routerAddress) {
       throw new Error("Contracts not initialized. Check environment variables.");
     }
 
@@ -230,7 +222,7 @@ export async function payVerifiedStore({
     console.log("   Order Ref:", orderRef);
 
     // Check if store is verified
-    const isVerified = await isStoreVerifiedOnChain(storeOwnerWallet);
+    const isVerified = await isStoreVerifiedOnChain(storeOwnerWallet, coopId);
     if (!isVerified) {
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -250,11 +242,11 @@ export async function payVerifiedStore({
     }
 
     // Check and approve router if needed
-    const currentAllowance = await ucContractWithBuyer.allowance(buyerWallet, STORE_PAYMENT_ROUTER_ADDRESS);
+    const currentAllowance = await ucContractWithBuyer.allowance(buyerWallet, routerAddress);
     
     if (currentAllowance < amountWei) {
       console.log("   Approving router to spend UC...");
-      const approveTx = await ucContractWithBuyer.approve(STORE_PAYMENT_ROUTER_ADDRESS, amountWei);
+      const approveTx = await ucContractWithBuyer.approve(routerAddress, amountWei);
       await approveTx.wait();
       console.log("   ✅ Approval complete");
     }
@@ -330,24 +322,22 @@ export async function transferUCPersonal({
   recipientWallet,
   amountUC,
   senderPrivateKey,
+  coopId,
 }: {
   senderWallet: string;
   recipientWallet: string;
   amountUC: string;
   senderPrivateKey: string;
+  coopId: string;
 }): Promise<{
   transactionHash: string;
   blockNumber: number;
 }> {
   try {
-    initializeContracts();
+    const { provider, ucContract } = await initializeContracts(coopId);
 
     if (!provider || !ucContract) {
       throw new Error("Contracts not initialized. Check environment variables.");
-    }
-
-    if (!STORE_PAYMENT_ROUTER_ADDRESS) {
-      throw new Error("STORE_PAYMENT_ROUTER_ADDRESS not configured");
     }
 
     // Create sender signer
@@ -406,9 +396,9 @@ export async function transferUCPersonal({
 /**
  * Get global reward policy from on-chain engine
  */
-export async function getGlobalRewardPolicy() {
+export async function getGlobalRewardPolicy(coopId: string) {
   try {
-    initializeContracts();
+    const { engineContract } = await initializeContracts(coopId);
     
     if (!engineContract) {
       throw new Error("Reward engine contract not initialized");

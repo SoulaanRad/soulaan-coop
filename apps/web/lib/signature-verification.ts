@@ -15,7 +15,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const db =
-  globalForPrisma?.prisma ??
+  globalForPrisma.prisma ??
   new PrismaClient({
     log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
@@ -27,6 +27,7 @@ export interface AuthSession {
   address: string;
   isLoggedIn: boolean;
   hasProfile: boolean;
+  activeCoopId?: string;
   isAdmin?: boolean;
   adminRole?: string;
   nonce?: string;
@@ -73,7 +74,7 @@ export async function generateChallenge(address: string): Promise<string> {
     statement: 'Sign in to Soulaan Co-op Admin Panel',
     uri: config.app.uri,
     version: '1',
-    chainId: config.chain.id,
+    chainId: 84532, // Base Sepolia
     nonce,
   });
   
@@ -192,18 +193,27 @@ export async function getSession(): Promise<AuthSession | null> {
 /**
  * Create a new session for an authenticated user
  * @param address - The wallet address of the authenticated user
+ * @param coopId - The coop ID for this session
  * @returns The created session
  */
-export async function createSession(address: string): Promise<AuthSession> {
+export async function createSession(address: string, coopId?: string): Promise<AuthSession> {
   const cookieStore = await cookies();
   const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
 
-  console.log(`\n🔐 Creating session for ${address}`);
+  console.log(`\n🔐 Creating session for ${address}${coopId ? ` (coop: ${coopId})` : ''}`);
 
-  // Check if the user has a profile
-  const profile = await db.userProfile.findUnique({
-    where: { walletAddress: address },
-  });
+  // Check if the user has a profile for this coop
+  let profile = null;
+  if (coopId) {
+    profile = await db.userProfile.findUnique({
+      where: { 
+        walletAddress_coopId: {
+          walletAddress: address,
+          coopId: coopId,
+        },
+      },
+    });
+  }
 
   // Check admin status using API server (secure server-side check)
   let isAdmin = false;
@@ -233,13 +243,19 @@ export async function createSession(address: string): Promise<AuthSession> {
   session.address = address;
   session.isLoggedIn = true;
   session.hasProfile = !!profile;
+  session.activeCoopId = coopId;
   session.isAdmin = isAdmin;
   session.adminRole = adminRole;
 
   // Update last login time if profile exists
-  if (profile) {
+  if (profile && coopId) {
     await db.userProfile.update({
-      where: { walletAddress: address },
+      where: { 
+        walletAddress_coopId: {
+          walletAddress: address,
+          coopId: coopId,
+        },
+      },
       data: { lastLogin: new Date() },
     });
   }

@@ -8,6 +8,7 @@ const requestSchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
   signature: z.string(),
   message: z.string(),
+  coopId: z.string().optional(),
 });
 
 /**
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { address, signature, message } = result.data;
+    const { address, signature, message, coopId } = result.data;
     
     // Verify the signature
     const isValid = await verifySignature(address, signature, message);
@@ -49,14 +50,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create a session
-    const session = await createSession(address);
+    // Create a session with coopId
+    const session = await createSession(address, coopId);
 
     // Return the session info
     return NextResponse.json({
       success: true,
       address,
       hasProfile: session.hasProfile,
+      activeCoopId: session.activeCoopId || null,
       isAdmin: session.isAdmin || false,
       adminRole: session.adminRole || null,
     });

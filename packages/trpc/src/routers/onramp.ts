@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { Context, AuthenticatedContext } from "../context.js";
+import { Context, AuthenticatedContext, CoopScopedContext } from "../context.js";
 import { privateProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { paymentService } from "../services/payment/index.js";
@@ -237,9 +237,11 @@ export const onrampRouter = router({
           });
 
           // Create notification
+          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
           await context.db.notification.create({
             data: {
               userId,
+              coopId,
               type: 'WALLET_FUNDED',
               title: 'Wallet Funded',
               body: `$${input.amountUSD.toFixed(2)} has been added to your wallet.`,

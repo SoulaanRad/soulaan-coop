@@ -5,7 +5,8 @@ import { healthRouter } from '../routers/health.js';
 const mockContext = {
   db: {} as any,
   req: {} as any,
-  res: {} as any
+  res: {} as any,
+  coopId: undefined,
 };
 
 describe('Health Router', () => {

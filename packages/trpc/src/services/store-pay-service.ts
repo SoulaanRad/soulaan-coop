@@ -54,10 +54,15 @@ export function normalizeShortCode(code: string): string {
 /**
  * Check if a short code is available
  */
-export async function isShortCodeAvailable(code: string): Promise<boolean> {
+export async function isShortCodeAvailable(code: string, coopId: string): Promise<boolean> {
   const normalized = normalizeShortCode(code);
   const existing = await db.store.findUnique({
-    where: { shortCode: normalized },
+    where: { 
+      coopId_shortCode: {
+        coopId,
+        shortCode: normalized,
+      }
+    },
     select: { id: true },
   });
   return !existing;
@@ -66,13 +71,13 @@ export async function isShortCodeAvailable(code: string): Promise<boolean> {
 /**
  * Generate a unique short code, retrying if collision
  */
-export async function generateUniqueShortCode(storeName: string): Promise<string> {
+export async function generateUniqueShortCode(storeName: string, coopId: string): Promise<string> {
   let attempts = 0;
   const maxAttempts = 10;
 
   while (attempts < maxAttempts) {
     const code = generateShortCode(storeName);
-    const available = await isShortCodeAvailable(code);
+    const available = await isShortCodeAvailable(code, coopId);
     if (available) {
       return code;
     }
@@ -222,17 +227,19 @@ export interface StoreInfo {
   imageUrl: string | null;
   isScVerified: boolean;
   acceptsQuickPay: boolean;
+  coopId: string;
 }
 
 /**
  * Get store by short code (public)
  */
-export async function getStoreByShortCode(code: string): Promise<StoreInfo | null> {
+export async function getStoreByShortCode(code: string, coopId: string): Promise<StoreInfo | null> {
   const normalized = normalizeShortCode(code);
 
   const store = await db.store.findFirst({
     where: {
       shortCode: normalized,
+      coopId,
       status: 'APPROVED',
       acceptsQuickPay: true,
     },
@@ -243,6 +250,7 @@ export async function getStoreByShortCode(code: string): Promise<StoreInfo | nul
       shortCode: true,
       imageUrl: true,
       isScVerified: true,
+      coopId: true,
       acceptsQuickPay: true,
     },
   });
@@ -283,6 +291,7 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
           name: true,
           status: true,
           isScVerified: true,
+          coopId: true,
         },
       },
     },
@@ -324,6 +333,7 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
     senderId: payerId,
     recipientId: request.store.ownerId,
     amountUSD: amount,
+    coopId: request.store.coopId,
     note: request.description || `Payment to ${request.store.name}`,
     transferType: 'STORE',
     transferMetadata: {
@@ -365,6 +375,7 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
   await db.notification.create({
     data: {
       userId: request.store.ownerId,
+      coopId: request.store.coopId,
       type: 'STORE_PAYMENT_RECEIVED',
       title: 'Payment Received!',
       body: `You received $${amount.toFixed(2)}${scMessage}${request.description ? ` for "${request.description}"` : ''}`,
@@ -383,6 +394,7 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
     await db.notification.create({
       data: {
         userId: payerId,
+        coopId: request.store.coopId,
         type: 'SC_REWARD_EARNED',
         title: 'SC Reward Earned!',
         body: `You earned ${scReward.customerReward.toFixed(2)} SC for shopping at ${request.store.name}`,
@@ -406,6 +418,7 @@ export interface PayByCodeParams {
   storeCode: string;
   payerId: string;
   amount: number;
+  coopId: string;
   note?: string;
 }
 
@@ -413,10 +426,10 @@ export interface PayByCodeParams {
  * Pay a store directly by short code (no payment request)
  */
 export async function payByStoreCode(params: PayByCodeParams): Promise<PayRequestResult> {
-  const { storeCode, payerId, amount, note } = params;
+  const { storeCode, payerId, amount, coopId, note } = params;
 
   // Look up store
-  const store = await getStoreByShortCode(storeCode);
+  const store = await getStoreByShortCode(storeCode, coopId);
 
   if (!store) {
     throw new Error('Store not found or not accepting quick payments');
@@ -432,6 +445,7 @@ export async function payByStoreCode(params: PayByCodeParams): Promise<PayReques
     senderId: payerId,
     recipientId: store.ownerId,
     amountUSD: amount,
+    coopId: store.coopId,
     note: note || `Payment to ${store.name}`,
     transferType: 'STORE',
     transferMetadata: {
@@ -461,6 +475,7 @@ export async function payByStoreCode(params: PayByCodeParams): Promise<PayReques
   await db.notification.create({
     data: {
       userId: store.ownerId,
+      coopId: store.coopId,
       type: 'STORE_PAYMENT_RECEIVED',
       title: 'Payment Received!',
       body: `You received $${amount.toFixed(2)}${scMessage}${note ? ` - "${note}"` : ''}`,
@@ -478,6 +493,7 @@ export async function payByStoreCode(params: PayByCodeParams): Promise<PayReques
     await db.notification.create({
       data: {
         userId: payerId,
+        coopId: store.coopId,
         type: 'SC_REWARD_EARNED',
         title: 'SC Reward Earned!',
         body: `You earned ${scReward.customerReward.toFixed(2)} SC for shopping at ${store.name}`,

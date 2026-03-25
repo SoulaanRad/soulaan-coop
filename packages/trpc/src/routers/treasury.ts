@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router } from "../trpc.js";
 import { authenticatedProcedure } from "../procedures/index.js";
-import { AuthenticatedContext } from "../context.js";
+import { AuthenticatedContext, CoopScopedContext } from "../context.js";
 import { db } from "@repo/db";
 import { getTreasuryReserveStats, markReserveAsSettled } from "../services/treasury-reserve-service.js";
 import { checkAdminStatusWithRole } from "../services/admin-verification.js";
@@ -13,8 +13,9 @@ export const treasuryRouter = router({
   /**
    * Get treasury reserve statistics
    */
-  getReserveStats: authenticatedProcedure.query(async () => {
-    return await getTreasuryReserveStats();
+  getReserveStats: authenticatedProcedure.query(async ({ ctx }) => {
+    const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+    return await getTreasuryReserveStats(coopId);
   }),
 
   /**

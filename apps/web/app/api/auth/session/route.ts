@@ -22,6 +22,7 @@ export async function GET(_request: NextRequest) {
       isLoggedIn: true,
       address: session.address,
       hasProfile: session.hasProfile,
+      activeCoopId: session.activeCoopId || null,
       isAdmin: session.isAdmin || false,
       adminRole: session.adminRole || null,
     });

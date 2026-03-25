@@ -13,6 +13,7 @@ vi.mock('@repo/db', () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     wallet: {
       findUnique: vi.fn(),
@@ -29,7 +30,49 @@ vi.mock('@repo/db', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      deleteMany: vi.fn(),
     },
+    userCoopMembership: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    coopConfig: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    $transaction: vi.fn((callback) => {
+      // Mock transaction by calling the callback with a mock tx object
+      const mockTx = {
+        user: {
+          findUnique: vi.fn(),
+          findMany: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+        },
+        application: {
+          findUnique: vi.fn(),
+          findMany: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+          deleteMany: vi.fn(),
+        },
+        userCoopMembership: {
+          findUnique: vi.fn(),
+          findMany: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+          deleteMany: vi.fn(),
+        },
+      };
+      return callback(mockTx);
+    }),
   },
 }));
 

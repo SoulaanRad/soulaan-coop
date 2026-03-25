@@ -44,6 +44,7 @@ export async function evaluateAndMintCommerceReward(params: {
   businessOwnerWalletAddress: string;
   amountUSD: number;
   isScVerifiedBusiness: boolean;
+  coopId: string;
 }): Promise<{
   customerReward: {
     eligible: boolean;
@@ -69,6 +70,7 @@ export async function evaluateAndMintCommerceReward(params: {
     businessOwnerWalletAddress,
     amountUSD,
     isScVerifiedBusiness,
+    coopId,
   } = params;
 
   console.log(`🎁 [Reward Policy] Evaluating rewards for transaction ${transactionId}`);
@@ -132,7 +134,7 @@ export async function evaluateAndMintCommerceReward(params: {
         idempotencyKey: `commerce-customer-${transactionId}`,
         userId: customerId,
         walletAddress: customerWalletAddress,
-        coopTokenClass: 'soulaan', // TODO: Make configurable per business
+        coopTokenClass: coopId,
         amount: scReward,
         sourceTransactionId: transactionId,
         sourceType: 'COMMERCE_REWARD',
@@ -169,7 +171,7 @@ export async function evaluateAndMintCommerceReward(params: {
         idempotencyKey: `commerce-merchant-${transactionId}`,
         userId: businessOwnerId,
         walletAddress: businessOwnerWalletAddress,
-        coopTokenClass: 'soulaan',
+        coopTokenClass: coopId,
         amount: scReward,
         sourceTransactionId: transactionId,
         sourceType: 'COMMERCE_REWARD',
@@ -252,6 +254,7 @@ export async function evaluateAndMintManualGrant(params: {
   amount: number;
   reason: string;
   authorizedBy: string;
+  coopId: string;
   approvalRequestId?: string;
 }): Promise<{
   eligible: boolean;
@@ -260,9 +263,9 @@ export async function evaluateAndMintManualGrant(params: {
   actualAmount?: number;
   reason?: string;
 }> {
-  const { userId, walletAddress, amount, reason, authorizedBy, approvalRequestId } = params;
+  const { userId, walletAddress, amount, reason, authorizedBy, coopId, approvalRequestId } = params;
 
-  console.log(`🎁 [Reward Policy] Evaluating manual grant: ${amount} SC to ${userId}`);
+  console.log(`🎁 [Reward Policy] Evaluating manual grant: ${amount} SC to ${userId} (coop: ${coopId})`);
 
   // Check user eligibility
   const eligibility = await checkUserEligibility(userId, walletAddress);
@@ -279,7 +282,7 @@ export async function evaluateAndMintManualGrant(params: {
       idempotencyKey: approvalRequestId || `manual-grant-${userId}-${Date.now()}`,
       userId,
       walletAddress,
-      coopTokenClass: 'soulaan',
+      coopTokenClass: coopId,
       amount,
       sourceType: 'MANUAL_GRANT',
       metadata: {
@@ -316,6 +319,7 @@ export async function evaluateAndMintOnboardingReward(params: {
   userId: string;
   walletAddress: string;
   onboardingAmount: number;
+  coopId: string;
 }): Promise<{
   eligible: boolean;
   commandId?: string;
@@ -323,14 +327,15 @@ export async function evaluateAndMintOnboardingReward(params: {
   actualAmount?: number;
   reason?: string;
 }> {
-  const { userId, walletAddress, onboardingAmount } = params;
+  const { userId, walletAddress, onboardingAmount, coopId } = params;
 
-  console.log(`🎁 [Reward Policy] Evaluating onboarding reward: ${onboardingAmount} SC to ${userId}`);
+  console.log(`🎁 [Reward Policy] Evaluating onboarding reward: ${onboardingAmount} SC to ${userId} (coop: ${coopId})`);
 
-  // Check if user already received onboarding reward
+  // Check if user already received onboarding reward for this coop
   const existingReward = await db.sCMintEvent.findFirst({
     where: {
       userId,
+      coopTokenClass: coopId,
       sourceType: 'ONBOARDING',
       status: 'COMPLETED',
     },
@@ -339,7 +344,7 @@ export async function evaluateAndMintOnboardingReward(params: {
   if (existingReward) {
     return {
       eligible: false,
-      reason: 'User already received onboarding reward',
+      reason: 'User already received onboarding reward for this coop',
     };
   }
 
@@ -355,10 +360,10 @@ export async function evaluateAndMintOnboardingReward(params: {
   try {
     // Mint SC
     const mintResult = await mintSC({
-      idempotencyKey: `onboarding-${userId}`,
+      idempotencyKey: `onboarding-${userId}-${coopId}`,
       userId,
       walletAddress,
-      coopTokenClass: 'soulaan',
+      coopTokenClass: coopId,
       amount: onboardingAmount,
       sourceType: 'ONBOARDING',
       metadata: {

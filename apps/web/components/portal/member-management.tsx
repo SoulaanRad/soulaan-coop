@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
+import { useCoopContext } from "@/lib/coop-context";
 import {
   Table,
   TableBody,
@@ -28,7 +29,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { env } from "@/env";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle, Star, X } from "lucide-react";
@@ -36,6 +36,7 @@ import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info,
 type UserStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 
 export default function MemberManagement() {
+  const { coopId } = useCoopContext();
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'ALL'>('ALL');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -158,7 +159,6 @@ export default function MemberManagement() {
   );
 
   // Expert assignment queries/mutations
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
   const { data: coopConfig } = api.coopConfig.getActive.useQuery({ coopId });
   const availableDomains = (coopConfig?.scorerAgents ?? []).filter((a: any) => a.enabled !== false);
 

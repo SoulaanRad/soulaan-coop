@@ -34,6 +34,18 @@ function mapDbToConfigOutput(record: CoopConfig): CoopConfigOutput {
     createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
     createdBy: record.createdBy,
+    // Display/onboarding fields
+    name: record.name ?? undefined,
+    slug: record.slug ?? undefined,
+    tagline: record.tagline ?? undefined,
+    description: record.description ?? undefined,
+    displayMission: record.displayMission ?? undefined,
+    displayFeatures: record.displayFeatures as Array<{ title: string; description: string }> | undefined,
+    eligibility: record.eligibility ?? undefined,
+    bgColor: record.bgColor ?? undefined,
+    accentColor: record.accentColor ?? undefined,
+    displayOrder: record.displayOrder ?? undefined,
+    applicationQuestions: record.applicationQuestions as any[] | undefined,
   };
 }
 
@@ -49,6 +61,27 @@ function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>):
 }
 
 export const coopConfigRouter = router({
+  /**
+   * Validate if a coopId exists and is active
+   */
+  validateCoopId: publicProcedure
+    .input(z.object({ coopId: z.string() }))
+    .output(z.object({
+      exists: z.boolean(),
+      name: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const config = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        select: { coopId: true, name: true },
+      });
+
+      return {
+        exists: !!config,
+        name: config?.name ?? undefined,
+      };
+    }),
+
   /**
    * List all available coops for onboarding
    * Fetches from the CoopConfig table
@@ -148,10 +181,54 @@ export const coopConfigRouter = router({
     }),
 
   /**
-   * Get active config for a coopId (default "soulaan")
+   * Update application questions directly (admin only, bypasses proposal flow)
+   */
+  updateApplicationQuestions: privateProcedure
+    .input(z.object({
+      coopId: z.string(),
+      questions: z.array(z.object({
+        id: z.string(),
+        type: z.string(),
+        label: z.string(),
+        description: z.string().optional(),
+        placeholder: z.string().optional(),
+        required: z.boolean(),
+        options: z.array(z.object({
+          value: z.string(),
+          label: z.string(),
+        })).optional(),
+        validation: z.record(z.unknown()).optional(),
+      })),
+    }))
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const { coopId, questions } = input;
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      const activeConfig = await ctx.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: 'desc' },
+      });
+
+      if (!activeConfig) {
+        throw new Error(`No active config found for coopId: ${coopId}`);
+      }
+
+      await ctx.db.coopConfig.update({
+        where: { id: activeConfig.id },
+        data: {
+          applicationQuestions: questions as Prisma.InputJsonValue,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  /**
+   * Get active config for a coopId
    */
   getActive: publicProcedure
-    .input(z.object({ coopId: z.string().default("soulaan") }))
+    .input(z.object({ coopId: z.string() }))
     .output(CoopConfigOutputZ.nullable())
     .query(async ({ input, ctx }) => {
       const config = await ctx.db.coopConfig.findFirst({
@@ -180,7 +257,7 @@ export const coopConfigRouter = router({
    * List all versions for a coopId
    */
   listVersions: publicProcedure
-    .input(z.object({ coopId: z.string().default("soulaan") }))
+    .input(z.object({ coopId: z.string() }))
     .output(z.array(z.object({
       id: z.string(),
       version: z.number(),
@@ -283,6 +360,19 @@ export const coopConfigRouter = router({
           strongGoalThreshold: fields.strongGoalThreshold ?? 0.70,
           missionMinThreshold: fields.missionMinThreshold ?? 0.50,
           structuralGate: fields.structuralGate ?? 0.65,
+          // Chain configuration fields
+          chainId: fields.chainId,
+          chainName: fields.chainName,
+          rpcUrl: fields.rpcUrl,
+          scTokenAddress: fields.scTokenAddress,
+          ucTokenAddress: fields.ucTokenAddress,
+          redemptionVaultAddress: fields.redemptionVaultAddress,
+          treasurySafeAddress: fields.treasurySafeAddress,
+          verifiedStoreRegistryAddress: fields.verifiedStoreRegistryAddress,
+          storePaymentRouterAddress: fields.storePaymentRouterAddress,
+          rewardEngineAddress: fields.rewardEngineAddress,
+          scTokenSymbol: fields.scTokenSymbol ?? 'SC',
+          scTokenName: fields.scTokenName ?? 'SoulaaniCoin',
           createdBy: walletAddress,
         },
       });
@@ -327,6 +417,12 @@ export const coopConfigRouter = router({
       if (updates.strongGoalThreshold !== undefined) newFields.strongGoalThreshold = updates.strongGoalThreshold;
       if (updates.missionMinThreshold !== undefined) newFields.missionMinThreshold = updates.missionMinThreshold;
       if (updates.structuralGate !== undefined) newFields.structuralGate = updates.structuralGate;
+      // Display/onboarding fields
+      if (updates.tagline !== undefined) newFields.tagline = updates.tagline;
+      if (updates.description !== undefined) newFields.description = updates.description;
+      if (updates.displayMission !== undefined) newFields.displayMission = updates.displayMission;
+      if (updates.displayFeatures !== undefined) newFields.displayFeatures = updates.displayFeatures;
+      if (updates.eligibility !== undefined) newFields.eligibility = updates.eligibility;
 
       const diff = computeDiff(current, newFields);
 
@@ -358,6 +454,31 @@ export const coopConfigRouter = router({
             strongGoalThreshold: (newFields as any).strongGoalThreshold ?? (current as any).strongGoalThreshold ?? 0.70,
             missionMinThreshold: (newFields as any).missionMinThreshold ?? (current as any).missionMinThreshold ?? 0.50,
             structuralGate: (newFields as any).structuralGate ?? (current as any).structuralGate ?? 0.65,
+            // Carry forward display/onboarding fields
+            name: newFields.name ?? current.name,
+            slug: newFields.slug ?? current.slug,
+            tagline: newFields.tagline ?? current.tagline,
+            description: newFields.description ?? current.description,
+            displayMission: newFields.displayMission ?? current.displayMission,
+            displayFeatures: newFields.displayFeatures ?? current.displayFeatures,
+            eligibility: newFields.eligibility ?? current.eligibility,
+            bgColor: newFields.bgColor ?? current.bgColor,
+            accentColor: newFields.accentColor ?? current.accentColor,
+            displayOrder: newFields.displayOrder ?? current.displayOrder,
+            applicationQuestions: current.applicationQuestions as Prisma.InputJsonValue,
+            // Carry forward chain config fields
+            chainId: current.chainId,
+            chainName: current.chainName,
+            rpcUrl: current.rpcUrl,
+            scTokenAddress: current.scTokenAddress,
+            ucTokenAddress: current.ucTokenAddress,
+            redemptionVaultAddress: current.redemptionVaultAddress,
+            treasurySafeAddress: current.treasurySafeAddress,
+            verifiedStoreRegistryAddress: current.verifiedStoreRegistryAddress,
+            storePaymentRouterAddress: current.storePaymentRouterAddress,
+            rewardEngineAddress: current.rewardEngineAddress,
+            scTokenSymbol: current.scTokenSymbol,
+            scTokenName: current.scTokenName,
             createdBy: walletAddress,
           },
         }),
@@ -708,6 +829,31 @@ export const coopConfigRouter = router({
             strongGoalThreshold: (changes.strongGoalThreshold as number | undefined) ?? ((current as any).strongGoalThreshold ?? 0.70),
             missionMinThreshold: (changes.missionMinThreshold as number | undefined) ?? ((current as any).missionMinThreshold ?? 0.50),
             structuralGate:      (changes.structuralGate      as number | undefined) ?? ((current as any).structuralGate      ?? 0.65),
+            // Carry forward display/onboarding fields (can be amended via changes)
+            name: (changes.name as string | undefined) ?? current.name,
+            slug: (changes.slug as string | undefined) ?? current.slug,
+            tagline: (changes.tagline as string | undefined) ?? current.tagline,
+            description: (changes.description as string | undefined) ?? current.description,
+            displayMission: (changes.displayMission as string | undefined) ?? current.displayMission,
+            displayFeatures: (changes.displayFeatures ?? current.displayFeatures) as Prisma.InputJsonValue,
+            eligibility: (changes.eligibility as string | undefined) ?? current.eligibility,
+            bgColor: (changes.bgColor as string | undefined) ?? current.bgColor,
+            accentColor: (changes.accentColor as string | undefined) ?? current.accentColor,
+            displayOrder: (changes.displayOrder as number | undefined) ?? current.displayOrder,
+            applicationQuestions: current.applicationQuestions as Prisma.InputJsonValue,
+            // Carry forward chain config fields
+            chainId: current.chainId,
+            chainName: current.chainName,
+            rpcUrl: current.rpcUrl,
+            scTokenAddress: current.scTokenAddress,
+            ucTokenAddress: current.ucTokenAddress,
+            redemptionVaultAddress: current.redemptionVaultAddress,
+            treasurySafeAddress: current.treasurySafeAddress,
+            verifiedStoreRegistryAddress: current.verifiedStoreRegistryAddress,
+            storePaymentRouterAddress: current.storePaymentRouterAddress,
+            rewardEngineAddress: current.rewardEngineAddress,
+            scTokenSymbol: current.scTokenSymbol,
+            scTokenName: current.scTokenName,
             createdBy: walletAddress,
           },
         }),
@@ -842,7 +988,7 @@ export const coopConfigRouter = router({
    */
   getAuditTrail: privateProcedure
     .input(z.object({
-      coopId: z.string().default("soulaan"),
+      coopId: z.string(),
       limit: z.number().min(1).max(100).default(20),
       offset: z.number().min(0).default(0),
     }))

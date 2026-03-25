@@ -146,6 +146,7 @@ export const claimRouter = router({
         await context.db.notification.create({
           data: {
             userId: transfer.senderId,
+            coopId: transfer.coopId,
             type: 'PAYMENT_CLAIMED',
             title: 'Payment Claimed',
             body: `Your $${transfer.amountUSD.toFixed(2)} payment to ${transfer.recipientPhone} was claimed.`,
@@ -285,6 +286,7 @@ export const claimRouter = router({
           context.db.notification.create({
             data: {
               userId: newUser.id,
+              coopId: transfer.coopId,
               type: 'WELCOME',
               title: `Welcome to ${config.shortName}!`,
               body: `${transfer.sender.name || 'Someone'} sent you $${transfer.amountUSD.toFixed(2)}. Your balance is ready to use.`,
@@ -298,6 +300,7 @@ export const claimRouter = router({
           context.db.notification.create({
             data: {
               userId: transfer.senderId,
+              coopId: transfer.coopId,
               type: 'PAYMENT_CLAIMED',
               title: 'Payment Claimed',
               body: `${input.name} claimed your $${transfer.amountUSD.toFixed(2)} payment and joined ${config.shortName}!`,

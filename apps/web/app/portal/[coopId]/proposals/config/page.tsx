@@ -1,22 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, ShieldAlert, PlusCircle, Bot, Users, Globe, X, Plus, ToggleLeft, ToggleRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Loader2, ArrowLeft, ShieldAlert, PlusCircle, Bot, Users, Globe, X, Plus, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { Label } from "@/components/ui/label";
 import { ConfigSectionEditor } from "@/components/portal/proposals/config-section-editor";
-import { env } from "@/env";
 
 export default function CoopConfigPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const coin = useCoin();
   const { isAdmin } = useWeb3Auth();
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
   const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId });
   const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId });
 
@@ -92,13 +95,21 @@ export default function CoopConfigPage() {
   const [newExclusionValue, setNewExclusionValue] = useState("");
   const [newExclusionDescription, setNewExclusionDescription] = useState("");
 
+  // Display features editing
+  const [editFeatures, setEditFeatures] = useState<{ title: string; description: string }[] | null>(null);
+  const [newFeatureTitle, setNewFeatureTitle] = useState("");
+  const [newFeatureDescription, setNewFeatureDescription] = useState("");
+
+  // Eligibility editing
+  const [editEligibility, setEditEligibility] = useState<string | null>(null);
+
   if (!isAdmin) {
     return (
       <div className="max-w-4xl mx-auto py-12 text-center space-y-4">
         <ShieldAlert className="h-12 w-12 text-red-400 mx-auto" />
         <h2 className="text-xl font-bold text-white">Admin Access Required</h2>
         <p className="text-gray-400">You need admin privileges to manage co-op configuration.</p>
-        <Link href="/portal/proposals" className="text-amber-500 hover:underline">
+        <Link href={`/portal/${coopId}/proposals`} className="text-amber-500 hover:underline">
           Back to proposals
         </Link>
       </div>
@@ -118,7 +129,7 @@ export default function CoopConfigPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-2">
-          <Link href="/portal/proposals" className="text-gray-400 hover:text-white transition-colors">
+          <Link href={`/portal/${coopId}/proposals`} className="text-gray-400 hover:text-white transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
@@ -217,7 +228,7 @@ export default function CoopConfigPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <Link href="/portal/proposals" className="inline-flex items-center text-gray-400 hover:text-white text-sm">
+      <Link href={`/portal/${coopId}/proposals`} className="inline-flex items-center text-gray-400 hover:text-white text-sm">
         <ArrowLeft className="h-4 w-4 mr-1" />
         Back to proposals
       </Link>
@@ -230,7 +241,7 @@ export default function CoopConfigPage() {
           </p>
         </div>
         <Link
-          href="/portal/proposals/config/amendments"
+          href={`/portal/${coopId}/proposals/config/amendments`}
           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-600 text-sm text-gray-400 hover:text-white hover:bg-slate-700 transition-colors"
         >
           {pendingAmendments.length > 0 && (
@@ -263,6 +274,7 @@ export default function CoopConfigPage() {
           proposedBy: pendingCharter.proposedBy,
           proposedAt: pendingCharter.proposedAt,
         } : null}
+        coopId={coopId}
       >
         {/* Editable textarea — always visible */}
         <Textarea
@@ -283,6 +295,7 @@ export default function CoopConfigPage() {
         onSave={propose("missionGoals", { missionGoals: editGoals ?? config.missionGoals }, { missionGoals: config.missionGoals })}
         isSaving={proposeChange.isPending}
         {...sectionReview("missionGoals")}
+        coopId={coopId}
       >
         <p className="text-xs text-amber-400/80 mb-1">
           The <span className="font-medium">description</span> field on each goal is sent to the AI to guide scoring — make it specific and actionable.
@@ -454,6 +467,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("structuralWeights")}
+        coopId={coopId}
       >
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
@@ -498,6 +512,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("scoreMix")}
+        coopId={coopId}
       >
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -532,6 +547,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("screeningPassThreshold")}
+        coopId={coopId}
       >
         <div className="text-sm">
           <span className="text-gray-500">Pass Threshold %</span>
@@ -563,6 +579,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("votingRules")}
+        coopId={coopId}
       >
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
@@ -603,6 +620,7 @@ export default function CoopConfigPage() {
         onSave={propose("proposalCategories", { proposalCategories: editCategories ?? config.proposalCategories }, { proposalCategories: config.proposalCategories })}
         isSaving={proposeChange.isPending}
         {...sectionReview("proposalCategories")}
+        coopId={coopId}
       >
         <p className="text-xs text-gray-500 mb-3">
           Toggle categories on/off, edit descriptions, or add new ones. The <span className="text-amber-400 font-medium">description</span> is shown to proposal submitters and sent to the AI to guide screening.
@@ -746,6 +764,7 @@ export default function CoopConfigPage() {
         onSave={propose("sectorExclusions", { sectorExclusions: editExclusions ?? config.sectorExclusions }, { sectorExclusions: config.sectorExclusions })}
         isSaving={proposeChange.isPending}
         {...sectionReview("sectorExclusions")}
+        coopId={coopId}
       >
 
         {/* Exclusion rows */}
@@ -852,6 +871,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("submissionRequirements")}
+        coopId={coopId}
       >
         <div className="text-sm">
           <span className="text-gray-500">Min SC Balance to Submit</span>
@@ -881,6 +901,7 @@ export default function CoopConfigPage() {
         }}
         isSaving={proposeChange.isPending}
         {...sectionReview("approvalTiers")}
+        coopId={coopId}
       >
 
         {/* Visual tier diagram */}
@@ -954,6 +975,136 @@ export default function CoopConfigPage() {
           </div>
         </div>
       </ConfigSectionEditor>
+
+      {/* Display Features (Onboarding) */}
+      <ConfigSectionEditor
+        title="Onboarding Features"
+        description="Feature cards shown to new members during mobile app onboarding. Highlight the key benefits of joining."
+        isDirty={editFeatures !== null}
+        onSave={propose("displayFeatures", { displayFeatures: editFeatures ?? config.displayFeatures ?? [] }, { displayFeatures: config.displayFeatures ?? [] })}
+        isSaving={proposeChange.isPending}
+        {...sectionReview("displayFeatures")}
+        coopId={coopId}
+      >
+        <div className="space-y-3">
+          {(editFeatures ?? config.displayFeatures ?? []).map((feature, i) => (
+            <div key={i} className="rounded-md border border-slate-600 bg-slate-900/50 p-4 space-y-3">
+              <div className="space-y-2">
+                <Label className="text-gray-300">Feature Title</Label>
+                <Input
+                  value={feature.title}
+                  onChange={(e) => {
+                    const base = editFeatures ?? config.displayFeatures ?? [];
+                    setEditFeatures(base.map((f, j) => j === i ? { ...f, title: e.target.value } : f));
+                  }}
+                  className="bg-slate-900 border-slate-600 text-white"
+                  placeholder="e.g., Shared Wealth Fund"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-300">Feature Description</Label>
+                <Textarea
+                  value={feature.description}
+                  onChange={(e) => {
+                    const base = editFeatures ?? config.displayFeatures ?? [];
+                    setEditFeatures(base.map((f, j) => j === i ? { ...f, description: e.target.value } : f));
+                  }}
+                  rows={2}
+                  className="bg-slate-900 border-slate-600 text-white text-sm resize-none"
+                  placeholder="Explain the benefit..."
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const base = editFeatures ?? config.displayFeatures ?? [];
+                  setEditFeatures(base.filter((_, j) => j !== i));
+                }}
+                className="text-red-400 hover:text-red-300"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove Feature
+              </Button>
+            </div>
+          ))}
+          {(editFeatures ?? config.displayFeatures ?? []).length === 0 && (
+            <p className="text-xs text-gray-600">No features configured</p>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-md border border-dashed border-slate-600 p-4 space-y-3">
+          <p className="text-xs text-gray-500 font-medium">Add new feature</p>
+          <Input
+            value={newFeatureTitle}
+            onChange={(e) => setNewFeatureTitle(e.target.value)}
+            placeholder="Feature title"
+            className="bg-slate-900 border-slate-600 text-white"
+          />
+          <Textarea
+            value={newFeatureDescription}
+            onChange={(e) => setNewFeatureDescription(e.target.value)}
+            rows={2}
+            placeholder="Feature description"
+            className="bg-slate-900 border-slate-600 text-white text-sm resize-none"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const title = newFeatureTitle.trim();
+              const description = newFeatureDescription.trim();
+              if (!title || !description) return;
+              const base = editFeatures ?? config.displayFeatures ?? [];
+              setEditFeatures([...base, { title, description }]);
+              setNewFeatureTitle("");
+              setNewFeatureDescription("");
+            }}
+            disabled={!newFeatureTitle.trim() || !newFeatureDescription.trim()}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Feature
+          </Button>
+        </div>
+      </ConfigSectionEditor>
+
+      {/* Eligibility */}
+      <ConfigSectionEditor
+        title="Eligibility Requirements"
+        description="Who can join this coop? Shown during onboarding to help potential members understand if they qualify."
+        isDirty={editEligibility !== null}
+        onSave={propose("eligibility", { eligibility: editEligibility ?? config.eligibility ?? "" }, { eligibility: config.eligibility ?? "" })}
+        isSaving={proposeChange.isPending}
+        {...sectionReview("eligibility")}
+        coopId={coopId}
+      >
+        <Textarea
+          value={editEligibility ?? config.eligibility ?? ""}
+          onChange={(e) => setEditEligibility(e.target.value)}
+          rows={4}
+          className="bg-slate-900 border-slate-600 text-white text-sm resize-y"
+          placeholder="e.g., Open to Black Americans, Afro-Caribbean, African immigrants, and allies (non-voting)"
+        />
+      </ConfigSectionEditor>
+
+      {/* Link to Application Form Editor */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader>
+          <CardTitle className="text-white">Application Form</CardTitle>
+          <CardDescription className="text-gray-400">
+            Manage membership application questions separately from governance config
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href={`/portal/${coopId}/settings/application-form`}>
+              Edit Application Questions
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Version History */}
       <Card className="bg-slate-800/50 border-slate-700">

@@ -18,7 +18,6 @@ import { ProposalScores } from "@/components/portal/proposals/proposal-scores";
 import { ProposalDecisionBanner } from "@/components/portal/proposals/proposal-decision-badge";
 import { CommentForm } from "@/components/portal/proposals/comment-form";
 import { CommentList } from "@/components/portal/proposals/comment-list";
-import { env } from "@/env";
 
 function prettifyKey(key: string) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -62,11 +61,11 @@ const adminTransitions: Record<string, { value: string; label: string }[]> = {
 export default function ProposalDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const coopId = params.coopId as string;
   const { isAdmin, address: walletAddress } = useWeb3Auth();
   const [showTransitions, setShowTransitions] = useState(false);
   const [withdrawConfirm, setWithdrawConfirm] = useState(false);
   const [councilVotePending, setCouncilVotePending] = useState(false);
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   // Edit & resubmit state
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -167,7 +166,7 @@ export default function ProposalDetailPage() {
     return (
       <div className="max-w-4xl mx-auto py-12 text-center">
         <p className="text-gray-400">Proposal not found</p>
-        <Link href="/portal/proposals" className="text-amber-500 hover:underline mt-2 inline-block">
+        <Link href={`/portal/${coopId}/proposals`} className="text-amber-500 hover:underline mt-2 inline-block">
           Back to proposals
         </Link>
       </div>
@@ -183,7 +182,7 @@ export default function ProposalDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Back Link */}
-      <Link href="/portal/proposals" className="inline-flex items-center text-gray-400 hover:text-white text-sm">
+      <Link href={`/portal/${coopId}/proposals`} className="inline-flex items-center text-gray-400 hover:text-white text-sm">
         <ArrowLeft className="h-4 w-4 mr-1" />
         Back to proposals
       </Link>

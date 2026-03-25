@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router } from "../trpc.js";
 import { privateProcedure, authenticatedProcedure } from "../procedures/index.js";
-import type { AuthenticatedContext } from "../context.js";
+import type { AuthenticatedContext, CoopScopedContext } from "../context.js";
 
 // ── Shared output schemas ──────────────────────────────────────────────────
 
@@ -66,8 +66,15 @@ export const proposalExpertRouter = router({
     .output(ExpertAssignmentOutputZ)
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
       const existing = await ctx.db.expertAssignment.findUnique({
-        where: { walletAddress_domain: { walletAddress: input.walletAddress, domain: input.domain } },
+        where: { 
+          walletAddress_coopId_domain: { 
+            walletAddress: input.walletAddress, 
+            coopId,
+            domain: input.domain 
+          } 
+        },
       });
       if (existing) {
         const updated = await ctx.db.expertAssignment.update({
@@ -79,6 +86,7 @@ export const proposalExpertRouter = router({
       const created = await ctx.db.expertAssignment.create({
         data: {
           walletAddress: input.walletAddress,
+          coopId,
           domain: input.domain,
           isActive: true,
           assignedBy: walletAddress,
@@ -187,8 +195,15 @@ export const proposalExpertRouter = router({
       }
 
       // Verify caller is an active expert for this goal's domain
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
       const assignment = await ctx.db.expertAssignment.findUnique({
-        where: { walletAddress_domain: { walletAddress, domain: goalScore.domain } },
+        where: { 
+          walletAddress_coopId_domain: { 
+            walletAddress, 
+            coopId,
+            domain: goalScore.domain 
+          } 
+        },
       });
       if (!assignment?.isActive) {
         throw new TRPCError({

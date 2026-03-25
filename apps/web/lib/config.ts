@@ -9,18 +9,6 @@ import { env } from '~/env';
 
 // Client-safe configuration (can be imported anywhere)
 export const config = {
-  // Blockchain configuration
-  chain: {
-    id: parseInt(env.NEXT_PUBLIC_CHAIN_ID || '84532'), // Base Sepolia by default
-    name: env.NEXT_PUBLIC_CHAIN_NAME || 'Base Sepolia',
-    rpcUrl: env.NEXT_PUBLIC_RPC_URL || 'https://sepolia.base.org',
-  },
-  
-  // Smart contract addresses
-  contracts: {
-    soulaaniCoin: env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS as `0x${string}` | undefined,
-  },
-  
   // WalletConnect configuration
   walletConnect: {
     projectId: env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
@@ -32,12 +20,15 @@ export const config = {
     uri: env.NEXT_PUBLIC_URI || 'http://localhost:3000',
   },
   
+  // Default chain configuration (can be overridden per-coop from database)
+  chain: {
+    rpcUrl: env.NEXT_PUBLIC_RPC_URL || 'https://sepolia.base.org',
+  },
+  
   // Feature flags
   features: {
     // Skip blockchain checks in test/development mode
-    skipBlockchainChecks:
-      env.NODE_ENV === 'test' ||
-      (env.NODE_ENV === 'development' && !env.NEXT_PUBLIC_SOULAANI_COIN_ADDRESS),
+    skipBlockchainChecks: env.NODE_ENV === 'test' || env.NODE_ENV === 'development',
   },
 };
 
@@ -60,10 +51,6 @@ export function validateConfig() {
   const errors: string[] = [];
   
   if (env.NODE_ENV === 'production') {
-    if (!config.contracts.soulaaniCoin) {
-      errors.push('NEXT_PUBLIC_SOULAANI_COIN_ADDRESS is required in production');
-    }
-    
     if (!config.walletConnect.projectId) {
       errors.push('NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID is required in production');
     }
@@ -79,19 +66,19 @@ export function validateConfig() {
   }
 }
 
-// Export chain configuration for wagmi
+// Export default chain configuration for wagmi (Base Sepolia)
 export const chainConfig = {
-  id: config.chain.id,
-  name: config.chain.name,
-  network: config.chain.name.toLowerCase().replace(/\s+/g, '-'),
+  id: 84532,
+  name: 'Base Sepolia',
+  network: 'base-sepolia',
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',
     symbol: 'ETH',
   },
   rpcUrls: {
-    default: { http: [config.chain.rpcUrl] },
-    public: { http: [config.chain.rpcUrl] },
+    default: { http: ['https://sepolia.base.org'] },
+    public: { http: ['https://sepolia.base.org'] },
   },
   blockExplorers: {
     default: { name: 'BaseScan', url: 'https://sepolia.basescan.org' },

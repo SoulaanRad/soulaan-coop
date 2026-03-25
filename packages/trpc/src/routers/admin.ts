@@ -27,7 +27,7 @@ export const adminRouter = router({
 
       const users = await context.db.user.findMany({
         include: {
-          application: true,
+          applications: true,
         },
         orderBy: {
           createdAt: 'desc',
@@ -52,7 +52,7 @@ export const adminRouter = router({
           status: input.status,
         },
         include: {
-          application: true,
+          applications: true,
         },
         orderBy: {
           createdAt: 'desc',
@@ -77,7 +77,7 @@ export const adminRouter = router({
           id: input.userId,
         },
         include: {
-          application: true,
+          applications: true,
         },
       });
 
@@ -158,7 +158,7 @@ export const adminRouter = router({
           status: 'PENDING',
         },
         include: {
-          application: true,
+          applications: true,
         },
         orderBy: {
           createdAt: 'asc', // Oldest first

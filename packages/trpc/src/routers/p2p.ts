@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { Context } from "../context.js";
+import { Context, CoopScopedContext } from "../context.js";
 import { authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import {
@@ -96,8 +96,14 @@ export const p2pRouter = router({
           recipientId = input.recipient;
         } else if (input.recipientType === 'username') {
           // Look up by username
+          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
           const profile = await context.db.userProfile.findUnique({
-            where: { username: input.recipient },
+            where: { 
+              username_coopId: {
+                username: input.recipient,
+                coopId,
+              }
+            },
             select: { walletAddress: true },
           });
 
@@ -131,10 +137,12 @@ export const p2pRouter = router({
 
         // Send to Soulaan user
         if (recipientId) {
+          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
           const result = await sendToSoulaanUser({
             senderId: input.userId,
             recipientId,
             amountUSD: input.amount,
+            coopId,
             note: input.note,
             transferType: input.transferType,
             transferMetadata: input.transferMetadata,
@@ -149,10 +157,12 @@ export const p2pRouter = router({
 
         // Send to non-user
         if (recipientPhone) {
+          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
           const result = await sendToNonUser({
             senderId: input.userId,
             recipientPhone,
             amountUSD: input.amount,
+            coopId,
             note: input.note,
             transferType: input.transferType,
             transferMetadata: input.transferMetadata,
@@ -241,13 +251,19 @@ export const p2pRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       console.log('\n🔷 p2p.lookupRecipient - START');
 
       try {
         if (input.type === 'username') {
           const profile = await context.db.userProfile.findUnique({
-            where: { username: input.query },
+            where: { 
+              username_coopId: {
+                username: input.query,
+                coopId,
+              }
+            },
             select: { walletAddress: true, name: true },
           });
 
@@ -879,9 +895,11 @@ export const p2pRouter = router({
         });
 
         // Create notification
+        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
         await context.db.notification.create({
           data: {
             userId: input.userId,
+            coopId,
             type: 'WITHDRAWAL_INITIATED',
             title: 'Withdrawal Processing',
             body: `Your withdrawal of $${input.amountUSD.toFixed(2)} to account ending in ${bankAccount.last4} is being processed.`,

@@ -345,7 +345,7 @@ When making any coding decision, follow this framework:
 
 1. **Making changes to smart contracts** (high risk)
 2. **Modifying authentication/authorization logic** (security critical)
-3. **Changing database schemas** (data migration required)
+3. **Changing database schemas without Prisma migrations** (data corruption risk - ALWAYS use migrations)
 4. **Implementing payment processing** (financial risk)
 5. **Adding new dependencies** (security review needed)
 6. **Changing governance rules** (charter compliance)
@@ -455,7 +455,7 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 - Always include error handling
 - Use proper indexes for performance
 - Follow naming conventions (camelCase for fields)
-- Document schema changes in migrations
+- **ALWAYS use Prisma migrations for schema changes** (see Database Migrations section below)
 
 ### **Git Commits**
 - Use clear, descriptive commit messages
@@ -463,6 +463,44 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 - Keep commits focused (one feature/fix per commit)
 - Never commit secrets or sensitive data
 - Run linter before committing
+
+### **Database Migrations**
+
+**CRITICAL: ALWAYS use Prisma migrations for database schema changes. NEVER manually edit the database.**
+
+When modifying the database schema:
+
+1. **Edit the Prisma schema file** (`packages/db/prisma/schema.prisma`)
+2. **Create a migration** using `pnpm --filter @soulaan/db prisma migrate dev --name descriptive_migration_name`
+3. **Review the generated SQL** in `packages/db/prisma/migrations/` to ensure it's correct
+4. **Test the migration** in development before deploying
+5. **Document breaking changes** in the migration file or commit message
+
+**Why this matters:**
+- Prisma migrations create a version-controlled history of schema changes
+- Migrations are reproducible across environments (dev, staging, prod)
+- Manual database edits bypass version control and cause production drift
+- This is a financial app - schema inconsistencies can cause data loss or corruption
+
+**Red flags that should trigger migration creation:**
+- Adding/removing database tables
+- Adding/removing/renaming columns
+- Changing column types or constraints
+- Adding/removing indexes
+- Modifying relationships between tables
+
+**NEVER:**
+- ❌ Manually run SQL commands to alter the schema
+- ❌ Edit the database directly via SQL client
+- ❌ Skip migration creation "just this once"
+- ❌ Deploy schema changes without migrations
+
+**If you need to make schema changes, the workflow is:**
+1. Edit `schema.prisma`
+2. Run `pnpm --filter @soulaan/db prisma migrate dev --name <name>`
+3. Review generated SQL
+4. Test the migration
+5. Commit both the schema and migration files
 
 ---
 

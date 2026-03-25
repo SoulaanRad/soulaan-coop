@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { Button } from "@/components/ui/button";
@@ -10,20 +10,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft, Info, Send, MapPin } from "lucide-react";
 import Link from "next/link";
-import { env } from "@/env";
 
 export default function SubmitProposalPage() {
   const router = useRouter();
+  const params = useParams();
+  const coopId = params.coopId as string;
   const coin = useCoin();
   const [text, setText] = useState("");
   const [location, setLocation] = useState("");
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   const { data: config } = api.coopConfig.getActive.useQuery({ coopId });
 
   const createProposal = api.proposal.create.useMutation({
     onSuccess: (data) => {
-      router.push(`/portal/proposals/${data.id}`);
+      router.push(`/portal/${coopId}/proposals/${data.id}`);
     },
   });
 
@@ -46,7 +46,7 @@ export default function SubmitProposalPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Back Link */}
-      <Link href="/portal/proposals" className="inline-flex items-center text-gray-400 hover:text-white text-sm">
+      <Link href={`/portal/${coopId}/proposals`} className="inline-flex items-center text-gray-400 hover:text-white text-sm">
         <ArrowLeft className="h-4 w-4 mr-1" />
         Back to proposals
       </Link>

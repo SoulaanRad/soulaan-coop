@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
@@ -17,7 +18,6 @@ import {
   FileText,
   Filter,
 } from "lucide-react";
-import { env } from "@/env";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -318,9 +318,10 @@ function AmendmentCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AmendmentsPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const { isAdmin } = useWeb3Auth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   const { data, isLoading, refetch } = api.coopConfig.getAllAmendments.useQuery(
     { coopId },
@@ -388,7 +389,7 @@ export default function AmendmentsPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link
-          href="/portal/proposals/config"
+          href={`/portal/${coopId}/proposals/config`}
           className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -450,7 +451,7 @@ export default function AmendmentsPage() {
             <AmendmentCard
               key={amendment.id}
               amendment={amendment}
-              isAdmin={isAdmin ?? false}
+              isAdmin={isAdmin}
               onAcknowledge={() => handleAcknowledge(amendment)}
               onReject={(_, reason) => handleReject(amendment, reason)}
               isMutating={isMutating}

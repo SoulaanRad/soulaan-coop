@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileText, Plus, CheckSquare, Square, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { ProposalCard } from "@/components/portal/proposals/proposal-card";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
-import { env } from "@/env";
 
 type StatusFilter = "active" | "all" | "submitted" | "votable" | "approved" | "funded" | "rejected" | "failed" | "withdrawn";
 
@@ -29,11 +29,12 @@ const PAGE_SIZE = 20;
 const ALL_STATUSES: StatusFilter[] = ["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"];
 
 export default function ProposalsPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const { isAdmin } = useWeb3Auth();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [offset, setOffset] = useState(0);
   const [allProposals, setAllProposals] = useState<any[]>([]);
-  const coopId = env.NEXT_PUBLIC_COOP_ID;
 
   // Bulk management state
   const [bulkMode, setBulkMode] = useState(false);
@@ -138,7 +139,7 @@ export default function ProposalsPage() {
               {bulkMode ? "Cancel Bulk" : "Bulk Edit"}
             </Button>
           )}
-          <Link href="/portal/proposals/submit">
+          <Link href={`/portal/${coopId}/proposals/submit`}>
             <Button className="bg-amber-600 hover:bg-amber-700">
               <Plus className="h-4 w-4 mr-2" />
               Submit Proposal

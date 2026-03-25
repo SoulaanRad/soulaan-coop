@@ -96,7 +96,7 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.json({ 
     status: "OK",
-    coopId: env.COOP_ID,
+    timestamp: new Date().toISOString(),
   });
 });
 

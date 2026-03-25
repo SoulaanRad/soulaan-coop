@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { Context, AuthenticatedContext } from "../context.js";
+import { Context, AuthenticatedContext, CoopScopedContext } from "../context.js";
 import { authenticatedProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { checkAdminStatusWithRole } from "../services/admin-verification.js";
@@ -131,6 +131,7 @@ export const scRewardsRouter = router({
   getSCRewardStats: privateProcedure
     .query(async ({ ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       const [
         totalMinted,
@@ -159,7 +160,7 @@ export const scRewardsRouter = router({
           where: { status: 'COMPLETED' },
         }),
         // Get on-chain total
-        getTotalSCMinted().catch(() => 0),
+        getTotalSCMinted(coopId).catch(() => 0),
         // Today's rewards
         context.db.sCRewardTransaction.aggregate({
           where: {
@@ -266,6 +267,11 @@ export const scRewardsRouter = router({
               walletAddress: true,
             },
           },
+          relatedStore: {
+            select: {
+              coopId: true,
+            },
+          },
         },
       });
 
@@ -294,7 +300,8 @@ export const scRewardsRouter = router({
       // Pre-validation: Check if already minted on-chain
       if (reward.txHash) {
         try {
-          const verification = await verifySCTransaction(reward.txHash);
+          const coopId = reward.relatedStore?.coopId || 'soulaan';
+          const verification = await verifySCTransaction(reward.txHash, coopId);
           if (verification.exists && verification.success) {
             // Already minted! Update record to COMPLETED
             await context.db.sCRewardTransaction.update({
@@ -384,6 +391,11 @@ export const scRewardsRouter = router({
               walletAddress: true,
             },
           },
+          relatedStore: {
+            select: {
+              coopId: true,
+            },
+          },
         },
       });
 
@@ -394,18 +406,20 @@ export const scRewardsRouter = router({
         });
       }
 
+      const coopId = reward.relatedStore?.coopId || 'soulaan';
+
       let onChainBalance = 0;
       let txVerification = null;
 
       try {
-        onChainBalance = await validateSCBalance(reward.userId);
+        onChainBalance = await validateSCBalance(reward.userId, coopId);
       } catch (error) {
         console.error('Failed to get on-chain balance:', error);
       }
 
       if (reward.txHash) {
         try {
-          txVerification = await verifySCTransaction(reward.txHash);
+          txVerification = await verifySCTransaction(reward.txHash, coopId);
         } catch (error) {
           console.error('Failed to verify transaction:', error);
         }
@@ -504,9 +518,10 @@ export const scRewardsRouter = router({
   reconcileSCRewards: privateProcedure
     .mutation(async ({ ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       try {
-        const report = await reconcileSCRecords();
+        const report = await reconcileSCRecords(coopId);
 
         // Auto-fix discrepancies
         for (const discrepancy of report.discrepancies) {
@@ -541,10 +556,11 @@ export const scRewardsRouter = router({
   checkUserMemberStatus: privateProcedure
     .input(z.object({
       userId: z.string(),
+      coopId: z.string(),
     }))
     .query(async ({ input }) => {
       try {
-        const memberStatus = await checkMemberStatus(input.userId);
+        const memberStatus = await checkMemberStatus(input.userId, input.coopId);
         
         // Map status enum to human-readable string
         const statusMap = {

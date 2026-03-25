@@ -24,6 +24,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [_hasSoulaaniCoin, setHasSoulaaniCoin] = useState(false);
   
+  // Extract coopId from URL params
+  const [coopId, setCoopId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const coopIdParam = params.get('coopId');
+    if (coopIdParam) {
+      setCoopId(coopIdParam);
+    }
+  }, []);
+  
   // Profile form state
   const [profileData, setProfileData] = useState({
     name: '',
@@ -79,7 +90,7 @@ export default function LoginPage() {
       const verifyResponse = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature, message }),
+        body: JSON.stringify({ address, signature, message, coopId }),
       });
       
       if (!verifyResponse.ok) {
@@ -94,6 +105,12 @@ export default function LoginPage() {
       // Check if user already has a profile
       if (hasProfile) {
         setCurrentStep('complete');
+        // Redirect to portal with coopId
+        if (coopId) {
+          router.push(`/portal/${coopId}`);
+        } else {
+          router.push('/portal');
+        }
       } else {
         setCurrentStep('profile');
       }

@@ -12,6 +12,9 @@ const mockPrismaClient = {
     create: vi.fn(),
     findUnique: vi.fn(),
   },
+  coopConfig: {
+    findFirst: vi.fn().mockResolvedValue({ name: 'Test Coop' }),
+  },
   $transaction: vi.fn(),
 };
 
@@ -25,6 +28,7 @@ describe('Application Router - submitApplication', () => {
       db: mockPrismaClient as any,
       req: {} as any,
       res: {} as any,
+      coopId: 'soulaan',
     };
     
     caller = appRouter.createCaller(mockContext);
@@ -60,6 +64,7 @@ describe('Application Router - submitApplication', () => {
     });
 
     const validApplicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -95,19 +100,31 @@ describe('Application Router - submitApplication', () => {
     
     expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
       where: { email: 'deon@appi.com' },
+      include: {
+        applications: {
+          where: { coopId: 'soulaan' },
+        },
+      },
     });
     
     expect(mockPrismaClient.$transaction).toHaveBeenCalled();
   });
 
-  it('should reject application if email already exists', async () => {
-    // Arrange - Mock that user already exists
+  it('should reject application if user already applied to same coop', async () => {
+    // Arrange - Mock that user already exists with an application for this coop
     mockPrismaClient.user.findUnique.mockResolvedValue({
       id: 'existing_user',
       email: 'deon@appi.com',
+      applications: [{
+        id: 'existing_app',
+        userId: 'existing_user',
+        coopId: 'soulaan',
+        status: 'SUBMITTED',
+      }],
     });
 
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -133,13 +150,14 @@ describe('Application Router - submitApplication', () => {
     // Act & Assert
     await expect(
       caller.application.submitApplication(applicationData)
-    ).rejects.toThrow('An account with this email already exists');
+    ).rejects.toThrow('already submitted an application');
     
     expect(mockPrismaClient.$transaction).not.toHaveBeenCalled();
   });
 
   it('should reject application with mismatched passwords', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -170,6 +188,7 @@ describe('Application Router - submitApplication', () => {
 
   it('should reject application with invalid email', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'invalid-email',
@@ -200,6 +219,7 @@ describe('Application Router - submitApplication', () => {
 
   it('should reject application with short password', async () => {
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',
@@ -249,6 +269,7 @@ describe('Application Router - submitApplication', () => {
     });
 
     const applicationData = {
+      coopId: 'soulaan',
       firstName: 'Deon',
       lastName: 'Robinson',
       email: 'deon@appi.com',

@@ -421,9 +421,9 @@ function WealthFundLegacyPage() {
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 onClick={() => { refetchReserveHistory(); setSyncResult(null); }}
-                className="border border-slate-700 hover:bg-slate-800"
+                className="text-foreground hover:bg-accent"
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Refresh
