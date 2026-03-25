@@ -573,10 +573,13 @@ export const adminRouter = router({
 
       console.log(`\n🔷 syncMembershipToContract for user ${input.userId}`);
 
-      if (!BACKEND_WALLET_PRIVATE_KEY) {
+      // Get backend wallet private key from environment
+      const backendWalletPrivateKey = process.env.BACKEND_WALLET_PRIVATE_KEY;
+
+      if (!backendWalletPrivateKey) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "BACKEND_WALLET_PRIVATE_KEY is not configured",
+          message: "Backend wallet private key is not configured",
         });
       }
 
@@ -608,7 +611,7 @@ export const adminRouter = router({
         const result = await syncMembershipToContract(
           user.walletAddress,
           user.status,
-          BACKEND_WALLET_PRIVATE_KEY
+          backendWalletPrivateKey
         );
 
         // Get new contract status if successful
@@ -666,10 +669,13 @@ export const adminRouter = router({
 
       console.log(`\n🔷 bulkSyncMemberships - START`);
 
-      if (!BACKEND_WALLET_PRIVATE_KEY) {
+      // Get backend wallet private key from environment
+      const backendWalletPrivateKey = process.env.BACKEND_WALLET_PRIVATE_KEY;
+
+      if (!backendWalletPrivateKey) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "BACKEND_WALLET_PRIVATE_KEY is not configured",
+          message: "Backend wallet private key is not configured",
         });
       }
 
@@ -700,7 +706,7 @@ export const adminRouter = router({
             const result = await syncMembershipToContract(
               user.walletAddress!,
               user.status,
-              BACKEND_WALLET_PRIVATE_KEY
+              backendWalletPrivateKey
             );
 
             if (result.success) {

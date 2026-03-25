@@ -88,6 +88,7 @@ async function retryMissingReserveTracking(): Promise<{
     },
     select: {
       id: true,
+      coopId: true,
       sourceUcTxHash: true,
       sourceType: true,
       sourceRecordId: true,

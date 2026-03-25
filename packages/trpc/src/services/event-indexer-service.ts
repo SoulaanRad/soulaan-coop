@@ -161,6 +161,32 @@ function generateEventId(
 }
 
 /**
+ * Get coopId from contract address by looking up in CoopConfig
+ * Returns 'soulaan' as default if not found
+ */
+async function getCoopIdFromContractAddress(
+  db: PrismaClient,
+  contractAddress: string
+): Promise<string> {
+  // Normalize address to lowercase for comparison
+  const normalizedAddress = contractAddress.toLowerCase();
+  
+  // Look up in CoopConfig by various contract addresses
+  const config = await db.coopConfig.findFirst({
+    where: {
+      OR: [
+        { verifiedStoreRegistryAddress: { equals: normalizedAddress, mode: 'insensitive' } },
+        { storePaymentRouterAddress: { equals: normalizedAddress, mode: 'insensitive' } },
+        { rewardEngineAddress: { equals: normalizedAddress, mode: 'insensitive' } },
+      ],
+    },
+    select: { coopId: true },
+  });
+  
+  return config?.coopId || 'soulaan';
+}
+
+/**
  * Index VerifiedStorePurchase events
  */
 export async function indexPurchaseEvents(
@@ -182,6 +208,9 @@ export async function indexPurchaseEvents(
     const events = await routerContract.queryFilter(filter, fromBlock, toBlock);
 
     let indexed = 0;
+
+    // Get coopId from the contract address
+    const coopId = await getCoopIdFromContractAddress(db, await routerContract.getAddress());
 
     for (const event of events) {
       if (!('args' in event)) continue;
@@ -208,6 +237,7 @@ export async function indexPurchaseEvents(
       // Create or update SC reward transaction record
       await db.sCRewardTransaction.create({
         data: {
+          coopId: coopId,
           userId: "", // Will be linked by wallet address lookup
           amountSC: parseFloat(ethers.formatEther(args.amount)),
           reason: "STORE_PURCHASE_REWARD",
@@ -260,6 +290,9 @@ export async function indexRewardEvents(
     const events = await engineContract.queryFilter(filter, fromBlock, toBlock);
 
     let indexed = 0;
+
+    // Get coopId from the contract address
+    const coopId = await getCoopIdFromContractAddress(db, await engineContract.getAddress());
 
     for (const event of events) {
       if (!('args' in event)) continue;
@@ -322,6 +355,7 @@ export async function indexRewardEvents(
         
         await db.sCRewardTransaction.create({
           data: {
+            coopId: coopId,
             userId: "", // Will be linked by wallet address lookup
             amountSC: parseFloat(ethers.formatEther(args.buyerReward)),
             reason: "STORE_PURCHASE_REWARD",

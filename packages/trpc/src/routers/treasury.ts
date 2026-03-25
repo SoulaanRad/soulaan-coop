@@ -243,15 +243,22 @@ export const treasuryRouter = router({
         throw new Error('Unauthorized: Admin access required');
       }
 
-      // Deactivate existing policies
+      // Get coopId from context
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+
+      // Deactivate existing policies for this coop
       await db.treasuryReservePolicy.updateMany({
-        where: { isActive: true },
+        where: { 
+          isActive: true,
+          coopId: coopId,
+        },
         data: { isActive: false },
       });
 
       // Create new policy
       const newPolicy = await db.treasuryReservePolicy.create({
         data: {
+          coopId: coopId,
           defaultReserveBps: input.defaultReserveBps,
           badgeReserveBps: input.badgeReserveBps ?? null,
           programReserveBps: input.programReserveBps ? JSON.parse(JSON.stringify(input.programReserveBps)) : null,
