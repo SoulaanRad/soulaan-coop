@@ -2,7 +2,6 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createWalletForUser } from "../services/wallet-service.js";
 import { syncMembershipToContract, getMemberStatus, MemberStatus, isActiveMember, getComprehensiveBlockchainInfo, getETHBalance, getUCTotalSupply } from "../services/blockchain.js";
-import { privateKeyToAccount } from 'viem/accounts';
 import { Context } from "../context.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
@@ -13,53 +12,82 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY)
   : null;
 
-// Backend wallet for contract interactions
-const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
-
 export const adminRouter = router({
   /**
-   * Get all users with their applications
+   * Get all users with their applications for a specific coop
    * TODO: Add proper authentication - only admins should access this
    */
   getAllUsersWithApplications: publicProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      coopId: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
       const context = ctx as Context;
 
-      const users = await context.db.user.findMany({
+      // Get all memberships for this coop
+      const memberships = await context.db.userCoopMembership.findMany({
+        where: { coopId: input.coopId },
         include: {
-          applications: true,
+          user: {
+            include: {
+              applications: {
+                where: { coopId: input.coopId },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
 
-      return users;
+      // Map to user format with membership status
+      return memberships.map(m => ({
+        ...m.user,
+        membershipStatus: m.status,
+        membershipRoles: m.roles,
+        joinedAt: m.joinedAt,
+      }));
     }),
 
   /**
-   * Get users by status
+   * Get users by membership status for a specific coop
    */
   getUsersByStatus: publicProcedure
     .input(z.object({
+      coopId: z.string(),
       status: z.enum(['PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED']),
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
 
-      const users = await context.db.user.findMany({
+      // Get memberships for this coop with the specified status
+      const memberships = await context.db.userCoopMembership.findMany({
         where: {
+          coopId: input.coopId,
           status: input.status,
         },
         include: {
-          applications: true,
+          user: {
+            include: {
+              applications: {
+                where: { coopId: input.coopId },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
         },
       });
 
-      return users;
+      // Map to user format with membership status
+      return memberships.map(m => ({
+        ...m.user,
+        membershipStatus: m.status,
+        membershipRoles: m.roles,
+        joinedAt: m.joinedAt,
+      }));
     }),
 
   /**
@@ -210,28 +238,27 @@ export const adminRouter = router({
     }),
 
   /**
-   * Get application statistics
+   * Get membership statistics for a specific coop
    */
   getApplicationStats: publicProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      coopId: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
       console.log('\n🔷 getApplicationStats - START');
-      console.log("📊 DATABASE_URL:", process.env.DATABASE_URL ? 'Connected' : 'NOT SET');
+      console.log(`📊 Coop ID: ${input.coopId}`);
       const context = ctx as Context;
 
       try {
-        // First, let's check if we can query any users at all
-        const allUsers = await context.db.user.findMany();
-        console.log(`📈 Total users in DB: ${allUsers.length}`);
-        console.log(`📋 User statuses:`, allUsers.map(u => ({ email: u.email, status: u.status })));
-
+        // Count memberships by status for this coop
         const [pending, active, rejected, suspended] = await Promise.all([
-          context.db.user.count({ where: { status: 'PENDING' } }),
-          context.db.user.count({ where: { status: 'ACTIVE' } }),
-          context.db.user.count({ where: { status: 'REJECTED' } }),
-          context.db.user.count({ where: { status: 'SUSPENDED' } }),
+          context.db.userCoopMembership.count({ where: { coopId: input.coopId, status: 'PENDING' } }),
+          context.db.userCoopMembership.count({ where: { coopId: input.coopId, status: 'ACTIVE' } }),
+          context.db.userCoopMembership.count({ where: { coopId: input.coopId, status: 'REJECTED' } }),
+          context.db.userCoopMembership.count({ where: { coopId: input.coopId, status: 'SUSPENDED' } }),
         ]);
 
-        console.log(`✅ Stats calculated:`, { pending, active, rejected, suspended });
+        console.log(`✅ Stats calculated for ${input.coopId}:`, { pending, active, rejected, suspended });
 
         const result = {
           pending,
@@ -240,7 +267,7 @@ export const adminRouter = router({
           suspended,
           total: pending + active + rejected + suspended,
         };
-        
+
         console.log('🎉 getApplicationStats - SUCCESS');
         console.log('📤 Returning:', result);
         return result;
@@ -867,6 +894,9 @@ export const adminRouter = router({
    * Shows ETH balance and wallet address
    */
   getBackendWalletStatus: privateProcedure
+    .input(z.object({
+      coopId: z.string().default('soulaan'),
+    }).optional())
     .output(z.object({
       configured: z.boolean(),
       walletAddress: z.string().nullable(),
@@ -877,24 +907,31 @@ export const adminRouter = router({
       isLow: z.boolean(),
       warningMessage: z.string().nullable(),
     }))
-    .query(async () => {
+    .query(async ({ ctx, input }) => {
       console.log(`\n🔷 getBackendWalletStatus`);
 
-      if (!BACKEND_WALLET_PRIVATE_KEY) {
+      const context = ctx as Context;
+      const coopId = input?.coopId ?? 'soulaan';
+
+      const activeConfig = await context.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: { backendWalletAddress: true },
+      });
+
+      const walletAddress = activeConfig?.backendWalletAddress;
+
+      if (!walletAddress) {
         return {
           configured: false,
           walletAddress: null,
           ethBalance: null,
           isLow: true,
-          warningMessage: 'BACKEND_WALLET_PRIVATE_KEY is not configured',
+          warningMessage: 'No backend wallet address is configured for this coop',
         };
       }
 
       try {
-        // Get wallet address from private key
-        const account = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
-        const walletAddress = account.address;
-
         // Get ETH balance
         const ethBalance = await getETHBalance(walletAddress);
         const balanceNum = parseFloat(ethBalance.formatted);

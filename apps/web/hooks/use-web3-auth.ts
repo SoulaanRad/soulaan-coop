@@ -78,7 +78,7 @@ export function useWeb3Auth() {
   }, []);
   
   // Login with wallet
-  const login = useCallback(async () => {
+  const login = useCallback(async (coopId?: string) => {
     if (!isConnected || !address) {
       setAuthState((prev) => ({
         ...prev,
@@ -106,11 +106,11 @@ export function useWeb3Auth() {
       // Sign the challenge
       const signature = await signMessageAsync({ message });
       
-      // Verify the signature
+      // Verify the signature with coopId
       const verifyResponse = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature, message }),
+        body: JSON.stringify({ address, signature, message, coopId }),
       });
       
       if (!verifyResponse.ok) {
@@ -132,10 +132,11 @@ export function useWeb3Auth() {
       });
       
       // Redirect based on profile status
+      const targetCoopId = activeCoopId || coopId || 'soulaan';
       if (!hasProfile) {
-        router.push('/portal/create-profile');
+        router.push(`/portal/${targetCoopId}/create-profile`);
       } else {
-        router.push('/portal');
+        router.push(`/portal/${targetCoopId}`);
       }
       
       return true;

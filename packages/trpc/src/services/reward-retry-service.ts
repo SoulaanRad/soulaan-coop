@@ -119,6 +119,7 @@ async function retryMissingReserveTracking(): Promise<{
       if (reserveEvent) {
         // Event exists — track normally as SETTLED
         await trackReserveFromTransaction({
+          coopId: record.coopId,
           sourceType: record.sourceType,
           sourceRecordId: record.sourceRecordId,
           sourceUcTxHash: record.sourceUcTxHash,
@@ -136,6 +137,7 @@ async function retryMissingReserveTracking(): Promise<{
 
         await db.treasuryReserveEntry.create({
           data: {
+            coopId: record.coopId,
             sourceType: record.sourceType,
             sourceRecordId: record.sourceRecordId,
             sourceUcTxHash: record.sourceUcTxHash,

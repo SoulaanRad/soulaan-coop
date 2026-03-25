@@ -286,9 +286,7 @@ export default function SoulaanLanding() {
             <Link href="#business-benefits" className="transition hover:text-white">
               For Businesses
             </Link>
-            <Link href="/initialize" className="rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 font-medium text-white transition hover:from-orange-600 hover:to-amber-600">
-              Initialize Co-op
-            </Link>
+
             <Link href="#member-signup" className="transition hover:text-white">
               Join
             </Link>

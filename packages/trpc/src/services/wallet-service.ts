@@ -625,6 +625,7 @@ export async function mintSCToUser(
  * @param storeOwnerId - The store owner who received payment
  * @param amountUSD - Transaction amount in USD
  * @param storeIsScVerified - Whether the store is SC-verified
+ * @param coopId - The coop ID for this transaction
  * @param orderId - Optional order ID for linking
  * @param storeId - Optional store ID for linking
  * @param sourceUcTxHash - Optional source UC transaction hash that triggered this reward
@@ -636,6 +637,7 @@ export async function awardStoreTransactionReward(
   storeOwnerId: string,
   amountUSD: number,
   storeIsScVerified: boolean,
+  coopId: string,
   orderId?: string,
   storeId?: string,
   sourceUcTxHash?: string,
@@ -701,6 +703,7 @@ export async function awardStoreTransactionReward(
   let customerRecord = existingCustomer ?? await db.sCRewardTransaction.create({
     data: {
       userId: customerId,
+      coopId,
       amountSC: scReward,
       reason: SC_REWARD_REASONS.STORE_PURCHASE,
       status: 'PENDING',
@@ -721,6 +724,7 @@ export async function awardStoreTransactionReward(
   let storeOwnerRecord = existingStore ?? await db.sCRewardTransaction.create({
     data: {
       userId: storeOwnerId,
+      coopId,
       amountSC: scReward,
       reason: SC_REWARD_REASONS.STORE_SALE,
       status: 'PENDING',
@@ -818,6 +822,7 @@ export async function awardStoreTransactionReward(
     try {
       const scRewardIds = [customerRecord.id, storeOwnerRecord.id];
       const reserveResult = await trackReserveFromTransaction({
+        coopId,
         sourceType,
         sourceRecordId,
         sourceUcTxHash,

@@ -70,13 +70,14 @@ export default function MemberManagement() {
   const [selectedDomainToAssign, setSelectedDomainToAssign] = useState("");
 
   // Fetch users based on filter
-  const allUsersQuery = api.admin.getAllUsersWithApplications.useQuery(undefined, {
-    enabled: statusFilter === 'ALL',
-  });
+  const allUsersQuery = api.admin.getAllUsersWithApplications.useQuery(
+    { coopId },
+    { enabled: statusFilter === 'ALL' }
+  );
   const allUsers = allUsersQuery.data;
 
   const filteredUsersQuery = api.admin.getUsersByStatus.useQuery(
-    { status: statusFilter as UserStatus },
+    { coopId, status: statusFilter as UserStatus },
     { enabled: statusFilter !== 'ALL' }
   );
   const filteredUsers = filteredUsersQuery.data;
@@ -88,11 +89,14 @@ export default function MemberManagement() {
   const users = statusFilter === 'ALL' ? allUsers : filteredUsers;
 
   // Get stats
-  const { data: stats, error: statsError } = api.admin.getApplicationStats.useQuery(undefined, {
-    onError: (err) => {
-      console.error('❌ Error loading stats:', err);
-    },
-  });
+  const { data: stats, error: statsError } = api.admin.getApplicationStats.useQuery(
+    { coopId },
+    {
+      onError: (err) => {
+        console.error('❌ Error loading stats:', err);
+      },
+    }
+  );
 
   // Update status mutation
   const updateStatus = api.admin.updateUserStatus.useMutation({

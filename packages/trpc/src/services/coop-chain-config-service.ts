@@ -13,12 +13,14 @@ type ChainConfig = {
   chainName: string;
   rpcUrl: string | null;
   scTokenAddress: string;
+  allyTokenAddress: string | null;
   ucTokenAddress: string;
   redemptionVaultAddress: string;
   treasurySafeAddress: string;
   verifiedStoreRegistryAddress: string;
   storePaymentRouterAddress: string;
   rewardEngineAddress: string;
+  backendWalletAddress: string | null;
   scTokenSymbol: string;
   scTokenName: string;
   isActive: boolean;
@@ -39,12 +41,14 @@ export async function getChainConfig(coopId: string): Promise<ChainConfig> {
       chainName: true,
       rpcUrl: true,
       scTokenAddress: true,
+      allyTokenAddress: true,
       ucTokenAddress: true,
       redemptionVaultAddress: true,
       treasurySafeAddress: true,
       verifiedStoreRegistryAddress: true,
       storePaymentRouterAddress: true,
       rewardEngineAddress: true,
+      backendWalletAddress: true,
       scTokenSymbol: true,
       scTokenName: true,
       isActive: true,
@@ -89,23 +93,27 @@ export async function getUCTokenAddress(coopId: string): Promise<string> {
  */
 export async function getContractAddresses(coopId: string): Promise<{
   scTokenAddress: string;
+  allyTokenAddress: string | null;
   ucTokenAddress: string;
   redemptionVaultAddress: string;
   treasurySafeAddress: string;
   verifiedStoreRegistryAddress: string;
   storePaymentRouterAddress: string;
   rewardEngineAddress: string;
+  backendWalletAddress: string | null;
 }> {
   const config = await getChainConfig(coopId);
   
   return {
     scTokenAddress: config.scTokenAddress,
+    allyTokenAddress: config.allyTokenAddress,
     ucTokenAddress: config.ucTokenAddress,
     redemptionVaultAddress: config.redemptionVaultAddress,
     treasurySafeAddress: config.treasurySafeAddress,
     verifiedStoreRegistryAddress: config.verifiedStoreRegistryAddress,
     storePaymentRouterAddress: config.storePaymentRouterAddress,
     rewardEngineAddress: config.rewardEngineAddress,
+    backendWalletAddress: config.backendWalletAddress,
   };
 }
 
@@ -119,12 +127,14 @@ export async function updateChainConfig(params: {
   chainName: string;
   rpcUrl?: string;
   scTokenAddress: string;
+  allyTokenAddress?: string;
   ucTokenAddress: string;
   redemptionVaultAddress: string;
   treasurySafeAddress: string;
   verifiedStoreRegistryAddress: string;
   storePaymentRouterAddress: string;
   rewardEngineAddress: string;
+  backendWalletAddress?: string;
   scTokenSymbol?: string;
   scTokenName?: string;
 }): Promise<void> {
@@ -147,12 +157,14 @@ export async function updateChainConfig(params: {
       chainName: params.chainName,
       rpcUrl: params.rpcUrl,
       scTokenAddress: params.scTokenAddress,
+      allyTokenAddress: params.allyTokenAddress,
       ucTokenAddress: params.ucTokenAddress,
       redemptionVaultAddress: params.redemptionVaultAddress,
       treasurySafeAddress: params.treasurySafeAddress,
       verifiedStoreRegistryAddress: params.verifiedStoreRegistryAddress,
       storePaymentRouterAddress: params.storePaymentRouterAddress,
       rewardEngineAddress: params.rewardEngineAddress,
+      backendWalletAddress: params.backendWalletAddress,
       scTokenSymbol: params.scTokenSymbol || 'SC',
       scTokenName: params.scTokenName || 'SoulaaniCoin',
     },

@@ -4,61 +4,94 @@
  * This script:
  * 1. Creates UserCoopMembership records for existing users with approved applications
  * 2. Ensures all existing data has coopId = 'soulaan' (default)
- * 3. Creates a default CoopChainConfig for 'soulaan' if not exists
+ * 3. Backfills active CoopConfig chain fields for 'soulaan'
  */
 
 import { db } from '../index';
+import { privateKeyToAccount } from 'viem/accounts';
 
 const DEFAULT_COOP_ID = 'soulaan';
+
+function envValue(key: string): string | undefined {
+  const value = process.env[key]?.trim();
+  return value ? value : undefined;
+}
+
+function deriveBackendWalletAddress(): string | undefined {
+  const privateKey = envValue('BACKEND_WALLET_PRIVATE_KEY');
+  if (!privateKey) return undefined;
+
+  try {
+    return privateKeyToAccount(privateKey as `0x${string}`).address;
+  } catch {
+    console.warn('⚠️  Could not derive backend wallet address from BACKEND_WALLET_PRIVATE_KEY');
+    return undefined;
+  }
+}
 
 async function backfillCoopScoping() {
   console.log('🚀 Starting coop scoping backfill...\n');
 
   try {
-    // Step 1: Create default CoopChainConfig if not exists
-    console.log('📝 Checking for default CoopChainConfig...');
-    const existingConfig = await db.coopChainConfig.findUnique({
-      where: { coopId: DEFAULT_COOP_ID },
+    // Step 1: Backfill active CoopConfig chain fields from legacy env values
+    console.log('📝 Checking for active CoopConfig...');
+    const activeConfig = await db.coopConfig.findFirst({
+      where: { coopId: DEFAULT_COOP_ID, isActive: true },
+      orderBy: { version: 'desc' },
     });
 
-    if (!existingConfig) {
-      console.log('⚠️  No CoopChainConfig found for soulaan, creating from env...');
-      
-      const scTokenAddress = process.env.SOULAANI_COIN_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const ucTokenAddress = process.env.UNITY_COIN_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const redemptionVaultAddress = process.env.REDEMPTION_VAULT_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const treasurySafeAddress = process.env.TREASURY_SAFE_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const verifiedStoreRegistryAddress = process.env.VERIFIED_STORE_REGISTRY_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const storePaymentRouterAddress = process.env.STORE_PAYMENT_ROUTER_ADDRESS || '0x0000000000000000000000000000000000000000';
-      const rewardEngineAddress = process.env.SC_REWARD_ENGINE_ADDRESS || '0x0000000000000000000000000000000000000000';
+    const chainFields = {
+      chainId: envValue('CHAIN_ID') ? Number(envValue('CHAIN_ID')) : 84532,
+      chainName: envValue('CHAIN_NAME') ?? 'base-sepolia',
+      rpcUrl: envValue('RPC_URL') ?? 'https://sepolia.base.org',
+      scTokenAddress: envValue('SOULAANI_COIN_ADDRESS'),
+      allyTokenAddress: envValue('ALLY_COIN_ADDRESS'),
+      ucTokenAddress: envValue('UNITY_COIN_ADDRESS'),
+      redemptionVaultAddress: envValue('REDEMPTION_VAULT_ADDRESS'),
+      treasurySafeAddress: envValue('TREASURY_SAFE_ADDRESS'),
+      verifiedStoreRegistryAddress: envValue('VERIFIED_STORE_REGISTRY_ADDRESS'),
+      storePaymentRouterAddress: envValue('STORE_PAYMENT_ROUTER_ADDRESS'),
+      rewardEngineAddress: envValue('SC_REWARD_ENGINE_ADDRESS'),
+      backendWalletAddress: deriveBackendWalletAddress(),
+      scTokenSymbol: envValue('SC_TOKEN_SYMBOL') ?? 'SC',
+      scTokenName: envValue('SC_TOKEN_NAME') ?? 'SoulaaniCoin',
+    };
 
-      if (scTokenAddress === '0x0000000000000000000000000000000000000000') {
-        console.warn('⚠️  Warning: Using placeholder contract addresses. Update CoopChainConfig with real addresses.');
-      }
+    if (!activeConfig) {
+      console.log('⚠️  No active CoopConfig found for soulaan, creating one...');
 
-      await db.coopChainConfig.create({
+      await db.coopConfig.create({
         data: {
           coopId: DEFAULT_COOP_ID,
-          chainId: 84532, // Base Sepolia
-          chainName: 'Base Sepolia',
-          rpcUrl: process.env.RPC_URL || 'https://sepolia.base.org',
-          scTokenAddress,
-          ucTokenAddress,
-          redemptionVaultAddress,
-          treasurySafeAddress,
-          verifiedStoreRegistryAddress,
-          storePaymentRouterAddress,
-          rewardEngineAddress,
-          scTokenSymbol: 'SC',
-          scTokenName: 'SoulaaniCoin',
+          version: 1,
           isActive: true,
-          createdBy: 'system-backfill',
+          name: 'Soulaan',
+          slug: DEFAULT_COOP_ID,
+          tagline: 'Building Generational Wealth Together',
+          description: 'Soulaan cooperative',
+          displayMission: 'Build economic empowerment through cooperative ownership.',
+          displayFeatures: [],
+          eligibility: 'Open to all community members',
+          charterText: 'Soulaan Co-op Charter',
+          missionGoals: [],
+          structuralWeights: { feasibility: 0.4, risk: 0.35, accountability: 0.25 },
+          scoreMix: { missionWeight: 0.6, structuralWeight: 0.4 },
+          proposalCategories: [],
+          sectorExclusions: [],
+          scorerAgents: [],
+          createdBy: chainFields.backendWalletAddress ?? 'system-backfill',
+          ...chainFields,
         },
       });
 
-      console.log('✅ Created default CoopChainConfig for soulaan');
+      console.log('✅ Created default CoopConfig for soulaan');
     } else {
-      console.log('✅ CoopChainConfig already exists for soulaan');
+      await db.coopConfig.update({
+        where: { id: activeConfig.id },
+        data: chainFields,
+      });
+
+      console.log('✅ Backfilled active CoopConfig chain fields for soulaan');
     }
 
     // Step 2: Create UserCoopMembership records for users with approved applications

@@ -362,6 +362,7 @@ export async function payRequest(params: PayRequestParams): Promise<PayRequestRe
       request.store.ownerId,
       amount,
       request.store.isScVerified,
+      request.store.coopId,  // coopId
       undefined,  // orderId (not available in payment request flow)
       request.storeId,  // storeId
       transferResult.transactionHash,  // Source UC tx hash
@@ -462,6 +463,7 @@ export async function payByStoreCode(params: PayByCodeParams): Promise<PayReques
       store.ownerId,
       amount,
       store.isScVerified,
+      store.coopId,  // coopId
       undefined,  // orderId (not available in quick pay flow)
       store.id,  // storeId
       transferResult.transactionHash,  // Source UC tx hash

@@ -70,6 +70,10 @@ export default function InitializePage() {
     primaryColor: "#2563eb",
     accentColor: "#16a34a",
     
+    // Token branding
+    scTokenName: "SoulCoin",
+    scTokenSymbol: "SC",
+    
     // Governance
     quorumPercent: 15,
     approvalThresholdPercent: 51,
@@ -89,8 +93,10 @@ export default function InitializePage() {
   });
 
   const getDeploymentSteps = (): DeploymentStepType[] => {
+    const tokenName = coopConfig.scTokenName.trim() || "SoulaaniCoin";
+    const tokenSymbol = coopConfig.scTokenSymbol.trim() || "SC";
     const steps: DeploymentStepType[] = [
-      { id: "sc", name: "Deploy SoulaaniCoin", description: "Governance token (REQUIRED)", status: "pending" },
+      { id: "sc", name: `Deploy ${tokenName}`, description: `Governance token (${tokenSymbol}) - REQUIRED`, status: "pending" },
       { id: "ally", name: "Deploy AllyCoin", description: "Cross-coop membership token (REQUIRED)", status: "pending" },
       { id: "uc", name: "Deploy UnityCoin", description: "Main payment currency (REQUIRED)", status: "pending" },
     ];
@@ -464,14 +470,16 @@ export default function InitializePage() {
           chainName: network === "baseSepolia" ? "base-sepolia" : "base-mainnet",
           rpcUrl: selectedChain.rpcUrls.default.http[0],
           scTokenAddress: soulaaniCoinAddress,
+          allyTokenAddress: allyCoinAddress,
           ucTokenAddress: unityCoinAddress,
           redemptionVaultAddress: redemptionVaultAddress || soulaaniCoinAddress,
           treasurySafeAddress: treasuryAddress,
           verifiedStoreRegistryAddress: verifiedStoreRegistryAddress || soulaaniCoinAddress,
           rewardEngineAddress: scRewardEngineAddress || soulaaniCoinAddress,
           storePaymentRouterAddress: storePaymentRouterAddress || soulaaniCoinAddress,
-          scTokenSymbol: "SC",
-          scTokenName: coopConfig.name ? `${coopConfig.name} Coin` : "SoulaaniCoin",
+          backendWalletAddress: address,
+          scTokenSymbol: coopConfig.scTokenSymbol.trim(),
+          scTokenName: coopConfig.scTokenName.trim(),
         });
         console.log("✅ Co-op configuration (including chain config) saved to database");
         
@@ -520,34 +528,16 @@ export default function InitializePage() {
   };
 
   const downloadEnvFile = () => {
-    let envContent = `# Co-op Configuration
+    const envContent = `# Co-op Configuration
 COOP_NAME="${coopConfig.name}"
 COOP_SHORT_NAME="${coopConfig.shortName}"
 COOP_TAGLINE="${coopConfig.tagline}"
 COOP_PRIMARY_COLOR="${coopConfig.primaryColor}"
 COOP_ACCENT_COLOR="${coopConfig.accentColor}"
 
-# Contract Addresses (Required)
-SOULAANI_COIN_ADDRESS="${deployedContracts.soulaaniCoin || ""}"
-ALLY_COIN_ADDRESS="${deployedContracts.allyCoin || ""}"
-UNITY_COIN_ADDRESS="${deployedContracts.unityCoin || ""}"
-`;
-
-    // Add optional contract addresses only if deployed
-    if (deployedContracts.redemptionVault) {
-      envContent += `REDEMPTION_VAULT_ADDRESS="${deployedContracts.redemptionVault}"\n`;
-    }
-    if (deployedContracts.verifiedStoreRegistry) {
-      envContent += `VERIFIED_STORE_REGISTRY_ADDRESS="${deployedContracts.verifiedStoreRegistry}"\n`;
-    }
-    if (deployedContracts.scRewardEngine) {
-      envContent += `SC_REWARD_ENGINE_ADDRESS="${deployedContracts.scRewardEngine}"\n`;
-    }
-    if (deployedContracts.storePaymentRouter) {
-      envContent += `STORE_PAYMENT_ROUTER_ADDRESS="${deployedContracts.storePaymentRouter}"\n`;
-    }
-
-    envContent += `
+# Chain contract addresses and the initializer wallet address are stored in CoopConfig.
+# Do not add per-coop contract addresses or backend wallet private keys to env files.
+#
 # Governance
 TREASURY_SAFE_ADDRESS="${coopConfig.treasuryAddress || address || ""}"
 GOVERNANCE_BOT_ADDRESS="${coopConfig.governanceBotAddress || address || ""}"
@@ -725,6 +715,36 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                         value={coopConfig.description}
                         onChange={(e) => setCoopConfig({ ...coopConfig, description: e.target.value })}
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="scTokenName">Governance Token Name *</Label>
+                        <Input
+                          id="scTokenName"
+                          placeholder="SoulaaniCoin"
+                          value={coopConfig.scTokenName}
+                          onChange={(e) => setCoopConfig({ ...coopConfig, scTokenName: e.target.value })}
+                          className={!coopConfig.scTokenName.trim() ? "border-red-500" : ""}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Full name for your governance token
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="scTokenSymbol">Token Symbol *</Label>
+                        <Input
+                          id="scTokenSymbol"
+                          placeholder="SC"
+                          value={coopConfig.scTokenSymbol}
+                          onChange={(e) => setCoopConfig({ ...coopConfig, scTokenSymbol: e.target.value.toUpperCase() })}
+                          className={!coopConfig.scTokenSymbol.trim() ? "border-red-500" : ""}
+                          maxLength={6}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          2-6 characters (e.g., SC, SFNC)
+                        </p>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1092,12 +1112,12 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                   </AlertDescription>
                 </Alert>
 
-                {(!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim()) && (
+                {(!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim() || !coopConfig.scTokenName.trim() || !coopConfig.scTokenSymbol.trim()) && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Required Fields Missing</AlertTitle>
                     <AlertDescription>
-                      Please fill in the <strong>Co-op Name</strong>, <strong>Short Name</strong>, and <strong>Tagline</strong> fields above. 
+                      Please fill in the <strong>Co-op Name</strong>, <strong>Short Name</strong>, <strong>Tagline</strong>, <strong>Token Name</strong>, and <strong>Token Symbol</strong> fields above. 
                       These are required for your co-op to appear in the mobile app.
                     </AlertDescription>
                   </Alert>
@@ -1107,7 +1127,7 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                   <Button
                     size="lg"
                     onClick={deployContracts}
-                    disabled={!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim()}
+                    disabled={!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim() || !coopConfig.scTokenName.trim() || !coopConfig.scTokenSymbol.trim()}
                   >
                     Start Deployment
                   </Button>
@@ -1251,6 +1271,20 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                     </AlertDescription>
                   </Alert>
                 )}
+
+                <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertTitle className="text-blue-900 dark:text-blue-100">Access Your Portal</AlertTitle>
+                  <AlertDescription className="text-blue-800 dark:text-blue-200">
+                    <p className="mb-3">Your co-op portal is now ready! Log in to manage members, proposals, and treasury.</p>
+                    <Button 
+                      onClick={() => window.location.href = `/login?coopId=${coopConfig.shortName.toLowerCase()}`}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Go to Portal Login
+                    </Button>
+                  </AlertDescription>
+                </Alert>
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />

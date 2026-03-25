@@ -7,8 +7,26 @@
 import { PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
+import { privateKeyToAccount } from "viem/accounts";
 
 const prisma = new PrismaClient();
+
+function envValue(key: string): string | undefined {
+  const value = process.env[key]?.trim();
+  return value ? value : undefined;
+}
+
+function deriveBackendWalletAddress(): string | undefined {
+  const privateKey = envValue("BACKEND_WALLET_PRIVATE_KEY");
+  if (!privateKey) return undefined;
+
+  try {
+    return privateKeyToAccount(privateKey as `0x${string}`).address;
+  } catch {
+    console.warn("  Warning: Could not derive backend wallet address from BACKEND_WALLET_PRIVATE_KEY");
+    return undefined;
+  }
+}
 
 async function seedCoopConfig() {
   const coopId = "soulaan";
@@ -129,6 +147,20 @@ async function seedCoopConfig() {
       proposalCategories,
       sectorExclusions,
       minScBalanceToSubmit: 0,
+      chainId: envValue("CHAIN_ID") ? Number(envValue("CHAIN_ID")) : undefined,
+      chainName: envValue("CHAIN_NAME"),
+      rpcUrl: envValue("RPC_URL"),
+      scTokenAddress: envValue("SOULAANI_COIN_ADDRESS"),
+      allyTokenAddress: envValue("ALLY_COIN_ADDRESS"),
+      ucTokenAddress: envValue("UNITY_COIN_ADDRESS"),
+      redemptionVaultAddress: envValue("REDEMPTION_VAULT_ADDRESS"),
+      treasurySafeAddress: envValue("TREASURY_SAFE_ADDRESS"),
+      verifiedStoreRegistryAddress: envValue("VERIFIED_STORE_REGISTRY_ADDRESS"),
+      storePaymentRouterAddress: envValue("STORE_PAYMENT_ROUTER_ADDRESS"),
+      rewardEngineAddress: envValue("SC_REWARD_ENGINE_ADDRESS"),
+      backendWalletAddress: deriveBackendWalletAddress(),
+      scTokenSymbol: envValue("SC_TOKEN_SYMBOL") ?? "SC",
+      scTokenName: envValue("SC_TOKEN_NAME") ?? "SoulaaniCoin",
       createdBy: "system",
     },
   });
