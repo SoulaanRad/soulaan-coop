@@ -100,16 +100,27 @@ describe('Application Router - submitApplication', () => {
     
     expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
       where: { email: 'deon@appi.com' },
+      include: {
+        applications: {
+          where: { coopId: 'soulaan' },
+        },
+      },
     });
     
     expect(mockPrismaClient.$transaction).toHaveBeenCalled();
   });
 
-  it('should reject application if email already exists', async () => {
-    // Arrange - Mock that user already exists
+  it('should reject application if user already applied to same coop', async () => {
+    // Arrange - Mock that user already exists with an application for this coop
     mockPrismaClient.user.findUnique.mockResolvedValue({
       id: 'existing_user',
       email: 'deon@appi.com',
+      applications: [{
+        id: 'existing_app',
+        userId: 'existing_user',
+        coopId: 'soulaan',
+        status: 'SUBMITTED',
+      }],
     });
 
     const applicationData = {
@@ -139,7 +150,7 @@ describe('Application Router - submitApplication', () => {
     // Act & Assert
     await expect(
       caller.application.submitApplication(applicationData)
-    ).rejects.toThrow('An account with this email already exists');
+    ).rejects.toThrow('already submitted an application');
     
     expect(mockPrismaClient.$transaction).not.toHaveBeenCalled();
   });

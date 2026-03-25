@@ -75,8 +75,10 @@ describe('Application Coop Scoping', () => {
     expect(result1.userId).toBe(testUserId);
 
     // Second application - user exists, no application for coop2
-    vi.mocked(db.user.findUnique).mockResolvedValueOnce(mockUser as any);
-    vi.mocked(db.application.findUnique).mockResolvedValueOnce(null);
+    vi.mocked(db.user.findUnique).mockResolvedValueOnce({
+      ...mockUser,
+      applications: [], // No application for coop2
+    } as any);
     
     vi.mocked(db.$transaction).mockImplementationOnce(async (callback: any) => {
       const mockTx = {
@@ -167,14 +169,16 @@ describe('Application Coop Scoping', () => {
     expect(result1.success).toBe(true);
 
     // Second application - user exists and already has application for coop1
-    vi.mocked(db.user.findUnique).mockResolvedValueOnce(mockUser as any);
-    vi.mocked(db.application.findUnique).mockResolvedValueOnce({
-      id: 'app1',
-      userId: testUserId,
-      coopId: 'coop1',
-      status: 'SUBMITTED',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    vi.mocked(db.user.findUnique).mockResolvedValueOnce({
+      ...mockUser,
+      applications: [{
+        id: 'app1',
+        userId: testUserId,
+        coopId: 'coop1',
+        status: 'SUBMITTED',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }],
     } as any);
 
     // Try to submit duplicate application to same coop
