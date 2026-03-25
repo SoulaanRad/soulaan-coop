@@ -10,8 +10,7 @@ import { syncMembershipToContract } from "../services/blockchain.js";
 import { toE164 } from "../lib/phone.js";
 import { sendApplicationSubmittedNotification } from "../services/slack-notification-service.js";
 
-// Backend wallet for contract interactions
-const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
+// Backend wallet is now stored in CoopConfig per-coop
 
 // Validation schema for application submission
 // Now accepts dynamic question answers via passthrough
@@ -419,13 +418,15 @@ export const applicationRouter = router({
         console.log('✅ Transaction completed successfully');
 
         // 4. Sync membership to blockchain contract
-        if (BACKEND_WALLET_PRIVATE_KEY && result.walletAddress) {
+        const backendWalletPrivateKey = process.env.BACKEND_WALLET_PRIVATE_KEY;
+
+        if (backendWalletPrivateKey && result.walletAddress) {
           console.log('⛓️ Syncing membership to SoulaaniCoin contract...');
           try {
             const syncResult = await syncMembershipToContract(
               result.walletAddress,
               'ACTIVE',
-              BACKEND_WALLET_PRIVATE_KEY
+              backendWalletPrivateKey
             );
             if (syncResult.success) {
               console.log(`✅ Membership synced: ${syncResult.action}`);
@@ -441,7 +442,7 @@ export const applicationRouter = router({
             // Don't fail the approval, just log the warning
           }
         } else {
-          console.warn('⚠️ BACKEND_WALLET_PRIVATE_KEY not set, skipping contract sync');
+          console.warn('⚠️ Backend wallet private key not configured, skipping contract sync');
         }
 
         const response = {

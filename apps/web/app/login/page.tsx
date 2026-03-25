@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { api } from '@/lib/trpc/client';
 
 type OnboardingStep = 'connect' | 'verify' | 'profile' | 'complete';
 
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('connect');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [_hasSoulaaniCoin, setHasSoulaaniCoin] = useState(false);
+  const [_hasGovernanceToken, setHasGovernanceToken] = useState(false);
   
   // Extract coopId from URL params
   const [coopId, setCoopId] = useState<string | null>(null);
@@ -34,6 +35,12 @@ export default function LoginPage() {
       setCoopId(coopIdParam);
     }
   }, []);
+
+  // Fetch coop config to get the coop name and token branding
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery(
+    { coopId: coopId || 'soulaan' },
+    { enabled: !!coopId || true }
+  );
   
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -58,8 +65,8 @@ export default function LoginPage() {
     }
   };
 
-  // Step 2: Verify SoulaaniCoin and Authenticate
-  const handleVerifySoulaaniCoin = async () => {
+  // Step 2: Verify Governance Token and Authenticate
+  const handleVerifyGovernanceToken = async () => {
     if (!address) {
       setError('No wallet connected');
       return;
@@ -86,7 +93,7 @@ export default function LoginPage() {
       // Step 2: Sign the challenge with wallet
       const signature = await signMessageAsync({ message });
       
-      // Step 3: Verify signature and check SoulaaniCoin
+      // Step 3: Verify signature and check governance token
       const verifyResponse = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -100,23 +107,20 @@ export default function LoginPage() {
       
       const { hasProfile } = await verifyResponse.json();
       
-      setHasSoulaaniCoin(true);
+      setHasGovernanceToken(true);
       
       // Check if user already has a profile
       if (hasProfile) {
         setCurrentStep('complete');
-        // Redirect to portal with coopId
-        if (coopId) {
-          router.push(`/portal/${coopId}`);
-        } else {
-          router.push('/portal');
-        }
+        // Redirect to portal with coopId (default to 'soulaan' if not provided)
+        const targetCoopId = coopId || 'soulaan';
+        router.push(`/portal/${targetCoopId}`);
       } else {
         setCurrentStep('profile');
       }
     } catch (err: any) {
       console.error('Verification error:', err);
-      setError(err.message || 'Failed to verify SoulaaniCoin');
+      setError(err.message || 'Failed to verify governance token');
       
       // If verification failed, disconnect wallet
       disconnect();
@@ -145,11 +149,13 @@ export default function LoginPage() {
       }
       
       // Create profile via API
+      const targetCoopId = coopId || 'soulaan';
       const response = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           walletAddress: address,
+          coopId: targetCoopId,
           ...profileData,
         }),
       });
@@ -169,14 +175,17 @@ export default function LoginPage() {
 
   // Step 4: Complete - Redirect to Portal
   const handleComplete = () => {
-    router.push('/portal');
+    const targetCoopId = coopId || 'soulaan';
+    router.push(`/portal/${targetCoopId}`);
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome to Soulaan Co-op Portal</CardTitle>
+          <CardTitle className="text-2xl">
+            Welcome to {coopConfig?.name || 'Co-op'} Portal
+          </CardTitle>
           <CardDescription>
             Connect your wallet and complete onboarding to access the portal
           </CardDescription>
@@ -230,7 +239,7 @@ export default function LoginPage() {
           {currentStep === 'connect' && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Connect your Ethereum wallet to get started. Make sure you have SoulaaniCoin (SC) in your wallet.
+                Connect your Ethereum wallet to get started. Make sure you have {coopConfig?.scTokenName || 'governance tokens'} ({coopConfig?.scTokenSymbol || 'SC'}) in your wallet.
               </p>
               <Button 
                 onClick={handleConnectWallet} 
@@ -249,7 +258,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Step 2: Verify SoulaaniCoin */}
+          {/* Step 2: Verify Governance Token */}
           {currentStep === 'verify' && (
             <div className="space-y-4">
               <div className="rounded-md bg-blue-50 p-3">
@@ -258,10 +267,10 @@ export default function LoginPage() {
                 </p>
               </div>
               <p className="text-sm text-gray-600">
-                Sign a message to verify your wallet ownership and check your SoulaaniCoin balance.
+                Sign a message to verify your wallet ownership and check your {coopConfig?.scTokenName || 'governance token'} balance.
               </p>
               <Button 
-                onClick={handleVerifySoulaaniCoin} 
+                onClick={handleVerifyGovernanceToken} 
                 disabled={isLoading}
                 className="w-full"
               >
@@ -282,7 +291,7 @@ export default function LoginPage() {
             <form onSubmit={handleCreateProfile} className="space-y-4">
               <div className="rounded-md bg-green-50 p-3">
                 <p className="text-sm text-green-800">
-                  ✓ SoulaaniCoin verified! You're an active member.
+                  ✓ {coopConfig?.scTokenName || 'Governance token'} verified! You're an active member.
                 </p>
               </div>
               <p className="text-sm text-gray-600">

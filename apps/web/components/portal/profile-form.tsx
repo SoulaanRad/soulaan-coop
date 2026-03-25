@@ -28,7 +28,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function ProfileForm() {
+interface ProfileFormProps {
+  coopId?: string;
+}
+
+export default function ProfileForm({ coopId }: ProfileFormProps) {
   const router = useRouter();
   const { address } = useAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,12 +60,14 @@ export default function ProfileForm() {
 
     try {
       // Submit profile data
+      const targetCoopId = coopId || 'soulaan';
       const response = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...values,
           walletAddress: address,
+          coopId: targetCoopId,
         }),
       });
 
@@ -70,8 +76,9 @@ export default function ProfileForm() {
         throw new Error(data.error || 'Failed to create profile');
       }
 
-      // Redirect to admin panel
-      router.push('/admin');
+      // Redirect to portal
+      const targetCoopId = coopId || 'soulaan';
+      router.push(`/portal/${targetCoopId}`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'An error occurred while creating your profile');

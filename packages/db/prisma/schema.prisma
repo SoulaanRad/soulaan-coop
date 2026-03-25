@@ -241,12 +241,14 @@ model CoopConfig {
   chainName                    String? // e.g., "base-sepolia", "base-mainnet"
   rpcUrl                       String? // Optional override; falls back to platform default
   scTokenAddress               String? // SoulaaniCoin (or equivalent coop coin) address
+  allyTokenAddress             String? // AllyCoin address
   ucTokenAddress               String? // UnityCoin address
   redemptionVaultAddress       String?
   treasurySafeAddress          String?
   verifiedStoreRegistryAddress String?
   storePaymentRouterAddress    String?
   rewardEngineAddress          String?
+  backendWalletAddress         String? // Initializer/admin signer address; private key must never be stored server-side
   scTokenSymbol                String? @default("SC") // e.g., "SC", "SFNC"
   scTokenName                  String? @default("SoulaaniCoin") // e.g., "SoulaaniCoin", "SF Nightlife Coin"
 
@@ -347,7 +349,7 @@ model Proposal {
   engineVersion String
 
   // Enhanced engine output
-  coopId          String? // links to CoopConfig.coopId
+  coopId          String // links to CoopConfig.coopId
   categoryKey     String? // dynamic category from CoopConfig
   alternatives    Json? // persisted Alternative[]
   bestAlternative Json? // top Alternative
@@ -371,6 +373,8 @@ model Proposal {
   reactions   ProposalReaction[]
   revisions   ProposalRevision[]
 
+  @@index([coopId])
+  @@index([coopId, status])
   @@schema("public")
 }
 
@@ -1427,6 +1431,7 @@ model SCRewardTransaction {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id])
+  coopId String
 
   // Reward details
   amountSC Float
@@ -1461,6 +1466,7 @@ model SCRewardTransaction {
   lastRetryAt   DateTime?
 
   @@index([userId, createdAt(sort: Desc)])
+  @@index([coopId])
   @@index([status])
   @@index([relatedStoreId])
   @@index([relatedOrderId])
@@ -1489,7 +1495,7 @@ enum SCRewardStatus {
 
 model TreasuryReservePolicy {
   id     String @id @default(cuid())
-  coopId String @default("soulaan")
+  coopId String
 
   // Default reserve rate in basis points (500 = 5%)
   defaultReserveBps Int @default(500)
@@ -1508,7 +1514,8 @@ model TreasuryReservePolicy {
 }
 
 model TreasuryReserveEntry {
-  id String @id @default(cuid())
+  id     String @id @default(cuid())
+  coopId String
 
   // Source transaction linkage
   sourceType     String // 'STORE_ORDER' | 'P2P_TRANSFER' | 'MANUAL'
@@ -1534,6 +1541,7 @@ model TreasuryReserveEntry {
   failureReason String?
   retryCount    Int       @default(0)
 
+  @@index([coopId])
   @@index([sourceUcTxHash])
   @@index([sourceRecordId])
   @@index([status])

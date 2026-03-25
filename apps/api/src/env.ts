@@ -9,7 +9,7 @@ export const env = createEnv({
     APP_URL: z.string().url(),
     PINATA_JWT: z.string().min(1),
     WALLET_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/),
-    BACKEND_WALLET_PRIVATE_KEY: z.string().regex(/^(0x)?[a-fA-F0-9]{64}$/),
+    BACKEND_WALLET_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
     STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
     STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_"),
     STRIPE_PUBLISHABLE_KEY: z.string().startsWith("pk_").optional(),

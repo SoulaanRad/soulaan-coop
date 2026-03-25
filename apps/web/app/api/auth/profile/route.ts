@@ -21,6 +21,7 @@ if (env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 // Schema for request validation
 const profileSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+  coopId: z.string().min(1, 'Coop ID is required'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email').optional(),
   phoneNumber: z.string().min(10, 'Please enter a valid phone number'),
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { walletAddress, name, email, phoneNumber } = result.data;
+    const { walletAddress, coopId, name, email, phoneNumber } = result.data;
     
     // Verify the wallet address matches the authenticated user
     if (session.address !== walletAddress) {
@@ -63,9 +64,36 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create or update the profile
-    const profile = await db.userProfile.upsert({
+    // Verify the coopId matches the session
+    if (session.activeCoopId && session.activeCoopId !== coopId) {
+      return NextResponse.json(
+        { error: 'Coop ID mismatch with session' },
+        { status: 403 }
+      );
+    }
+    
+    // Get or create user record
+    let user = await db.user.findUnique({
       where: { walletAddress },
+    });
+
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          walletAddress,
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    // Create or update the profile with coop-scoped unique key
+    const profile = await db.userProfile.upsert({
+      where: { 
+        walletAddress_coopId: {
+          walletAddress,
+          coopId,
+        },
+      },
       update: {
         name,
         email,
@@ -74,10 +102,31 @@ export async function POST(request: NextRequest) {
       },
       create: {
         walletAddress,
+        coopId,
         name,
         email,
         phoneNumber,
-        role: 'member', // Default role
+        role: 'member',
+      },
+    });
+
+    // Create or update membership record (for users who got SC tokens directly without application)
+    await db.userCoopMembership.upsert({
+      where: {
+        userId_coopId: {
+          userId: user.id,
+          coopId,
+        },
+      },
+      create: {
+        userId: user.id,
+        coopId,
+        status: 'ACTIVE',
+        roles: ['member'],
+        joinedAt: new Date(),
+      },
+      update: {
+        lastActiveAt: new Date(),
       },
     });
     
@@ -120,9 +169,21 @@ export async function GET(_request: NextRequest) {
       );
     }
     
-    // Get the profile
+    // Get the profile for the active coop
+    if (!session.activeCoopId) {
+      return NextResponse.json(
+        { error: 'No active coop in session' },
+        { status: 400 }
+      );
+    }
+
     const profile = await db.userProfile.findUnique({
-      where: { walletAddress: session.address },
+      where: { 
+        walletAddress_coopId: {
+          walletAddress: session.address,
+          coopId: session.activeCoopId,
+        },
+      },
     });
     
     if (!profile) {

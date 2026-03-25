@@ -388,10 +388,11 @@ export function generateAuthChallenge(nonce: string): string {
  * Check if a wallet has portal access (admin OR has Soulaani Coin)
  * This is the main function used by the web app for authentication
  */
-export async function checkPortalAccess(address: Address): Promise<{ hasAccess: boolean; isAdmin: boolean; role?: string }> {
+export async function checkPortalAccess(address: Address, coopId: string = 'soulaan'): Promise<{ hasAccess: boolean; isAdmin: boolean; role?: string }> {
   try {
     console.log(`\n🔍 ========== PORTAL ACCESS CHECK (API SERVER) ==========`);
     console.log(`   Address: ${address}`);
+    console.log(`   Coop ID: ${coopId}`);
 
     // FIRST: Check if user is an admin (Treasury Safe owner or contract admin)
     const adminStatus = await checkAdminStatusWithRole(address);
@@ -401,14 +402,30 @@ export async function checkPortalAccess(address: Address): Promise<{ hasAccess: 
       return { hasAccess: true, isAdmin: true, role: adminStatus.role };
     }
 
-    // SECOND: Check SoulaaniCoin balance for regular members
+    // SECOND: Check SoulaaniCoin balance for regular members using per-coop config
     console.log('\n📋 Checking Soulaani Coin balance for regular member access...');
-    console.log(`   Soulaani Coin Address: ${SOULAANI_COIN_ADDRESS}`);
+    
+    // Get coop-specific contract address from database
+    const { db } = await import('@repo/db');
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { scTokenAddress: true, chainId: true, rpcUrl: true },
+    });
+
+    if (!coopConfig?.scTokenAddress) {
+      console.error(`❌ No SC token address configured for coop: ${coopId}`);
+      console.log('🔍 ========== PORTAL ACCESS CHECK END ==========\n');
+      return { hasAccess: false, isAdmin: false };
+    }
+
+    const scTokenAddress = coopConfig.scTokenAddress as Address;
+    console.log(`   Soulaani Coin Address (from CoopConfig): ${scTokenAddress}`);
 
     try {
       // Read balance from contract
       const balance = await publicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+        address: scTokenAddress,
         abi: unityCoinABI,
         functionName: 'balanceOf',
         args: [address],
@@ -416,7 +433,7 @@ export async function checkPortalAccess(address: Address): Promise<{ hasAccess: 
 
       // Check if user is an active member
       const isActive = await publicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+        address: scTokenAddress,
         abi: unityCoinABI,
         functionName: 'isActiveMember',
         args: [address],

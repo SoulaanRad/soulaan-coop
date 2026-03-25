@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if the wallet has SoulaaniCoin and is an active member
-    const hasSoulaaniCoin = await checkSoulaaniCoinBalance(address);
+    const hasSoulaaniCoin = await checkSoulaaniCoinBalance(address, coopId);
     
     if (!hasSoulaaniCoin) {
       return NextResponse.json(

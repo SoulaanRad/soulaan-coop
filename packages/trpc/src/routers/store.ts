@@ -51,19 +51,21 @@ export const storeRouter = router({
    */
   getStores: publicProcedure
     .input(z.object({
+      coopId: z.string(),
       category: StoreCategoryEnum.optional(),
       scVerifiedOnly: z.boolean().optional(),
       featured: z.boolean().optional(),
       search: z.string().optional(),
       limit: z.number().min(1).max(100).optional().default(20),
       cursor: z.string().optional(),
-    }).optional())
+    }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const { category, scVerifiedOnly, featured, search, cursor } = input || {};
-      const limit = input?.limit ?? 20;
+      const { coopId, category, scVerifiedOnly, featured, search, cursor } = input;
+      const limit = input.limit ?? 20;
 
       const where: any = {
+        coopId,
         status: "APPROVED",
       };
 
@@ -1861,8 +1863,9 @@ export const storeRouter = router({
             store.owner.id,
             totalUSD,
             true,
-            order.id,  // Pass orderId
-            store.id,  // Pass storeId
+            store.coopId,     // Pass coopId
+            order.id,         // Pass orderId
+            store.id,         // Pass storeId
             transactionHash,  // Source UC tx hash
             'STORE_ORDER',    // Source type
             order.id          // Source record ID

@@ -182,11 +182,11 @@ export const proposalRouter = router({
    */
   list: publicProcedure
     .input(z.object({
+      coopId: z.string(),
       status: z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"]).optional(),
       statuses: z.array(z.enum(["submitted", "votable", "approved", "funded", "rejected", "failed", "withdrawn"])).optional(),
       category: z.string().min(1).optional(),
       region: z.string().optional(),
-      coopId: z.string().optional(),
       limit: z.number().min(1).max(100).default(20),
       offset: z.number().min(0).default(0)
     }))
@@ -204,10 +204,10 @@ export const proposalRouter = router({
           : {};
 
       const where = {
+        coopId: input.coopId,
         ...statusFilter,
         ...(input.category && { categoryKey: input.category }),
         ...(input.region && { regionCode: input.region }),
-        ...(input.coopId && { coopId: input.coopId }),
       };
 
       const [proposals, total] = await Promise.all([

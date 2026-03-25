@@ -41,6 +41,7 @@ export function calculateReserveAmount(
  * The reserve transfer happens automatically in the UC contract when payment is made to SC-verified store
  */
 export async function trackReserveFromTransaction(params: {
+  coopId: string;
   sourceType: string;
   sourceRecordId: string;
   sourceUcTxHash: string;
@@ -50,7 +51,7 @@ export async function trackReserveFromTransaction(params: {
   reserveEntryId: string;
   reserveAmountUC: number;
 } | null> {
-  const { sourceType, sourceRecordId, sourceUcTxHash, transactionAmountUC, relatedScRewardIds } = params;
+  const { coopId, sourceType, sourceRecordId, sourceUcTxHash, transactionAmountUC, relatedScRewardIds } = params;
 
   // Parse reserve event from the UC transaction (reads on-chain data)
   const reserveEvent = await getTreasuryReserveFromTransaction(sourceUcTxHash);
@@ -76,6 +77,7 @@ export async function trackReserveFromTransaction(params: {
   // Create settled reserve entry (already transferred on-chain)
   const reserveEntry = await db.treasuryReserveEntry.create({
     data: {
+      coopId,
       sourceType,
       sourceRecordId,
       sourceUcTxHash,

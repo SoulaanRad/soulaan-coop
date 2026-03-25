@@ -24,24 +24,28 @@ export const treasuryRouter = router({
   getReserveHistory: authenticatedProcedure
     .input(
       z.object({
+        coopId: z.string(),
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().min(0).default(0),
         status: z.enum(['PENDING', 'SETTLING', 'SETTLED', 'FAILED']).optional(),
       })
     )
-    .query(async ({ input }: { input: { limit: number; offset: number; status?: 'PENDING' | 'SETTLING' | 'SETTLED' | 'FAILED' } }) => {
-      const { limit, offset, status } = input;
+    .query(async ({ input }: { input: { coopId: string; limit: number; offset: number; status?: 'PENDING' | 'SETTLING' | 'SETTLED' | 'FAILED' } }) => {
+      const { coopId, limit, offset, status } = input;
+
+      const where = {
+        coopId,
+        ...(status && { status }),
+      };
 
       const [entries, total] = await Promise.all([
         db.treasuryReserveEntry.findMany({
-          where: status ? { status } : undefined,
+          where,
           orderBy: { createdAt: 'desc' },
           take: limit,
           skip: offset,
         }),
-        db.treasuryReserveEntry.count({
-          where: status ? { status } : undefined,
-        }),
+        db.treasuryReserveEntry.count({ where }),
       ]);
 
       return {
@@ -239,15 +243,22 @@ export const treasuryRouter = router({
         throw new Error('Unauthorized: Admin access required');
       }
 
-      // Deactivate existing policies
+      // Get coopId from context
+      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+
+      // Deactivate existing policies for this coop
       await db.treasuryReservePolicy.updateMany({
-        where: { isActive: true },
+        where: { 
+          isActive: true,
+          coopId: coopId,
+        },
         data: { isActive: false },
       });
 
       // Create new policy
       const newPolicy = await db.treasuryReservePolicy.create({
         data: {
+          coopId: coopId,
           defaultReserveBps: input.defaultReserveBps,
           badgeReserveBps: input.badgeReserveBps ?? null,
           programReserveBps: input.programReserveBps ? JSON.parse(JSON.stringify(input.programReserveBps)) : null,

@@ -160,13 +160,14 @@ export async function verifySignature(
 /**
  * Check if a wallet has portal access (calls API server - secure!)
  * @param address - The wallet address to check
+ * @param coopId - The coop ID to check access for
  * @returns Boolean indicating if the wallet has portal access
  */
-export async function checkSoulaaniCoinBalance(address: string): Promise<boolean> {
+export async function checkSoulaaniCoinBalance(address: string, coopId?: string): Promise<boolean> {
   try {
     console.log(`🔒 Checking portal access via API server for ${address}...`);
     // Call the API server function (server-side only, secure!)
-    const result = await checkPortalAccess(address as `0x${string}`);
+    const result = await checkPortalAccess(address as `0x${string}`, coopId);
     console.log(`🔒 Portal access result: hasAccess=${result.hasAccess}, isAdmin=${result.isAdmin}`);
     return result.hasAccess;
   } catch (error) {
@@ -223,7 +224,7 @@ export async function createSession(address: string, coopId?: string): Promise<A
     console.log('🔒 Checking portal access via API server (includes admin check)...');
     // Call the API server function (server-side only, secure!)
     // This checks BOTH admin status AND coin balance
-    const accessCheck = await checkPortalAccess(address as `0x${string}`);
+    const accessCheck = await checkPortalAccess(address as `0x${string}`, coopId);
 
     isAdmin = accessCheck.isAdmin;
     adminRole = accessCheck.role;

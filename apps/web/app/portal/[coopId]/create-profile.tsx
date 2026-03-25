@@ -1,26 +1,28 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useWeb3Auth } from '@/hooks/use-web3-auth';
 import ProfileForm from '@/components/admin/profile-form';
 import { Loader2 } from 'lucide-react';
 
 export default function CreateProfilePage() {
   const router = useRouter();
+  const params = useParams();
+  const coopId = params.coopId as string;
   const { isLoading, isAuthenticated, hasProfile } = useWeb3Auth();
 
   useEffect(() => {
-    // If not loading and not authenticated, redirect to access denied
+    // If not loading and not authenticated, redirect to login
     if (!isLoading && !isAuthenticated) {
-      router.push('/admin/access-denied');
+      router.push(`/login?coopId=${coopId}`);
     }
     
-    // If authenticated and already has profile, redirect to admin
+    // If authenticated and already has profile, redirect to portal
     if (!isLoading && isAuthenticated && hasProfile) {
-      router.push('/admin');
+      router.push(`/portal/${coopId}`);
     }
-  }, [isLoading, isAuthenticated, hasProfile, router]);
+  }, [isLoading, isAuthenticated, hasProfile, coopId, router]);
 
   // Show loading state
   if (isLoading) {
@@ -38,7 +40,7 @@ export default function CreateProfilePage() {
   if (isAuthenticated && !hasProfile) {
     return (
       <div className="container mx-auto py-10">
-        <ProfileForm />
+        <ProfileForm coopId={coopId} />
       </div>
     );
   }

@@ -20,6 +20,7 @@ export const scRewardsRouter = router({
    */
   getSCRewards: authenticatedProcedure
     .input(z.object({
+      coopId: z.string(),
       status: z.enum(['PENDING', 'COMPLETED', 'FAILED']).optional(),
       userId: z.string().optional(),
       storeId: z.string().optional(),
@@ -62,7 +63,9 @@ export const scRewardsRouter = router({
         ? (await checkAdminStatusWithRole(caller.walletAddress as `0x${string}`)).isAdmin
         : false;
 
-      const where: any = {};
+      const where: any = {
+        coopId: input.coopId,
+      };
       
       if (input.status) where.status = input.status;
       if (input.userId) {
