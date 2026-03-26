@@ -26,7 +26,7 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_API_URL: z.string().url().optional(),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
-    NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: z.string().optional(),
+    NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: z.string(),
     NEXT_PUBLIC_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_URI: z.string().url().optional(),
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
