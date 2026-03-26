@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
+import { useState, useEffect } from "react";
+import { useAccount, useWalletClient, usePublicClient, useSwitchChain } from "wagmi";
 import { useWeb3Modal } from "@web3modal/wagmi/react";
 import type { Hash } from "viem";
 import { baseSepolia, base } from "viem/chains";
@@ -40,16 +40,18 @@ interface DeployedContracts {
 };
 
 export default function InitializePage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain: connectedChain } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { open } = useWeb3Modal();
+  const { switchChain } = useSwitchChain();
 
   // tRPC mutation for saving co-op config (includes chain config)
   const createCoopConfig = api.coopConfig.create.useMutation();
 
   const [currentPhase, setCurrentPhase] = useState<"config" | "deploy" | "complete">("config");
   const [network, setNetwork] = useState<"baseSepolia" | "base">("baseSepolia");
+  const [isWrongNetwork, setIsWrongNetwork] = useState(false);
   
   // Optional contracts selection
   const [optionalContracts, setOptionalContracts] = useState({
@@ -129,6 +131,29 @@ export default function InitializePage() {
 
   const [deployedContracts, setDeployedContracts] = useState<DeployedContracts>({});
 
+  // Check if wallet is on the correct network
+  useEffect(() => {
+    if (!connectedChain) {
+      setIsWrongNetwork(false);
+      return;
+    }
+
+    const expectedChainId = network === "baseSepolia" ? 84532 : 8453;
+    setIsWrongNetwork(connectedChain.id !== expectedChainId);
+  }, [connectedChain, network]);
+
+  // Handle network switch
+  const handleSwitchNetwork = async () => {
+    if (!switchChain) return;
+    
+    try {
+      const targetChain = network === "baseSepolia" ? baseSepolia : base;
+      await switchChain({ chainId: targetChain.id });
+    } catch (error) {
+      console.error("Failed to switch network:", error);
+    }
+  };
+
   const updateStepStatus = (
     stepId: string,
     status: DeploymentStepType["status"],
@@ -149,6 +174,13 @@ export default function InitializePage() {
     
     if (!walletClient || !publicClient || !address) {
       alert("Please connect your wallet first");
+      return;
+    }
+
+    // Check if on correct network
+    const expectedChainId = network === "baseSepolia" ? 84532 : 8453;
+    if (connectedChain?.id !== expectedChainId) {
+      alert(`Please switch your wallet to ${network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"} (Chain ID: ${expectedChainId})`);
       return;
     }
 
@@ -1112,6 +1144,27 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                   </AlertDescription>
                 </Alert>
 
+                {isWrongNetwork && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Wrong Network</AlertTitle>
+                    <AlertDescription>
+                      Your wallet is connected to <strong>{connectedChain?.name || 'Unknown Network'}</strong> (Chain ID: {connectedChain?.id}), 
+                      but you selected <strong>{network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"}</strong> (Chain ID: {network === "baseSepolia" ? "84532" : "8453"}).
+                      <div className="mt-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={handleSwitchNetwork}
+                          className="bg-white/10 hover:bg-white/20"
+                        >
+                          Switch to {network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"}
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {(!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim() || !coopConfig.scTokenName.trim() || !coopConfig.scTokenSymbol.trim()) && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -1127,7 +1180,14 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                   <Button
                     size="lg"
                     onClick={deployContracts}
-                    disabled={!coopConfig.name.trim() || !coopConfig.shortName.trim() || !coopConfig.tagline.trim() || !coopConfig.scTokenName.trim() || !coopConfig.scTokenSymbol.trim()}
+                    disabled={
+                      !coopConfig.name.trim() || 
+                      !coopConfig.shortName.trim() || 
+                      !coopConfig.tagline.trim() || 
+                      !coopConfig.scTokenName.trim() || 
+                      !coopConfig.scTokenSymbol.trim() ||
+                      isWrongNetwork
+                    }
                   >
                     Start Deployment
                   </Button>
