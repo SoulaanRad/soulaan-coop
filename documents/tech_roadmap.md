@@ -38,7 +38,6 @@
 
   - [ ] Create performance benchmarks for profile retrieval and updates to ensure scalability. � �
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Create integration tests to validate the interaction between member profiles and the proposal engine. � �
 
 ---
@@ -48,6 +47,9 @@
   - Members suggest projects and business funding.  
   - [x] AI-assisted review ensures alignment with Co-op rules.  
 - Implement simple voting for treasury allocation.  
+
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Add monitoring alerts for unusual patterns in proposal submissions (e.g., spikes in submissions). � �
 
 ---
 
@@ -75,4 +77,4 @@
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
 ---
-*🤖 Roadmap updated 2026-03-07 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-03-26 - AI-generated sub-items added based on completed work analysis*
