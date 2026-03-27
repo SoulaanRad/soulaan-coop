@@ -104,8 +104,8 @@ model WaitlistEntry {
 model BusinessWaitlist {
   id              String   @id @default(cuid())
   ownerName       String
-  ownerEmail      String
-  coopId          String
+  ownerEmail      String   @unique
+  coopId          String?
   businessName    String
   businessAddress String
   businessType    String
@@ -113,7 +113,6 @@ model BusinessWaitlist {
   description     String?
   createdAt       DateTime @default(now())
 
-  @@unique([ownerEmail, coopId])
   @@index([coopId])
   @@schema("public")
 }
