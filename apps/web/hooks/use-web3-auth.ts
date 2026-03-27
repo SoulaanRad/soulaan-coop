@@ -63,7 +63,7 @@ export function useWeb3Auth() {
           address: null,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       setAuthState({
         isLoading: false,
         isAuthenticated: false,
@@ -180,7 +180,7 @@ export function useWeb3Auth() {
       router.push('/login');
 
       return true;
-    } catch (error) {
+    } catch (_error) {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
