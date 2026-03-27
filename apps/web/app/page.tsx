@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
+import { WaitlistSignupForm } from "@/components/waitlist-signup-form";
 
 export const metadata: Metadata = {
   title: "Cahootz | Shop Local. Earn Tokens. Fund Your Community.",
@@ -419,20 +420,17 @@ export default function HomePage() {
             <div className="grid gap-16 md:grid-cols-2">
               <div>
                 <h2 className="text-3xl font-black tracking-tight text-white md:text-4xl">
-                  Join the network
+                  Join the waitlist
                 </h2>
                 <p className="mt-5 text-lg text-white/80 leading-relaxed">
-                  Download the app. Start earning tokens at local spots. 
-                  Be part of something that actually keeps money in the neighborhood.
+                  Be the first to know when we launch in your area. 
+                  Get early access to the network that keeps money in the neighborhood.
                 </p>
-                <Link
-                  href="https://mobile.cahootzcoops.com/"
-                  className="mt-10 inline-flex items-center gap-3 rounded-xl bg-white px-6 py-4 font-semibold text-[#1a1a1a] hover:bg-white/90 transition-colors"
-                >
-                  <Smartphone className="h-5 w-5 text-[#f59e0b]" />
-                  Get the Cahootz app
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
+                <div className="mt-10">
+                  <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-white/10" />}>
+                    <WaitlistSignupForm />
+                  </Suspense>
+                </div>
               </div>
 
               <div id="business-form">

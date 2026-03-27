@@ -87,8 +87,8 @@ model Transaction {
 
 model WaitlistEntry {
   id        String   @id @default(cuid())
-  email     String
-  coopId    String
+  email     String   @unique
+  coopId    String?
   type      String // "user" or "business"
   name      String?
   city      String?
@@ -96,7 +96,6 @@ model WaitlistEntry {
   source    String? // "hero" or "contact"
   createdAt DateTime @default(now())
 
-  @@unique([email, coopId])
   @@index([coopId])
   @@schema("public")
 }
