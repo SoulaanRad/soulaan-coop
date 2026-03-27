@@ -6,9 +6,10 @@ import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createWeb3Modal } from '@web3modal/wagmi/react';
 import { injected, walletConnect } from 'wagmi/connectors';
-import { config as appConfig, chainConfig } from './config';
+import { baseSepolia, base } from 'viem/chains';
+import { config as appConfig } from './config';
 
-// Create wagmi config
+// Create wagmi config with both Base Sepolia and Base Mainnet
 const metadata = {
   name: 'Soulaan Co-op Admin',
   description: 'Soulaan Co-op Admin Panel',
@@ -19,9 +20,10 @@ const metadata = {
 const queryClient = new QueryClient();
 
 const wagmiConfig = createConfig({
-  chains: [chainConfig as any],
+  chains: [baseSepolia, base],
   transports: {
-    [chainConfig.id]: http(appConfig.chain.rpcUrl),
+    [baseSepolia.id]: http('https://sepolia.base.org'),
+    [base.id]: http('https://mainnet.base.org'),
   },
   connectors: [
     injected(),

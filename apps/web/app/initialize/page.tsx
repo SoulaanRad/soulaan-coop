@@ -52,6 +52,7 @@ export default function InitializePage() {
   const [currentPhase, setCurrentPhase] = useState<"config" | "deploy" | "complete">("config");
   const [network, setNetwork] = useState<"baseSepolia" | "base">("baseSepolia");
   const [isWrongNetwork, setIsWrongNetwork] = useState(false);
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   
   // Optional contracts selection
   const [optionalContracts, setOptionalContracts] = useState({
@@ -144,13 +145,41 @@ export default function InitializePage() {
 
   // Handle network switch
   const handleSwitchNetwork = () => {
-    if (!switchChain) return;
+    if (!switchChain) {
+      alert("Network switching is not supported by your wallet. Please manually switch networks in your wallet.");
+      return;
+    }
+    
+    setIsSwitchingNetwork(true);
     
     try {
       const targetChain = network === "baseSepolia" ? baseSepolia : base;
-      switchChain({ chainId: targetChain.id });
-    } catch (error) {
+      console.log(`Attempting to switch to ${targetChain.name} (Chain ID: ${targetChain.id})`);
+      
+      switchChain(
+        { chainId: targetChain.id },
+        {
+          onSuccess: () => {
+            console.log("✅ Network switch successful");
+            setIsSwitchingNetwork(false);
+          },
+          onError: (error: any) => {
+            console.error("Failed to switch network:", error);
+            
+            // User rejected the request
+            if (error.code === 4001 || error.message?.includes("User rejected")) {
+              alert("Network switch cancelled. Please approve the network switch in your wallet.");
+            } else {
+              alert(`Failed to switch network: ${error.message || "Unknown error"}. Please manually switch to ${network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"} in your wallet.`);
+            }
+            setIsSwitchingNetwork(false);
+          },
+        }
+      );
+    } catch (error: any) {
       console.error("Failed to switch network:", error);
+      alert(`Failed to switch network: ${error.message || "Unknown error"}. Please manually switch to ${network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"} in your wallet.`);
+      setIsSwitchingNetwork(false);
     }
   };
 
@@ -200,9 +229,9 @@ export default function InitializePage() {
       const governanceBotAddress = (coopConfig.governanceBotAddress || address) as `0x${string}`;
 
       // Declare contract addresses at function scope
-      let soulaaniCoinAddress: string;
-      let allyCoinAddress: string;
-      let unityCoinAddress: string;
+      let soulaaniCoinAddress: `0x${string}`;
+      let allyCoinAddress: `0x${string}`;
+      let unityCoinAddress: `0x${string}`;
 
       // Step 1: Deploy SoulaaniCoin
       try {
@@ -316,7 +345,7 @@ export default function InitializePage() {
       let scRewardEngineAddress: string | undefined;
       let storePaymentRouterAddress: string | undefined;
 
-      // Step 3: Deploy RedemptionVault (Optional)
+      // Step 4: Deploy RedemptionVault (Optional)
       if (optionalContracts.redemptionVault) {
         const redemptionVaultArtifact = await import("@/lib/contracts/RedemptionVault.json");
         updateStepStatus("vault", "deploying");
@@ -334,7 +363,7 @@ export default function InitializePage() {
         setDeployedContracts((prev) => ({ ...prev, redemptionVault: redemptionVaultAddress }));
       }
 
-      // Step 4: Deploy VerifiedStoreRegistry (Optional)
+      // Step 5: Deploy VerifiedStoreRegistry (Optional)
       if (optionalContracts.verifiedStoreRegistry) {
         const verifiedStoreRegistryArtifact = await import("@/lib/contracts/VerifiedStoreRegistry.json");
         updateStepStatus("registry", "deploying");
@@ -352,7 +381,7 @@ export default function InitializePage() {
         setDeployedContracts((prev) => ({ ...prev, verifiedStoreRegistry: verifiedStoreRegistryAddress }));
       }
 
-      // Step 5: Deploy SCRewardEngine (Optional, requires registry)
+      // Step 6: Deploy SCRewardEngine (Optional, requires registry)
       if (optionalContracts.scRewardEngine && verifiedStoreRegistryAddress) {
         const scRewardEngineArtifact = await import("@/lib/contracts/SCRewardEngine.json");
         updateStepStatus("engine", "deploying");
@@ -377,7 +406,7 @@ export default function InitializePage() {
         const routerHash = await walletClient.deployContract({
           abi: storePaymentRouterArtifact.abi,
           bytecode: storePaymentRouterArtifact.bytecode as `0x${string}`,
-          args: [treasuryAddress, unityCoinAddress, verifiedStoreRegistryAddress, scRewardEngineAddress],
+          args: [treasuryAddress, unityCoinAddress, verifiedStoreRegistryAddress, scRewardEngineAddress as `0x${string}`],
           chain: selectedChain,
         });
         updateStepStatus("router", "deploying", { txHash: routerHash });
@@ -388,7 +417,7 @@ export default function InitializePage() {
         setDeployedContracts((prev) => ({ ...prev, storePaymentRouter: storePaymentRouterAddress }));
       }
 
-      // Step 7: Grant Roles (Only if needed)
+      // Step 8: Grant Roles (Only if needed)
       if (scRewardEngineAddress || storePaymentRouterAddress) {
         updateStepStatus("roles", "deploying");
         
@@ -399,7 +428,7 @@ export default function InitializePage() {
             address: soulaaniCoinAddress,
             abi: soulaaniCoinArtifact.abi,
             functionName: "grantRole",
-            args: [GOVERNANCE_AWARD, scRewardEngineAddress],
+            args: [GOVERNANCE_AWARD, scRewardEngineAddress as `0x${string}`],
             chain: selectedChain,
           });
           await publicClient.waitForTransactionReceipt({ hash: grantAwardHash });
@@ -519,7 +548,6 @@ export default function InitializePage() {
       } catch (dbError: any) {
         console.error("Failed to save to database:", dbError);
         updateStepStatus("save-db", "failed", { error: dbError.message || "Database save failed" });
-        // Don't fail the deployment if DB save fails - contracts are already deployed
       }
 
       setCurrentPhase("complete");
@@ -666,12 +694,17 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                       <div>
                         <p className="font-medium text-green-900 dark:text-green-100">Wallet Connected</p>
                         <p className="text-sm text-green-700 dark:text-green-300 font-mono">{address}</p>
+                        {connectedChain && (
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            Connected to: {connectedChain.name} (Chain ID: {connectedChain.id})
+                          </p>
+                        )}
                       </div>
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
                     </div>
                     
                     <div>
-                      <Label>Network</Label>
+                      <Label>Target Network for Deployment</Label>
                       <Select value={network} onValueChange={(v) => setNetwork(v as any)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -681,6 +714,9 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                           <SelectItem value="base">Base (Mainnet)</SelectItem>
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose which network to deploy your contracts to
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1156,9 +1192,10 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                           size="sm" 
                           variant="outline"
                           onClick={handleSwitchNetwork}
+                          disabled={isSwitchingNetwork}
                           className="bg-white/10 hover:bg-white/20"
                         >
-                          Switch to {network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"}
+                          {isSwitchingNetwork ? "Switching..." : `Switch to ${network === "baseSepolia" ? "Base Sepolia" : "Base Mainnet"}`}
                         </Button>
                       </div>
                     </AlertDescription>
