@@ -23,6 +23,7 @@ interface BusinessData {
   businessType: string;
   coopInterest?: string;
   description?: string;
+  coopId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       businessType,
       coopInterest,
       description,
+      coopId,
     } = body as BusinessData;
 
     // Capture the origin URL
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
       businessAddress,
       businessType,
       coopInterest: coopInterest?.trim() || undefined,
+      coopId: coopId?.trim() || undefined,
       description: [
         description?.trim(),
         coopInterest?.trim()
@@ -73,22 +76,27 @@ export async function POST(request: NextRequest) {
         .join("\n\n") || undefined,
     };
 
-    // Save to database
+    // Save to database using simple unique key on ownerEmail
     await db.businessWaitlist.upsert({
-      where: { ownerEmail },
+      where: { 
+        ownerEmail,
+      },
       update: {
         ownerName: businessData.ownerName,
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
+        coopId: businessData.coopId || null,
         description: businessData.description,
       },
       create: {
         ownerName: businessData.ownerName,
         ownerEmail: businessData.ownerEmail,
+        coopId: businessData.coopId || null,
         businessName: businessData.businessName,
         businessAddress: businessData.businessAddress,
         businessType: businessData.businessType,
+        monthlyRevenue: '',
         description: businessData.description,
       },
     });

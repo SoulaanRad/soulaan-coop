@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
 import PostHogClient from "@/lib/posthog";
+import z from "zod/v4";
 
 // Create database client directly
 const globalForPrisma = globalThis as unknown as {
@@ -22,7 +23,35 @@ interface WaitlistData {
   suggestedCoop?: string;
 }
 
+
+
 export async function POST(request: NextRequest) {
+
+  // Send waitlist signup to Slack
+  async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
+    const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
+
+    if (!slackWebhookUrl) {
+      console.log("No Slack webhook configured");
+      return;
+    }
+
+    const message = {
+      text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
+    };
+
+    const response = await fetch(slackWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Slack webhook failed: ${response.status}`);
+    }
+  }
   try {
     const body = await request.json();
     const { email, name, source, suggestedCoop } = body as WaitlistData;
@@ -48,19 +77,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Require coop selection
-    if (!suggestedCoop?.trim()) {
-      return NextResponse.json(
-        { success: false, message: "Please select which coop you want to join" },
-        { status: 400 }
-      );
-    }
-
     const waitlistData: WaitlistData = {
       email,
       name: name || undefined,
       source: source,
-      suggestedCoop: suggestedCoop.trim(),
+      suggestedCoop: suggestedCoop?.trim() || undefined,
     };
 
     // Send to Slack first
@@ -112,35 +133,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Waitlist signup error:", error);
-    return NextResponse.json(
-      { success: false, message: "Waitlist signup error. Please try again." },
-      { status: 500 }
-    );
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid form data. Please check your input.",
+        },
+        { status: 400 }
+      );
+    }
   }
 }
 
-// Send waitlist signup to Slack
-async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
-  const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
 
-  if (!slackWebhookUrl) {
-    console.log("No Slack webhook configured");
-    return;
-  }
-
-  const message = {
-    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
-  };
-
-  const response = await fetch(slackWebhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(message),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Slack webhook failed: ${response.status}`);
-  }
-}

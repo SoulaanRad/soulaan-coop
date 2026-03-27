@@ -8,6 +8,7 @@ function BusinessSignupFormContent() {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coopInterest, setCoopInterest] = useState("");
+  const [coopId, setCoopId] = useState("soulaan");
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -15,8 +16,12 @@ function BusinessSignupFormContent() {
 
   useEffect(() => {
     const coopFromQuery = searchParams.get("coop");
+    const coopIdFromQuery = searchParams.get("coopId");
     if (coopFromQuery) {
       setCoopInterest(coopFromQuery);
+    }
+    if (coopIdFromQuery) {
+      setCoopId(coopIdFromQuery);
     }
   }, [searchParams]);
 
@@ -26,6 +31,7 @@ function BusinessSignupFormContent() {
     setResult(null);
 
     const formData = new FormData(e.currentTarget);
+    const formElement = e.currentTarget; // Store reference before async operation
     
     const businessData = {
       ownerName: formData.get("ownerName") as string,
@@ -35,6 +41,7 @@ function BusinessSignupFormContent() {
       businessType: formData.get("businessType") as string,
       coopInterest: formData.get("coopInterest") as string,
       description: formData.get("description") as string,
+      coopId: coopId,
     };
 
     try {
@@ -46,16 +53,32 @@ function BusinessSignupFormContent() {
         body: JSON.stringify(businessData),
       });
 
+      console.log("Response status:", response.status, response.ok);
+      
       const data = await response.json();
       console.log("business-form response", data);
+      
+      // Check if response was successful HTTP status
+      if (!response.ok) {
+        console.log("Response not OK, setting error state");
+        setResult({
+          success: false,
+          message: data.message || "Error submitting business signup. Please try again.",
+        });
+        return;
+      }
+      
+      console.log("Setting result data:", data);
       setResult(data);
 
       if (data.success) {
+        console.log("Success! Resetting form");
         // Reset form on success
-        e.currentTarget.reset();
+        formElement.reset();
         setCoopInterest(searchParams.get("coop") ?? "");
       }
-    } catch {
+    } catch (error) {
+      console.error("Business form submission error:", error);
       setResult({
         success: false,
         message: "Error submitting business signup. Please try again.",

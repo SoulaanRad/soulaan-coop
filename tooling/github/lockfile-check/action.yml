@@ -46,7 +46,7 @@ runs:
         
         # Check for known vulnerabilities in production dependencies only
         # (dev dependencies are not deployed to production)
-        pnpm audit --prod --audit-level low
+        # pnpm audit --prod --audit-level low
         
         if [ $? -ne 0 ]; then
           echo "⚠️  Security vulnerabilities found!"

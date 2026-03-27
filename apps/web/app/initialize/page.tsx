@@ -143,12 +143,12 @@ export default function InitializePage() {
   }, [connectedChain, network]);
 
   // Handle network switch
-  const handleSwitchNetwork = async () => {
+  const handleSwitchNetwork = () => {
     if (!switchChain) return;
     
     try {
       const targetChain = network === "baseSepolia" ? baseSepolia : base;
-      await switchChain({ chainId: targetChain.id });
+      switchChain({ chainId: targetChain.id });
     } catch (error) {
       console.error("Failed to switch network:", error);
     }

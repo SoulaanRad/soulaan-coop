@@ -99,6 +99,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:react19",
     "@types/react-dom": "catalog:react19",
+    "dotenv-cli": "catalog:",
     "eslint": "catalog:",
     "eslint-config-next": "catalog:",
     "jest": "^29.7.0",
