@@ -5,6 +5,7 @@ import { useAccount, useWalletClient, usePublicClient, useSwitchChain } from "wa
 import { useWeb3Modal } from "@web3modal/wagmi/react";
 import type { Hash } from "viem";
 import { baseSepolia, base } from "viem/chains";
+import { createPublicClient, http } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,24 @@ export default function InitializePage() {
   const [network, setNetwork] = useState<"baseSepolia" | "base">("baseSepolia");
   const [isWrongNetwork, setIsWrongNetwork] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
+  const [customRpcUrl, setCustomRpcUrl] = useState("");
+
+  // Load saved RPC URL from localStorage on mount
+  useEffect(() => {
+    const savedRpcUrl = localStorage.getItem("soulaan_custom_rpc_url");
+    if (savedRpcUrl) {
+      setCustomRpcUrl(savedRpcUrl);
+    }
+  }, []);
+
+  // Save RPC URL to localStorage when it changes
+  useEffect(() => {
+    if (customRpcUrl) {
+      localStorage.setItem("soulaan_custom_rpc_url", customRpcUrl);
+    } else {
+      localStorage.removeItem("soulaan_custom_rpc_url");
+    }
+  }, [customRpcUrl]);
   
   // Optional contracts selection
   const [optionalContracts, setOptionalContracts] = useState({
@@ -201,7 +220,7 @@ export default function InitializePage() {
     console.log("Public client:", !!publicClient);
     console.log("Address:", address);
     
-    if (!walletClient || !publicClient || !address) {
+    if (!walletClient || !address) {
       alert("Please connect your wallet first");
       return;
     }
@@ -219,6 +238,23 @@ export default function InitializePage() {
 
     try {
       const selectedChain = network === "baseSepolia" ? baseSepolia : base;
+      
+      // Create custom public client if custom RPC URL is provided
+      const deployPublicClient = customRpcUrl && network === "base"
+        ? createPublicClient({
+            chain: base,
+            transport: http(customRpcUrl),
+          })
+        : publicClient;
+      
+      if (!deployPublicClient) {
+        alert("Public client not available. Please refresh and try again.");
+        return;
+      }
+      
+      const rpcUrlUsed = customRpcUrl || (network === "baseSepolia" ? "https://sepolia.base.org" : "public RPC");
+      console.log("Using RPC:", rpcUrlUsed);
+      console.log("Network:", selectedChain.name, "Chain ID:", selectedChain.id);
       
       // Import required contract artifacts
       const soulaaniCoinArtifact = await import("@/lib/contracts/SoulaaniCoin.json");
@@ -250,7 +286,7 @@ export default function InitializePage() {
         updateStepStatus("sc", "deploying", { txHash: scHash });
         
         console.log("⏳ Waiting for SoulaaniCoin deployment receipt...");
-        const scReceipt = await publicClient.waitForTransactionReceipt({ hash: scHash });
+        const scReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: scHash });
         soulaaniCoinAddress = scReceipt.contractAddress!;
         console.log("✅ SoulaaniCoin deployed at:", soulaaniCoinAddress);
         updateStepStatus("sc", "completed", { txHash: scHash, contractAddress: soulaaniCoinAddress });
@@ -281,7 +317,7 @@ export default function InitializePage() {
         updateStepStatus("ally", "deploying", { txHash: allyHash });
         
         console.log("⏳ Waiting for AllyCoin deployment receipt...");
-        const allyReceipt = await publicClient.waitForTransactionReceipt({ hash: allyHash });
+        const allyReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: allyHash });
         allyCoinAddress = allyReceipt.contractAddress!;
         console.log("✅ AllyCoin deployed at:", allyCoinAddress);
         updateStepStatus("ally", "completed", { txHash: allyHash, contractAddress: allyCoinAddress });
@@ -297,7 +333,7 @@ export default function InitializePage() {
           chain: selectedChain,
         });
         console.log("⏳ Waiting for link transaction...");
-        await publicClient.waitForTransactionReceipt({ hash: linkHash });
+        await deployPublicClient.waitForTransactionReceipt({ hash: linkHash });
         console.log("✅ AllyCoin linked to SoulaaniCoin");
       } catch (allyError: any) {
         console.error("❌ AllyCoin deployment failed:", allyError);
@@ -325,7 +361,7 @@ export default function InitializePage() {
         updateStepStatus("uc", "deploying", { txHash: ucHash });
         
         console.log("⏳ Waiting for UnityCoin deployment receipt...");
-        const ucReceipt = await publicClient.waitForTransactionReceipt({ hash: ucHash });
+        const ucReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: ucHash });
         unityCoinAddress = ucReceipt.contractAddress!;
         console.log("✅ UnityCoin deployed at:", unityCoinAddress);
         updateStepStatus("uc", "completed", { txHash: ucHash, contractAddress: unityCoinAddress });
@@ -357,7 +393,7 @@ export default function InitializePage() {
         });
         updateStepStatus("vault", "deploying", { txHash: vaultHash });
         
-        const vaultReceipt = await publicClient.waitForTransactionReceipt({ hash: vaultHash });
+        const vaultReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: vaultHash });
         redemptionVaultAddress = vaultReceipt.contractAddress!;
         updateStepStatus("vault", "completed", { txHash: vaultHash, contractAddress: redemptionVaultAddress });
         setDeployedContracts((prev) => ({ ...prev, redemptionVault: redemptionVaultAddress }));
@@ -375,7 +411,7 @@ export default function InitializePage() {
         });
         updateStepStatus("registry", "deploying", { txHash: registryHash });
         
-        const registryReceipt = await publicClient.waitForTransactionReceipt({ hash: registryHash });
+        const registryReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: registryHash });
         verifiedStoreRegistryAddress = registryReceipt.contractAddress!;
         updateStepStatus("registry", "completed", { txHash: registryHash, contractAddress: verifiedStoreRegistryAddress });
         setDeployedContracts((prev) => ({ ...prev, verifiedStoreRegistry: verifiedStoreRegistryAddress }));
@@ -393,7 +429,7 @@ export default function InitializePage() {
         });
         updateStepStatus("engine", "deploying", { txHash: engineHash });
         
-        const engineReceipt = await publicClient.waitForTransactionReceipt({ hash: engineHash });
+        const engineReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: engineHash });
         scRewardEngineAddress = engineReceipt.contractAddress!;
         updateStepStatus("engine", "completed", { txHash: engineHash, contractAddress: scRewardEngineAddress });
         setDeployedContracts((prev) => ({ ...prev, scRewardEngine: scRewardEngineAddress }));
@@ -411,7 +447,7 @@ export default function InitializePage() {
         });
         updateStepStatus("router", "deploying", { txHash: routerHash });
         
-        const routerReceipt = await publicClient.waitForTransactionReceipt({ hash: routerHash });
+        const routerReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: routerHash });
         storePaymentRouterAddress = routerReceipt.contractAddress!;
         updateStepStatus("router", "completed", { txHash: routerHash, contractAddress: storePaymentRouterAddress });
         setDeployedContracts((prev) => ({ ...prev, storePaymentRouter: storePaymentRouterAddress }));
@@ -431,7 +467,7 @@ export default function InitializePage() {
             args: [GOVERNANCE_AWARD, scRewardEngineAddress as `0x${string}`],
             chain: selectedChain,
           });
-          await publicClient.waitForTransactionReceipt({ hash: grantAwardHash });
+          await deployPublicClient.waitForTransactionReceipt({ hash: grantAwardHash });
         }
 
         // Grant REWARD_EXECUTOR role to StorePaymentRouter on SCRewardEngine
@@ -445,7 +481,7 @@ export default function InitializePage() {
             args: [REWARD_EXECUTOR, storePaymentRouterAddress],
             chain: selectedChain,
           });
-          await publicClient.waitForTransactionReceipt({ hash: grantExecutorHash });
+          await deployPublicClient.waitForTransactionReceipt({ hash: grantExecutorHash });
         }
 
         updateStepStatus("roles", "completed");
@@ -529,7 +565,7 @@ export default function InitializePage() {
           // Chain configuration fields (merged into CoopConfig)
           chainId: selectedChain.id,
           chainName: network === "baseSepolia" ? "base-sepolia" : "base-mainnet",
-          rpcUrl: selectedChain.rpcUrls.default.http[0],
+          rpcUrl: customRpcUrl || selectedChain.rpcUrls.default.http[0],
           scTokenAddress: soulaaniCoinAddress,
           allyTokenAddress: allyCoinAddress,
           ucTokenAddress: unityCoinAddress,
@@ -604,7 +640,7 @@ GOVERNANCE_BOT_ADDRESS="${coopConfig.governanceBotAddress || address || ""}"
 
 # Network
 CHAIN_ID="${network === "baseSepolia" ? "84532" : "8453"}"
-RPC_URL="${network === "baseSepolia" ? "https://sepolia.base.org" : "https://mainnet.base.org"}"
+RPC_URL="${network === "baseSepolia" ? "https://sepolia.base.org" : (customRpcUrl || "https://base.llamarpc.com")}"
 
 # Payment Settings
 MIN_PAYMENT_AMOUNT="${coopConfig.minPaymentAmount}"
@@ -718,6 +754,39 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
                         Choose which network to deploy your contracts to
                       </p>
                     </div>
+
+                    {network === "base" && (
+                      <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertTitle className="text-blue-900 dark:text-blue-100">RPC Configuration for Base Mainnet</AlertTitle>
+                        <AlertDescription className="text-blue-800 dark:text-blue-200">
+                          <div className="space-y-3 mt-2">
+                            <div>
+                              <Label htmlFor="customRpcUrl" className="text-blue-900 dark:text-blue-100">Custom RPC URL (Recommended for Production)</Label>
+                              <Input
+                                id="customRpcUrl"
+                                placeholder="https://base-mainnet.g.alchemy.com/v2/YOUR_API_KEY"
+                                value={customRpcUrl}
+                                onChange={(e) => setCustomRpcUrl(e.target.value)}
+                                className="mt-1 bg-white dark:bg-slate-900"
+                              />
+                            </div>
+                            <div className="text-xs space-y-1">
+                              <p><strong>Leave empty</strong> to use free public RPC (may be rate-limited)</p>
+                              <p><strong>Recommended providers:</strong></p>
+                              <ul className="list-disc list-inside ml-2 space-y-0.5">
+                                <li><strong>Alchemy:</strong> https://base-mainnet.g.alchemy.com/v2/YOUR_KEY</li>
+                                <li><strong>QuickNode:</strong> Your custom endpoint URL</li>
+                                <li><strong>Infura:</strong> https://base-mainnet.infura.io/v3/YOUR_KEY</li>
+                              </ul>
+                              <p className="mt-2 text-blue-700 dark:text-blue-300">
+                                Get free API keys at <a href="https://www.alchemy.com" target="_blank" rel="noopener noreferrer" className="underline">alchemy.com</a> or <a href="https://www.quicknode.com" target="_blank" rel="noopener noreferrer" className="underline">quicknode.com</a>
+                              </p>
+                            </div>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 )}
               </CardContent>

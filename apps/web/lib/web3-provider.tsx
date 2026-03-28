@@ -23,7 +23,7 @@ const wagmiConfig = createConfig({
   chains: [baseSepolia, base],
   transports: {
     [baseSepolia.id]: http('https://sepolia.base.org'),
-    [base.id]: http('https://mainnet.base.org'),
+    [base.id]: http(),
   },
   connectors: [
     injected(),
