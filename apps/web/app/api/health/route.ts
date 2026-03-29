@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db } from '@soulaan/db';
+import { db } from '@repo/db';
 
 /**
  * Health check endpoint for Railway and monitoring
