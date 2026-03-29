@@ -550,6 +550,7 @@ export default function InitializePage() {
 
         await createCoopConfig.mutateAsync({
           coopId,
+          walletAddress: address!,
           reason: "Initial deployment via web UI",
           name: coopName,
           slug: coopId,

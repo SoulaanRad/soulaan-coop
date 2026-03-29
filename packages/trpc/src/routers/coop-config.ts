@@ -296,13 +296,15 @@ export const coopConfigRouter = router({
 
   /**
    * Create initial config for a coopId (only when none exists)
+   * Uses publicProcedure since this is the initial deployment before contracts exist
    */
-  create: privateProcedure
-    .input(CoopConfigInputZ)
+  create: publicProcedure
+    .input(CoopConfigInputZ.extend({
+      walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    }))
     .output(CoopConfigOutputZ)
     .mutation(async ({ input, ctx }) => {
-      const { coopId, reason, ...fields } = input;
-      const { walletAddress } = ctx as AuthenticatedContext;
+      const { coopId, reason, walletAddress, ...fields } = input;
 
       const existing = await ctx.db.coopConfig.findFirst({
         where: { coopId, isActive: true },
