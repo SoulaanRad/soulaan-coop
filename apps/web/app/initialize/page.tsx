@@ -601,6 +601,50 @@ export default function InitializePage() {
           console.log("✅ Deployer already a member (status:", deployerStatus, ")");
         }
         
+        // Check if deployer has GOVERNANCE_AWARD role (needed to mint)
+        console.log("Checking if deployer has GOVERNANCE_AWARD role...");
+        const { keccak256: keccak256Role, toBytes: toBytesRole } = await import("viem");
+        const GOVERNANCE_AWARD_ROLE = keccak256Role(toBytesRole("GOVERNANCE_AWARD"));
+        
+        let hasAwardRole;
+        try {
+          hasAwardRole = await deployPublicClient.readContract({
+            address: soulaaniCoinAddress,
+            abi: soulaaniCoinArtifact.abi,
+            functionName: "hasRole",
+            args: [GOVERNANCE_AWARD_ROLE, address],
+          });
+        } catch (error) {
+          console.log("⚠️  Could not check role, assuming false");
+          hasAwardRole = false;
+        }
+        
+        console.log("   Deployer has GOVERNANCE_AWARD role:", hasAwardRole);
+        
+        // If deployer doesn't have the role, grant it (they should have DEFAULT_ADMIN_ROLE)
+        if (!hasAwardRole) {
+          console.log("⚠️  Deployer doesn't have GOVERNANCE_AWARD role, granting it...");
+          try {
+            const grantRoleHash = await walletClient.writeContract({
+              address: soulaaniCoinAddress,
+              abi: soulaaniCoinArtifact.abi,
+              functionName: "grantRole",
+              args: [GOVERNANCE_AWARD_ROLE, address],
+              chain: selectedChain,
+            });
+            console.log("✅ Grant role tx sent:", grantRoleHash);
+            await receiptClient.waitForTransactionReceipt({ 
+              hash: grantRoleHash,
+              timeout: 180_000,
+              pollingInterval: 2_000,
+            });
+            console.log("✅ GOVERNANCE_AWARD role granted to deployer");
+          } catch (roleError: any) {
+            console.error("❌ Failed to grant role:", roleError);
+            throw new Error(`Cannot mint SC: deployer doesn't have GOVERNANCE_AWARD role and failed to grant it. Error: ${roleError.message}`);
+          }
+        }
+        
         // Check if deployer already has SC tokens
         let deployerBalance;
         try {
