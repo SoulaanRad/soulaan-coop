@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address } from 'viem';
-import { baseSepolia } from 'viem/chains';
+import { createPublicClient, http, type Address, type Chain } from 'viem';
+import { baseSepolia, base } from 'viem/chains';
 import { recoverMessageAddress } from 'viem';
 
 // Contract addresses
@@ -76,8 +76,8 @@ const safeABI = [
   }
 ] as const;
 
-// Create public client for reading blockchain
-const publicClient = createPublicClient({
+// Create default public client for reading blockchain (Base Sepolia)
+const defaultPublicClient = createPublicClient({
   chain: baseSepolia,
   transport: http(RPC_URL),
 });
@@ -89,7 +89,7 @@ export async function isTreasurySafeOwner(address: Address): Promise<boolean> {
   try {
     console.log(`🔍 Checking if ${address} is owner of Treasury Safe...`);
 
-    const isOwner = await publicClient.readContract({
+    const isOwner = await defaultPublicClient.readContract({
       address: TREASURY_SAFE_ADDRESS,
       abi: safeABI,
       functionName: 'isOwner',
@@ -132,7 +132,7 @@ export async function checkAdminStatusWithRole(address: Address): Promise<{ isAd
     console.log('\n📋 PRIORITY 2: Soulaani Coin Admin Check');
     console.log(`   Soulaani Coin Address: ${SOULAANI_COIN_ADDRESS}`);
 
-    const isDefaultAdminSoulaani = await publicClient.readContract({
+    const isDefaultAdminSoulaani = await defaultPublicClient.readContract({
       address: SOULAANI_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'hasRole',
@@ -169,7 +169,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
     }
 
     // PRIORITY 2: Check DEFAULT_ADMIN_ROLE on Soulaani Coin contract
-    const isDefaultAdminSoulaani = await publicClient.readContract({
+    const isDefaultAdminSoulaani = await defaultPublicClient.readContract({
       address: SOULAANI_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'hasRole',
@@ -182,7 +182,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
     }
 
     // PRIORITY 3: Check DEFAULT_ADMIN_ROLE on Unity Coin contract (fallback)
-    const isDefaultAdmin = await publicClient.readContract({
+    const isDefaultAdmin = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'hasRole',
@@ -195,7 +195,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
     }
 
     // Check TREASURER_MINT role
-    const isTreasurer = await publicClient.readContract({
+    const isTreasurer = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'hasRole',
@@ -208,7 +208,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
     }
 
     // Check PAUSER role
-    const isPauser = await publicClient.readContract({
+    const isPauser = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'hasRole',
@@ -237,7 +237,7 @@ export async function getAllAdmins(): Promise<Address[]> {
 
     // PRIORITY 1: Get Treasury Safe owners (most important!)
     try {
-      const safeOwners = await publicClient.readContract({
+      const safeOwners = await defaultPublicClient.readContract({
         address: TREASURY_SAFE_ADDRESS,
         abi: safeABI,
         functionName: 'getOwners',
@@ -253,7 +253,7 @@ export async function getAllAdmins(): Promise<Address[]> {
 
     // PRIORITY 2: Get DEFAULT_ADMIN members from Soulaani Coin
     try {
-      const defaultAdminCountSoulaani = await publicClient.readContract({
+      const defaultAdminCountSoulaani = await defaultPublicClient.readContract({
         address: SOULAANI_COIN_ADDRESS,
         abi: unityCoinABI,
         functionName: 'getRoleMemberCount',
@@ -261,7 +261,7 @@ export async function getAllAdmins(): Promise<Address[]> {
       });
 
       for (let i = 0; i < Number(defaultAdminCountSoulaani); i++) {
-        const member = await publicClient.readContract({
+        const member = await defaultPublicClient.readContract({
           address: SOULAANI_COIN_ADDRESS,
           abi: unityCoinABI,
           functionName: 'getRoleMember',
@@ -274,7 +274,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     }
 
     // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (fallback)
-    const defaultAdminCount = await publicClient.readContract({
+    const defaultAdminCount = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'getRoleMemberCount',
@@ -282,7 +282,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     });
 
     for (let i = 0; i < Number(defaultAdminCount); i++) {
-      const member = await publicClient.readContract({
+      const member = await defaultPublicClient.readContract({
         address: UNITY_COIN_ADDRESS,
         abi: unityCoinABI,
         functionName: 'getRoleMember',
@@ -292,7 +292,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     }
 
     // Get TREASURER_MINT members
-    const treasurerCount = await publicClient.readContract({
+    const treasurerCount = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'getRoleMemberCount',
@@ -300,7 +300,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     });
 
     for (let i = 0; i < Number(treasurerCount); i++) {
-      const member = await publicClient.readContract({
+      const member = await defaultPublicClient.readContract({
         address: UNITY_COIN_ADDRESS,
         abi: unityCoinABI,
         functionName: 'getRoleMember',
@@ -310,7 +310,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     }
 
     // Get PAUSER members
-    const pauserCount = await publicClient.readContract({
+    const pauserCount = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
       functionName: 'getRoleMemberCount',
@@ -318,7 +318,7 @@ export async function getAllAdmins(): Promise<Address[]> {
     });
 
     for (let i = 0; i < Number(pauserCount); i++) {
-      const member = await publicClient.readContract({
+      const member = await defaultPublicClient.readContract({
         address: UNITY_COIN_ADDRESS,
         abi: unityCoinABI,
         functionName: 'getRoleMember',
@@ -421,10 +421,39 @@ export async function checkPortalAccess(address: Address, coopId: string = 'soul
 
     const scTokenAddress = coopConfig.scTokenAddress as Address;
     console.log(`   Soulaani Coin Address (from CoopConfig): ${scTokenAddress}`);
+    console.log(`   Chain ID: ${coopConfig.chainId}`);
+    console.log(`   RPC URL: ${coopConfig.rpcUrl || 'default'}`);
+
+    // Create a dynamic client for the coop's network based on chainId
+    const getCoopPublicClient = () => {
+      if (!coopConfig.chainId || coopConfig.chainId === baseSepolia.id) {
+        return defaultPublicClient;
+      }
+      
+      if (coopConfig.chainId === 8453) {
+        // Base Mainnet
+        const rpcUrl = coopConfig.rpcUrl || base.rpcUrls.default.http[0];
+        console.log(`   Creating dynamic client for Base Mainnet (8453)`);
+        return createPublicClient({
+          chain: base,
+          transport: http(rpcUrl),
+        });
+      }
+      
+      // Default to Base Sepolia for unknown chains
+      const rpcUrl = coopConfig.rpcUrl || baseSepolia.rpcUrls.default.http[0];
+      console.log(`   Creating dynamic client for chain ${coopConfig.chainId}`);
+      return createPublicClient({
+        chain: baseSepolia,
+        transport: http(rpcUrl),
+      });
+    };
+    
+    const coopPublicClient = getCoopPublicClient();
 
     try {
-      // Read balance from contract
-      const balance = await publicClient.readContract({
+      // Read balance from contract using the coop-specific client
+      const balance = await coopPublicClient.readContract({
         address: scTokenAddress,
         abi: unityCoinABI,
         functionName: 'balanceOf',
@@ -432,7 +461,7 @@ export async function checkPortalAccess(address: Address, coopId: string = 'soul
       });
 
       // Check if user is an active member
-      const isActive = await publicClient.readContract({
+      const isActive = await coopPublicClient.readContract({
         address: scTokenAddress,
         abi: unityCoinABI,
         functionName: 'isActiveMember',

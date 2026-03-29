@@ -1,7 +1,16 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { verifySignature, createSession, checkSoulaaniCoinBalance } from '@/lib/signature-verification';
+import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+
+// Initialize Prisma client
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const db = globalForPrisma.prisma ?? new PrismaClient();
+if (typeof window === 'undefined' && !globalForPrisma.prisma) globalForPrisma.prisma = db;
 
 // Schema for request validation
 const requestSchema = z.object({
@@ -44,8 +53,18 @@ export async function POST(request: NextRequest) {
     const hasSoulaaniCoin = await checkSoulaaniCoinBalance(address, coopId);
     
     if (!hasSoulaaniCoin) {
+      // Get the coin name from coopConfig for a better error message
+      const targetCoopId = coopId || 'soulaan';
+      const coopConfig = await db.coopConfig.findFirst({
+        where: { coopId: targetCoopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: { scTokenName: true },
+      });
+      
+      const coinName = coopConfig?.scTokenName || 'SoulaaniCoin';
+      
       return NextResponse.json(
-        { error: 'Wallet does not have SoulaaniCoin or is not an active member' },
+        { error: `Wallet does not have ${coinName} or is not an active member` },
         { status: 403 }
       );
     }
