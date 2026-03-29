@@ -187,7 +187,8 @@ export default function InitializePage() {
       steps.push({ id: "roles", name: "Grant Roles", description: "Set up permissions", status: "pending" });
     }
 
-    // Always add database save step
+    // Always add member initialization and database save steps
+    steps.push({ id: "init-member", name: "Initialize Admin", description: "Register deployer as member & mint initial SC", status: "pending" });
     steps.push({ id: "save-db", name: "Save to Database", description: "Register co-op in system", status: "pending" });
 
     return steps;
@@ -531,6 +532,86 @@ export default function InitializePage() {
         }
 
         updateStepStatus("roles", "completed");
+      }
+
+      // Step 9: Initialize Deployer as Member with SC tokens
+      try {
+        console.log("📝 Step 9: Registering deployer as member and minting initial SC...");
+        updateStepStatus("init-member", "deploying");
+        
+        // Wait for contract to be indexed
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Check if deployer is already a member
+        let deployerStatus;
+        try {
+          deployerStatus = await deployPublicClient.readContract({
+            address: soulaaniCoinAddress,
+            abi: soulaaniCoinArtifact.abi,
+            functionName: "memberStatus",
+            args: [address],
+          });
+        } catch (error) {
+          console.log("⚠️  Could not read member status, assuming NotMember");
+          deployerStatus = 0n;
+        }
+        
+        // Add deployer as an active member if not already
+        if (deployerStatus === 0n) {
+          const addMemberHash = await walletClient.writeContract({
+            address: soulaaniCoinAddress,
+            abi: soulaaniCoinArtifact.abi,
+            functionName: "addMember",
+            args: [address],
+            chain: selectedChain,
+          });
+          console.log("✅ Add member tx sent:", addMemberHash);
+          await deployPublicClient.waitForTransactionReceipt({ hash: addMemberHash });
+          console.log("✅ Deployer registered as active member");
+        } else {
+          console.log("✅ Deployer already a member");
+        }
+        
+        // Check if deployer already has SC tokens
+        let deployerBalance;
+        try {
+          deployerBalance = await deployPublicClient.readContract({
+            address: soulaaniCoinAddress,
+            abi: soulaaniCoinArtifact.abi,
+            functionName: "balanceOf",
+            args: [address],
+          });
+        } catch (error) {
+          console.log("⚠️  Could not read balance, assuming 0");
+          deployerBalance = 0n;
+        }
+        
+        // Mint initial SC tokens to deployer if they don't have any
+        // 100,000 SC initial reserve to seed the total supply
+        // This ensures the 2% hard cap = ~2,000 SC and rewards are whole numbers
+        if (deployerBalance === 0n) {
+          const seedAmount = BigInt(100000) * BigInt(10 ** 18); // 100,000 SC tokens
+          const reason = "0x" + Buffer.from("INITIAL_RESERVE_SEED").toString("hex").padEnd(64, "0");
+          
+          const mintHash = await walletClient.writeContract({
+            address: soulaaniCoinAddress,
+            abi: soulaaniCoinArtifact.abi,
+            functionName: "mintReward",
+            args: [address, seedAmount, reason],
+            chain: selectedChain,
+          });
+          console.log("✅ Mint reward tx sent:", mintHash);
+          await deployPublicClient.waitForTransactionReceipt({ hash: mintHash });
+          console.log("✅ 100,000 SC initial reserve minted to deployer");
+        } else {
+          console.log(`✅ Deployer already has ${Number(deployerBalance) / 10 ** 18} SC`);
+        }
+        
+        updateStepStatus("init-member", "completed");
+      } catch (memberError: any) {
+        console.error("❌ Member initialization failed:", memberError);
+        updateStepStatus("init-member", "failed", { error: memberError.message || "Member initialization failed" });
+        throw new Error(`Member initialization failed: ${memberError.message || memberError.toString()}`);
       }
 
       // Save co-op configuration to database
