@@ -558,6 +558,7 @@ export default function InitializePage() {
         
         // Add deployer as an active member if not already
         if (deployerStatus === 0n) {
+          console.log("Adding deployer as member...");
           const addMemberHash = await walletClient.writeContract({
             address: soulaaniCoinAddress,
             abi: soulaaniCoinArtifact.abi,
@@ -566,10 +567,17 @@ export default function InitializePage() {
             chain: selectedChain,
           });
           console.log("✅ Add member tx sent:", addMemberHash);
-          await deployPublicClient.waitForTransactionReceipt({ hash: addMemberHash });
+          
+          const addMemberReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: addMemberHash });
+          console.log("✅ Add member receipt:", addMemberReceipt);
+          
+          if (addMemberReceipt.status === "reverted") {
+            throw new Error("addMember transaction reverted");
+          }
+          
           console.log("✅ Deployer registered as active member");
         } else {
-          console.log("✅ Deployer already a member");
+          console.log("✅ Deployer already a member (status:", deployerStatus, ")");
         }
         
         // Check if deployer already has SC tokens
@@ -590,18 +598,37 @@ export default function InitializePage() {
         // 100,000 SC initial reserve to seed the total supply
         // This ensures the 2% hard cap = ~2,000 SC and rewards are whole numbers
         if (deployerBalance === 0n) {
+          console.log("Minting 100,000 SC initial reserve to deployer...");
           const seedAmount = BigInt(100000) * BigInt(10 ** 18); // 100,000 SC tokens
-          const reason = "0x" + Buffer.from("INITIAL_RESERVE_SEED").toString("hex").padEnd(64, "0");
+          
+          // Use keccak256 hash of the reason string (matching deployment script)
+          const { keccak256, toBytes } = await import("viem");
+          const reasonBytes32 = keccak256(toBytes("INITIAL_RESERVE_SEED"));
+          
+          console.log("Mint params:", {
+            recipient: address,
+            amount: seedAmount.toString(),
+            reason: reasonBytes32,
+          });
           
           const mintHash = await walletClient.writeContract({
             address: soulaaniCoinAddress,
             abi: soulaaniCoinArtifact.abi,
             functionName: "mintReward",
-            args: [address, seedAmount, reason],
+            args: [address, seedAmount, reasonBytes32],
             chain: selectedChain,
           });
           console.log("✅ Mint reward tx sent:", mintHash);
-          await deployPublicClient.waitForTransactionReceipt({ hash: mintHash });
+          
+          const mintReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: mintHash });
+          console.log("✅ Mint receipt:", mintReceipt);
+          console.log("   Status:", mintReceipt.status);
+          console.log("   Gas used:", mintReceipt.gasUsed.toString());
+          
+          if (mintReceipt.status === "reverted") {
+            throw new Error("mintReward transaction reverted - check if you have the GOVERNANCE_AWARD role");
+          }
+          
           console.log("✅ 100,000 SC initial reserve minted to deployer");
         } else {
           console.log(`✅ Deployer already has ${Number(deployerBalance) / 10 ** 18} SC`);
