@@ -7,6 +7,7 @@ import os from "os";
 import { fileURLToPath } from "url";
 import { resolve } from "path";
 import { env } from "./env.js";
+import { startHealthMonitoring } from "./health-monitor.js";
 
 const app: Application = express();
 
@@ -174,6 +175,20 @@ async function testDatabaseConnection() {
   } catch (error) {
     console.error('❌ Database connection failed:', error);
     console.error('⚠️  Server will start but may not function correctly\n');
+    
+    // Send Slack notification about database connection failure
+    try {
+      const { sendApiHealthNotification } = await import("@repo/trpc/services/slack-notification-service");
+      await sendApiHealthNotification({
+        status: "down",
+        service: "database",
+        error: error instanceof Error ? error.message : "Unknown error",
+        environment: process.env.NODE_ENV || "unknown",
+      });
+    } catch (slackError) {
+      console.error('Failed to send Slack notification:', slackError);
+    }
+    
     return false;
   }
 }
@@ -199,7 +214,32 @@ const server = app.listen(port, async () => {
   console.log(`   API_BASE_URL: 'http://${localIp}:${port}'\n`);
   
   // Test database connection after server starts
-  await testDatabaseConnection();
+  const dbConnected = await testDatabaseConnection();
+  
+  // Send startup notification to Slack
+  try {
+    const { sendApiStartupNotification, sendApiHealthNotification } = await import("@repo/trpc/services/slack-notification-service");
+    
+    await sendApiStartupNotification({
+      service: "api",
+      port: port,
+      environment: process.env.NODE_ENV || "development",
+    });
+    
+    if (dbConnected) {
+      await sendApiHealthNotification({
+        status: "up",
+        service: "api",
+        uptime: 0,
+        environment: process.env.NODE_ENV || "development",
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send startup notification:', error);
+  }
+  
+  // Start health monitoring (check every 60 seconds)
+  startHealthMonitoring(60000);
 });
 
 // Graceful shutdown handling
@@ -234,18 +274,43 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught errors
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', async (error) => {
   console.error('\n💥 UNCAUGHT EXCEPTION:');
   console.error(error);
   console.error('\n');
+  
+  // Send Slack notification
+  try {
+    const { sendApiErrorNotification } = await import("@repo/trpc/services/slack-notification-service");
+    await sendApiErrorNotification({
+      service: "api",
+      error: error.message,
+      stack: error.stack,
+    });
+  } catch (slackError) {
+    console.error('Failed to send error notification:', slackError);
+  }
+  
   gracefulShutdown('uncaughtException');
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', async (reason, promise) => {
   console.error('\n💥 UNHANDLED REJECTION:');
   console.error('Promise:', promise);
   console.error('Reason:', reason);
   console.error('\n');
+  
+  // Send Slack notification
+  try {
+    const { sendApiErrorNotification } = await import("@repo/trpc/services/slack-notification-service");
+    await sendApiErrorNotification({
+      service: "api",
+      error: reason instanceof Error ? reason.message : String(reason),
+      stack: reason instanceof Error ? reason.stack : undefined,
+    });
+  } catch (slackError) {
+    console.error('Failed to send error notification:', slackError);
+  }
 });
 
 export default app;
