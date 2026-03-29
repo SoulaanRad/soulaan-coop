@@ -471,7 +471,7 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 When modifying the database schema:
 
 1. **Edit the Prisma schema file** (`packages/db/prisma/schema.prisma`)
-2. **Create a migration** using `pnpm --filter @soulaan/db prisma migrate dev --name descriptive_migration_name`
+2. **Create a migration** using `pnpm --filter @repo/db prisma migrate dev --name descriptive_migration_name`
 3. **Review the generated SQL** in `packages/db/prisma/migrations/` to ensure it's correct
 4. **Test the migration** in development before deploying
 5. **Document breaking changes** in the migration file or commit message
@@ -497,7 +497,7 @@ When modifying the database schema:
 
 **If you need to make schema changes, the workflow is:**
 1. Edit `schema.prisma`
-2. Run `pnpm --filter @soulaan/db prisma migrate dev --name <name>`
+2. Run `pnpm --filter @repo/db prisma migrate dev --name <name>`
 3. Review generated SQL
 4. Test the migration
 5. Commit both the schema and migration files

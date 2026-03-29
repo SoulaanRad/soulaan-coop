@@ -96,7 +96,7 @@ app.use((req, res, next) => {
 app.get("/health", async (req, res) => {
   try {
     // Dynamically import db to avoid circular dependency issues
-    const { db } = await import("@soulaan/db");
+    const { db } = await import("@repo/db");
     
     // Check database connectivity
     await db.$queryRaw`SELECT 1`;
@@ -167,7 +167,7 @@ function getLocalIpAddress() {
 async function testDatabaseConnection() {
   try {
     console.log('🔍 Testing database connection...');
-    const { db } = await import("@soulaan/db");
+    const { db } = await import("@repo/db");
     await db.$queryRaw`SELECT 1`;
     console.log('✅ Database connection successful\n');
     return true;
@@ -211,7 +211,7 @@ const gracefulShutdown = async (signal: string) => {
     
     try {
       // Close database connections
-      const { db } = await import("@soulaan/db");
+      const { db } = await import("@repo/db");
       await db.$disconnect();
       console.log('✅ Database connections closed');
     } catch (error) {
