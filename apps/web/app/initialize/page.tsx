@@ -19,6 +19,7 @@ import { DeploymentStep, ContractCard } from "@/components/deployment-status";
 import { CoopConfigPreview } from "@/components/config-preview";
 import { Checkbox } from "@/components/ui/checkbox";
 import { api } from "@/lib/trpc/client";
+import { env } from "~/env";
 
 interface DeploymentStepType {
   id: string;
@@ -63,7 +64,7 @@ export default function InitializePage() {
   // Check API connection on mount
   useEffect(() => {
     async function checkApiConnection() {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const apiUrl = env.NEXT_PUBLIC_API_URL;
       
       if (!apiUrl) {
         setApiConnected(false);
@@ -550,7 +551,7 @@ export default function InitializePage() {
 
         await createCoopConfig.mutateAsync({
           coopId,
-          walletAddress: address!,
+          walletAddress: address,
           reason: "Initial deployment via web UI",
           name: coopName,
           slug: coopId,
