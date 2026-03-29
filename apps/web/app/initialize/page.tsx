@@ -286,13 +286,17 @@ export default function InitializePage() {
     try {
       const selectedChain = network === "baseSepolia" ? baseSepolia : base;
       
-      // Create custom public client if custom RPC URL is provided
+      // Create custom public client if custom RPC URL is provided for deployment
+      // Note: For transaction receipts, we'll use the default publicClient to avoid RPC sync issues
       const deployPublicClient = customRpcUrl && network === "base"
         ? createPublicClient({
             chain: base,
             transport: http(customRpcUrl),
           })
         : publicClient;
+      
+      // Always use a reliable public RPC for waiting for receipts (avoid custom RPC sync issues)
+      const receiptClient = publicClient;
       
       if (!deployPublicClient) {
         alert("Public client not available. Please refresh and try again.");
@@ -537,6 +541,18 @@ export default function InitializePage() {
       // Step 9: Initialize Deployer as Member with SC tokens
       try {
         console.log("📝 Step 9: Registering deployer as member and minting initial SC...");
+        console.log("   Network:", selectedChain.name, "Chain ID:", selectedChain.id);
+        console.log("   SC Address:", soulaaniCoinAddress);
+        console.log("   Deployer Address:", address);
+        
+        // Verify wallet is on correct network
+        const walletChainId = await walletClient.getChainId();
+        console.log("   Wallet Chain ID:", walletChainId);
+        
+        if (walletChainId !== selectedChain.id) {
+          throw new Error(`Wallet is on wrong network! Expected ${selectedChain.id}, got ${walletChainId}. Please switch networks in your wallet.`);
+        }
+        
         updateStepStatus("init-member", "deploying");
         
         // Wait for contract to be indexed
@@ -567,8 +583,13 @@ export default function InitializePage() {
             chain: selectedChain,
           });
           console.log("✅ Add member tx sent:", addMemberHash);
+          console.log(`   View on BaseScan: https://basescan.org/tx/${addMemberHash}`);
           
-          const addMemberReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: addMemberHash });
+          const addMemberReceipt = await receiptClient.waitForTransactionReceipt({ 
+            hash: addMemberHash,
+            timeout: 180_000,
+            pollingInterval: 2_000,
+          });
           console.log("✅ Add member receipt:", addMemberReceipt);
           
           if (addMemberReceipt.status === "reverted") {
@@ -609,27 +630,77 @@ export default function InitializePage() {
             recipient: address,
             amount: seedAmount.toString(),
             reason: reasonBytes32,
+            scAddress: soulaaniCoinAddress,
           });
           
-          const mintHash = await walletClient.writeContract({
-            address: soulaaniCoinAddress,
-            abi: soulaaniCoinArtifact.abi,
-            functionName: "mintReward",
-            args: [address, seedAmount, reasonBytes32],
-            chain: selectedChain,
-          });
-          console.log("✅ Mint reward tx sent:", mintHash);
-          
-          const mintReceipt = await deployPublicClient.waitForTransactionReceipt({ hash: mintHash });
-          console.log("✅ Mint receipt:", mintReceipt);
-          console.log("   Status:", mintReceipt.status);
-          console.log("   Gas used:", mintReceipt.gasUsed.toString());
-          
-          if (mintReceipt.status === "reverted") {
-            throw new Error("mintReward transaction reverted - check if you have the GOVERNANCE_AWARD role");
+          try {
+            const mintHash = await walletClient.writeContract({
+              address: soulaaniCoinAddress,
+              abi: soulaaniCoinArtifact.abi,
+              functionName: "mintReward",
+              args: [address, seedAmount, reasonBytes32],
+              chain: selectedChain,
+            });
+            console.log("✅ Mint reward tx sent:", mintHash);
+            console.log(`   View on BaseScan: https://basescan.org/tx/${mintHash}`);
+            
+            // Check if transaction exists on the network immediately
+            try {
+              const txCheck = await receiptClient.getTransaction({ hash: mintHash });
+              console.log("   Transaction found on network:", txCheck ? "YES" : "NO");
+              if (txCheck) {
+                console.log("   From:", txCheck.from);
+                console.log("   To:", txCheck.to);
+                console.log("   Nonce:", txCheck.nonce);
+              }
+            } catch (txCheckError) {
+              console.log("   ⚠️  Could not verify transaction on network yet");
+            }
+            
+            console.log("   Waiting for confirmation (this may take 30-60 seconds)...");
+            
+            try {
+              // Use receiptClient (default public RPC) to avoid custom RPC sync issues
+              const mintReceipt = await receiptClient.waitForTransactionReceipt({ 
+                hash: mintHash,
+                timeout: 180_000, // 3 minute timeout for mainnet
+                pollingInterval: 2_000, // Check every 2 seconds
+              });
+              console.log("✅ Mint receipt received:", mintReceipt);
+              console.log("   Status:", mintReceipt.status);
+              console.log("   Block:", mintReceipt.blockNumber);
+              console.log("   Gas used:", mintReceipt.gasUsed.toString());
+              
+              if (mintReceipt.status === "reverted") {
+                throw new Error("mintReward transaction reverted - check if you have the GOVERNANCE_AWARD role");
+              }
+              
+              console.log("✅ 100,000 SC initial reserve minted to deployer");
+            } catch (receiptError: any) {
+              console.error("❌ Error waiting for mint receipt:", receiptError);
+              
+              // If timeout, the transaction might still be pending
+              if (receiptError.message?.includes("timeout") || receiptError.message?.includes("Timed out")) {
+                console.log("⚠️  Transaction timed out waiting for confirmation");
+                console.log("   The transaction may still be processing on the network");
+                console.log(`   Check status at: https://basescan.org/tx/${mintHash}`);
+                
+                // Don't fail the deployment - just warn the user
+                alert(`⚠️ Mint transaction is taking longer than expected.\n\nTransaction: ${mintHash}\n\nPlease check BaseScan to verify if it completed. If it succeeded, you can continue. If it failed, you may need to manually mint SC tokens to your address.`);
+                
+                // Mark as completed anyway so deployment can continue
+                console.log("⚠️  Continuing deployment despite timeout - verify transaction manually");
+              } else {
+                throw receiptError;
+              }
+            }
+          } catch (mintError: any) {
+            console.error("❌ Mint transaction error:", mintError);
+            console.error("   Error message:", mintError.message);
+            console.error("   Error code:", mintError.code);
+            console.error("   Error details:", mintError);
+            throw new Error(`Failed to mint initial SC: ${mintError.message || mintError.toString()}`);
           }
-          
-          console.log("✅ 100,000 SC initial reserve minted to deployer");
         } else {
           console.log(`✅ Deployer already has ${Number(deployerBalance) / 10 ** 18} SC`);
         }
