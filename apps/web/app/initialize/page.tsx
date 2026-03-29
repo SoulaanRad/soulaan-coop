@@ -63,8 +63,19 @@ export default function InitializePage() {
   // Check API connection on mount
   useEffect(() => {
     async function checkApiConnection() {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
+      if (!apiUrl) {
+        setApiConnected(false);
+        setApiError("NEXT_PUBLIC_API_URL not configured");
+        console.error("❌ NEXT_PUBLIC_API_URL environment variable not set");
+        return;
+      }
+
       try {
-        const response = await fetch("/api/trpc/health.ping");
+        console.log("🔍 Checking API connection to:", apiUrl);
+        const response = await fetch(`${apiUrl}/health.ping`);
+        
         if (response.ok) {
           const data = await response.json();
           if (data?.result?.data?.status === "ok") {
@@ -73,10 +84,12 @@ export default function InitializePage() {
           } else {
             setApiConnected(false);
             setApiError("Invalid API response");
+            console.error("❌ Invalid API response:", data);
           }
         } else {
           setApiConnected(false);
           setApiError(`API returned status ${response.status}`);
+          console.error(`❌ API returned status ${response.status}`);
         }
       } catch (error) {
         setApiConnected(false);
