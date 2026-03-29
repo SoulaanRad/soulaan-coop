@@ -585,14 +585,14 @@ export default function InitializePage() {
           console.log("✅ Add member tx sent:", addMemberHash);
           console.log(`   View on BaseScan: https://basescan.org/tx/${addMemberHash}`);
           
-          const addMemberReceipt = await receiptClient.waitForTransactionReceipt({ 
+          const addMemberReceipt = await receiptClient?.waitForTransactionReceipt({ 
             hash: addMemberHash,
             timeout: 180_000,
             pollingInterval: 2_000,
           });
           console.log("✅ Add member receipt:", addMemberReceipt);
           
-          if (addMemberReceipt.status === "reverted") {
+          if (addMemberReceipt?.status === "reverted") {
             throw new Error("addMember transaction reverted");
           }
           
@@ -646,7 +646,7 @@ export default function InitializePage() {
             
             // Check if transaction exists on the network immediately
             try {
-              const txCheck = await receiptClient.getTransaction({ hash: mintHash });
+              const txCheck = await receiptClient?.getTransaction({ hash: mintHash });
               console.log("   Transaction found on network:", txCheck ? "YES" : "NO");
               if (txCheck) {
                 console.log("   From:", txCheck.from);
@@ -661,17 +661,17 @@ export default function InitializePage() {
             
             try {
               // Use receiptClient (default public RPC) to avoid custom RPC sync issues
-              const mintReceipt = await receiptClient.waitForTransactionReceipt({ 
+              const mintReceipt = await receiptClient?.waitForTransactionReceipt({ 
                 hash: mintHash,
                 timeout: 180_000, // 3 minute timeout for mainnet
                 pollingInterval: 2_000, // Check every 2 seconds
               });
               console.log("✅ Mint receipt received:", mintReceipt);
-              console.log("   Status:", mintReceipt.status);
-              console.log("   Block:", mintReceipt.blockNumber);
-              console.log("   Gas used:", mintReceipt.gasUsed.toString());
+              console.log("   Status:", mintReceipt?.status);
+              console.log("   Block:", mintReceipt?.blockNumber);
+              console.log("   Gas used:", mintReceipt?.gasUsed.toString());
               
-              if (mintReceipt.status === "reverted") {
+              if (mintReceipt?.status === "reverted") {
                 throw new Error("mintReward transaction reverted - check if you have the GOVERNANCE_AWARD role");
               }
               
