@@ -92,12 +92,30 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({ 
-    status: "OK",
-    timestamp: new Date().toISOString(),
-  });
+// Health check endpoint with database connectivity check
+app.get("/health", async (req, res) => {
+  try {
+    // Dynamically import db to avoid circular dependency issues
+    const { db } = await import("@soulaan/db");
+    
+    // Check database connectivity
+    await db.$queryRaw`SELECT 1`;
+    
+    res.json({ 
+      status: "OK",
+      timestamp: new Date().toISOString(),
+      database: "connected",
+      uptime: process.uptime(),
+    });
+  } catch (error) {
+    console.error("❌ Health check failed:", error);
+    res.status(503).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      database: "disconnected",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 });
 
 // Webhook endpoints (PayPal and Square use JSON body)
@@ -145,7 +163,23 @@ function getLocalIpAddress() {
   return 'localhost';
 }
 
-app.listen(port, () => {
+// Test database connection before starting server
+async function testDatabaseConnection() {
+  try {
+    console.log('🔍 Testing database connection...');
+    const { db } = await import("@soulaan/db");
+    await db.$queryRaw`SELECT 1`;
+    console.log('✅ Database connection successful\n');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    console.error('⚠️  Server will start but may not function correctly\n');
+    return false;
+  }
+}
+
+// Start server with database check
+const server = app.listen(port, async () => {
   const localIp = getLocalIpAddress();
   console.log('\n🚀 API Server is running!');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -163,6 +197,55 @@ app.listen(port, () => {
 
   console.log('\n💡 For mobile testing, update your mobile app config to:');
   console.log(`   API_BASE_URL: 'http://${localIp}:${port}'\n`);
+  
+  // Test database connection after server starts
+  await testDatabaseConnection();
+});
+
+// Graceful shutdown handling
+const gracefulShutdown = async (signal: string) => {
+  console.log(`\n⚠️  Received ${signal}, starting graceful shutdown...`);
+  
+  server.close(async () => {
+    console.log('✅ HTTP server closed');
+    
+    try {
+      // Close database connections
+      const { db } = await import("@soulaan/db");
+      await db.$disconnect();
+      console.log('✅ Database connections closed');
+    } catch (error) {
+      console.error('❌ Error closing database:', error);
+    }
+    
+    console.log('👋 Shutdown complete');
+    process.exit(0);
+  });
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error('⚠️  Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('\n💥 UNCAUGHT EXCEPTION:');
+  console.error(error);
+  console.error('\n');
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\n💥 UNHANDLED REJECTION:');
+  console.error('Promise:', promise);
+  console.error('Reason:', reason);
+  console.error('\n');
 });
 
 export default app;
