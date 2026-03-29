@@ -37,14 +37,23 @@ app.use((req, res, next) => {
   express.urlencoded({ extended: true })(req, res, next);
 });
 
-// Enable CORS for all routes - allow mobile app origins
+// Enable CORS for all routes - allow web app, mobile app, and production origins
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",      // Web app
+      // Local development
+      "http://localhost:3000",      // Web app (alternative port)
+      "http://localhost:3001",      // Web app (main port)
       "http://localhost:8081",      // Expo dev server
       "http://localhost:19000",     // Alternative Expo port
       "http://localhost:19006",     // Expo web
+      
+      // Production domains (update with your actual Railway/production URLs)
+      "https://soulaan-api-production.up.railway.app",
+      "https://www.soulaan.com",
+      "https://cahootzcoop.com",
+      "https://cahootzcoops.com",
+
     ],
     credentials: true,
   }),
