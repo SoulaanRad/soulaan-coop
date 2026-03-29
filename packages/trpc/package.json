@@ -92,6 +92,11 @@
       "import": "./dist/services/stripe-connect-service.js",
       "require": "./dist/services/stripe-connect-service.js",
       "types": "./dist/services/stripe-connect-service.d.ts"
+    },
+    "./services/slack-notification-service": {
+      "import": "./dist/services/slack-notification-service.js",
+      "require": "./dist/services/slack-notification-service.js",
+      "types": "./dist/services/slack-notification-service.d.ts"
     }
   },
   "keywords": [],

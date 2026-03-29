@@ -50,11 +50,43 @@ export default function InitializePage() {
   // tRPC mutation for saving co-op config (includes chain config)
   const createCoopConfig = api.coopConfig.create.useMutation();
 
+  // API connection check
+  const [apiConnected, setApiConnected] = useState<boolean | null>(null);
+  const [apiError, setApiError] = useState<string>("");
+
   const [currentPhase, setCurrentPhase] = useState<"config" | "deploy" | "complete">("config");
   const [network, setNetwork] = useState<"baseSepolia" | "base">("baseSepolia");
   const [isWrongNetwork, setIsWrongNetwork] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   const [customRpcUrl, setCustomRpcUrl] = useState("");
+
+  // Check API connection on mount
+  useEffect(() => {
+    async function checkApiConnection() {
+      try {
+        const response = await fetch("/api/trpc/health.ping");
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.result?.data?.status === "ok") {
+            setApiConnected(true);
+            console.log("✅ API connection successful");
+          } else {
+            setApiConnected(false);
+            setApiError("Invalid API response");
+          }
+        } else {
+          setApiConnected(false);
+          setApiError(`API returned status ${response.status}`);
+        }
+      } catch (error) {
+        setApiConnected(false);
+        setApiError(error instanceof Error ? error.message : "Connection failed");
+        console.error("❌ API connection failed:", error);
+      }
+    }
+
+    checkApiConnection();
+  }, []);
 
   // Load saved RPC URL from localStorage on mount
   useEffect(() => {
@@ -679,6 +711,28 @@ SCREENING_PASS_THRESHOLD="${coopConfig.screeningPassThreshold}"
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       <div className="container mx-auto px-4 py-12 max-w-5xl">
+        {/* API Connection Status */}
+        {apiConnected === false && (
+          <Alert className="mb-6 border-red-500 bg-red-50 dark:bg-red-950">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertTitle className="text-red-900 dark:text-red-100">API Connection Failed</AlertTitle>
+            <AlertDescription className="text-red-800 dark:text-red-200">
+              Cannot connect to the backend API. Please ensure the API server is running.
+              {apiError && <div className="mt-1 text-xs font-mono">{apiError}</div>}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {apiConnected === true && (
+          <Alert className="mb-6 border-green-500 bg-green-50 dark:bg-green-950">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-900 dark:text-green-100">API Connected</AlertTitle>
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              Successfully connected to backend services.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Initialize Your Co-op
