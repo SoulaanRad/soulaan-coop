@@ -569,11 +569,12 @@ export default function InitializePage() {
           });
         } catch (error) {
           console.log("⚠️  Could not read member status, assuming NotMember");
-          deployerStatus = 0n;
+          deployerStatus = 0; // NotMember = 0
         }
         
         // Add deployer as an active member if not already
-        if (deployerStatus === 0n) {
+        // Use Number() comparison since viem returns uint8 enum as a number, not BigInt
+        if (Number(deployerStatus) === 0) {
           console.log("Adding deployer as member...");
           const addMemberHash = await walletClient.writeContract({
             address: soulaaniCoinAddress,
@@ -633,7 +634,7 @@ export default function InitializePage() {
               chain: selectedChain,
             });
             console.log("✅ Grant role tx sent:", grantRoleHash);
-            await receiptClient.waitForTransactionReceipt({ 
+            await receiptClient?.waitForTransactionReceipt({ 
               hash: grantRoleHash,
               timeout: 180_000,
               pollingInterval: 2_000,
@@ -662,7 +663,8 @@ export default function InitializePage() {
         // Mint initial SC tokens to deployer if they don't have any
         // 100,000 SC initial reserve to seed the total supply
         // This ensures the 2% hard cap = ~2,000 SC and rewards are whole numbers
-        if (deployerBalance === 0n) {
+        // uint256 IS returned as BigInt by viem, but use == for safety
+        if (deployerBalance == 0n) {
           console.log("Minting 100,000 SC initial reserve to deployer...");
           const seedAmount = BigInt(100000) * BigInt(10 ** 18); // 100,000 SC tokens
           
