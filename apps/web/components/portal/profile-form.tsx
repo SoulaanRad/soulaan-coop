@@ -60,7 +60,14 @@ export default function ProfileForm({ coopId }: ProfileFormProps) {
 
     try {
       // Submit profile data
-      const targetCoopId = coopId || 'soulaan';
+      const targetCoopId = coopId;
+
+      if (!targetCoopId) {
+        setError('No co-op ID found. Please return to the login page and try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
       const response = await fetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +84,6 @@ export default function ProfileForm({ coopId }: ProfileFormProps) {
       }
 
       // Redirect to portal
-      const targetCoopId = coopId || 'soulaan';
       router.push(`/portal/${targetCoopId}`);
       router.refresh();
     } catch (err: any) {

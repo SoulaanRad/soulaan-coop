@@ -286,25 +286,26 @@ export default function InitializePage() {
     try {
       const selectedChain = network === "baseSepolia" ? baseSepolia : base;
       
-      // Create custom public client if custom RPC URL is provided for deployment
-      // Note: For transaction receipts, we'll use the default publicClient to avoid RPC sync issues
-      const deployPublicClient = customRpcUrl && network === "base"
-        ? createPublicClient({
-            chain: base,
-            transport: http(customRpcUrl),
-          })
-        : publicClient;
+      // Always create an explicit public client so receipt polling is never undefined.
+      // If the user supplied a custom RPC (e.g. Alchemy/QuickNode), use it for both
+      // deployment reads AND receipt polling — it's more reliable than wagmi's default
+      // publicClient which can be undefined when the wallet is on a different network.
+      const rpcUrl =
+        customRpcUrl ||
+        (network === "base"
+          ? base.rpcUrls.default.http[0]
+          : baseSepolia.rpcUrls.default.http[0]);
+
+      const deployPublicClient = createPublicClient({
+        chain: selectedChain,
+        transport: http(rpcUrl),
+      });
+
+      // Use the same reliable RPC for receipt polling (avoids the optional-chaining
+      // silent-skip bug where wagmi's publicClient could be undefined)
+      const receiptClient = deployPublicClient;
       
-      // Always use a reliable public RPC for waiting for receipts (avoid custom RPC sync issues)
-      const receiptClient = publicClient;
-      
-      if (!deployPublicClient) {
-        alert("Public client not available. Please refresh and try again.");
-        return;
-      }
-      
-      const rpcUrlUsed = customRpcUrl || (network === "baseSepolia" ? "https://sepolia.base.org" : "public RPC");
-      console.log("Using RPC:", rpcUrlUsed);
+      console.log("Using RPC:", rpcUrl);
       console.log("Network:", selectedChain.name, "Chain ID:", selectedChain.id);
       
       // Import required contract artifacts
@@ -586,7 +587,7 @@ export default function InitializePage() {
           console.log("✅ Add member tx sent:", addMemberHash);
           console.log(`   View on BaseScan: https://basescan.org/tx/${addMemberHash}`);
           
-          const addMemberReceipt = await receiptClient?.waitForTransactionReceipt({ 
+          const addMemberReceipt = await receiptClient.waitForTransactionReceipt({ 
             hash: addMemberHash,
             timeout: 180_000,
             pollingInterval: 2_000,
@@ -634,7 +635,7 @@ export default function InitializePage() {
               chain: selectedChain,
             });
             console.log("✅ Grant role tx sent:", grantRoleHash);
-            await receiptClient?.waitForTransactionReceipt({ 
+            await receiptClient.waitForTransactionReceipt({ 
               hash: grantRoleHash,
               timeout: 180_000,
               pollingInterval: 2_000,
@@ -692,7 +693,7 @@ export default function InitializePage() {
             
             // Check if transaction exists on the network immediately
             try {
-              const txCheck = await receiptClient?.getTransaction({ hash: mintHash });
+              const txCheck = await receiptClient.getTransaction({ hash: mintHash });
               console.log("   Transaction found on network:", txCheck ? "YES" : "NO");
               if (txCheck) {
                 console.log("   From:", txCheck.from);
@@ -707,7 +708,7 @@ export default function InitializePage() {
             
             try {
               // Use receiptClient (default public RPC) to avoid custom RPC sync issues
-              const mintReceipt = await receiptClient?.waitForTransactionReceipt({ 
+              const mintReceipt = await receiptClient.waitForTransactionReceipt({ 
                 hash: mintHash,
                 timeout: 180_000, // 3 minute timeout for mainnet
                 pollingInterval: 2_000, // Check every 2 seconds

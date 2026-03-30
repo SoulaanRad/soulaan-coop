@@ -23,7 +23,7 @@ const profileSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
   coopId: z.string().min(1, 'Coop ID is required'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email').optional(),
+  email: z.string().email('Please enter a valid email'),
   phoneNumber: z.string().min(10, 'Please enter a valid phone number'),
 });
 
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       user = await db.user.create({
         data: {
           walletAddress,
+          email,
           status: 'ACTIVE',
         },
       });
