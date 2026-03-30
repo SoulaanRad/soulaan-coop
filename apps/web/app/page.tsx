@@ -10,37 +10,39 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
-import { PrismaClient } from "@prisma/client";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
 import { WaitlistSignupForm } from "@/components/waitlist-signup-form";
-import type { CoopOption } from "@/app/api/coops/route";
+import { env } from "@/env";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
-const db = globalForPrisma.prisma ?? new PrismaClient({ log: ["error"] });
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+interface CoopOption {
+  coopId: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  isLive: boolean;
+}
 
 async function getActiveCoops(): Promise<CoopOption[]> {
   try {
-    const coops = await db.coopConfig.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: "asc" },
-      select: {
-        coopId: true,
-        name: true,
-        tagline: true,
-        description: true,
-        scTokenAddress: true,
+    const apiUrl = env.NEXT_PUBLIC_API_URL;
+    const response = await fetch(`${apiUrl}/trpc/coopConfig.listActiveCoops`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      cache: 'no-store',
     });
-    return coops.map((c) => ({
-      coopId: c.coopId,
-      name: c.name ?? c.coopId,
-      tagline: c.tagline,
-      description: c.description,
-      isLive: !!c.scTokenAddress,
-    }));
-  } catch {
+
+    if (!response.ok) {
+      console.error('Failed to fetch coops:', response.statusText);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.result.data as CoopOption[];
+  } catch (error) {
+    console.error('Error fetching coops:', error);
     return [];
   }
 }

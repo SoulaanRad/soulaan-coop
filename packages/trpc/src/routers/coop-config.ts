@@ -76,6 +76,39 @@ function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>):
 
 export const coopConfigRouter = router({
   /**
+   * List active coops for public display (landing page)
+   */
+  listActiveCoops: publicProcedure
+    .output(z.array(z.object({
+      coopId: z.string(),
+      name: z.string(),
+      tagline: z.string().nullable(),
+      description: z.string().nullable(),
+      isLive: z.boolean(),
+    })))
+    .query(async ({ ctx }) => {
+      const coops = await ctx.db.coopConfig.findMany({
+        where: { isActive: true },
+        orderBy: { displayOrder: 'asc' },
+        select: {
+          coopId: true,
+          name: true,
+          tagline: true,
+          description: true,
+          scTokenAddress: true,
+        },
+      });
+
+      return coops.map((c) => ({
+        coopId: c.coopId,
+        name: c.name ?? c.coopId,
+        tagline: c.tagline,
+        description: c.description,
+        isLive: !!c.scTokenAddress,
+      }));
+    }),
+
+  /**
    * Validate if a coopId exists and is active
    */
   validateCoopId: publicProcedure
