@@ -3,8 +3,13 @@
 import type React from "react";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import type { CoopOption } from "@/app/api/coops/route";
 
-function BusinessSignupFormContent() {
+interface BusinessSignupFormProps {
+  coops?: CoopOption[];
+}
+
+function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coopInterest, setCoopInterest] = useState("");
@@ -138,8 +143,9 @@ function BusinessSignupFormContent() {
               data-ph-capture-attribute-coopinterest="true"
             />
             <datalist id="business-coop-options">
-              <option value="Soulaan Black Wealth Coop" />
-              <option value="The SF Nightlife Coop" />
+              {coops.map((coop) => (
+                <option key={coop.coopId} value={coop.name} />
+              ))}
               <option value="I don't know yet" />
               <option value="New coop idea" />
             </datalist>
@@ -345,10 +351,10 @@ function BusinessSignupFormContent() {
   );
 }
 
-export function BusinessSignupForm() {
+export function BusinessSignupForm({ coops }: BusinessSignupFormProps) {
   return (
     <Suspense fallback={<div className="text-slate-400">Loading form...</div>}>
-      <BusinessSignupFormContent />
+      <BusinessSignupFormContent coops={coops} />
     </Suspense>
   );
 }

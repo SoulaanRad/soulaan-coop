@@ -10,9 +10,48 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { PrismaClient } from "@prisma/client";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
 import { WaitlistSignupForm } from "@/components/waitlist-signup-form";
+import type { CoopOption } from "@/app/api/coops/route";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+const db = globalForPrisma.prisma ?? new PrismaClient({ log: ["error"] });
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+
+async function getActiveCoops(): Promise<CoopOption[]> {
+  try {
+    const coops = await db.coopConfig.findMany({
+      where: { isActive: true },
+      orderBy: { displayOrder: "asc" },
+      select: {
+        coopId: true,
+        name: true,
+        tagline: true,
+        description: true,
+        scTokenAddress: true,
+      },
+    });
+    return coops.map((c) => ({
+      coopId: c.coopId,
+      name: c.name ?? c.coopId,
+      tagline: c.tagline,
+      description: c.description,
+      isLive: !!c.scTokenAddress,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+const CARD_GRADIENTS = [
+  "from-[#f59e0b]/20 to-[#ea580c]/10",
+  "from-purple-500/20 to-violet-500/10",
+  "from-green-500/20 to-emerald-500/10",
+  "from-blue-500/20 to-cyan-500/10",
+  "from-pink-500/20 to-rose-500/10",
+];
 
 export const metadata: Metadata = {
   title: "Cahootz | Shop Local. Earn Tokens. Fund Your Community.",
@@ -79,7 +118,8 @@ const faqs = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const coops = await getActiveCoops();
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white">
       {/* Header */}
@@ -341,62 +381,40 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Active Networks */}
-        <section className="border-t border-white/10 bg-[#252525] px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-black tracking-tight md:text-4xl">Active networks</h2>
-            <p className="mt-3 text-lg text-slate-400">
-              Cahootz powers co-ops across the Bay Area.
-            </p>
+        {/* Active Networks — pulled from CoopConfig */}
+        {coops.length > 0 && (
+          <section className="border-t border-white/10 bg-[#252525] px-6 py-24">
+            <div className="mx-auto max-w-6xl">
+              <h2 className="text-3xl font-black tracking-tight md:text-4xl">Active networks</h2>
+              <p className="mt-3 text-lg text-slate-400">
+                Cahootz powers co-ops across the Bay Area.
+              </p>
 
-            <div className="mt-12 grid gap-6 md:grid-cols-3">
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a]">
-                <div className="relative h-40 bg-gradient-to-br from-[#f59e0b]/20 to-[#ea580c]/10">
-                  <span className="absolute top-3 right-3 rounded-full bg-[#f59e0b] px-3 py-1 text-xs font-bold text-white">LIVE</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-lg font-bold">Soulaan Coop</h3>
-                  <p className="mt-1 text-sm text-slate-400">Bay Area</p>
-                  <p className="mt-3 text-sm text-slate-400">Black-owned businesses and economic empowerment</p>
-                  <div className="mt-4 flex gap-6 text-sm">
-                    <span><strong className="text-white">500+</strong> members</span>
-                    <span><strong className="text-white">45</strong> businesses</span>
+              <div className="mt-12 grid gap-6 md:grid-cols-3">
+                {coops.map((coop, i) => (
+                  <div key={coop.coopId} className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a]">
+                    <div className={`relative h-40 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
+                      {coop.isLive ? (
+                        <span className="absolute top-3 right-3 rounded-full bg-[#f59e0b] px-3 py-1 text-xs font-bold text-white">LIVE</span>
+                      ) : (
+                        <span className="absolute top-3 right-3 rounded-full bg-[#252525] px-3 py-1 text-xs font-bold text-slate-400">SOON</span>
+                      )}
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-lg font-bold">{coop.name}</h3>
+                      {coop.tagline && (
+                        <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>
+                      )}
+                      {coop.description && (
+                        <p className="mt-3 text-sm text-slate-400 line-clamp-2">{coop.description}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a]">
-                <div className="relative h-40 bg-gradient-to-br from-purple-500/20 to-violet-500/10">
-                  <span className="absolute top-3 right-3 rounded-full bg-[#252525] px-3 py-1 text-xs font-bold text-slate-400">SOON</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-lg font-bold">SF Artist Coop</h3>
-                  <p className="mt-1 text-sm text-slate-400">San Francisco</p>
-                  <p className="mt-3 text-sm text-slate-400">Supporting local artists and creative businesses</p>
-                  <div className="mt-4 flex gap-6 text-sm text-slate-400">
-                    <span><strong>—</strong> members</span>
-                    <span><strong>12</strong> businesses</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a]">
-                <div className="relative h-40 bg-gradient-to-br from-green-500/20 to-emerald-500/10">
-                  <span className="absolute top-3 right-3 rounded-full bg-[#252525] px-3 py-1 text-xs font-bold text-slate-400">SOON</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-lg font-bold">East Bay Food Coop</h3>
-                  <p className="mt-1 text-sm text-slate-400">Oakland &amp; Berkeley</p>
-                  <p className="mt-3 text-sm text-slate-400">Local farms, grocers, and restaurants</p>
-                  <div className="mt-4 flex gap-6 text-sm text-slate-400">
-                    <span><strong>—</strong> members</span>
-                    <span><strong>20</strong> businesses</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* FAQ */}
         <section className="border-t border-white/10 px-6 py-24">
@@ -428,7 +446,7 @@ export default function HomePage() {
                 </p>
                 <div className="mt-10">
                   <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-white/10" />}>
-                    <WaitlistSignupForm />
+                    <WaitlistSignupForm coops={coops} />
                   </Suspense>
                 </div>
               </div>
@@ -440,7 +458,7 @@ export default function HomePage() {
                 </p>
                 <div className="mt-8">
                   <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-white/10" />}>
-                    <BusinessSignupForm />
+                    <BusinessSignupForm coops={coops} />
                   </Suspense>
                 </div>
               </div>

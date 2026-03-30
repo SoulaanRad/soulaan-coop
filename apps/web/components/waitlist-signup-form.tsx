@@ -11,15 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { CoopOption } from "@/app/api/coops/route";
 
-const coopOptions = [
-  { value: "none", label: "No preference" },
-  { value: "soulaan", label: "Soulaan Coop" },
-  { value: "sf-artist", label: "SF Artist Coop" },
-  { value: "east-bay-food", label: "East Bay Food Coop" },
-];
+interface WaitlistSignupFormProps {
+  coops?: CoopOption[];
+}
 
-export function WaitlistSignupForm() {
+export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
@@ -102,9 +100,10 @@ export function WaitlistSignupForm() {
             <SelectValue placeholder="Select a coop" />
           </SelectTrigger>
           <SelectContent>
-            {coopOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
+            <SelectItem value="none">No preference</SelectItem>
+            {coops.map((coop) => (
+              <SelectItem key={coop.coopId} value={coop.coopId}>
+                {coop.name}
               </SelectItem>
             ))}
           </SelectContent>
