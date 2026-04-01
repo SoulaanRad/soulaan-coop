@@ -60,7 +60,7 @@ export const scRewardsRouter = router({
       console.log(`✅ Found user: ${caller.id} with wallet: ${caller.walletAddress}`);
 
       const isAdmin = caller.walletAddress
-        ? (await checkAdminStatusWithRole(caller.walletAddress as `0x${string}`)).isAdmin
+        ? (await checkAdminStatusWithRole(caller.walletAddress as `0x${string}`, input.coopId)).isAdmin
         : false;
 
       const where: any = {
@@ -591,7 +591,8 @@ export const scRewardsRouter = router({
    * and any missing treasury reserve entries. Admin only.
    */
   retryAllFailed: privateProcedure.mutation(async ({ ctx }: { ctx: AuthenticatedContext }) => {
-    const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+    const coopId = (ctx as any).coopId || 'soulaan';
+    const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
     if (!adminStatus.isAdmin) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admin access required' });
     }

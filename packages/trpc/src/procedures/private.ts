@@ -33,9 +33,12 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
       });
     }
 
+    // Get coopId from context (header) or default to ''
+    const coopId = context.coopId || '';
+
     // Check admin status directly on blockchain (secure!)
     console.log('🔍 Checking admin status on blockchain...');
-    const adminStatus = await checkAdminStatusWithRole(walletAddress as Address);
+    const adminStatus = await checkAdminStatusWithRole(walletAddress as Address, coopId);
 
     if (!adminStatus.isAdmin) {
       console.log('❌ Wallet is not an admin on blockchain');
