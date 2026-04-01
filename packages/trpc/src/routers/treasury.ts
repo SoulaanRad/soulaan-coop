@@ -14,7 +14,7 @@ export const treasuryRouter = router({
    * Get treasury reserve statistics
    */
   getReserveStats: authenticatedProcedure.query(async ({ ctx }) => {
-    const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+    const coopId = (ctx as CoopScopedContext).coopId || '???';
     return await getTreasuryReserveStats(coopId);
   }),
 
@@ -76,7 +76,8 @@ export const treasuryRouter = router({
     }))
     .mutation(async ({ input, ctx }: { input: { entryId: string; txHash: string }; ctx: AuthenticatedContext }) => {
       // Check if user is admin
-      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
       if (!adminStatus.isAdmin) {
         throw new Error('Unauthorized: Admin access required');
       }
@@ -118,7 +119,8 @@ export const treasuryRouter = router({
       reason: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }: { input: { treasuryAddress: string; reason?: string }; ctx: AuthenticatedContext }) => {
-      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
       if (!adminStatus.isAdmin) {
         throw new Error('Unauthorized: Admin access required');
       }
@@ -200,7 +202,8 @@ export const treasuryRouter = router({
   setDefaultReserveRate: authenticatedProcedure
     .input(z.object({ reserveBps: z.number().min(0).max(2000) }))
     .mutation(async ({ input, ctx }: { input: { reserveBps: number }; ctx: AuthenticatedContext }) => {
-      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
       if (!adminStatus.isAdmin) {
         throw new Error('Unauthorized: Admin access required');
       }
@@ -237,14 +240,14 @@ export const treasuryRouter = router({
       })
     )
     .mutation(async ({ input, ctx }: { input: { defaultReserveBps: number; badgeReserveBps?: number; programReserveBps?: Record<string, number> }; ctx: AuthenticatedContext }) => {
+      // Get coopId from context
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      
       // Check if user is admin
-      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+      const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
       if (!adminStatus.isAdmin) {
         throw new Error('Unauthorized: Admin access required');
       }
-
-      // Get coopId from context
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
 
       // Deactivate existing policies for this coop
       await db.treasuryReservePolicy.updateMany({
@@ -275,7 +278,8 @@ export const treasuryRouter = router({
    * Admin only.
    */
   syncMissingReserves: authenticatedProcedure.mutation(async ({ ctx }: { ctx: AuthenticatedContext }) => {
-    const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`);
+    const coopId = (ctx as CoopScopedContext).coopId || '???';
+    const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
     if (!adminStatus.isAdmin) {
       throw new Error('Unauthorized: Admin access required');
     }

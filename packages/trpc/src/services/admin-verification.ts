@@ -2,10 +2,8 @@ import { createPublicClient, http, type Address, type Chain } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { recoverMessageAddress } from 'viem';
 
-// Contract addresses
+// Legacy fallback addresses (only used if CoopConfig not available)
 const UNITY_COIN_ADDRESS = (process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9') as Address;
-const SOULAANI_COIN_ADDRESS = (process.env.SOULAANI_COIN_ADDRESS || '') as Address;
-const TREASURY_SAFE_ADDRESS = (process.env.TREASURY_SAFE_ADDRESS || '0x89590b9173d8166fccc3d77ca133a295c4d5b6cd') as Address;
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 
 // AccessControl role hashes
@@ -85,12 +83,12 @@ const defaultPublicClient = createPublicClient({
 /**
  * Check if an address is an owner of the Treasury Safe multisig
  */
-export async function isTreasurySafeOwner(address: Address): Promise<boolean> {
+export async function isTreasurySafeOwner(address: Address, treasurySafeAddress: Address, publicClient: any): Promise<boolean> {
   try {
-    console.log(`🔍 Checking if ${address} is owner of Treasury Safe...`);
+    console.log(`🔍 Checking if ${address} is owner of Treasury Safe (${treasurySafeAddress})...`);
 
-    const isOwner = await defaultPublicClient.readContract({
-      address: TREASURY_SAFE_ADDRESS,
+    const isOwner = await publicClient.readContract({
+      address: treasurySafeAddress,
       abi: safeABI,
       functionName: 'isOwner',
       args: [address],
@@ -111,41 +109,98 @@ export async function isTreasurySafeOwner(address: Address): Promise<boolean> {
 
 /**
  * Check admin status with role details (for web app)
+ * Loads contract addresses from CoopConfig and verifies admin has the coin
  */
-export async function checkAdminStatusWithRole(address: Address): Promise<{ isAdmin: boolean; role?: string }> {
+export async function checkAdminStatusWithRole(address: Address, coopId: string): Promise<{ isAdmin: boolean; role?: string }> {
   try {
     console.log(`\n🔍 ========== ADMIN CHECK START (API SERVER) ==========`);
     console.log(`   Address: ${address}`);
+    console.log(`   Coop ID: ${coopId}`);
+
+    // Load coop config to get contract addresses
+    const { db } = await import('@repo/db');
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { 
+        scTokenAddress: true, 
+        treasurySafeAddress: true,
+        chainId: true,
+        rpcUrl: true,
+      },
+    });
+
+    if (!coopConfig?.scTokenAddress) {
+      console.error(`❌ No SC token address configured for coop: ${coopId}`);
+      console.log('🔍 ========== ADMIN CHECK END (NO CONFIG) ==========\n');
+      return { isAdmin: false };
+    }
+
+    const scTokenAddress = coopConfig.scTokenAddress as Address;
+    const treasurySafeAddress = coopConfig.treasurySafeAddress as Address | undefined;
+    
+    console.log(`   SC Token Address: ${scTokenAddress}`);
+    console.log(`   Treasury Safe Address: ${treasurySafeAddress || 'not configured'}`);
+    console.log(`   Chain ID: ${coopConfig.chainId}`);
+
+    // Create appropriate client based on chain
+    const client = coopConfig.chainId === 8453
+      ? createPublicClient({ chain: base, transport: http(coopConfig.rpcUrl || base.rpcUrls.default.http[0]) })
+      : defaultPublicClient;
 
     // PRIORITY 1: Check if address is owner of Treasury Safe multisig (most important!)
-    console.log('\n📋 PRIORITY 1: Treasury Safe Owner Check');
-    console.log(`   Treasury Safe Address: ${TREASURY_SAFE_ADDRESS}`);
+    if (treasurySafeAddress) {
+      console.log('\n📋 PRIORITY 1: Treasury Safe Owner Check');
 
-    const isSafeOwner = await isTreasurySafeOwner(address);
-    if (isSafeOwner) {
-      console.log(`✅ ${address} is Treasury Safe owner (ADMIN)`);
-      console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
-      return { isAdmin: true, role: 'Treasury Safe Owner' };
+      const isSafeOwner = await isTreasurySafeOwner(address, treasurySafeAddress, client);
+      if (isSafeOwner) {
+        // Verify admin also has the coin
+        const balance = await client.readContract({
+          address: scTokenAddress,
+          abi: unityCoinABI,
+          functionName: 'balanceOf',
+          args: [address],
+        });
+
+        if (balance > 0n) {
+          console.log(`✅ ${address} is Treasury Safe owner AND has coin balance: ${balance.toString()}`);
+          console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
+          return { isAdmin: true, role: 'Treasury Safe Owner' };
+        } else {
+          console.log(`⚠️ ${address} is Treasury Safe owner but has NO coin balance`);
+        }
+      }
     }
 
     // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on Soulaani Coin
     console.log('\n📋 PRIORITY 2: Soulaani Coin Admin Check');
-    console.log(`   Soulaani Coin Address: ${SOULAANI_COIN_ADDRESS}`);
 
-    const isDefaultAdminSoulaani = await defaultPublicClient.readContract({
-      address: SOULAANI_COIN_ADDRESS,
+    const isDefaultAdminSoulaani = await client.readContract({
+      address: scTokenAddress,
       abi: unityCoinABI,
       functionName: 'hasRole',
       args: [DEFAULT_ADMIN_ROLE as `0x${string}`, address],
     });
 
     if (isDefaultAdminSoulaani) {
-      console.log(`✅ ${address} is DEFAULT_ADMIN on Soulaani Coin`);
-      console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
-      return { isAdmin: true, role: 'Soulaani Coin Admin' };
+      // Verify admin also has the coin
+      const balance = await client.readContract({
+        address: scTokenAddress,
+        abi: unityCoinABI,
+        functionName: 'balanceOf',
+        args: [address],
+      });
+
+      if (balance > 0n) {
+        console.log(`✅ ${address} is DEFAULT_ADMIN on Soulaani Coin AND has coin balance: ${balance.toString()}`);
+        console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
+        return { isAdmin: true, role: 'Soulaani Coin Admin' };
+      } else {
+        console.log(`⚠️ ${address} has DEFAULT_ADMIN_ROLE but NO coin balance`);
+      }
     }
 
-    console.log('\n❌ No admin roles found for this address');
+    console.log('\n❌ No admin roles found (or admin has no coin balance)');
     console.log('🔍 ========== ADMIN CHECK END (NOT ADMIN) ==========\n');
     return { isAdmin: false };
   } catch (error) {
@@ -157,20 +212,49 @@ export async function checkAdminStatusWithRole(address: Address): Promise<{ isAd
 
 /**
  * Check if an address has any admin role on the UnityCoin/Soulaani contract or is a Treasury Safe owner
+ * @deprecated Use checkAdminStatusWithRole instead for coop-specific checks
  */
-export async function isContractAdmin(address: Address): Promise<boolean> {
+export async function isContractAdmin(address: Address, coopId: string = 'soulaan'): Promise<boolean> {
   try {
-    console.log(`🔍 Checking if ${address} has admin privileges...`);
+    console.log(`🔍 Checking if ${address} has admin privileges for coop ${coopId}...`);
 
-    // PRIORITY 1: Check if address is owner of Treasury Safe multisig (most important!)
-    const isSafeOwner = await isTreasurySafeOwner(address);
-    if (isSafeOwner) {
-      return true;
+    // Load coop config to get contract addresses
+    const { db } = await import('@repo/db');
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { 
+        scTokenAddress: true, 
+        treasurySafeAddress: true,
+        chainId: true,
+        rpcUrl: true,
+      },
+    });
+
+    if (!coopConfig?.scTokenAddress) {
+      console.log(`❌ No SC token configured for coop: ${coopId}`);
+      return false;
+    }
+
+    const scTokenAddress = coopConfig.scTokenAddress as Address;
+    const treasurySafeAddress = coopConfig.treasurySafeAddress as Address | undefined;
+
+    // Create appropriate client
+    const client = coopConfig.chainId === 8453
+      ? createPublicClient({ chain: base, transport: http(coopConfig.rpcUrl || base.rpcUrls.default.http[0]) })
+      : defaultPublicClient;
+
+    // PRIORITY 1: Check if address is owner of Treasury Safe multisig
+    if (treasurySafeAddress) {
+      const isSafeOwner = await isTreasurySafeOwner(address, treasurySafeAddress, client);
+      if (isSafeOwner) {
+        return true;
+      }
     }
 
     // PRIORITY 2: Check DEFAULT_ADMIN_ROLE on Soulaani Coin contract
-    const isDefaultAdminSoulaani = await defaultPublicClient.readContract({
-      address: SOULAANI_COIN_ADDRESS,
+    const isDefaultAdminSoulaani = await client.readContract({
+      address: scTokenAddress,
       abi: unityCoinABI,
       functionName: 'hasRole',
       args: [DEFAULT_ADMIN_ROLE as `0x${string}`, address],
@@ -181,7 +265,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
       return true;
     }
 
-    // PRIORITY 3: Check DEFAULT_ADMIN_ROLE on Unity Coin contract (fallback)
+    // PRIORITY 3: Check DEFAULT_ADMIN_ROLE on Unity Coin contract (legacy fallback)
     const isDefaultAdmin = await defaultPublicClient.readContract({
       address: UNITY_COIN_ADDRESS,
       abi: unityCoinABI,
@@ -190,33 +274,7 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
     });
 
     if (isDefaultAdmin) {
-      console.log(`✅ ${address} is DEFAULT_ADMIN on Unity Coin`);
-      return true;
-    }
-
-    // Check TREASURER_MINT role
-    const isTreasurer = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'hasRole',
-      args: [TREASURER_MINT_ROLE as `0x${string}`, address],
-    });
-
-    if (isTreasurer) {
-      console.log(`✅ ${address} is TREASURER_MINT`);
-      return true;
-    }
-
-    // Check PAUSER role
-    const isPauser = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'hasRole',
-      args: [PAUSER_ROLE as `0x${string}`, address],
-    });
-
-    if (isPauser) {
-      console.log(`✅ ${address} is PAUSER`);
+      console.log(`✅ ${address} is DEFAULT_ADMIN on Unity Coin (legacy)`);
       return true;
     }
 
@@ -231,100 +289,98 @@ export async function isContractAdmin(address: Address): Promise<boolean> {
 /**
  * Get all admin addresses from Treasury Safe and coin contracts
  */
-export async function getAllAdmins(): Promise<Address[]> {
+export async function getAllAdmins(coopId: string = 'soulaan'): Promise<Address[]> {
   try {
     const admins = new Set<Address>();
 
-    // PRIORITY 1: Get Treasury Safe owners (most important!)
-    try {
-      const safeOwners = await defaultPublicClient.readContract({
-        address: TREASURY_SAFE_ADDRESS,
-        abi: safeABI,
-        functionName: 'getOwners',
-      });
+    // Load coop config to get contract addresses
+    const { db } = await import('@repo/db');
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { 
+        scTokenAddress: true, 
+        treasurySafeAddress: true,
+        chainId: true,
+        rpcUrl: true,
+      },
+    });
 
-      for (const owner of safeOwners) {
-        admins.add(owner as Address);
+    if (!coopConfig?.scTokenAddress) {
+      console.log(`❌ No SC token configured for coop: ${coopId}`);
+      return [];
+    }
+
+    const scTokenAddress = coopConfig.scTokenAddress as Address;
+    const treasurySafeAddress = coopConfig.treasurySafeAddress as Address | undefined;
+
+    // Create appropriate client
+    const client = coopConfig.chainId === 8453
+      ? createPublicClient({ chain: base, transport: http(coopConfig.rpcUrl || base.rpcUrls.default.http[0]) })
+      : defaultPublicClient;
+
+    // PRIORITY 1: Get Treasury Safe owners (most important!)
+    if (treasurySafeAddress) {
+      try {
+        const safeOwners = await client.readContract({
+          address: treasurySafeAddress,
+          abi: safeABI,
+          functionName: 'getOwners',
+        });
+
+        for (const owner of safeOwners) {
+          admins.add(owner as Address);
+        }
+        console.log(`✅ Found ${safeOwners.length} Treasury Safe owners`);
+      } catch (error) {
+        console.error('Error fetching Treasury Safe owners:', error);
       }
-      console.log(`✅ Found ${safeOwners.length} Treasury Safe owners`);
-    } catch (error) {
-      console.error('Error fetching Treasury Safe owners:', error);
     }
 
     // PRIORITY 2: Get DEFAULT_ADMIN members from Soulaani Coin
     try {
-      const defaultAdminCountSoulaani = await defaultPublicClient.readContract({
-        address: SOULAANI_COIN_ADDRESS,
+      const defaultAdminCountSoulaani = await client.readContract({
+        address: scTokenAddress,
         abi: unityCoinABI,
         functionName: 'getRoleMemberCount',
         args: [DEFAULT_ADMIN_ROLE as `0x${string}`],
       });
 
       for (let i = 0; i < Number(defaultAdminCountSoulaani); i++) {
-        const member = await defaultPublicClient.readContract({
-          address: SOULAANI_COIN_ADDRESS,
+        const member = await client.readContract({
+          address: scTokenAddress,
           abi: unityCoinABI,
           functionName: 'getRoleMember',
           args: [DEFAULT_ADMIN_ROLE as `0x${string}`, BigInt(i)],
         });
         admins.add(member as Address);
       }
+      console.log(`✅ Found ${defaultAdminCountSoulaani} Soulaani Coin admins`);
     } catch (error) {
       console.error('Error fetching Soulaani Coin admins:', error);
     }
 
-    // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (fallback)
-    const defaultAdminCount = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'getRoleMemberCount',
-      args: [DEFAULT_ADMIN_ROLE as `0x${string}`],
-    });
-
-    for (let i = 0; i < Number(defaultAdminCount); i++) {
-      const member = await defaultPublicClient.readContract({
+    // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (legacy fallback)
+    try {
+      const defaultAdminCount = await defaultPublicClient.readContract({
         address: UNITY_COIN_ADDRESS,
         abi: unityCoinABI,
-        functionName: 'getRoleMember',
-        args: [DEFAULT_ADMIN_ROLE as `0x${string}`, BigInt(i)],
+        functionName: 'getRoleMemberCount',
+        args: [DEFAULT_ADMIN_ROLE as `0x${string}`],
       });
-      admins.add(member as Address);
-    }
 
-    // Get TREASURER_MINT members
-    const treasurerCount = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'getRoleMemberCount',
-      args: [TREASURER_MINT_ROLE as `0x${string}`],
-    });
-
-    for (let i = 0; i < Number(treasurerCount); i++) {
-      const member = await defaultPublicClient.readContract({
-        address: UNITY_COIN_ADDRESS,
-        abi: unityCoinABI,
-        functionName: 'getRoleMember',
-        args: [TREASURER_MINT_ROLE as `0x${string}`, BigInt(i)],
-      });
-      admins.add(member as Address);
-    }
-
-    // Get PAUSER members
-    const pauserCount = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'getRoleMemberCount',
-      args: [PAUSER_ROLE as `0x${string}`],
-    });
-
-    for (let i = 0; i < Number(pauserCount); i++) {
-      const member = await defaultPublicClient.readContract({
-        address: UNITY_COIN_ADDRESS,
-        abi: unityCoinABI,
-        functionName: 'getRoleMember',
-        args: [PAUSER_ROLE as `0x${string}`, BigInt(i)],
-      });
-      admins.add(member as Address);
+      for (let i = 0; i < Number(defaultAdminCount); i++) {
+        const member = await defaultPublicClient.readContract({
+          address: UNITY_COIN_ADDRESS,
+          abi: unityCoinABI,
+          functionName: 'getRoleMember',
+          args: [DEFAULT_ADMIN_ROLE as `0x${string}`, BigInt(i)],
+        });
+        admins.add(member as Address);
+      }
+      console.log(`✅ Found ${defaultAdminCount} Unity Coin admins (legacy)`);
+    } catch (error) {
+      console.error('Error fetching Unity Coin admins:', error);
     }
 
     return Array.from(admins);
@@ -340,7 +396,8 @@ export async function getAllAdmins(): Promise<Address[]> {
 export async function verifyAdminSignature(
   message: string,
   signature: `0x${string}`,
-  expectedAddress: Address
+  expectedAddress: Address,
+  coopId: string = 'soulaan'
 ): Promise<{ valid: boolean; isAdmin: boolean; address?: Address }> {
   try {
     console.log(`🔐 Verifying signature for message: "${message}"`);
@@ -363,7 +420,7 @@ export async function verifyAdminSignature(
     }
 
     // Check if address has admin role on contract
-    const isAdmin = await isContractAdmin(recoveredAddress);
+    const isAdmin = await isContractAdmin(recoveredAddress, coopId);
 
     return {
       valid: true,
@@ -394,15 +451,15 @@ export async function checkPortalAccess(address: Address, coopId: string = 'soul
     console.log(`   Address: ${address}`);
     console.log(`   Coop ID: ${coopId}`);
 
-    // FIRST: Check if user is an admin (Treasury Safe owner or contract admin)
-    const adminStatus = await checkAdminStatusWithRole(address);
+    // FIRST: Check if user is an admin (loads config internally and verifies coin balance)
+    const adminStatus = await checkAdminStatusWithRole(address, coopId);
     if (adminStatus.isAdmin) {
       console.log(`✅ Portal access granted via ADMIN status: ${adminStatus.role}`);
       console.log('🔍 ========== PORTAL ACCESS CHECK END ==========\n');
       return { hasAccess: true, isAdmin: true, role: adminStatus.role };
     }
 
-    // SECOND: Check SoulaaniCoin balance for regular members using per-coop config
+    // SECOND: Check SoulaaniCoin balance for regular members
     console.log('\n📋 Checking Soulaani Coin balance for regular member access...');
     
     // Get coop-specific contract address from database

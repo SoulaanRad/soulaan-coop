@@ -70,13 +70,15 @@ export const adminAuthRouter = router({
         walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
         signature: z.string().regex(/^0x[a-fA-F0-9]{130}$/, 'Invalid signature'),
         message: z.string(),
+        coopId: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { walletAddress, signature, message } = input;
+      const { walletAddress, signature, message, coopId = 'soulaan' } = input;
       const address = walletAddress.toLowerCase();
 
       console.log(`\n🔐 Verifying signature for: ${address}`);
+      console.log(`   Coop ID: ${coopId}`);
 
       // Check if nonce exists and is not expired
       const storedData = nonceStore.get(address);
@@ -95,7 +97,8 @@ export const adminAuthRouter = router({
       const verification = await verifyAdminSignature(
         message,
         signature as `0x${string}`,
-        walletAddress as `0x${string}`
+        walletAddress as `0x${string}`,
+        coopId
       );
 
       if (!verification.valid) {
@@ -105,7 +108,7 @@ export const adminAuthRouter = router({
 
       if (!verification.isAdmin) {
         console.log('❌ Address is not an admin');
-        throw new Error('This wallet address does not have admin privileges on the UnityCoin contract');
+        throw new Error('This wallet address does not have admin privileges on the contract');
       }
 
       // Clear used nonce
@@ -154,12 +157,13 @@ export const adminAuthRouter = router({
     .input(
       z.object({
         walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+        coopId: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
-      const { walletAddress } = input;
+      const { walletAddress, coopId = 'soulaan' } = input;
 
-      const isAdmin = await isContractAdmin(walletAddress as `0x${string}`);
+      const isAdmin = await isContractAdmin(walletAddress as `0x${string}`, coopId);
 
       return {
         walletAddress,
@@ -171,8 +175,14 @@ export const adminAuthRouter = router({
    * Get all admin wallet addresses from the contract
    */
   getAllAdmins: publicProcedure
-    .query(async () => {
-      const admins = await getAllAdmins();
+    .input(
+      z.object({
+        coopId: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { coopId = 'soulaan' } = input;
+      const admins = await getAllAdmins(coopId);
 
       return {
         admins,

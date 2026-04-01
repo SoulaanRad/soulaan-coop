@@ -88,10 +88,10 @@ export default function SCRewardsPage() {
     return <SCRewardsHybrid />;
   }
 
-  return <SCRewardsLegacyPage />;
+  return <SCRewardsLegacyPage coin={coin} />;
 }
 
-function SCRewardsLegacyPage() {
+function SCRewardsLegacyPage({ coin }: { coin: { symbol: string; name: string; description: string } }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [reasonFilter, setReasonFilter] = useState<ReasonFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
