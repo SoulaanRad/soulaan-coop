@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import { PortalNav } from "@/components/portal/portal-nav";
 import { CoopProvider } from "@/lib/coop-context";
+import { TRPCProvider } from "@/lib/trpc/provider";
 import { api } from "@/lib/trpc/client";
 
 // Wallet Auth Component
@@ -164,14 +165,16 @@ function PortalLayoutContent({ children, coopId }: { children: React.ReactNode; 
 
   return (
     <CoopProvider coopId={coopId}>
-      <div className="min-h-screen bg-slate-950 text-white">
-        <PortalNav coopId={coopId} />
-        <main className="container mx-auto px-6 py-8">
-          <ProtectedRoute coopId={coopId}>
-            {children}
-          </ProtectedRoute>
-        </main>
-      </div>
+      <TRPCProvider coopId={coopId}>
+        <div className="min-h-screen bg-slate-950 text-white">
+          <PortalNav coopId={coopId} />
+          <main className="container mx-auto px-6 py-8">
+            <ProtectedRoute coopId={coopId}>
+              {children}
+            </ProtectedRoute>
+          </main>
+        </div>
+      </TRPCProvider>
     </CoopProvider>
   );
 }

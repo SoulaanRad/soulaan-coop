@@ -99,6 +99,48 @@ export const userRouter = router({
 
   // Private procedures (require authentication)
   /**
+   * Get current user data by wallet address
+   */
+  getUserByWallet: authenticatedProcedure
+    .input(z.object({
+      walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    }))
+    .output(z.object({
+      id: z.string(),
+      email: z.string(),
+      name: z.string().nullable(),
+      roles: z.array(z.string()),
+      status: z.string(),
+      walletAddress: z.string().nullable(),
+      phone: z.string().nullable(),
+      createdAt: z.date(),
+    }).nullable())
+    .query(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const user = await context.db.user.findFirst({
+        where: { 
+          walletAddress: {
+            equals: input.walletAddress,
+            mode: 'insensitive',
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          status: true,
+          walletAddress: true,
+          phone: true,
+          createdAt: true,
+        },
+      });
+
+      return user;
+    }),
+
+  /**
    * Get current user data by ID
    * Used to refresh user session with latest data from database
    */
