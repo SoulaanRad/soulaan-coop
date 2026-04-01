@@ -43,6 +43,7 @@ export default function ProposalsPage() {
   const [bulkApplying, setBulkApplying] = useState(false);
 
   const { data, isLoading, error, refetch } = api.proposal.list.useQuery({
+    coopId,
     statuses: statusFilter === "active"
       ? [...ACTIVE_STATUSES]
       : undefined,
