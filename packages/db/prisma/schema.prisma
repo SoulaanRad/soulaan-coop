@@ -2001,27 +2001,6 @@ enum AdminRoleType {
   @@schema("public")
 }
 
-model AdminMFAConfig {
-  id         String    @id @default(cuid())
-  userId     String    @unique
-  method     MFAMethod
-  secret     String // Encrypted TOTP secret or recovery codes
-  isEnabled  Boolean   @default(false)
-  verifiedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  @@schema("public")
-}
-
-enum MFAMethod {
-  TOTP // Time-based one-time password (Google Authenticator, etc.)
-  SMS // SMS-based (future)
-  EMAIL // Email-based (future)
-
-  @@schema("public")
-}
-
 model AuditLog {
   id String @id @default(cuid())
 
@@ -2055,44 +2034,6 @@ enum AuditStatus {
   SUCCESS
   FAILURE
   PENDING_APPROVAL
-
-  @@schema("public")
-}
-
-model AdminApprovalRequest {
-  id String @id @default(cuid())
-
-  // Request details
-  requestType String // 'TREASURY_ALLOCATION', 'MANUAL_SC_MINT', 'FEE_CONFIG_CHANGE', etc.
-  requestedBy String // Admin user ID
-  description String
-  metadata    Json // Request-specific data
-
-  // Approval workflow
-  status          ApprovalStatus @default(PENDING)
-  approvedBy      String?
-  approvedAt      DateTime?
-  rejectedBy      String?
-  rejectedAt      DateTime?
-  rejectionReason String?
-
-  // Execution
-  executedAt      DateTime?
-  executionResult Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status, createdAt(sort: Desc)])
-  @@index([requestedBy])
-  @@schema("public")
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  EXECUTED
 
   @@schema("public")
 }
