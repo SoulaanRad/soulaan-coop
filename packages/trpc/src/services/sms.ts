@@ -135,7 +135,7 @@ export async function sendClaimSuccessSMS(params: {
   senderPhone: string;
   recipientName: string;
   amountUSD: number;
-  claimMethod: 'bank' | 'soulaan';
+  claimMethod: 'bank' | '???';
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const { senderPhone, recipientName, amountUSD, claimMethod } = params;
 
@@ -147,7 +147,7 @@ export async function sendClaimSuccessSMS(params: {
   try {
     const config = coopConfig();
     const formattedAmount = `$${amountUSD.toFixed(2)}`;
-    const claimMethodText = claimMethod === 'soulaan'
+    const claimMethodText = claimMethod === '???'
       ? `claimed your payment and joined ${config.shortName}`
       : 'claimed your payment to their bank';
 

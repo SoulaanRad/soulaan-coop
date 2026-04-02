@@ -40,8 +40,8 @@ export interface CoopConfig {
 export function getCoopConfig(): CoopConfig {
   return {
     // Identity
-    name: process.env.COOP_NAME || 'Soulaan',
-    shortName: process.env.COOP_SHORT_NAME || 'Soulaan',
+    name: process.env.COOP_NAME || '???',
+    shortName: process.env.COOP_SHORT_NAME || '???',
     tagline: process.env.COOP_TAGLINE || 'Building Generational Wealth Together',
 
     // URLs

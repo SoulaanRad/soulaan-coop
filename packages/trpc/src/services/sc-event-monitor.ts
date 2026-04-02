@@ -1,19 +1,16 @@
 /**
  * SC Event Monitor - Real-time monitoring of SC minting events
  * This acts like Sentry for your smart contracts
+ * 
+ * NOTE: This service is currently unused and would need to be refactored
+ * to accept coopId and use CoopConfig for contract addresses before use.
  */
 
 import { createPublicClient, http, parseAbiItem, Log } from 'viem';
 import { baseSepolia } from 'viem/chains';
+import { db } from '@repo/db';
 
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
-const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
-
-// Initialize client
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(RPC_URL),
-});
 
 // Event ABIs
 const AWARDED_EVENT = parseAbiItem('event Awarded(address indexed recipient, uint256 amount, bytes32 indexed reason, address indexed awarder)');
@@ -51,13 +48,26 @@ interface MintAttempt {
  * Monitor SC minting events in real-time
  * Call this function to start monitoring
  */
-export async function startSCEventMonitor() {
+export async function startSCEventMonitor(coopId: string = '???') {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+  });
+
+  if (!coopConfig || !coopConfig.scTokenAddress || !coopConfig.rpcUrl) {
+    throw new Error(`CoopConfig or SC token address not found for coopId: ${coopId}`);
+  }
+
+  const publicClient = createPublicClient({
+    chain: baseSepolia,
+    transport: http(coopConfig.rpcUrl),
+  });
+
   console.log('🔍 Starting SC Event Monitor...');
-  console.log(`📍 Monitoring contract: ${SOULAANI_COIN_ADDRESS}`);
+  console.log(`📍 Monitoring contract: ${coopConfig.scTokenAddress}`);
   
   // Watch for Awarded events
   const unwatch = publicClient.watchEvent({
-    address: SOULAANI_COIN_ADDRESS as `0x${string}`,
+    address: coopConfig.scTokenAddress as `0x${string}`,
     event: AWARDED_EVENT,
     onLogs: async (logs) => {
       for (const log of logs) {
@@ -68,7 +78,7 @@ export async function startSCEventMonitor() {
 
   // Watch for DiminishingRateApplied events
   publicClient.watchEvent({
-    address: SOULAANI_COIN_ADDRESS as `0x${string}`,
+    address: coopConfig.scTokenAddress as `0x${string}`,
     event: DIMINISHING_RATE_EVENT,
     onLogs: async (logs) => {
       for (const log of logs) {
@@ -191,18 +201,31 @@ async function sendAlert(alert: {
 /**
  * Get historical mint attempts (for debugging past issues)
  */
-export async function getHistoricalMintAttempts(fromBlock: bigint, toBlock: bigint) {
+export async function getHistoricalMintAttempts(fromBlock: bigint, toBlock: bigint, coopId: string = '???') {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+  });
+
+  if (!coopConfig || !coopConfig.scTokenAddress || !coopConfig.rpcUrl) {
+    throw new Error(`CoopConfig or SC token address not found for coopId: ${coopId}`);
+  }
+
+  const publicClient = createPublicClient({
+    chain: baseSepolia,
+    transport: http(coopConfig.rpcUrl),
+  });
+
   console.log(`📊 Fetching historical mint attempts from block ${fromBlock} to ${toBlock}...`);
   
   const awardedLogs = await publicClient.getLogs({
-    address: SOULAANI_COIN_ADDRESS as `0x${string}`,
+    address: coopConfig.scTokenAddress as `0x${string}`,
     event: AWARDED_EVENT,
     fromBlock,
     toBlock,
   });
   
   const diminishingLogs = await publicClient.getLogs({
-    address: SOULAANI_COIN_ADDRESS as `0x${string}`,
+    address: coopConfig.scTokenAddress as `0x${string}`,
     event: DIMINISHING_RATE_EVENT,
     fromBlock,
     toBlock,

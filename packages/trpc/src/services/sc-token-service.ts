@@ -121,7 +121,8 @@ export async function mintSC(params: {
       amount,
       sourceType || 'COMMERCE_REWARD',
       sourceTransactionId,
-      undefined // treasury reserve amount - will be parsed from source tx by legacy service
+      undefined, // treasury reserve amount - will be parsed from source tx by legacy service
+      coopTokenClass // coopId
     );
 
     // Get block number from transaction receipt
@@ -144,7 +145,7 @@ export async function mintSC(params: {
     console.log(`✅ [SC Token Service] Mint completed: ${actualAmountSC} SC minted (tx: ${txHash})`);
 
     // Refresh balance cache
-    await refreshBalanceCache(walletAddress);
+    await refreshBalanceCache(walletAddress, coopTokenClass);
 
     return {
       commandId: completedCommand.id,
@@ -295,9 +296,10 @@ export async function burnSC(params: {
  * Reads from chain (source of truth), updates cache
  * 
  * @param walletAddress - Wallet address to check
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  * @returns Balance information
  */
-export async function getSCBalance(walletAddress: string): Promise<{
+export async function getSCBalance(walletAddress: string, coopId: string = '???'): Promise<{
   balance: number;
   formatted: string;
   syncedAt: Date;
@@ -306,7 +308,7 @@ export async function getSCBalance(walletAddress: string): Promise<{
   console.log(`💰 [SC Token Service] Getting SC balance for ${walletAddress}`);
 
   // Read from chain (source of truth)
-  const { balance, formatted } = await getSCBalanceFromChain(walletAddress);
+  const { balance, formatted } = await getSCBalanceFromChain(walletAddress, coopId);
   const balanceNumber = parseFloat(formatted);
 
   // Get current block number
@@ -357,23 +359,25 @@ export async function getCachedSCBalance(walletAddress: string): Promise<{
  * Check if a wallet is an active SC member
  * 
  * @param walletAddress - Wallet address to check
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  * @returns Boolean indicating active membership
  */
-export async function isActiveMember(walletAddress: string): Promise<boolean> {
+export async function isActiveMember(walletAddress: string, coopId: string = '???'): Promise<boolean> {
   console.log(`👤 [SC Token Service] Checking active member status for ${walletAddress}`);
-  return await isActiveMemberFromChain(walletAddress);
+  return await isActiveMemberFromChain(walletAddress, coopId);
 }
 
 /**
  * Refresh balance cache for a wallet
  * 
  * @param walletAddress - Wallet address to refresh
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function refreshBalanceCache(walletAddress: string): Promise<void> {
+export async function refreshBalanceCache(walletAddress: string, coopId: string = '???'): Promise<void> {
   console.log(`🔄 [SC Token Service] Refreshing balance cache for ${walletAddress}`);
 
   try {
-    const { balance, formatted } = await getSCBalanceFromChain(walletAddress);
+    const { balance, formatted } = await getSCBalanceFromChain(walletAddress, coopId);
     const balanceNumber = parseFloat(formatted);
 
     const { getPublicClient } = await import('./wallet-service.js');

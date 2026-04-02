@@ -54,7 +54,7 @@ export async function trackReserveFromTransaction(params: {
   const { coopId, sourceType, sourceRecordId, sourceUcTxHash, transactionAmountUC, relatedScRewardIds } = params;
 
   // Parse reserve event from the UC transaction (reads on-chain data)
-  const reserveEvent = await getTreasuryReserveFromTransaction(sourceUcTxHash);
+  const reserveEvent = await getTreasuryReserveFromTransaction(sourceUcTxHash, coopId);
 
   if (!reserveEvent) {
     console.log(`💰 No reserve event found in tx ${sourceUcTxHash} (store may not be SC-verified)`);

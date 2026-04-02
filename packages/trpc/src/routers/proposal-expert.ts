@@ -66,7 +66,7 @@ export const proposalExpertRouter = router({
     .output(ExpertAssignmentOutputZ)
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       const existing = await ctx.db.expertAssignment.findUnique({
         where: { 
           walletAddress_coopId_domain: { 
@@ -195,7 +195,7 @@ export const proposalExpertRouter = router({
       }
 
       // Verify caller is an active expert for this goal's domain
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       const assignment = await ctx.db.expertAssignment.findUnique({
         where: { 
           walletAddress_coopId_domain: { 

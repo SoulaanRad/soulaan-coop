@@ -22,17 +22,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
+import { useWeb3Auth } from "@/hooks/use-web3-auth";
 
 interface CreateStoreDialogProps {
   onSuccess?: () => void;
 }
 
 export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
+  const { address } = useWeb3Auth();
   const [open, setOpen] = useState(false);
   const [ownerId, setOwnerId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+
+  const { data: currentUser } = api.user.getUserByWallet.useQuery(
+    { walletAddress: address || "" },
+    { enabled: !!address }
+  );
 
   const { data: categories, isLoading: loadingCategories } = api.categories.getStoreCategories.useQuery({
     includeAdminOnly: true,
@@ -46,8 +53,14 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
     },
   });
 
+  useEffect(() => {
+    if (currentUser?.id && !ownerId) {
+      setOwnerId(currentUser.id);
+    }
+  }, [currentUser, ownerId]);
+
   const resetForm = () => {
-    setOwnerId("");
+    setOwnerId(currentUser?.id || "");
     setName("");
     setDescription("");
     setCategory("");

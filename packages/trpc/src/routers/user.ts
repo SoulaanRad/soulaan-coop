@@ -39,6 +39,7 @@ export const userRouter = router({
   getBalances: publicProcedure
     .input(z.object({
       walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+      coopId: z.string().default('??'),
     }))
     .output(z.object({
       sc: z.string(),
@@ -46,12 +47,22 @@ export const userRouter = router({
       scRaw: z.string(),
       ucRaw: z.string(),
     }))
-    .query(async ({ input }) => {
-      const scContract = process.env.SOULAANI_COIN_ADDRESS;
-      const ucContract = process.env.UNITY_COIN_ADDRESS;
+    .query(async ({ input, ctx }) => {
+      const context = ctx as Context;
+      
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: {
+          scTokenAddress: true,
+          ucTokenAddress: true,
+          chainId: true,
+          rpcUrl: true,
+        },
+      });
 
-      if (!scContract || !ucContract) {
-        console.warn('Contract addresses not configured, returning zero balances');
+      if (!coopConfig?.scTokenAddress || !coopConfig?.ucTokenAddress) {
+        console.warn(`Contract addresses not configured for coop ${input.coopId}, returning zero balances`);
         return {
           sc: '0',
           uc: '0',
@@ -61,15 +72,22 @@ export const userRouter = router({
       }
 
       try {
+        const client = coopConfig.chainId === 8453
+          ? createPublicClient({ 
+              chain: { id: 8453, name: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: [coopConfig.rpcUrl || 'https://mainnet.base.org'] } } } as any,
+              transport: http(coopConfig.rpcUrl || 'https://mainnet.base.org')
+            })
+          : publicClient;
+
         const [scBalance, ucBalance] = await Promise.all([
-          publicClient.readContract({
-            address: scContract as `0x${string}`,
+          client.readContract({
+            address: coopConfig.scTokenAddress as `0x${string}`,
             abi: BALANCE_ABI,
             functionName: 'balanceOf',
             args: [input.walletAddress as `0x${string}`],
           }),
-          publicClient.readContract({
-            address: ucContract as `0x${string}`,
+          client.readContract({
+            address: coopConfig.ucTokenAddress as `0x${string}`,
             abi: BALANCE_ABI,
             functionName: 'balanceOf',
             args: [input.walletAddress as `0x${string}`],
@@ -83,7 +101,7 @@ export const userRouter = router({
           ucRaw: ucBalance.toString(),
         };
 
-        console.log(`💰 getTokenBalances for ${input.walletAddress}:`);
+        console.log(`💰 getTokenBalances for ${input.walletAddress} (coop: ${input.coopId}):`);
         console.log(`   SC: ${result.sc} (raw: ${result.scRaw})`);
         console.log(`   UC: ${result.uc} (raw: ${result.ucRaw})`);
 
@@ -98,6 +116,48 @@ export const userRouter = router({
     }),
 
   // Private procedures (require authentication)
+  /**
+   * Get current user data by wallet address
+   */
+  getUserByWallet: authenticatedProcedure
+    .input(z.object({
+      walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    }))
+    .output(z.object({
+      id: z.string(),
+      email: z.string(),
+      name: z.string().nullable(),
+      roles: z.array(z.string()),
+      status: z.string(),
+      walletAddress: z.string().nullable(),
+      phone: z.string().nullable(),
+      createdAt: z.date(),
+    }).nullable())
+    .query(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const user = await context.db.user.findFirst({
+        where: { 
+          walletAddress: {
+            equals: input.walletAddress,
+            mode: 'insensitive',
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          roles: true,
+          status: true,
+          walletAddress: true,
+          phone: true,
+          createdAt: true,
+        },
+      });
+
+      return user;
+    }),
+
   /**
    * Get current user data by ID
    * Used to refresh user session with latest data from database

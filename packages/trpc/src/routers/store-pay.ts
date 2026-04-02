@@ -42,7 +42,7 @@ export const storePayRouter = router({
       qrCodeData: z.string(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       
       // Get user's store
       const store = await db.store.findFirst({
@@ -122,7 +122,7 @@ export const storePayRouter = router({
         };
       }
 
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       const normalized = normalizeShortCode(input.code);
       const available = await isShortCodeAvailable(normalized, coopId);
 
@@ -458,7 +458,7 @@ export const storePayRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       try {
-        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+        const coopId = (ctx as CoopScopedContext).coopId || '???';
         const result = await payByStoreCode({
           storeCode: input.storeCode,
           payerId: input.userId,

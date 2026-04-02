@@ -74,7 +74,7 @@ export const adminAuthRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const { walletAddress, signature, message, coopId = 'soulaan' } = input;
+      const { walletAddress, signature, message, coopId = '???' } = input;
       const address = walletAddress.toLowerCase();
 
       console.log(`\n🔐 Verifying signature for: ${address}`);
@@ -161,7 +161,7 @@ export const adminAuthRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { walletAddress, coopId = 'soulaan' } = input;
+      const { walletAddress, coopId = '???' } = input;
 
       const isAdmin = await isContractAdmin(walletAddress as `0x${string}`, coopId);
 
@@ -181,7 +181,7 @@ export const adminAuthRouter = router({
       })
     )
     .query(async ({ input }) => {
-      const { coopId = 'soulaan' } = input;
+      const { coopId = '???' } = input;
       const admins = await getAllAdmins(coopId);
 
       return {

@@ -2,8 +2,6 @@ import { createPublicClient, http, type Address, type Chain } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 import { recoverMessageAddress } from 'viem';
 
-// Legacy fallback addresses (only used if CoopConfig not available)
-const UNITY_COIN_ADDRESS = (process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9') as Address;
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 
 // AccessControl role hashes
@@ -214,7 +212,7 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
  * Check if an address has any admin role on the UnityCoin/Soulaani contract or is a Treasury Safe owner
  * @deprecated Use checkAdminStatusWithRole instead for coop-specific checks
  */
-export async function isContractAdmin(address: Address, coopId: string = 'soulaan'): Promise<boolean> {
+export async function isContractAdmin(address: Address, coopId: string = '???'): Promise<boolean> {
   try {
     console.log(`🔍 Checking if ${address} has admin privileges for coop ${coopId}...`);
 
@@ -224,7 +222,8 @@ export async function isContractAdmin(address: Address, coopId: string = 'soulaa
       where: { coopId, isActive: true },
       orderBy: { version: 'desc' },
       select: { 
-        scTokenAddress: true, 
+        scTokenAddress: true,
+        ucTokenAddress: true,
         treasurySafeAddress: true,
         chainId: true,
         rpcUrl: true,
@@ -265,17 +264,19 @@ export async function isContractAdmin(address: Address, coopId: string = 'soulaa
       return true;
     }
 
-    // PRIORITY 3: Check DEFAULT_ADMIN_ROLE on Unity Coin contract (legacy fallback)
-    const isDefaultAdmin = await defaultPublicClient.readContract({
-      address: UNITY_COIN_ADDRESS,
-      abi: unityCoinABI,
-      functionName: 'hasRole',
-      args: [DEFAULT_ADMIN_ROLE as `0x${string}`, address],
-    });
+    // PRIORITY 3: Check DEFAULT_ADMIN_ROLE on Unity Coin contract (if configured)
+    if (coopConfig.ucTokenAddress) {
+      const isDefaultAdmin = await client.readContract({
+        address: coopConfig.ucTokenAddress as Address,
+        abi: unityCoinABI,
+        functionName: 'hasRole',
+        args: [DEFAULT_ADMIN_ROLE as `0x${string}`, address],
+      });
 
-    if (isDefaultAdmin) {
-      console.log(`✅ ${address} is DEFAULT_ADMIN on Unity Coin (legacy)`);
-      return true;
+      if (isDefaultAdmin) {
+        console.log(`✅ ${address} is DEFAULT_ADMIN on Unity Coin`);
+        return true;
+      }
     }
 
     console.log(`❌ ${address} has no admin roles`);
@@ -289,7 +290,7 @@ export async function isContractAdmin(address: Address, coopId: string = 'soulaa
 /**
  * Get all admin addresses from Treasury Safe and coin contracts
  */
-export async function getAllAdmins(coopId: string = 'soulaan'): Promise<Address[]> {
+export async function getAllAdmins(coopId: string = '???'): Promise<Address[]> {
   try {
     const admins = new Set<Address>();
 
@@ -299,7 +300,8 @@ export async function getAllAdmins(coopId: string = 'soulaan'): Promise<Address[
       where: { coopId, isActive: true },
       orderBy: { version: 'desc' },
       select: { 
-        scTokenAddress: true, 
+        scTokenAddress: true,
+        ucTokenAddress: true,
         treasurySafeAddress: true,
         chainId: true,
         rpcUrl: true,
@@ -360,27 +362,29 @@ export async function getAllAdmins(coopId: string = 'soulaan'): Promise<Address[
       console.error('Error fetching Soulaani Coin admins:', error);
     }
 
-    // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (legacy fallback)
-    try {
-      const defaultAdminCount = await defaultPublicClient.readContract({
-        address: UNITY_COIN_ADDRESS,
-        abi: unityCoinABI,
-        functionName: 'getRoleMemberCount',
-        args: [DEFAULT_ADMIN_ROLE as `0x${string}`],
-      });
-
-      for (let i = 0; i < Number(defaultAdminCount); i++) {
-        const member = await defaultPublicClient.readContract({
-          address: UNITY_COIN_ADDRESS,
+    // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (if configured)
+    if (coopConfig.ucTokenAddress) {
+      try {
+        const defaultAdminCount = await client.readContract({
+          address: coopConfig.ucTokenAddress as Address,
           abi: unityCoinABI,
-          functionName: 'getRoleMember',
-          args: [DEFAULT_ADMIN_ROLE as `0x${string}`, BigInt(i)],
+          functionName: 'getRoleMemberCount',
+          args: [DEFAULT_ADMIN_ROLE as `0x${string}`],
         });
-        admins.add(member as Address);
+
+        for (let i = 0; i < Number(defaultAdminCount); i++) {
+          const member = await client.readContract({
+            address: coopConfig.ucTokenAddress as Address,
+            abi: unityCoinABI,
+            functionName: 'getRoleMember',
+            args: [DEFAULT_ADMIN_ROLE as `0x${string}`, BigInt(i)],
+          });
+          admins.add(member as Address);
+        }
+        console.log(`✅ Found ${defaultAdminCount} Unity Coin admins`);
+      } catch (error) {
+        console.error('Error fetching Unity Coin admins:', error);
       }
-      console.log(`✅ Found ${defaultAdminCount} Unity Coin admins (legacy)`);
-    } catch (error) {
-      console.error('Error fetching Unity Coin admins:', error);
     }
 
     return Array.from(admins);
@@ -397,7 +401,7 @@ export async function verifyAdminSignature(
   message: string,
   signature: `0x${string}`,
   expectedAddress: Address,
-  coopId: string = 'soulaan'
+  coopId: string = '???'
 ): Promise<{ valid: boolean; isAdmin: boolean; address?: Address }> {
   try {
     console.log(`🔐 Verifying signature for message: "${message}"`);
@@ -445,7 +449,7 @@ export function generateAuthChallenge(nonce: string): string {
  * Check if a wallet has portal access (admin OR has Soulaani Coin)
  * This is the main function used by the web app for authentication
  */
-export async function checkPortalAccess(address: Address, coopId: string = 'soulaan'): Promise<{ hasAccess: boolean; isAdmin: boolean; role?: string }> {
+export async function checkPortalAccess(address: Address, coopId: string = '???'): Promise<{ hasAccess: boolean; isAdmin: boolean; role?: string }> {
   try {
     console.log(`\n🔍 ========== PORTAL ACCESS CHECK (API SERVER) ==========`);
     console.log(`   Address: ${address}`);

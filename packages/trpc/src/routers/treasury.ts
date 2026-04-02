@@ -89,19 +89,23 @@ export const treasuryRouter = router({
   /**
    * Get the actual on-chain UC balance held at the wealth fund address
    */
-  getWealthFundBalance: authenticatedProcedure.query(async () => {
-    const balance = await getWealthFundBalance();
-    return { balanceUC: balance };
-  }),
+  getWealthFundBalance: authenticatedProcedure
+    .input(z.object({ coopId: z.string().default('???') }))
+    .query(async ({ input }) => {
+      const balance = await getWealthFundBalance(input.coopId);
+      return { balanceUC: balance };
+    }),
 
   /**
    * Get wealth fund configuration from on-chain contract
    */
-  getTreasuryConfig: authenticatedProcedure.query(async () => {
-    const [wealthFundAddress, reserveBps] = await Promise.all([
-      getTreasuryAddress(),
-      getDefaultReserveRate(),
-    ]);
+  getTreasuryConfig: authenticatedProcedure
+    .input(z.object({ coopId: z.string().default('???') }))
+    .query(async ({ input }) => {
+      const [wealthFundAddress, reserveBps] = await Promise.all([
+        getTreasuryAddress(input.coopId),
+        getDefaultReserveRate(input.coopId),
+      ]);
 
     return {
       treasuryAddress: wealthFundAddress || null, // Keep field name for backward compatibility
@@ -126,7 +130,7 @@ export const treasuryRouter = router({
       }
 
       // Update on-chain (event will be emitted by contract)
-      const txHash = await setTreasuryAddress(input.treasuryAddress, input.reason);
+      const txHash = await setTreasuryAddress(input.treasuryAddress, input.reason, coopId);
 
       return { success: true, txHash };
     }),
@@ -139,13 +143,14 @@ export const treasuryRouter = router({
       z.object({
         limit: z.number().min(1).max(100).default(20),
         offset: z.number().min(0).default(0),
+        coopId: z.string().default('???'),
       })
     )
-    .query(async ({ input }: { input: { limit: number; offset: number } }) => {
-      const { limit, offset } = input;
+    .query(async ({ input }: { input: { limit: number; offset: number; coopId: string } }) => {
+      const { limit, offset, coopId } = input;
 
       // Get all changes from blockchain
-      const allChanges = await getWealthFundAddressChanges();
+      const allChanges = await getWealthFundAddressChanges(coopId);
       
       // Convert to format expected by frontend
       const changes = allChanges.slice(offset, offset + limit).map(change => ({
@@ -173,12 +178,13 @@ export const treasuryRouter = router({
       z.object({
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().min(0).default(0),
+        coopId: z.string().default('???'),
       })
     )
-    .query(async ({ input }: { input: { limit: number; offset: number } }) => {
-      const { limit, offset } = input;
+    .query(async ({ input }: { input: { limit: number; offset: number; coopId: string } }) => {
+      const { limit, offset, coopId } = input;
 
-      const { addressChanges, roleChanges } = await getAllPrivilegedChanges();
+      const { addressChanges, roleChanges } = await getAllPrivilegedChanges(coopId);
       
       return {
         addressChanges: addressChanges.slice(offset, Math.min(offset + limit, addressChanges.length)).map(change => ({
@@ -208,7 +214,7 @@ export const treasuryRouter = router({
         throw new Error('Unauthorized: Admin access required');
       }
 
-      const txHash = await setDefaultReserveRate(input.reserveBps);
+      const txHash = await setDefaultReserveRate(input.reserveBps, coopId);
       return { success: true, txHash };
     }),
 

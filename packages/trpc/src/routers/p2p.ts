@@ -96,7 +96,7 @@ export const p2pRouter = router({
           recipientId = input.recipient;
         } else if (input.recipientType === 'username') {
           // Look up by username
-          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+          const coopId = (ctx as CoopScopedContext).coopId || '???';
           const profile = await context.db.userProfile.findUnique({
             where: { 
               username_coopId: {
@@ -137,7 +137,7 @@ export const p2pRouter = router({
 
         // Send to Soulaan user
         if (recipientId) {
-          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+          const coopId = (ctx as CoopScopedContext).coopId || '???';
           const result = await sendToSoulaanUser({
             senderId: input.userId,
             recipientId,
@@ -157,7 +157,7 @@ export const p2pRouter = router({
 
         // Send to non-user
         if (recipientPhone) {
-          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+          const coopId = (ctx as CoopScopedContext).coopId || '???';
           const result = await sendToNonUser({
             senderId: input.userId,
             recipientPhone,
@@ -251,7 +251,7 @@ export const p2pRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       console.log('\n🔷 p2p.lookupRecipient - START');
 
@@ -895,7 +895,7 @@ export const p2pRouter = router({
         });
 
         // Create notification
-        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+        const coopId = (ctx as CoopScopedContext).coopId || '???';
         await context.db.notification.create({
           data: {
             userId: input.userId,

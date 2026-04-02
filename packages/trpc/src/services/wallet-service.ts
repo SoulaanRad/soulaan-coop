@@ -10,7 +10,6 @@ import { getTreasuryReserveFromTransaction } from './uc-event-parser.js';
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
 const WALLET_ENCRYPTION_KEY = process.env.WALLET_ENCRYPTION_KEY;
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
-const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '0xB52b287a83f3d370fdAC8c05f39da23522a51ec9';
 
 // Minimum ETH balance for gas (0.0001 ETH = 100+ transactions on Base L2)
 const MIN_GAS_BALANCE = parseEther('0.0001');
@@ -332,9 +331,10 @@ export async function ensureWalletHasGas(address: string): Promise<boolean> {
  * Mint UnityCoin to a user's wallet (used for fiat onramp)
  * @param userId - The user ID to mint UC for
  * @param amountUC - Amount of UC to mint (in UC, not wei)
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  * @returns Transaction hash
  */
-export async function mintUCToUser(userId: string, amountUC: number): Promise<string> {
+export async function mintUCToUser(userId: string, amountUC: number, coopId: string = '???'): Promise<string> {
   // Debug: Log the key format (masked for security)
   const keyPreview = BACKEND_WALLET_PRIVATE_KEY
     ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
@@ -349,6 +349,20 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
   if (!isValidPrivateKey(BACKEND_WALLET_PRIVATE_KEY)) {
     console.error(`❌ Invalid key format. Expected: 0x + 64 hex chars. Got: starts with "${BACKEND_WALLET_PRIVATE_KEY}", length ${BACKEND_WALLET_PRIVATE_KEY.length}`);
     throw new Error('BACKEND_WALLET_PRIVATE_KEY is invalid. Must be a hex string starting with 0x followed by 64 hex characters (e.g., 0x1234...abcd)');
+  }
+
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: {
+      ucTokenAddress: true,
+      chainId: true,
+      rpcUrl: true,
+    },
+  });
+
+  if (!coopConfig?.ucTokenAddress) {
+    throw new Error(`UC token address not configured for coop: ${coopId}`);
   }
 
   // Get user's wallet address
@@ -366,7 +380,7 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
   const walletClient = createWalletClient({
     account: backendAccount,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   // Encode mintOnramp function call
@@ -392,7 +406,7 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
 
   // Send mint transaction
   const txHash = await walletClient.sendTransaction({
-    to: UNITY_COIN_ADDRESS as Address,
+    to: coopConfig.ucTokenAddress as Address,
     data: txData,
   });
 
@@ -407,8 +421,7 @@ export async function mintUCToUser(userId: string, amountUC: number): Promise<st
   return txHash;
 }
 
-// Soulaani Coin (SC) reward configuration
-const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
+// SC Reward Reason Constants
 // 10 SC per $1 spent — with 100,000 SC seeded at deploy, 2% cap = ~2,000 SC per user.
 // Tier thresholds: full rate until 500 SC, slowing at 1,000 SC, capped at 2,000 SC.
 const SC_REWARD_RATE = 10; // 10 SC per USD
@@ -439,14 +452,17 @@ export function calculateSCReward(amountUSD: number): number {
  * @param amountSC - Amount of SC to mint
  * @param reason - Reason for the reward (for logging)
  * @param sourceUcTxHash - Optional source UC transaction hash that triggered this reward
- * @returns Transaction hash
+ * @param treasuryReserveAmountUC - Optional treasury reserve amount in UC
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @returns Transaction hash and actual amount minted
  */
 export async function mintSCToUser(
   userId: string, 
   amountSC: number, 
   reason: string = 'transaction_reward', 
   sourceUcTxHash?: string,
-  treasuryReserveAmountUC?: number
+  treasuryReserveAmountUC?: number,
+  coopId: string = '???'
 ): Promise<{ txHash: string; actualAmountSC: number }> {
   const keyPreview = BACKEND_WALLET_PRIVATE_KEY
     ? `${BACKEND_WALLET_PRIVATE_KEY.slice(0, 6)}...${BACKEND_WALLET_PRIVATE_KEY.slice(-4)} (length: ${BACKEND_WALLET_PRIVATE_KEY.length})`
@@ -460,6 +476,20 @@ export async function mintSCToUser(
   if (!isValidPrivateKey(BACKEND_WALLET_PRIVATE_KEY)) {
     console.error(`❌ Invalid key format for SC mint`);
     throw new Error('BACKEND_WALLET_PRIVATE_KEY is invalid');
+  }
+
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: {
+      scTokenAddress: true,
+      chainId: true,
+      rpcUrl: true,
+    },
+  });
+
+  if (!coopConfig?.scTokenAddress) {
+    throw new Error(`SC token address not configured for coop: ${coopId}`);
   }
 
   // Get user's wallet address
@@ -477,7 +507,7 @@ export async function mintSCToUser(
   const walletClient = createWalletClient({
     account: backendAccount,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   const publicClient = getPublicClient();
@@ -496,7 +526,7 @@ export async function mintSCToUser(
   
   // Check if user is an active member
   const isActiveMember = await publicClient.readContract({
-    address: SOULAANI_COIN_ADDRESS as Address,
+    address: coopConfig.scTokenAddress as Address,
     abi: [
       {
         inputs: [{ name: 'account', type: 'address' }],
@@ -576,7 +606,7 @@ export async function mintSCToUser(
 
   // Send mint transaction
   const txHash = await walletClient.sendTransaction({
-    to: SOULAANI_COIN_ADDRESS as Address,
+    to: coopConfig.scTokenAddress as Address,
     data: txData,
   });
 
@@ -681,7 +711,7 @@ export async function awardStoreTransactionReward(
   let treasuryReserveAmount = 0;
   if (sourceUcTxHash) {
     try {
-      const reserveData = await getTreasuryReserveFromTransaction(sourceUcTxHash);
+      const reserveData = await getTreasuryReserveFromTransaction(sourceUcTxHash, coopId);
       if (reserveData) {
         treasuryReserveAmount = reserveData.reserveAmount;
         console.log(`💰 Treasury reserve from UC tx: ${treasuryReserveAmount} UC (${reserveData.reserveBps / 100}%)`);
@@ -747,7 +777,8 @@ export async function awardStoreTransactionReward(
         scReward,
         SC_REWARD_REASONS.STORE_PURCHASE,
         sourceUcTxHash,
-        treasuryReserveAmount
+        treasuryReserveAmount,
+        coopId
       );
       result.customerReward = customerActual;
       result.customerTxHash = customerTxHash;
@@ -786,7 +817,8 @@ export async function awardStoreTransactionReward(
         scReward,
         SC_REWARD_REASONS.STORE_SALE,
         sourceUcTxHash,
-        treasuryReserveAmount
+        treasuryReserveAmount,
+        coopId
       );
       result.storeReward = storeActual;
       result.storeTxHash = storeTxHash;

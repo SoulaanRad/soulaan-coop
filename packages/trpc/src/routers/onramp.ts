@@ -140,6 +140,7 @@ export const onrampRouter = router({
     .input(z.object({
       amountUSD: z.number().min(10).max(10000), // $10-$10,000 limits
       paymentMethodId: z.string().optional(), // If not provided, use default
+      coopId: z.string().default('???'),
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
@@ -220,7 +221,7 @@ export const onrampRouter = router({
 
           // Mint UC to user's wallet
           console.log('🪙 Minting UC...');
-          const mintTxHash = await mintUCToUser(userId, amountUC);
+          const mintTxHash = await mintUCToUser(userId, amountUC, input.coopId);
 
           console.log('✅ UC minted:', mintTxHash);
 
@@ -237,7 +238,7 @@ export const onrampRouter = router({
           });
 
           // Create notification
-          const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+          const coopId = (ctx as CoopScopedContext).coopId || '???';
           await context.db.notification.create({
             data: {
               userId,

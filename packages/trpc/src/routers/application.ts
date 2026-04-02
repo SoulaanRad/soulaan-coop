@@ -426,7 +426,8 @@ export const applicationRouter = router({
             const syncResult = await syncMembershipToContract(
               result.walletAddress,
               'ACTIVE',
-              backendWalletPrivateKey
+              backendWalletPrivateKey,
+              input.coopId
             );
             if (syncResult.success) {
               console.log(`✅ Membership synced: ${syncResult.action}`);

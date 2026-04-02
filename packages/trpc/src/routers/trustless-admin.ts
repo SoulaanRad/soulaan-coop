@@ -63,7 +63,7 @@ export const trustlessAdminRouter = router({
   getGlobalRewardPolicy: privateProcedure
     .query(async ({ ctx }) => {
       try {
-        const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+        const coopId = (ctx as CoopScopedContext).coopId || '???';
         const policy = await getGlobalRewardPolicy(coopId);
         return policy;
       } catch (error: any) {
