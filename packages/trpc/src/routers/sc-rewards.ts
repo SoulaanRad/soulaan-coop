@@ -134,7 +134,7 @@ export const scRewardsRouter = router({
   getSCRewardStats: privateProcedure
     .query(async ({ ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       const [
         totalMinted,
@@ -300,10 +300,12 @@ export const scRewardsRouter = router({
         });
       }
 
+      // Extract coopId from reward record
+      const coopId = reward.relatedStore?.coopId || reward.coopId || '???';
+
       // Pre-validation: Check if already minted on-chain
       if (reward.txHash) {
         try {
-          const coopId = reward.relatedStore?.coopId || 'soulaan';
           const verification = await verifySCTransaction(reward.txHash, coopId);
           if (verification.exists && verification.success) {
             // Already minted! Update record to COMPLETED
@@ -331,7 +333,10 @@ export const scRewardsRouter = router({
         const { txHash, actualAmountSC } = await mintSCToUser(
           reward.userId,
           reward.amountSC,
-          reward.reason // Use the reason directly from the database
+          reward.reason, // Use the reason directly from the database
+          undefined, // sourceUcTxHash
+          undefined, // treasuryReserveAmountUC
+          coopId
         );
 
         // Update record to COMPLETED with actual minted amount
@@ -409,7 +414,7 @@ export const scRewardsRouter = router({
         });
       }
 
-      const coopId = reward.relatedStore?.coopId || 'soulaan';
+      const coopId = reward.relatedStore?.coopId || '???';
 
       let onChainBalance = 0;
       let txVerification = null;
@@ -521,7 +526,7 @@ export const scRewardsRouter = router({
   reconcileSCRewards: privateProcedure
     .mutation(async ({ ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       try {
         const report = await reconcileSCRecords(coopId);
@@ -591,7 +596,7 @@ export const scRewardsRouter = router({
    * and any missing treasury reserve entries. Admin only.
    */
   retryAllFailed: privateProcedure.mutation(async ({ ctx }: { ctx: AuthenticatedContext }) => {
-    const coopId = (ctx as any).coopId || 'soulaan';
+    const coopId = (ctx as any).coopId || '???';
     const adminStatus = await checkAdminStatusWithRole(ctx.walletAddress as `0x${string}`, coopId);
     if (!adminStatus.isAdmin) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Admin access required' });

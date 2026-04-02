@@ -7,6 +7,8 @@ import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, C
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
 import BackendWalletStatus from "./backend-wallet-status";
+import { api } from "@/lib/trpc/client";
+import { useCoin } from "@/hooks/use-platform-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,8 +80,15 @@ const navGroups: NavGroup[] = [
 
 export function PortalNav({ coopId }: { coopId?: string }) {
   const pathname = usePathname();
-  const { logout, isLoading, isAdmin, adminRole } = useWeb3Auth();
+  const { logout, isLoading, isAdmin, adminRole, address } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const coin = useCoin();
+  
+  // Get current user info
+  const { data: currentUser } = api.user.getUserByWallet.useQuery(
+    { walletAddress: address || '' },
+    { enabled: !!address }
+  );
   
   // Prefix all nav links with coopId if provided
   const prefixHref = (href: string) => {
@@ -121,9 +130,9 @@ export function PortalNav({ coopId }: { coopId?: string }) {
           <div className="flex items-center gap-8">
             <Link href={prefixHref("/portal")} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">SC</span>
+                <span className="text-white font-bold text-sm">{coin.symbol}</span>
               </div>
-              <span className="font-semibold text-lg text-white">Admin Portal</span>
+              <span className="font-semibold text-lg text-white">Portal</span>
             </Link>
 
             {/* Navigation */}
@@ -212,7 +221,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
 
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
-                <p className="text-sm font-medium text-white">Deon Robinson</p>
+                <p className="text-sm font-medium text-white">{currentUser?.name || 'User'}</p>
                 {isAdmin && (
                   <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-md">
                     ADMIN
@@ -220,9 +229,9 @@ export function PortalNav({ coopId }: { coopId?: string }) {
                 )}
               </div>
               <p className="text-xs text-gray-400">
-                admin@soulaan.coop
+                {currentUser?.email || 'No email set'}
                 {isAdmin && adminRole && (
-                  <span className="ml-2 text-amber-400">• {adminRole}</span>
+                  <span className="ml-2 text-amber-400">• {coin.name} Admin</span>
                 )}
               </p>
             </div>

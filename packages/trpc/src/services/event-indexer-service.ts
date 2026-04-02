@@ -162,7 +162,7 @@ function generateEventId(
 
 /**
  * Get coopId from contract address by looking up in CoopConfig
- * Returns 'soulaan' as default if not found
+ * Returns '???' as default if not found
  */
 async function getCoopIdFromContractAddress(
   db: PrismaClient,
@@ -183,7 +183,7 @@ async function getCoopIdFromContractAddress(
     select: { coopId: true },
   });
   
-  return config?.coopId || 'soulaan';
+  return config?.coopId || '???';
 }
 
 /**

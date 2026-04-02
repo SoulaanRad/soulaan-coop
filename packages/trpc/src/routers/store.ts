@@ -457,7 +457,7 @@ export const storeRouter = router({
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       // Find user by wallet address
       const user = await context.db.user.findUnique({
@@ -1280,6 +1280,7 @@ export const storeRouter = router({
     .input(z.object({ storeId: z.string() }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       const store = await context.db.store.findUnique({
         where: { id: input.storeId },
@@ -1306,16 +1307,37 @@ export const storeRouter = router({
         };
       }
 
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: {
+          scTokenAddress: true,
+          chainId: true,
+          rpcUrl: true,
+        },
+      });
+
+      if (!coopConfig?.scTokenAddress) {
+        return {
+          storeId: store.id,
+          dbVerified: store.isScVerified,
+          onChainVerified: false,
+          inSync: false,
+          ownerWallet,
+          error: `SC token address not configured for coop: ${coopId}`,
+        };
+      }
+
       const { createPublicClient, http, parseAbi } = await import('viem');
       const { baseSepolia } = await import('viem/chains');
 
-      const SC_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
-      const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
-
-      const publicClient = createPublicClient({ chain: baseSepolia, transport: http(RPC_URL) });
+      const publicClient = createPublicClient({ 
+        chain: baseSepolia, 
+        transport: http(coopConfig.rpcUrl || 'https://sepolia.base.org') 
+      });
 
       const onChainVerified = await publicClient.readContract({
-        address: SC_ADDRESS as `0x${string}`,
+        address: coopConfig.scTokenAddress as `0x${string}`,
         abi: parseAbi(['function isScVerifiedStore(address store) external view returns (bool)']),
         functionName: 'isScVerifiedStore',
         args: [ownerWallet as `0x${string}`],
@@ -1516,7 +1538,7 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       // Verify owner exists
       const owner = await context.db.user.findUnique({

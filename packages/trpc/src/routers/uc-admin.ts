@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
-import { Context } from "../context.js";
+import { Context, CoopScopedContext } from "../context.js";
 import { privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import {
@@ -36,7 +36,8 @@ export const ucAdminRouter = router({
       hasMore: z.boolean(),
       lastBlock: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 getAllTransfers - START');
       console.log('📊 Limit:', input.limit, 'Offset:', input.offset);
 
@@ -45,7 +46,7 @@ export const ucAdminRouter = router({
         const toBlock = input.toBlock ? BigInt(input.toBlock) : 'latest';
 
         // Get all transfers from blockchain
-        const allTransfers = await getAllTransferEvents(fromBlock, toBlock);
+        const allTransfers = await getAllTransferEvents(coopId, fromBlock, toBlock);
 
         console.log(`✅ Found ${allTransfers.length} total transfers`);
 
@@ -103,12 +104,13 @@ export const ucAdminRouter = router({
         direction: z.enum(['sent', 'received']),
       })),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 getTransfersByUser - START');
       console.log('📍 Wallet:', input.walletAddress);
 
       try {
-        const transfers = await getTransferEvents(input.walletAddress);
+        const transfers = await getTransferEvents(input.walletAddress, coopId);
 
         // Limit results
         const limitedTransfers = transfers.slice(0, input.limit);
@@ -157,13 +159,14 @@ export const ucAdminRouter = router({
       uniqueReceivers: z.number(),
       averageTransferSize: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 getTransferStats - START');
 
       try {
         // Convert dates to block numbers (approximate)
         // For now, we'll just get all transfers and filter by timestamp
-        const allTransfers = await getAllTransferEvents();
+        const allTransfers = await getAllTransferEvents(coopId);
 
         // Filter by date if provided
         let filteredTransfers = allTransfers;
@@ -215,11 +218,12 @@ export const ucAdminRouter = router({
       csvData: z.string(),
       filename: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 exportTransfers - START');
 
       try {
-        const allTransfers = await getAllTransferEvents();
+        const allTransfers = await getAllTransferEvents(coopId);
 
         // Filter by date if provided
         let filteredTransfers = allTransfers;

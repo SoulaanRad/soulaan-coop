@@ -2,23 +2,34 @@ import { createPublicClient, createWalletClient, http, type Address } from "viem
 import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { encodeFunctionData } from "viem";
+import { db } from '@repo/db';
 
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY || '';
-const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '';
 const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
 
 /**
  * Get treasury address from UnityCoin contract
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function getTreasuryAddress(): Promise<string | null> {
+export async function getTreasuryAddress(coopId: string = '???'): Promise<string | null> {
   try {
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { ucTokenAddress: true, rpcUrl: true },
+    });
+
+    if (!coopConfig?.ucTokenAddress) {
+      throw new Error(`UC token address not configured for coop: ${coopId}`);
+    }
+
     const publicClient = createPublicClient({
       chain: baseSepolia,
-      transport: http(RPC_URL),
+      transport: http(coopConfig.rpcUrl || RPC_URL),
     });
 
     const wealthFundAddress = await publicClient.readContract({
-      address: UNITY_COIN_ADDRESS as Address,
+      address: coopConfig.ucTokenAddress as Address,
       abi: [
         {
           inputs: [],
@@ -45,21 +56,30 @@ export async function getTreasuryAddress(): Promise<string | null> {
 
 /**
  * Set wealth fund address in UnityCoin contract
+ * @param newTreasuryAddress - New treasury address
+ * @param reason - Reason for the change
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function setTreasuryAddress(newTreasuryAddress: string, reason?: string): Promise<string> {
+export async function setTreasuryAddress(newTreasuryAddress: string, reason?: string, coopId: string = '???'): Promise<string> {
   if (!BACKEND_WALLET_PRIVATE_KEY) {
     throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
   }
 
-  if (!UNITY_COIN_ADDRESS) {
-    throw new Error('UNITY_COIN_ADDRESS environment variable is required');
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { ucTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.ucTokenAddress) {
+    throw new Error(`UC token address not configured for coop: ${coopId}`);
   }
 
   const backendAccount = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
   const walletClient = createWalletClient({
     account: backendAccount,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   const txData = encodeFunctionData({
@@ -80,7 +100,7 @@ export async function setTreasuryAddress(newTreasuryAddress: string, reason?: st
   });
 
   const txHash = await walletClient.sendTransaction({
-    to: UNITY_COIN_ADDRESS as Address,
+    to: coopConfig.ucTokenAddress as Address,
     data: txData,
   });
 
@@ -90,19 +110,30 @@ export async function setTreasuryAddress(newTreasuryAddress: string, reason?: st
 
 /**
  * Get the UC balance held at the wealth fund address (on-chain source of truth)
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function getWealthFundBalance(): Promise<number> {
+export async function getWealthFundBalance(coopId: string = '???'): Promise<number> {
   try {
-    const wealthFundAddress = await getTreasuryAddress();
+    const wealthFundAddress = await getTreasuryAddress(coopId);
     if (!wealthFundAddress) return 0;
+
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { ucTokenAddress: true, rpcUrl: true },
+    });
+
+    if (!coopConfig?.ucTokenAddress) {
+      throw new Error(`UC token address not configured for coop: ${coopId}`);
+    }
 
     const publicClient = createPublicClient({
       chain: baseSepolia,
-      transport: http(RPC_URL),
+      transport: http(coopConfig.rpcUrl || RPC_URL),
     });
 
     const balanceWei = await publicClient.readContract({
-      address: UNITY_COIN_ADDRESS as Address,
+      address: coopConfig.ucTokenAddress as Address,
       abi: [
         {
           inputs: [{ name: 'account', type: 'address' }],
@@ -125,16 +156,27 @@ export async function getWealthFundBalance(): Promise<number> {
 
 /**
  * Get default reserve rate from UnityCoin contract
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function getDefaultReserveRate(): Promise<number | null> {
+export async function getDefaultReserveRate(coopId: string = '???'): Promise<number | null> {
   try {
+    const coopConfig = await db.coopConfig.findFirst({
+      where: { coopId, isActive: true },
+      orderBy: { version: 'desc' },
+      select: { ucTokenAddress: true, rpcUrl: true },
+    });
+
+    if (!coopConfig?.ucTokenAddress) {
+      throw new Error(`UC token address not configured for coop: ${coopId}`);
+    }
+
     const publicClient = createPublicClient({
       chain: baseSepolia,
-      transport: http(RPC_URL),
+      transport: http(coopConfig.rpcUrl || RPC_URL),
     });
 
     const reserveBps = await publicClient.readContract({
-      address: UNITY_COIN_ADDRESS as Address,
+      address: coopConfig.ucTokenAddress as Address,
       abi: [
         {
           inputs: [],
@@ -156,14 +198,22 @@ export async function getDefaultReserveRate(): Promise<number | null> {
 
 /**
  * Set default reserve rate in UnityCoin contract
+ * @param newBps - New reserve rate in basis points
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  */
-export async function setDefaultReserveRate(newBps: number): Promise<string> {
+export async function setDefaultReserveRate(newBps: number, coopId: string = '???'): Promise<string> {
   if (!BACKEND_WALLET_PRIVATE_KEY) {
     throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
   }
 
-  if (!UNITY_COIN_ADDRESS) {
-    throw new Error('UNITY_COIN_ADDRESS environment variable is required');
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { ucTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.ucTokenAddress) {
+    throw new Error(`UC token address not configured for coop: ${coopId}`);
   }
 
   if (newBps > 2000) {
@@ -174,7 +224,7 @@ export async function setDefaultReserveRate(newBps: number): Promise<string> {
   const walletClient = createWalletClient({
     account: backendAccount,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   const txData = encodeFunctionData({
@@ -192,7 +242,7 @@ export async function setDefaultReserveRate(newBps: number): Promise<string> {
   });
 
   const txHash = await walletClient.sendTransaction({
-    to: UNITY_COIN_ADDRESS as Address,
+    to: coopConfig.ucTokenAddress as Address,
     data: txData,
   });
 
