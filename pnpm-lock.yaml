@@ -1003,7 +1003,7 @@ importers:
         version: 22.19.7
       eslint:
         specifier: 'catalog:'
-        version: 9.28.0(jiti@2.6.1)
+        version: 9.28.0(jiti@1.21.7)
       prettier:
         specifier: 'catalog:'
         version: 3.8.1
