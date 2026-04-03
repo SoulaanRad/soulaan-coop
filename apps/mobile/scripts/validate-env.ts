@@ -32,18 +32,40 @@ envFiles.forEach((file, index) => {
   }
 });
 
-async function main() {
-  console.log("\n🔐 Validating environment variables...");
-  await import("../env");
-  console.log("✅ Environment validation passed!");
-  console.log("\n🌐 Key variables loaded:");
-  console.log(`  EXPO_PUBLIC_API_BASE_URL: ${process.env.EXPO_PUBLIC_API_BASE_URL}`);
-  console.log(`  EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.substring(0, 20)}...`);
-  console.log(`  EXPO_PUBLIC_COOP_ID: ${process.env.EXPO_PUBLIC_COOP_ID || "(not set)"}`);
+console.log("\n🔐 Validating required environment variables...");
+
+const requiredVars = [
+  'EXPO_PUBLIC_API_BASE_URL',
+  'EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+];
+
+const missing: string[] = [];
+const loaded: Record<string, string> = {};
+
+requiredVars.forEach((varName) => {
+  const value = process.env[varName];
+  if (!value) {
+    missing.push(varName);
+  } else {
+    loaded[varName] = varName.includes('KEY') ? `${value.substring(0, 20)}...` : value;
+  }
+});
+
+if (missing.length > 0) {
+  console.error("\n❌ Missing required environment variables:");
+  missing.forEach((varName) => console.error(`  - ${varName}`));
+  console.error("\n💡 Make sure your .env file exists and contains these variables.");
+  process.exit(1);
 }
 
-main().catch((error) => {
-  console.error("\n❌ Environment validation failed:");
-  console.error(error);
-  process.exit(1);
+console.log("✅ All required variables present!");
+console.log("\n🌐 Environment variables loaded:");
+Object.entries(loaded).forEach(([key, value]) => {
+  console.log(`  ${key}: ${value}`);
 });
+
+if (process.env.EXPO_PUBLIC_COOP_ID) {
+  console.log(`  EXPO_PUBLIC_COOP_ID: ${process.env.EXPO_PUBLIC_COOP_ID}`);
+}
+
+console.log("\n✨ Environment setup complete!\n");
