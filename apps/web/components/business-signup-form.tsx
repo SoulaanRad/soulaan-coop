@@ -81,6 +81,9 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
         // Reset form on success
         formElement.reset();
         setCoopInterest(searchParams.get("coop") ?? "");
+        
+        // Open mobile app in new tab after successful signup
+        window.open("https://mobile.cahootzcoops.com/", "_blank");
       }
     } catch (error) {
       console.error("Business form submission error:", error);
