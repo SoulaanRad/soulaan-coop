@@ -21,9 +21,10 @@ export const commerceTransactionsRouter = router({
       businessId: z.string(),
       listedAmountCents: z.number().int().positive(),
       currency: z.string().default('USD'),
+      coopId: z.string().default('???'),
     }))
     .query(async ({ input }) => {
-      const { userId, businessId, listedAmountCents, currency } = input;
+      const { userId, businessId, listedAmountCents, currency, coopId } = input;
 
       // Get business and check eligibility
       const business = await db.business.findUnique({
@@ -75,6 +76,7 @@ export const commerceTransactionsRouter = router({
             businessOwnerId: business.ownerId,
             businessOwnerWalletAddress: merchantWallet.address,
             amountUSD: listedAmountCents / 100,
+            coopId,
           })
         : { customerEligible: false, customerReason: 'NO_WALLET', merchantEligible: false, merchantReason: 'NO_WALLET', customerEstimatedReward: 0, merchantEstimatedReward: 0, businessScVerified: false };
 
@@ -116,7 +118,7 @@ export const commerceTransactionsRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const { userId, businessId, listedAmountCents, currency, metadata } = input;
-      const coopId = (ctx as CoopScopedContext).coopId || 'soulaan';
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       const result = await createCommerceTransaction({
         customerId: userId,

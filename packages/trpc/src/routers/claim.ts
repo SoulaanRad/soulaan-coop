@@ -306,7 +306,7 @@ export const claimRouter = router({
               body: `${input.name} claimed your $${transfer.amountUSD.toFixed(2)} payment and joined ${config.shortName}!`,
               data: {
                 pendingTransferId: transfer.id,
-                claimMethod: 'soulaan',
+                claimMethod: '???',
                 newUserId: newUser.id,
               },
             },

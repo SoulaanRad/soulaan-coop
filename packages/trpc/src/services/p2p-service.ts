@@ -6,7 +6,6 @@ import {
   parseUCAmount,
   formatUCAmount,
   unityCoinAbi,
-  contracts,
 } from './blockchain.js';
 import { chargePaymentMethod, refundPayment } from './stripe-customer.js';
 import { sendClaimSMS } from './sms.js';
@@ -39,7 +38,7 @@ export async function getUSDBalance(userId: string): Promise<{
     };
   }
 
-  const { balance, formatted } = await getUCBalance(user.walletAddress);
+  const { balance, formatted } = await getUCBalance(user.walletAddress, '???');
   console.log(`   UC balance from blockchain: ${formatted} UC (raw: ${balance})`);
 
   const balanceUSD = convertUCToUSD(parseFloat(formatted));
@@ -129,7 +128,7 @@ export async function sendToSoulaanUser(params: {
 
   // Check if sender is an active SC member (required for UC transfers)
   const { isActiveMember: isSenderActive } = await import('./blockchain.js').then(m => 
-    m.isActiveMember(senderWalletAddress).then(active => ({ isActiveMember: active }))
+    m.isActiveMember(senderWalletAddress, coopId).then(active => ({ isActiveMember: active }))
   );
   
   if (!isSenderActive) {
@@ -138,7 +137,7 @@ export async function sendToSoulaanUser(params: {
 
   // Check if recipient is an active SC member
   const { isActiveMember: isRecipientActive } = await import('./blockchain.js').then(m => 
-    m.isActiveMember(recipientWalletAddress).then(active => ({ isActiveMember: active }))
+    m.isActiveMember(recipientWalletAddress, coopId).then(active => ({ isActiveMember: active }))
   );
   
   if (!isRecipientActive) {
@@ -146,7 +145,7 @@ export async function sendToSoulaanUser(params: {
   }
 
   // Check sender's balance
-  const { balance } = await getUCBalance(senderWalletAddress);
+  const { balance } = await getUCBalance(senderWalletAddress, coopId);
   const amountInWei = parseUCAmount(amountUC.toString());
   const hasBalance = balance >= amountInWei;
 
@@ -185,17 +184,26 @@ export async function sendToSoulaanUser(params: {
 
     // Mint only the deficit to sender's wallet after card charge
     console.log(`   Minting ${deficitUC} UC to sender wallet (to cover deficit)...`);
-    await mintUCToUser(senderId, deficitUC);
+    await mintUCToUser(senderId, deficitUC, coopId);
     console.log('   Card charged and UC minted successfully');
     
     // IMPORTANT: Re-check balance after minting to confirm it's available
     console.log('   Verifying balance after mint...');
-    const { balance: newBalance } = await getUCBalance(senderWalletAddress);
+    const { balance: newBalance } = await getUCBalance(senderWalletAddress, coopId);
     if (newBalance < amountInWei) {
       const currentUSD = convertUCToUSD(parseFloat(formatUnits(newBalance, 18)));
       throw new Error(`Payment processed but funds not yet available in your balance. Please try again in a moment. (Expected: $${amountUSD.toFixed(2)}, Current: $${currentUSD.toFixed(2)})`);
     }
     console.log(`   ✅ Balance confirmed: ${formatUnits(newBalance, 18)} UC`);
+  }
+
+  // Load CoopConfig
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+  });
+
+  if (!coopConfig || !coopConfig.ucTokenAddress) {
+    throw new Error(`CoopConfig or UC token address not found for coopId: ${coopId}`);
   }
 
   // Create transfer record first (PENDING)
@@ -234,7 +242,7 @@ export async function sendToSoulaanUser(params: {
 
     const txHash = await sendTransaction(
       senderId,
-      contracts.unityCoin,
+      coopConfig.ucTokenAddress as Address,
       txData
     );
 
@@ -368,7 +376,7 @@ export async function sendToNonUser(params: {
   }
 
   // Check sender's balance
-  const { balance } = await getUCBalance(sender.walletAddress);
+  const { balance } = await getUCBalance(sender.walletAddress, coopId);
   const amountInWei = parseUCAmount(amountUC.toString());
   const hasBalance = balance >= amountInWei;
 
@@ -398,7 +406,7 @@ export async function sendToNonUser(params: {
 
     // Mint UC to sender's wallet after card charge
     console.log('   Minting UC to sender wallet...');
-    await mintUCToUser(senderId, amountUC);
+    await mintUCToUser(senderId, amountUC, coopId);
     console.log('   Card charged and UC minted successfully');
   }
 

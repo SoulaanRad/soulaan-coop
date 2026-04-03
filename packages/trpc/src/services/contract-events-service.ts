@@ -1,9 +1,7 @@
 import { createPublicClient, http, type Address } from "viem";
 import { baseSepolia } from "viem/chains";
+import { db } from '@repo/db';
 
-const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '';
-const SOULAANI_COIN_ADDRESS = process.env.SOULAANI_COIN_ADDRESS || '';
-const REDEMPTION_VAULT_ADDRESS = process.env.REDEMPTION_VAULT_ADDRESS || '';
 const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
 
 interface AddressChangeEvent {
@@ -32,21 +30,29 @@ interface RoleChangeEvent {
 
 /**
  * Get privileged address change events from UnityCoin contract
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @param fromBlock - Starting block number (optional)
  */
-export async function getUnityCoinAddressChanges(fromBlock?: bigint): Promise<AddressChangeEvent[]> {
-  if (!UNITY_COIN_ADDRESS) {
-    console.warn('UNITY_COIN_ADDRESS not configured');
+export async function getUnityCoinAddressChanges(coopId: string = '???', fromBlock?: bigint): Promise<AddressChangeEvent[]> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { ucTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.ucTokenAddress) {
+    console.warn(`UC token address not configured for coop: ${coopId}`);
     return [];
   }
 
   const publicClient = createPublicClient({
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   try {
     const logs = await publicClient.getLogs({
-      address: UNITY_COIN_ADDRESS as Address,
+      address: coopConfig.ucTokenAddress as Address,
       event: {
         type: 'event',
         name: 'PrivilegedAddressChanged',
@@ -82,22 +88,30 @@ export async function getUnityCoinAddressChanges(fromBlock?: bigint): Promise<Ad
 
 /**
  * Get role change events from UnityCoin contract
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @param fromBlock - Starting block number (optional)
  */
-export async function getUnityCoinRoleChanges(fromBlock?: bigint): Promise<RoleChangeEvent[]> {
-  if (!UNITY_COIN_ADDRESS) {
-    console.warn('UNITY_COIN_ADDRESS not configured');
+export async function getUnityCoinRoleChanges(coopId: string = '???', fromBlock?: bigint): Promise<RoleChangeEvent[]> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { ucTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.ucTokenAddress) {
+    console.warn(`UC token address not configured for coop: ${coopId}`);
     return [];
   }
 
   const publicClient = createPublicClient({
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(coopConfig.rpcUrl || RPC_URL),
   });
 
   try {
     const [grantedLogs, revokedLogs] = await Promise.all([
       publicClient.getLogs({
-        address: UNITY_COIN_ADDRESS as Address,
+        address: coopConfig.ucTokenAddress as Address,
         event: {
           type: 'event',
           name: 'RoleGranted',
@@ -113,7 +127,7 @@ export async function getUnityCoinRoleChanges(fromBlock?: bigint): Promise<RoleC
         toBlock: 'latest',
       }),
       publicClient.getLogs({
-        address: UNITY_COIN_ADDRESS as Address,
+        address: coopConfig.ucTokenAddress as Address,
         event: {
           type: 'event',
           name: 'RoleRevoked',
@@ -163,14 +177,16 @@ export async function getUnityCoinRoleChanges(fromBlock?: bigint): Promise<RoleC
 
 /**
  * Get all privileged changes (addresses + roles) from all contracts
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @param fromBlock - Starting block number (optional)
  */
-export async function getAllPrivilegedChanges(fromBlock?: bigint): Promise<{
+export async function getAllPrivilegedChanges(coopId: string = '???', fromBlock?: bigint): Promise<{
   addressChanges: AddressChangeEvent[];
   roleChanges: RoleChangeEvent[];
 }> {
   const [addressChanges, roleChanges] = await Promise.all([
-    getUnityCoinAddressChanges(fromBlock),
-    getUnityCoinRoleChanges(fromBlock),
+    getUnityCoinAddressChanges(coopId, fromBlock),
+    getUnityCoinRoleChanges(coopId, fromBlock),
   ]);
 
   return {
@@ -181,8 +197,10 @@ export async function getAllPrivilegedChanges(fromBlock?: bigint): Promise<{
 
 /**
  * Get wealth fund address changes specifically
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @param fromBlock - Starting block number (optional)
  */
-export async function getWealthFundAddressChanges(fromBlock?: bigint): Promise<AddressChangeEvent[]> {
-  const allChanges = await getUnityCoinAddressChanges(fromBlock);
+export async function getWealthFundAddressChanges(coopId: string = '???', fromBlock?: bigint): Promise<AddressChangeEvent[]> {
+  const allChanges = await getUnityCoinAddressChanges(coopId, fromBlock);
   return allChanges.filter(change => change.changeType === 'WEALTH_FUND');
 }

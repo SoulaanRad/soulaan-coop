@@ -17,6 +17,12 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false);
   const coin = useCoin();
 
+  // Get current user info
+  const { data: currentUser } = api.user.getUserByWallet.useQuery(
+    { walletAddress: address || '' },
+    { enabled: !!address }
+  );
+
   // Coin config editing state
   const [editSymbol, setEditSymbol] = useState("");
   const [editName, setEditName] = useState("");
@@ -70,11 +76,11 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div>
             <Label className="text-gray-400">Name</Label>
-            <p className="text-white font-medium mt-1">Deon Robinson</p>
+            <p className="text-white font-medium mt-1">{currentUser?.name || 'Not set'}</p>
           </div>
           <div>
             <Label className="text-gray-400">Email</Label>
-            <p className="text-white font-medium mt-1">admin@soulaan.coop</p>
+            <p className="text-white font-medium mt-1">{currentUser?.email || 'Not set'}</p>
           </div>
         </CardContent>
       </Card>

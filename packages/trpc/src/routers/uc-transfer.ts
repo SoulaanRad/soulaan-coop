@@ -2,7 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { encodeFunctionData, type Address } from 'viem';
 
-import { Context } from "../context.js";
+import { db } from "@repo/db";
+import { Context, CoopScopedContext } from "../context.js";
 import { privateProcedure, publicProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { sendTransaction } from "../services/wallet-service.js";
@@ -15,7 +16,6 @@ import {
   estimateGas,
   getGasPrice,
   unityCoinAbi,
-  contracts,
 } from "../services/blockchain.js";
 
 export const ucTransferRouter = router({
@@ -30,12 +30,13 @@ export const ucTransferRouter = router({
       balance: z.string(),
       balanceFormatted: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 getBalance - START');
       console.log('📍 Address:', input.walletAddress);
 
       try {
-        const { balance, formatted } = await getUCBalance(input.walletAddress);
+        const { balance, formatted } = await getUCBalance(input.walletAddress, coopId);
 
         console.log('✅ Balance:', formatted, 'UC');
         return {
@@ -65,7 +66,8 @@ export const ucTransferRouter = router({
       isActiveMember: z.boolean(),
       error: z.string().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 validateRecipient - START');
       console.log('📍 Recipient:', input.recipientAddress);
 
@@ -80,7 +82,7 @@ export const ucTransferRouter = router({
         }
 
         // Check if recipient is an active SC member
-        const isActive = await isActiveMember(input.recipientAddress);
+        const isActive = await isActiveMember(input.recipientAddress, coopId);
 
         if (!isActive) {
           return {
@@ -184,13 +186,14 @@ export const ucTransferRouter = router({
       hasMore: z.boolean(),
       lastBlock: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log('\n🔷 getTransferHistory - START');
       console.log('📍 Address:', input.walletAddress);
 
       try {
         const fromBlock = input.fromBlock ? BigInt(input.fromBlock) : undefined;
-        const transfers = await getTransferEvents(input.walletAddress, fromBlock);
+        const transfers = await getTransferEvents(input.walletAddress, coopId, fromBlock);
 
         // Limit results
         const limitedTransfers = transfers.slice(0, input.limit);
@@ -244,10 +247,23 @@ export const ucTransferRouter = router({
       gasPrice: z.string(),
       totalCostETH: z.string(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       console.log('\n🔷 estimateTransferGas - START');
 
       try {
+        const coopId = ctx.coopId || '???';
+        
+        const coopConfig = await db.coopConfig.findFirst({
+          where: { coopId, isActive: true },
+        });
+
+        if (!coopConfig || !coopConfig.ucTokenAddress) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `CoopConfig or UC token address not found for coopId: ${coopId}`,
+          });
+        }
+
         // Encode transfer function call
         const amountInWei = parseUCAmount(input.amount);
         const txData = encodeFunctionData({
@@ -257,7 +273,7 @@ export const ucTransferRouter = router({
         });
 
         // Estimate gas
-        const gasEstimate = await estimateGas(input.from, contracts.unityCoin, txData);
+        const gasEstimate = await estimateGas(input.from, coopConfig.ucTokenAddress as string, txData);
         const gasPrice = await getGasPrice();
         const totalCost = gasEstimate * gasPrice;
 
@@ -295,6 +311,7 @@ export const ucTransferRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       console.log('\n🔷 executeTransfer - START');
       console.log('👤 User ID:', input.userId);
@@ -302,8 +319,20 @@ export const ucTransferRouter = router({
       console.log('💰 Amount:', input.amount, 'UC');
 
       try {
+        // 0. Load CoopConfig
+        const coopConfig = await db.coopConfig.findFirst({
+          where: { coopId, isActive: true },
+        });
+
+        if (!coopConfig || !coopConfig.ucTokenAddress) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `CoopConfig or UC token address not found for coopId: ${coopId}`,
+          });
+        }
+
         // 1. Validate recipient is active SC member
-        const isActive = await isActiveMember(input.recipientAddress);
+        const isActive = await isActiveMember(input.recipientAddress, coopId);
         if (!isActive) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -325,7 +354,7 @@ export const ucTransferRouter = router({
         }
 
         // 3. Check user's balance
-        const { balance } = await getUCBalance(user.walletAddress);
+        const { balance } = await getUCBalance(user.walletAddress, coopId);
         const amountInWei = parseUCAmount(input.amount);
 
         if (balance < amountInWei) {
@@ -346,7 +375,7 @@ export const ucTransferRouter = router({
         console.log('📤 Sending transaction...');
         const txHash = await sendTransaction(
           input.userId,
-          contracts.unityCoin,
+          coopConfig.ucTokenAddress as Address,
           txData
         );
 

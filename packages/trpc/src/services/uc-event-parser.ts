@@ -1,8 +1,6 @@
 import { createPublicClient, http, type Hash, decodeEventLog, parseAbiItem } from "viem";
-import { baseSepolia } from "viem/chains";
-
-const UNITY_COIN_ADDRESS = process.env.UNITY_COIN_ADDRESS || '';
-const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+import { baseSepolia, base } from "viem/chains";
+import { db } from "@repo/db";
 
 // TreasuryReserveTransferred event ABI
 const TREASURY_RESERVE_TRANSFERRED_EVENT = parseAbiItem(
@@ -13,16 +11,26 @@ const TREASURY_RESERVE_TRANSFERRED_EVENT = parseAbiItem(
  * Parse TreasuryReserveTransferred event from UC transaction
  * Returns the reserve amount that was automatically set aside
  */
-export async function getTreasuryReserveFromTransaction(txHash: string): Promise<{
+export async function getTreasuryReserveFromTransaction(txHash: string, coopId: string = '???'): Promise<{
   reserveAmount: number; // In UC (not wei)
   reserveBps: number;
   paymentAmount: number;
   from: string;
   store: string;
 } | null> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+  });
+
+  if (!coopConfig || !coopConfig.ucTokenAddress || !coopConfig.rpcUrl) {
+    throw new Error(`CoopConfig or UC token address not found for coopId: ${coopId}`);
+  }
+
+  const chain = coopConfig.chainId === 8453 ? base : baseSepolia;
+
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(RPC_URL),
+    chain,
+    transport: http(coopConfig.rpcUrl),
   });
 
   try {
@@ -33,7 +41,7 @@ export async function getTreasuryReserveFromTransaction(txHash: string): Promise
     // Find TreasuryReserveTransferred event in logs
     for (const log of receipt.logs) {
       // Check if this log is from UnityCoin contract
-      if (log.address.toLowerCase() !== UNITY_COIN_ADDRESS.toLowerCase()) {
+      if (log.address.toLowerCase() !== coopConfig.ucTokenAddress.toLowerCase()) {
         continue;
       }
 
@@ -95,21 +103,31 @@ const ERC20_TRANSFER_EVENT = parseAbiItem(
  * Read the UC transfer amount and recipient from a UC payment transaction.
  * Used as a fallback when no TreasuryReserveTransferred event exists.
  */
-export async function getUCTransferFromTransaction(txHash: string): Promise<{
+export async function getUCTransferFromTransaction(txHash: string, coopId: string = '???'): Promise<{
   from: string;
   to: string;
   amountUC: number;
 } | null> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+  });
+
+  if (!coopConfig || !coopConfig.ucTokenAddress || !coopConfig.rpcUrl) {
+    throw new Error(`CoopConfig or UC token address not found for coopId: ${coopId}`);
+  }
+
+  const chain = coopConfig.chainId === 8453 ? base : baseSepolia;
+
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(RPC_URL),
+    chain,
+    transport: http(coopConfig.rpcUrl),
   });
 
   try {
     const receipt = await publicClient.getTransactionReceipt({ hash: txHash as Hash });
 
     for (const log of receipt.logs) {
-      if (log.address.toLowerCase() !== UNITY_COIN_ADDRESS.toLowerCase()) continue;
+      if (log.address.toLowerCase() !== coopConfig.ucTokenAddress.toLowerCase()) continue;
       try {
         const decoded = decodeEventLog({
           abi: [ERC20_TRANSFER_EVENT],

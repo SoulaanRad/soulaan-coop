@@ -34,7 +34,9 @@ async function retryOneReward(recordId: string): Promise<void> {
       record.userId,
       record.amountSC,
       record.reason,
-      record.sourceUcTxHash ?? undefined
+      record.sourceUcTxHash ?? undefined,
+      undefined, // treasuryReserveAmountUC
+      record.coopId
     );
 
     await db.sCRewardTransaction.update({
@@ -115,7 +117,7 @@ async function retryMissingReserveTracking(): Promise<{
       });
 
       // Try to find the on-chain event first
-      const reserveEvent = await getTreasuryReserveFromTransaction(record.sourceUcTxHash);
+      const reserveEvent = await getTreasuryReserveFromTransaction(record.sourceUcTxHash, record.coopId);
 
       if (reserveEvent) {
         // Event exists — track normally as SETTLED
@@ -131,7 +133,7 @@ async function retryMissingReserveTracking(): Promise<{
       } else {
         // No on-chain event — store wasn't SC-verified at time of tx.
         // Read the actual UC transfer amount from the blockchain.
-        const ucTransfer = await getUCTransferFromTransaction(record.sourceUcTxHash);
+        const ucTransfer = await getUCTransferFromTransaction(record.sourceUcTxHash, record.coopId);
         const txAmountUC = ucTransfer?.amountUC ?? 0;
         const defaultBps = 500; // 5% default
         const estimatedReserveUC = txAmountUC * (defaultBps / 10000);

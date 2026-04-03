@@ -123,7 +123,7 @@ export async function evaluateAndMintCommerceReward(params: {
   }
 
   // Check customer eligibility
-  const customerEligibility = await checkUserEligibility(customerId, customerWalletAddress);
+  const customerEligibility = await checkUserEligibility(customerId, customerWalletAddress, coopId);
   if (customerEligibility.eligible) {
     result.customerReward.eligible = true;
     result.customerReward.amount = scReward;
@@ -160,7 +160,7 @@ export async function evaluateAndMintCommerceReward(params: {
   }
 
   // Check merchant eligibility
-  const merchantEligibility = await checkUserEligibility(businessOwnerId, businessOwnerWalletAddress);
+  const merchantEligibility = await checkUserEligibility(businessOwnerId, businessOwnerWalletAddress, coopId);
   if (merchantEligibility.eligible) {
     result.merchantReward.eligible = true;
     result.merchantReward.amount = scReward;
@@ -204,11 +204,13 @@ export async function evaluateAndMintCommerceReward(params: {
  * 
  * @param userId - User ID
  * @param walletAddress - User's wallet address
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
  * @returns Eligibility result
  */
 async function checkUserEligibility(
   userId: string,
-  walletAddress: string
+  walletAddress: string,
+  coopId: string
 ): Promise<{
   eligible: boolean;
   reason?: string;
@@ -230,7 +232,7 @@ async function checkUserEligibility(
 
   // Check if user is an active SC member on-chain
   try {
-    const isActive = await isActiveMember(walletAddress);
+    const isActive = await isActiveMember(walletAddress, coopId);
     if (!isActive) {
       return { eligible: false, reason: 'Not an active SC member' };
     }
@@ -268,7 +270,7 @@ export async function evaluateAndMintManualGrant(params: {
   console.log(`🎁 [Reward Policy] Evaluating manual grant: ${amount} SC to ${userId} (coop: ${coopId})`);
 
   // Check user eligibility
-  const eligibility = await checkUserEligibility(userId, walletAddress);
+  const eligibility = await checkUserEligibility(userId, walletAddress, coopId);
   if (!eligibility.eligible) {
     return {
       eligible: false,
@@ -349,7 +351,7 @@ export async function evaluateAndMintOnboardingReward(params: {
   }
 
   // Check user eligibility
-  const eligibility = await checkUserEligibility(userId, walletAddress);
+  const eligibility = await checkUserEligibility(userId, walletAddress, coopId);
   if (!eligibility.eligible) {
     return {
       eligible: false,
@@ -419,6 +421,7 @@ export async function validateRewardEligibility(params: {
   businessOwnerId: string;
   businessOwnerWalletAddress: string;
   amountUSD: number;
+  coopId: string;
 }): Promise<{
   customerEligible: boolean;
   customerEstimatedReward: number;
@@ -428,7 +431,7 @@ export async function validateRewardEligibility(params: {
   merchantReason?: string;
   businessScVerified: boolean;
 }> {
-  const { customerId, customerWalletAddress, businessId, businessOwnerId, businessOwnerWalletAddress, amountUSD } =
+  const { customerId, customerWalletAddress, businessId, businessOwnerId, businessOwnerWalletAddress, amountUSD, coopId } =
     params;
 
   // Check if business is SC-verified
@@ -483,10 +486,10 @@ export async function validateRewardEligibility(params: {
   }
 
   // Check customer eligibility
-  const customerEligibility = await checkUserEligibility(customerId, customerWalletAddress);
+  const customerEligibility = await checkUserEligibility(customerId, customerWalletAddress, coopId);
 
   // Check merchant eligibility
-  const merchantEligibility = await checkUserEligibility(businessOwnerId, businessOwnerWalletAddress);
+  const merchantEligibility = await checkUserEligibility(businessOwnerId, businessOwnerWalletAddress, coopId);
 
   return {
     customerEligible: customerEligibility.eligible,

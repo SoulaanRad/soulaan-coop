@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createWalletForUser } from "../services/wallet-service.js";
 import { syncMembershipToContract, getMemberStatus, MemberStatus, isActiveMember, getComprehensiveBlockchainInfo, getETHBalance, getUCTotalSupply } from "../services/blockchain.js";
-import { Context } from "../context.js";
+import { Context, CoopScopedContext } from "../context.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import Stripe from "stripe";
@@ -529,12 +529,13 @@ export const adminRouter = router({
       contractStatusCode: z.number(),
       isActiveMember: z.boolean(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
       console.log(`\n🔷 getContractMemberStatus for ${input.walletAddress}`);
 
       try {
-        const status = await getMemberStatus(input.walletAddress);
-        const isActive = await isActiveMember(input.walletAddress);
+        const status = await getMemberStatus(input.walletAddress, coopId);
+        const isActive = await isActiveMember(input.walletAddress, coopId);
 
         return {
           walletAddress: input.walletAddress,
@@ -570,6 +571,7 @@ export const adminRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       console.log(`\n🔷 syncMembershipToContract for user ${input.userId}`);
 
@@ -605,19 +607,20 @@ export const adminRouter = router({
         }
 
         // Get current contract status
-        const contractStatusBefore = await getMemberStatus(user.walletAddress);
+        const contractStatusBefore = await getMemberStatus(user.walletAddress, coopId);
 
         // Sync to contract
         const result = await syncMembershipToContract(
           user.walletAddress,
           user.status,
-          backendWalletPrivateKey
+          backendWalletPrivateKey,
+          coopId
         );
 
         // Get new contract status if successful
         let contractStatusAfter: string | undefined;
         if (result.success && result.action !== 'already_synced') {
-          const newStatus = await getMemberStatus(user.walletAddress);
+          const newStatus = await getMemberStatus(user.walletAddress, coopId);
           contractStatusAfter = MemberStatus[newStatus];
         }
 
@@ -666,6 +669,7 @@ export const adminRouter = router({
     }))
     .mutation(async ({ ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       console.log(`\n🔷 bulkSyncMemberships - START`);
 
@@ -706,7 +710,8 @@ export const adminRouter = router({
             const result = await syncMembershipToContract(
               user.walletAddress!,
               user.status,
-              backendWalletPrivateKey
+              backendWalletPrivateKey,
+              coopId
             );
 
             if (result.success) {
@@ -808,6 +813,7 @@ export const adminRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId || '???';
 
       console.log(`\n🔷 getUserBlockchainInfo for user ${input.userId}`);
 
@@ -841,7 +847,7 @@ export const adminRouter = router({
         }
 
         // Get comprehensive blockchain info
-        const blockchainInfo = await getComprehensiveBlockchainInfo(user.walletAddress);
+        const blockchainInfo = await getComprehensiveBlockchainInfo(user.walletAddress, coopId);
 
         // Determine if DB and contract are in sync
         let expectedContractStatus: MemberStatus;
@@ -901,7 +907,7 @@ export const adminRouter = router({
    */
   getBackendWalletStatus: privateProcedure
     .input(z.object({
-      coopId: z.string().default('soulaan'),
+      coopId: z.string().default('???'),
     }).optional())
     .output(z.object({
       configured: z.boolean(),
@@ -917,7 +923,7 @@ export const adminRouter = router({
       console.log(`\n🔷 getBackendWalletStatus`);
 
       const context = ctx as Context;
-      const coopId = input?.coopId ?? 'soulaan';
+      const coopId = input?.coopId ?? '???';
 
       const activeConfig = await context.db.coopConfig.findFirst({
         where: { coopId, isActive: true },
