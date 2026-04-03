@@ -48,11 +48,12 @@ app.use(
       "http://localhost:19000",     // Alternative Expo port
       "http://localhost:19006",     // Expo web
       
-      // Production domains (update with your actual Railway/production URLs)
+      // Production domains
       "https://soulaan-api-production.up.railway.app",
       "https://www.soulaan.com",
       "https://cahootzcoop.com",
       "https://cahootzcoops.com",
+      "https://mobile.cahootzcoops.com",
 
     ],
     credentials: true,
