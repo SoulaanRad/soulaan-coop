@@ -1,8 +1,6 @@
-import { env } from "../env";
-
 // Get API URL from environment variable or fallback to defaults
 const getApiBaseUrl = () => {
-  const envApiUrl = env.EXPO_PUBLIC_API_BASE_URL;
+  const envApiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   
   if (envApiUrl) {
     return envApiUrl;

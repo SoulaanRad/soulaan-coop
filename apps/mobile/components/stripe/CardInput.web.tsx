@@ -5,9 +5,8 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { loadStripe } from '@stripe/stripe-js';
 import { api } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
-import { env } from '@/env';
 
-const stripePromise = loadStripe(env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 interface CardInputProps {
   onSuccess: (card: { brand: string; last4: string }) => void;
