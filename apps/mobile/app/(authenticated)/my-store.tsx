@@ -7,17 +7,15 @@ import {
   RefreshControl,
   Image,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   Store,
   ShoppingBag,
   Plus,
-  Settings,
   BadgeCheck,
   Clock,
   XCircle,
@@ -26,6 +24,7 @@ import {
   ChevronRight,
   Edit3,
   QrCode,
+  Grid,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { useCoin } from '@/contexts/platform-config-context';
@@ -48,6 +47,9 @@ interface ProductData {
 export default function MyStoreScreen() {
   const { user } = useAuth();
   const coin = useCoin();
+  const params = useLocalSearchParams();
+  const storeId = params.storeId as string | undefined;
+  
   const [store, setStore] = useState<any>(null);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,22 +59,30 @@ export default function MyStoreScreen() {
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
     try {
-      const storeData = await api.getMyStore(user.walletAddress);
-      setStore(storeData);
+      if (storeId) {
+        // Load specific store from the list
+        const storesData = await api.getMyStores(user.walletAddress);
+        const foundStore = storesData?.find((s: any) => s.id === storeId);
+        setStore(foundStore || null);
+      } else {
+        // Load most recent store (backwards compatibility)
+        const storeData = await api.getMyStore(user.walletAddress);
+        setStore(storeData);
+      }
     } catch (error) {
       console.error('Failed to load store:', error);
     }
-  }, [user?.walletAddress]);
+  }, [user?.walletAddress, storeId]);
 
   const loadProducts = useCallback(async () => {
     if (!user?.walletAddress) return;
     try {
-      const productsData = await api.getMyProducts(user.walletAddress, true);
+      const productsData = await api.getMyProducts(user.walletAddress, true, storeId);
       setProducts(productsData);
     } catch (error) {
       console.error('Failed to load products:', error);
     }
-  }, [user?.walletAddress]);
+  }, [user?.walletAddress, storeId]);
 
   useEffect(() => {
     const init = async () => {
@@ -189,17 +199,20 @@ export default function MyStoreScreen() {
         <View className="flex-1 items-center justify-center px-8">
           <Store size={64} color="#9CA3AF" />
           <Text className="text-xl font-bold text-gray-900 dark:text-white mt-4 text-center">
-            No Store Yet
+            {storeId ? 'Store Not Found' : 'No Store Yet'}
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-center mt-2">
-            You haven&apos;t applied to become a store yet.
-            Apply now, connect Stripe, and start selling.
+            {storeId 
+              ? 'This store could not be found or you don\'t have access to it.'
+              : 'You haven\'t applied to become a store yet. Apply now, connect Stripe, and start selling.'}
           </Text>
           <TouchableOpacity
-            onPress={() => router.push('/apply-store')}
+            onPress={() => router.push(storeId ? '/(authenticated)/my-stores' as any : '/(authenticated)/apply-store' as any)}
             className="bg-amber-500 px-8 py-4 rounded-xl mt-6"
           >
-            <Text className="text-white font-bold">Apply to Become a Store</Text>
+            <Text className="text-white font-bold">
+              {storeId ? 'View All Stores' : 'Apply to Become a Store'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -214,8 +227,8 @@ export default function MyStoreScreen() {
           <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
         <Text className="text-lg font-semibold text-gray-900 dark:text-white">My Store</Text>
-        <TouchableOpacity onPress={() => Alert.alert('Coming Soon', 'Store settings will be available soon')}>
-          <Settings size={24} color="#374151" />
+        <TouchableOpacity onPress={() => router.push('/(authenticated)/my-stores' as any)}>
+          <Grid size={24} color="#374151" />
         </TouchableOpacity>
       </View>
 
@@ -399,7 +412,7 @@ export default function MyStoreScreen() {
           <View className="mx-5 mt-4 gap-3">
             {/* Quick Pay Card */}
             <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/accept-payment' as any)}
+              onPress={() => router.push({ pathname: '/(authenticated)/accept-payment', params: { storeId: store.id } } as any)}
             >
               <LinearGradient
                 colors={['#10B981', '#059669']}
@@ -420,7 +433,7 @@ export default function MyStoreScreen() {
 
             {/* View Orders Card */}
             <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/store-orders' as any)}
+              onPress={() => router.push({ pathname: '/(authenticated)/store-orders', params: { storeId: store.id } } as any)}
             >
               <LinearGradient
                 colors={['#D97706', '#B45309']}
@@ -453,7 +466,7 @@ export default function MyStoreScreen() {
                 My Products ({products.length})
               </Text>
               <TouchableOpacity
-                onPress={() => router.push('/add-product')}
+                onPress={() => router.push({ pathname: '/add-product', params: { storeId: store.id } })}
                 className="bg-amber-500 px-4 py-2 rounded-full flex-row items-center"
               >
                 <Plus size={18} color="white" />
@@ -468,7 +481,7 @@ export default function MyStoreScreen() {
                   No products yet{'\n'}Add your first product to start selling!
                 </Text>
                 <TouchableOpacity
-                  onPress={() => router.push('/add-product')}
+                  onPress={() => router.push({ pathname: '/add-product', params: { storeId: store.id } })}
                   className="bg-amber-500 px-6 py-3 rounded-xl mt-4"
                 >
                   <Text className="text-white font-semibold">Add First Product</Text>

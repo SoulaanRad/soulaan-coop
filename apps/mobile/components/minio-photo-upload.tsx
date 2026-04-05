@@ -2,41 +2,43 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { getCoopId } from '@/lib/config';
+import { getApiUrl, getCoopId } from '@/lib/config';
 
-interface PhotoUploadProps {
-  onUploadComplete: (cid: string, url: string) => void;
-  apiUrl: string;
+const API_BASE_URL = getApiUrl();
+
+interface MinIOPhotoUploadProps {
+  onUploadComplete: (url: string) => void;
+  uploadType: 'profile' | 'store' | 'product';
+  resourceId?: string;
   title?: string;
   description?: string;
-  resourceId?: string;
+  aspectRatio?: [number, number];
 }
 
-export default function PhotoUpload({
+export default function MinIOPhotoUpload({
   onUploadComplete,
-  apiUrl,
-  title = "Profile Photo",
-  description = "Upload a clear photo of yourself",
-  resourceId = "temp",
-}: PhotoUploadProps) {
+  uploadType,
+  resourceId,
+  title = "Upload Photo",
+  description = "Select or take a photo",
+  aspectRatio = [1, 1],
+}: MinIOPhotoUploadProps) {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const pickPhoto = async () => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Please allow access to your media library');
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1], // Square aspect ratio
-        quality: 0.8, // Compress to reduce file size
+        aspect: aspectRatio,
+        quality: 0.8,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -50,17 +52,15 @@ export default function PhotoUpload({
 
   const takePhoto = async () => {
     try {
-      // Request camera permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Please allow camera access');
         return;
       }
 
-      // Launch camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: aspectRatio,
         quality: 0.8,
       });
 
@@ -83,12 +83,12 @@ export default function PhotoUpload({
 
     try {
       // Get file info from URI
-      const filename = photoUri.split('/').pop() || 'profile-photo.jpg';
+      const filename = photoUri.split('/').pop() || 'photo.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
       // Step 1: Get presigned URL from API
-      const presignedResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
+      const presignedResponse = await fetch(`${API_BASE_URL}/api/upload/presigned`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,8 +97,8 @@ export default function PhotoUpload({
         body: JSON.stringify({
           filename,
           contentType: type,
-          uploadType: 'profile',
-          resourceId,
+          uploadType,
+          resourceId: resourceId || 'temp',
         }),
       });
 
@@ -124,14 +124,14 @@ export default function PhotoUpload({
         throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
 
-      // Success! Return the public URL (using key as CID for backward compatibility)
+      // Success! Return the public URL
       Alert.alert(
         'Success!',
         'Your photo has been uploaded',
         [
           {
             text: 'OK',
-            onPress: () => onUploadComplete(presignedData.key, presignedData.publicUrl),
+            onPress: () => onUploadComplete(presignedData.publicUrl),
           },
         ]
       );
@@ -147,10 +147,10 @@ export default function PhotoUpload({
     <View className="space-y-4">
       {/* Title and instructions */}
       <View>
-        <Text className="text-lg font-semibold text-gray-900 mb-1">
+        <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
           {title}
         </Text>
-        <Text className="text-sm text-gray-600">
+        <Text className="text-sm text-gray-600 dark:text-gray-400">
           {description}
         </Text>
       </View>
@@ -158,7 +158,7 @@ export default function PhotoUpload({
       {/* Photo preview */}
       {photoUri ? (
         <View className="space-y-3">
-          <View className="rounded-xl overflow-hidden bg-gray-100 items-center p-4">
+          <View className="rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 items-center p-4">
             <Image
               source={{ uri: photoUri }}
               style={{ width: 200, height: 200 }}
@@ -168,9 +168,9 @@ export default function PhotoUpload({
           </View>
           <TouchableOpacity
             onPress={() => setPhotoUri(null)}
-            className="bg-gray-200 px-3 py-2 rounded-lg items-center"
+            className="bg-gray-200 dark:bg-gray-700 px-3 py-2 rounded-lg items-center"
           >
-            <Text className="text-sm text-gray-700">Remove Photo</Text>
+            <Text className="text-sm text-gray-700 dark:text-gray-300">Remove Photo</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -186,10 +186,10 @@ export default function PhotoUpload({
 
           <TouchableOpacity
             onPress={pickPhoto}
-            className="bg-gray-200 flex-row items-center justify-center py-4 rounded-xl"
+            className="bg-gray-200 dark:bg-gray-700 flex-row items-center justify-center py-4 rounded-xl"
           >
             <Ionicons name="images" size={20} color="#374151" />
-            <Text className="text-gray-700 font-semibold ml-2">Choose from Library</Text>
+            <Text className="text-gray-700 dark:text-gray-300 font-semibold ml-2">Choose from Library</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -207,22 +207,13 @@ export default function PhotoUpload({
 
       {/* Upload progress */}
       {isUploading && (
-        <View className="bg-amber-50 p-4 rounded-xl">
+        <View className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-xl">
           <View className="flex-row items-center justify-center">
             <ActivityIndicator size="small" color="#D97706" />
-            <Text className="text-amber-700 ml-2">Uploading...</Text>
+            <Text className="text-amber-700 dark:text-amber-400 ml-2">Uploading...</Text>
           </View>
         </View>
       )}
-
-      {/* Tips */}
-      <View className="bg-gray-50 p-3 rounded-lg">
-        <Text className="text-xs text-gray-600 font-semibold mb-1">Tips for a good photo:</Text>
-        <Text className="text-xs text-gray-600">• Use good lighting</Text>
-        <Text className="text-xs text-gray-600">• Face the camera directly</Text>
-        <Text className="text-xs text-gray-600">• Avoid sunglasses or hats</Text>
-        <Text className="text-xs text-gray-600">• Clear, recent photo</Text>
-      </View>
     </View>
   );
 }

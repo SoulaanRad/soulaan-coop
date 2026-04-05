@@ -3,9 +3,10 @@ import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
 
 import { Context } from "../context.js";
-import { publicProcedure } from "../procedures/index.js";
+import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { sendLoginCode, generateLoginCode, isEmailConfigured } from "../lib/email.js";
+import { createWalletForUser } from "../services/wallet-service.js";
 
 export const authRouter = router({
   /**
@@ -46,6 +47,8 @@ export const authRouter = router({
           });
         }
 
+        console.log('🔍 User logging in:', user);
+
         // Check if user has a password (should exist for new applications)
         if (!user.password) {
           throw new TRPCError({
@@ -56,6 +59,7 @@ export const authRouter = router({
 
         // Verify password
         const isValidPassword = await bcrypt.compare(input.password, user.password);
+        
         if (!isValidPassword) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
@@ -283,6 +287,16 @@ export const authRouter = router({
         walletAddress: z.string().nullable(),
         phone: z.string().nullable(),
         createdAt: z.date(),
+        coop: z.object({
+          id: z.string(),
+          name: z.string(),
+          shortName: z.string(),
+          apiUrl: z.string(),
+          webUrl: z.string(),
+          primaryColor: z.string().optional(),
+          accentColor: z.string().optional(),
+          logoUrl: z.string().optional(),
+        }).optional(),
       }).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
@@ -314,9 +328,20 @@ export const authRouter = router({
           data: { used: true },
         });
 
-        // Get user
+        // Get user with memberships
         const user = await context.db.user.findUnique({
           where: { email: input.email },
+          include: {
+            memberships: {
+              where: {
+                status: "ACTIVE",
+              },
+              orderBy: {
+                joinedAt: 'desc',
+              },
+              take: 1,
+            },
+          },
         });
 
         if (!user) {
@@ -334,6 +359,36 @@ export const authRouter = router({
           });
         }
 
+        // Get coop membership data if available
+        let coopData = undefined;
+        if (user.memberships.length > 0) {
+          const membership = user.memberships[0];
+          
+          // Get coop config
+          const coopConfig = await context.db.coopConfig.findFirst({
+            where: {
+              coopId: membership.coopId,
+              isActive: true,
+            },
+            orderBy: {
+              version: 'desc',
+            },
+          });
+
+          if (coopConfig) {
+            coopData = {
+              id: membership.coopId,
+              name: coopConfig.name || membership.coopId,
+              shortName: coopConfig.slug || membership.coopId,
+              apiUrl: process.env.API_BASE_URL || 'https://soulaan-api-production.up.railway.app',
+              webUrl: process.env.WEB_BASE_URL || 'https://www.soulaan.com',
+              primaryColor: coopConfig.bgColor || undefined,
+              accentColor: coopConfig.accentColor || undefined,
+              logoUrl: undefined, // Not stored in CoopConfig yet
+            };
+          }
+        }
+
         return {
           success: true,
           message: "Login successful",
@@ -346,6 +401,7 @@ export const authRouter = router({
             walletAddress: user.walletAddress,
             phone: user.phone,
             createdAt: user.createdAt,
+            coop: coopData,
           },
         };
       } catch (error) {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
+import { useCoopContext } from "@/lib/coop-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,8 @@ import {
   RefreshCw,
   Link2,
   Link2Off,
+  Ban,
+  Trash2,
 } from "lucide-react";
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
@@ -45,6 +48,7 @@ type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
 type StoreStatus = "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED";
 
 export default function StoreManagementPage() {
+  const { coopId } = useCoopContext();
   const [mainTab, setMainTab] = useState<MainTab>("stores");
 
   return (
@@ -55,7 +59,7 @@ export default function StoreManagementPage() {
           <h1 className="text-3xl font-bold">Store Management</h1>
           <p className="text-gray-400 mt-1">Manage stores, applications, and featured products</p>
         </div>
-        <CreateStoreDialog onSuccess={() => window.location.reload()} />
+        <CreateStoreDialog coopId={coopId} onSuccess={() => window.location.reload()} />
       </div>
 
       {/* Main Tabs */}
@@ -362,7 +366,7 @@ function AllStoresTab() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"
@@ -405,6 +409,7 @@ function AllStoresTab() {
                           </>
                         )}
                       </Button>
+                      <StoreStatusActions storeId={store.id} currentStatus={store.status} onSuccess={() => refetch()} />
                     </div>
 
                     {/* On-Chain Status Check */}
@@ -1345,5 +1350,123 @@ function StoreSCRewardsPanel({ storeId, storeName }: { storeId: string; storeNam
         ))}
       </div>
     </div>
+  );
+}
+
+// ============================================
+// STORE STATUS ACTIONS (SUSPEND/DELETE)
+// ============================================
+function StoreStatusActions({ 
+  storeId, 
+  currentStatus, 
+  onSuccess 
+}: { 
+  storeId: string; 
+  currentStatus: string;
+  onSuccess: () => void;
+}) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [action, setAction] = useState<'suspend' | 'delete' | null>(null);
+
+  const updateStatus = api.store.updateStoreStatus.useMutation({
+    onSuccess: () => {
+      setShowConfirm(false);
+      setAction(null);
+      onSuccess();
+    },
+  });
+
+  const handleAction = (actionType: 'suspend' | 'delete') => {
+    setAction(actionType);
+    setShowConfirm(true);
+  };
+
+  const confirmAction = () => {
+    if (!action) return;
+    
+    if (action === 'suspend') {
+      updateStatus.mutate({ 
+        storeId, 
+        status: currentStatus === 'SUSPENDED' ? 'APPROVED' : 'SUSPENDED' 
+      });
+    } else if (action === 'delete') {
+      updateStatus.mutate({ 
+        storeId, 
+        status: 'REJECTED' 
+      });
+    }
+  };
+
+  if (showConfirm) {
+    return (
+      <div className="flex gap-2 items-center">
+        <span className="text-sm text-gray-400">
+          {action === 'suspend' 
+            ? currentStatus === 'SUSPENDED' 
+              ? 'Reactivate store?' 
+              : 'Suspend store?'
+            : 'Delete store?'}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setShowConfirm(false);
+            setAction(null);
+          }}
+          className="h-7 text-xs"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={confirmAction}
+          disabled={updateStatus.isPending}
+          className="h-7 text-xs bg-red-600 hover:bg-red-700"
+        >
+          {updateStatus.isPending ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            'Confirm'
+          )}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {currentStatus !== 'SUSPENDED' && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleAction('suspend')}
+          className="border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white"
+        >
+          <Ban className="h-4 w-4 mr-1" />
+          Suspend Store
+        </Button>
+      )}
+      {currentStatus === 'SUSPENDED' && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleAction('suspend')}
+          className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+        >
+          <CheckCircle2 className="h-4 w-4 mr-1" />
+          Reactivate Store
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => handleAction('delete')}
+        className="border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
+      >
+        <Trash2 className="h-4 w-4 mr-1" />
+        Delete Store
+      </Button>
+    </>
   );
 }

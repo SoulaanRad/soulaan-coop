@@ -6,7 +6,6 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     DATABASE_URL: z.string().min(1),
     PORT: z.coerce.number().int().positive().default(3001),
-    PINATA_JWT: z.string().min(1),
     WALLET_ENCRYPTION_KEY: z.string().regex(/^[a-fA-F0-9]{64}$/),
     BACKEND_WALLET_PRIVATE_KEY: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional(),
     STRIPE_SECRET_KEY: z.string().startsWith("sk_"),
@@ -22,6 +21,10 @@ export const env = createEnv({
     PAYPAL_CLIENT_SECRET: z.string().optional(),
     SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().optional(),
     SLACK_WEBHOOK_URL: z.string().url().optional(),
+    // MinIO Configuration
+    MINIO_ENDPOINT: z.string().url(),
+    MINIO_ACCESS_KEY: z.string().min(1),
+    MINIO_SECRET_KEY: z.string().min(1),
   },
   clientPrefix: "PUBLIC_",
   client: {},

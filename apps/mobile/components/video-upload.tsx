@@ -3,13 +3,15 @@ import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-na
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { getCoopId } from '@/lib/config';
 
 interface VideoUploadProps {
   onUploadComplete: (cid: string, url: string) => void;
   apiUrl: string;
+  resourceId?: string;
 }
 
-export default function VideoUpload({ onUploadComplete, apiUrl }: VideoUploadProps) {
+export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "temp" }: VideoUploadProps) {
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -108,46 +110,65 @@ export default function VideoUpload({ onUploadComplete, apiUrl }: VideoUploadPro
     setUploadProgress(0);
 
     try {
-      // Create form data
-      const formData = new FormData();
-
       // Get file info from URI
       const filename = videoUri.split('/').pop() || 'intro-video.mp4';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `video/${match[1]}` : 'video/mp4';
 
-      formData.append('file', {
-        uri: videoUri,
-        name: filename,
-        type,
-      } as any);
-
-      // Upload to API
-      const response = await fetch(`${apiUrl}/api/upload/video`, {
+      // Step 1: Get presigned URL from API
+      const presignedResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
         method: 'POST',
-        body: formData,
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
+          'X-Coop-Id': getCoopId(),
+        },
+        body: JSON.stringify({
+          filename,
+          contentType: type,
+          uploadType: 'profile',
+          resourceId,
+        }),
+      });
+
+      const presignedData = await presignedResponse.json();
+
+      if (!presignedData.success) {
+        throw new Error(presignedData.error || 'Failed to get presigned URL');
+      }
+
+      setUploadProgress(30);
+
+      // Step 2: Upload file directly to MinIO using presigned URL
+      const fileResponse = await fetch(videoUri);
+      const fileBlob = await fileResponse.blob();
+
+      setUploadProgress(50);
+
+      const uploadResponse = await fetch(presignedData.presignedUrl, {
+        method: 'PUT',
+        body: fileBlob,
+        headers: {
+          'Content-Type': type,
         },
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        setUploadProgress(100);
-        Alert.alert(
-          'Success!',
-          'Your introduction video has been uploaded',
-          [
-            {
-              text: 'OK',
-              onPress: () => onUploadComplete(data.cid, data.url),
-            },
-          ]
-        );
-      } else {
-        throw new Error(data.error || 'Upload failed');
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
+
+      setUploadProgress(100);
+
+      // Success! Return the public URL (using key as CID for backward compatibility)
+      Alert.alert(
+        'Success!',
+        'Your introduction video has been uploaded',
+        [
+          {
+            text: 'OK',
+            onPress: () => onUploadComplete(presignedData.key, presignedData.publicUrl),
+          },
+        ]
+      );
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Upload failed', error instanceof Error ? error.message : 'Please try again');
@@ -220,7 +241,7 @@ export default function VideoUpload({ onUploadComplete, apiUrl }: VideoUploadPro
           className="bg-green-600 flex-row items-center justify-center py-4 rounded-xl"
         >
           <Ionicons name="cloud-upload" size={20} color="white" />
-          <Text className="text-white font-semibold ml-2">Upload to IPFS</Text>
+          <Text className="text-white font-semibold ml-2">Upload Video</Text>
         </TouchableOpacity>
       )}
 

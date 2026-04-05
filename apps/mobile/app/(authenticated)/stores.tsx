@@ -241,11 +241,11 @@ export default function StoresScreen() {
               </TouchableOpacity>
             {myStore ? (
               <TouchableOpacity
-                onPress={() => router.push('/my-store')}
+                onPress={() => router.push('/my-stores')}
                 className="bg-amber-600 px-3 py-2 rounded-lg flex-row items-center"
               >
                 <Store size={16} color="white" />
-                <Text className="text-white font-semibold text-sm ml-1">My Store</Text>
+                <Text className="text-white font-semibold text-sm ml-1">My Stores</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity

@@ -38,6 +38,7 @@ interface OrderCardProps {
 }
 
 function OrderCard({ transaction, onPress }: OrderCardProps) {
+  const coin = useCoin();
   const config = STATUS_CONFIG[transaction.status] || STATUS_CONFIG.PENDING;
   const StatusIcon = config.icon;
   const orderDate = new Date(transaction.createdAt).toLocaleDateString('en-US', {

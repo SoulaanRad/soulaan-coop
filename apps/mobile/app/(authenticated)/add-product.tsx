@@ -10,21 +10,28 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   ChevronDown,
   Image as ImageIcon,
   DollarSign,
   Package,
+  X,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import MinIOPhotoUpload from '@/components/minio-photo-upload';
+import MinIOMultiPhotoUpload from '@/components/minio-multi-photo-upload';
 
 export default function AddProductScreen() {
   const { user } = useAuth();
+  const params = useLocalSearchParams();
+  const storeId = params.storeId as string | undefined;
+  
   const [loading, setLoading] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [productCategories, setProductCategories] = useState<{ key: string; label: string; isAdminOnly: boolean }[]>([]);
@@ -35,12 +42,16 @@ export default function AddProductScreen() {
     description: '',
     category: '',
     imageUrl: '',
+    images: [] as string[],
     priceUSD: '',
     sku: '',
     quantity: '0',
     trackInventory: true,
     allowBackorder: false,
   });
+  
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showGalleryUpload, setShowGalleryUpload] = useState(false);
 
   const updateField = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -85,14 +96,20 @@ export default function AddProductScreen() {
       Alert.alert('Error', 'Please ensure you are logged in');
       return;
     }
+    if (!storeId) {
+      Alert.alert('Error', 'Store ID is required');
+      return;
+    }
 
     setLoading(true);
     try {
       const result = await api.addProduct({
+        storeId,
         name: formData.name,
         description: formData.description || undefined,
         category: formData.category,
         imageUrl: formData.imageUrl || undefined,
+        images: formData.images.length > 0 ? formData.images : undefined,
         priceUSD: parseFloat(formData.priceUSD),
         sku: formData.sku || undefined,
         quantity: parseInt(formData.quantity) || 0,
@@ -211,24 +228,81 @@ export default function AddProductScreen() {
               />
             </View>
 
+            {/* Primary Image */}
             <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Image URL
+                Primary Image
               </Text>
-              <View className="flex-row items-center">
-                <View className="w-16 h-16 rounded-xl bg-gray-200 dark:bg-gray-700 items-center justify-center mr-3">
-                  <ImageIcon size={24} color="#9CA3AF" />
+              {formData.imageUrl ? (
+                <View className="relative">
+                  <Image
+                    source={{ uri: formData.imageUrl }}
+                    style={{ width: '100%', height: 200 }}
+                    className="rounded-xl"
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    onPress={() => updateField('imageUrl', '')}
+                    className="absolute top-2 right-2 bg-red-500 rounded-full p-2"
+                  >
+                    <X size={16} color="white" />
+                  </TouchableOpacity>
                 </View>
-                <TextInput
-                  className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-                  placeholder="https://example.com/image.jpg"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  value={formData.imageUrl}
-                  onChangeText={(v) => updateField('imageUrl', v)}
-                />
-              </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowImageUpload(true)}
+                  className="bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 items-center"
+                >
+                  <ImageIcon size={32} color="#9CA3AF" />
+                  <Text className="text-gray-600 dark:text-gray-400 mt-2">Tap to upload image</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Additional Images Gallery */}
+            <View className="mb-4">
+              <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Images (Optional)
+              </Text>
+              {formData.images.length > 0 ? (
+                <View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+                    {formData.images.map((url, index) => (
+                      <View key={index} className="mr-2 relative">
+                        <Image
+                          source={{ uri: url }}
+                          style={{ width: 80, height: 80 }}
+                          className="rounded-lg"
+                          resizeMode="cover"
+                        />
+                        <TouchableOpacity
+                          onPress={() => {
+                            const newImages = formData.images.filter((_, i) => i !== index);
+                            updateField('images', newImages);
+                          }}
+                          className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1"
+                        >
+                          <X size={12} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <TouchableOpacity
+                    onPress={() => setShowGalleryUpload(true)}
+                    className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg py-2 items-center"
+                  >
+                    <Text className="text-gray-600 dark:text-gray-400 text-sm">Add more images</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setShowGalleryUpload(true)}
+                  className="bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 items-center"
+                >
+                  <ImageIcon size={24} color="#9CA3AF" />
+                  <Text className="text-gray-600 dark:text-gray-400 text-sm mt-1">Tap to upload gallery</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -341,6 +415,60 @@ export default function AddProductScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Image Upload Modal */}
+        {showImageUpload && (
+          <View className="absolute inset-0 bg-black/50 justify-center items-center px-5">
+            <View className="bg-white dark:bg-gray-800 rounded-xl p-5 w-full max-w-md">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Upload Primary Image
+                </Text>
+                <TouchableOpacity onPress={() => setShowImageUpload(false)}>
+                  <X size={24} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+              <MinIOPhotoUpload
+                uploadType="product"
+                resourceId={storeId}
+                onUploadComplete={(url) => {
+                  updateField('imageUrl', url);
+                  setShowImageUpload(false);
+                }}
+                title="Product Image"
+                description="Upload a clear photo of your product"
+                aspectRatio={[4, 3]}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gallery Upload Modal */}
+        {showGalleryUpload && (
+          <View className="absolute inset-0 bg-black/50 justify-center items-center px-5">
+            <View className="bg-white dark:bg-gray-800 rounded-xl p-5 w-full max-w-md">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Upload Gallery Images
+                </Text>
+                <TouchableOpacity onPress={() => setShowGalleryUpload(false)}>
+                  <X size={24} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+              <MinIOMultiPhotoUpload
+                uploadType="product"
+                resourceId={storeId}
+                maxImages={5}
+                onUploadComplete={(urls) => {
+                  updateField('images', [...formData.images, ...urls]);
+                  setShowGalleryUpload(false);
+                }}
+                title="Product Gallery"
+                description="Upload multiple product images"
+              />
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

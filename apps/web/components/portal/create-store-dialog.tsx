@@ -23,18 +23,22 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
+import { MinIOImageUpload } from "./minio-image-upload";
 
 interface CreateStoreDialogProps {
+  coopId: string;
   onSuccess?: () => void;
 }
 
-export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
+export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps) {
   const { address } = useWeb3Auth();
   const [open, setOpen] = useState(false);
   const [ownerId, setOwnerId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
 
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
     { walletAddress: address || "" },
@@ -64,6 +68,8 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
     setName("");
     setDescription("");
     setCategory("");
+    setImageUrl("");
+    setBannerUrl("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,6 +79,8 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
       name,
       description: description || undefined,
       category: category as any,
+      imageUrl: imageUrl || undefined,
+      bannerUrl: bannerUrl || undefined,
     });
   };
 
@@ -155,6 +163,30 @@ export function CreateStoreDialog({ onSuccess }: CreateStoreDialogProps) {
                 )}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <MinIOImageUpload
+              uploadType="store"
+              coopId={coopId}
+              resourceId={ownerId}
+              label="Store Image (Optional)"
+              description="Upload a logo or main image for the store"
+              aspectRatio="aspect-square"
+              onUploadComplete={(url) => setImageUrl(url)}
+            />
+          </div>
+
+          <div>
+            <MinIOImageUpload
+              uploadType="store"
+              coopId={coopId}
+              resourceId={ownerId}
+              label="Store Banner (Optional)"
+              description="Upload a wide banner image for the store"
+              aspectRatio="aspect-video"
+              onUploadComplete={(url) => setBannerUrl(url)}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

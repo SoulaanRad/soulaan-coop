@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -21,9 +22,12 @@ import {
   ChevronRight,
   ChevronDown,
   BadgeCheck,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import MinIOPhotoUpload from '@/components/minio-photo-upload';
 
 type Step = 'store' | 'business' | 'owner' | 'review';
 
@@ -40,6 +44,8 @@ export default function ApplyStoreScreen() {
     storeName: '',
     storeDescription: '',
     category: '',
+    storeImageUrl: '',
+    storeBannerUrl: '',
 
     // Business info
     businessName: '',
@@ -54,6 +60,9 @@ export default function ApplyStoreScreen() {
     ownerPhone: user?.phone || '',
     websiteUrl: '',
   });
+
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showBannerUpload, setShowBannerUpload] = useState(false);
 
   const updateField = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -153,6 +162,8 @@ export default function ApplyStoreScreen() {
         storeName: formData.storeName,
         storeDescription: formData.storeDescription,
         category: formData.category,
+        imageUrl: formData.storeImageUrl || undefined,
+        bannerUrl: formData.storeBannerUrl || undefined,
         businessName: formData.businessName,
         businessAddress: formData.businessAddress,
         businessCity: formData.businessCity,
@@ -164,13 +175,11 @@ export default function ApplyStoreScreen() {
         websiteUrl: websiteUrl || undefined,
       }, user.walletAddress);
 
-      if (result?.alreadyExists) {
-        Alert.alert(
-          'Store Already Exists',
-          'You already have a store application. Taking you to complete Stripe Connect.',
-          [{ text: 'OK' }],
-        );
-      }
+      Alert.alert(
+        'Application Submitted',
+        'Your store application has been submitted. Complete Stripe Connect to activate your store.',
+        [{ text: 'Continue' }],
+      );
 
       router.replace({
         pathname: '/stripe-onboarding',
@@ -261,6 +270,68 @@ export default function ApplyStoreScreen() {
         <Text className="text-xs text-gray-500 mt-1">
           {formData.storeDescription.length}/10 minimum characters
         </Text>
+      </View>
+
+      {/* Store Image */}
+      <View className="mb-4">
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Store Image (Optional)
+        </Text>
+        {formData.storeImageUrl ? (
+          <View className="relative">
+            <Image
+              source={{ uri: formData.storeImageUrl }}
+              style={{ width: '100%', height: 150 }}
+              className="rounded-xl"
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              onPress={() => updateField('storeImageUrl', '')}
+              className="absolute top-2 right-2 bg-red-500 rounded-full p-2"
+            >
+              <X size={16} color="white" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setShowImageUpload(true)}
+            className="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 items-center"
+          >
+            <ImageIcon size={24} color="#9CA3AF" />
+            <Text className="text-gray-600 dark:text-gray-400 text-sm mt-1">Tap to upload store image</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Store Banner */}
+      <View className="mb-4">
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Store Banner (Optional)
+        </Text>
+        {formData.storeBannerUrl ? (
+          <View className="relative">
+            <Image
+              source={{ uri: formData.storeBannerUrl }}
+              style={{ width: '100%', height: 100 }}
+              className="rounded-xl"
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              onPress={() => updateField('storeBannerUrl', '')}
+              className="absolute top-2 right-2 bg-red-500 rounded-full p-2"
+            >
+              <X size={16} color="white" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => setShowBannerUpload(true)}
+            className="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 items-center"
+          >
+            <ImageIcon size={24} color="#9CA3AF" />
+            <Text className="text-gray-600 dark:text-gray-400 text-sm mt-1">Tap to upload banner</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -556,6 +627,60 @@ export default function ApplyStoreScreen() {
             )}
           </View>
         </View>
+
+        {/* Image Upload Modal */}
+        {showImageUpload && (
+          <View className="absolute inset-0 bg-black/50 justify-center items-center px-5">
+            <View className="bg-white dark:bg-gray-800 rounded-xl p-5 w-full max-w-md">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Upload Store Image
+                </Text>
+                <TouchableOpacity onPress={() => setShowImageUpload(false)}>
+                  <X size={24} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+              <MinIOPhotoUpload
+                uploadType="store"
+                resourceId="temp"
+                onUploadComplete={(url) => {
+                  updateField('storeImageUrl', url);
+                  setShowImageUpload(false);
+                }}
+                title="Store Image"
+                description="Upload your store logo or main image"
+                aspectRatio={[1, 1]}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Banner Upload Modal */}
+        {showBannerUpload && (
+          <View className="absolute inset-0 bg-black/50 justify-center items-center px-5">
+            <View className="bg-white dark:bg-gray-800 rounded-xl p-5 w-full max-w-md">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Upload Store Banner
+                </Text>
+                <TouchableOpacity onPress={() => setShowBannerUpload(false)}>
+                  <X size={24} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+              <MinIOPhotoUpload
+                uploadType="store"
+                resourceId="temp"
+                onUploadComplete={(url) => {
+                  updateField('storeBannerUrl', url);
+                  setShowBannerUpload(false);
+                }}
+                title="Store Banner"
+                description="Upload a wide banner image for your store"
+                aspectRatio={[16, 9]}
+              />
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

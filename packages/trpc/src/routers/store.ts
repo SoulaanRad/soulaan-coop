@@ -327,7 +327,7 @@ export const storeRouter = router({
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Get user's store (if they have one)
+   * Get user's store (if they have one) - kept for backwards compatibility
    */
   getMyStore: authenticatedProcedure
     .query(async ({ ctx }) => {
@@ -361,6 +361,7 @@ export const storeRouter = router({
             select: { products: true },
           },
         },
+        orderBy: { createdAt: 'desc' }, // Return most recent store
       });
 
       if (!store) {
@@ -414,6 +415,90 @@ export const storeRouter = router({
     }),
 
   /**
+   * Get all user's stores
+   */
+  getMyStores: authenticatedProcedure
+    .query(async ({ ctx }) => {
+      const context = ctx as Context;
+      const { walletAddress } = ctx as AuthenticatedContext;
+
+      // Find user by wallet address
+      const user = await context.db.user.findUnique({
+        where: { walletAddress },
+        select: { id: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
+      const stores = await context.db.store.findMany({
+        where: { ownerId: user.id },
+        include: {
+          application: true,
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
+          scVerificationApplication: true,
+          _count: {
+            select: { products: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return stores.map(store => ({
+        id: store.id,
+        name: store.name,
+        description: store.description,
+        category: store.category,
+        imageUrl: store.imageUrl,
+        bannerUrl: store.bannerUrl,
+        status: store.status,
+        isScVerified: store.isScVerified,
+        acceptsUC: store.acceptsUC,
+        ucDiscountPercent: store.ucDiscountPercent,
+        totalSales: store.totalSales,
+        totalOrders: store.totalOrders,
+        productCount: store._count.products,
+        businessId: store.businessId,
+        stripeAccount: store.business?.stripeAccount
+          ? {
+              businessId: store.business.id,
+              stripeAccountId: store.business.stripeAccount.stripeAccountId,
+              onboardingStatus: store.business.stripeAccount.onboardingStatus,
+              verificationStatus: store.business.stripeAccount.verificationStatus,
+              chargesEnabled: store.business.stripeAccount.chargesEnabled,
+              payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+            }
+          : null,
+        scApplicationStatus: store.scApplicationStatus,
+        scVerificationApplication: store.scVerificationApplication
+          ? {
+              id: store.scVerificationApplication.id,
+              status: store.scVerificationApplication.status,
+              whyScEligible: store.scVerificationApplication.whyScEligible,
+              expectedVolume: store.scVerificationApplication.expectedVolume,
+              rejectionReason: store.scVerificationApplication.rejectionReason,
+              reviewedAt: store.scVerificationApplication.reviewedAt,
+            }
+          : null,
+        application: store.application ? {
+          status: store.application.status,
+          reviewNotes: store.application.reviewNotes,
+          rejectionReason: store.application.rejectionReason,
+          communityBenefitStatement: store.application.communityBenefitStatement,
+        } : null,
+        createdAt: store.createdAt,
+      }));
+    }),
+
+  /**
    * Apply to become a store
    */
   applyForStore: authenticatedProcedure
@@ -422,6 +507,8 @@ export const storeRouter = router({
       storeName: z.string().min(2).max(100),
       storeDescription: z.string().min(10).max(1000), // Required - what the store sells/offers
       category: StoreCategoryEnum,
+      imageUrl: z.string().url().optional(),
+      bannerUrl: z.string().url().optional(),
 
       // Business info
       businessName: z.string().min(2),
@@ -479,20 +566,7 @@ export const storeRouter = router({
         });
       }
 
-      // Check if user already has a store — return it so the mobile app can
-      // continue to Stripe onboarding instead of hitting a dead-end error.
-      const existingStore = await context.db.store.findFirst({
-        where: { ownerId: user.id, coopId },
-      });
-
-      if (existingStore) {
-        return {
-          success: true,
-          storeId: existingStore.id,
-          alreadyExists: true,
-          message: "You already have a store — continuing to Stripe Connect.",
-        };
-      }
+      // Allow users to have multiple stores - no restriction
 
       // Create store and application in a transaction
       const store = await context.db.$transaction(async (tx) => {
@@ -504,6 +578,8 @@ export const storeRouter = router({
             name: input.storeName,
             description: input.storeDescription,
             category: input.category as StoreCategory,
+            imageUrl: input.imageUrl,
+            bannerUrl: input.bannerUrl,
             status: "PENDING",
           },
         });
@@ -545,13 +621,14 @@ export const storeRouter = router({
    */
   getMyProducts: authenticatedProcedure
     .input(z.object({
+      storeId: z.string().optional(), // Optional - if not provided, returns products from all stores
       includeInactive: z.boolean().optional().default(false),
     }).optional())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Find user's store
+      // Find user
       const user = await context.db.user.findUnique({
         where: { walletAddress },
         select: { id: true },
@@ -564,18 +641,59 @@ export const storeRouter = router({
         });
       }
 
-      const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
-      });
-
-      if (!store) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "You don't have a store",
+      // If storeId is provided, verify user owns that store
+      if (input?.storeId) {
+        const store = await context.db.store.findFirst({
+          where: { id: input.storeId, ownerId: user.id },
         });
+
+        if (!store) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Store not found or you don't own this store",
+          });
+        }
+
+        const where: any = { storeId: input.storeId };
+        if (!input?.includeInactive) {
+          where.isActive = true;
+        }
+
+        const products = await context.db.product.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+        });
+
+        return products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          imageUrl: product.imageUrl,
+          priceUSD: product.priceUSD,
+          ucDiscountPrice: product.ucDiscountPrice,
+          quantity: product.quantity,
+          trackInventory: product.trackInventory,
+          isActive: product.isActive,
+          isFeatured: product.isFeatured,
+          totalSold: product.totalSold,
+          createdAt: product.createdAt,
+        }));
       }
 
-      const where: any = { storeId: store.id };
+      // If no storeId provided, return products from all user's stores
+      const stores = await context.db.store.findMany({
+        where: { ownerId: user.id },
+        select: { id: true },
+      });
+
+      if (stores.length === 0) {
+        return [];
+      }
+
+      const where: any = { 
+        storeId: { in: stores.map(s => s.id) }
+      };
       if (!input?.includeInactive) {
         where.isActive = true;
       }
@@ -583,6 +701,11 @@ export const storeRouter = router({
       const products = await context.db.product.findMany({
         where,
         orderBy: { createdAt: "desc" },
+        include: {
+          store: {
+            select: { id: true, name: true },
+          },
+        },
       });
 
       return products.map((product) => ({
@@ -599,6 +722,8 @@ export const storeRouter = router({
         isFeatured: product.isFeatured,
         totalSold: product.totalSold,
         createdAt: product.createdAt,
+        storeId: product.store.id,
+        storeName: product.store.name,
       }));
     }),
 
@@ -607,6 +732,7 @@ export const storeRouter = router({
    */
   addProduct: authenticatedProcedure
     .input(z.object({
+      storeId: z.string(), // Required - specify which store to add product to
       name: z.string().min(2).max(200),
       description: z.string().max(2000).optional(),
       category: ProductCategoryEnum,
@@ -623,7 +749,7 @@ export const storeRouter = router({
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Find user's store
+      // Find user
       const user = await context.db.user.findUnique({
         where: { walletAddress },
         select: { id: true },
@@ -636,14 +762,18 @@ export const storeRouter = router({
         });
       }
 
+      // Verify user owns the specified store
       const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
+        where: { 
+          id: input.storeId,
+          ownerId: user.id 
+        },
       });
 
       if (!store) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "You don't have a store",
+          message: "Store not found or you don't own this store",
         });
       }
 
@@ -716,7 +846,7 @@ export const storeRouter = router({
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Find user's store
+      // Find user
       const user = await context.db.user.findUnique({
         where: { walletAddress },
         select: { id: true },
@@ -729,26 +859,20 @@ export const storeRouter = router({
         });
       }
 
-      const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
-      });
-
-      if (!store) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "You don't have a store",
-        });
-      }
-
-      // Verify product belongs to this store
+      // Verify product belongs to one of user's stores
       const product = await context.db.product.findUnique({
         where: { id: input.productId },
+        include: {
+          store: {
+            select: { ownerId: true },
+          },
+        },
       });
 
-      if (!product || product.storeId !== store.id) {
+      if (!product || product.store.ownerId !== user.id) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Product not found",
+          message: "Product not found or you don't own this product",
         });
       }
 
@@ -782,7 +906,7 @@ export const storeRouter = router({
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Find user's store
+      // Find user
       const user = await context.db.user.findUnique({
         where: { walletAddress },
         select: { id: true },
@@ -795,26 +919,20 @@ export const storeRouter = router({
         });
       }
 
-      const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
-      });
-
-      if (!store) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "You don't have a store",
-        });
-      }
-
-      // Verify product belongs to this store
+      // Verify product belongs to one of user's stores
       const product = await context.db.product.findUnique({
         where: { id: input.productId },
+        include: {
+          store: {
+            select: { ownerId: true },
+          },
+        },
       });
 
-      if (!product || product.storeId !== store.id) {
+      if (!product || product.store.ownerId !== user.id) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Product not found",
+          message: "Product not found or you don't own this product",
         });
       }
 
@@ -1552,17 +1670,7 @@ export const storeRouter = router({
         });
       }
 
-      // Check if owner already has a store
-      const existingStore = await context.db.store.findFirst({
-        where: { ownerId: input.ownerId, coopId },
-      });
-
-      if (existingStore) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "This user already has a store",
-        });
-      }
+      // Allow users to have multiple stores - no restriction
 
       const store = await context.db.store.create({
         data: {
@@ -2130,6 +2238,7 @@ export const storeRouter = router({
    */
   getStoreOrders: authenticatedProcedure
     .input(z.object({
+      storeId: z.string().optional(), // Optional - if not provided, returns orders from all stores
       status: z.enum(['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']).optional(),
       limit: z.number().min(1).max(50).optional().default(20),
       cursor: z.string().optional(),
@@ -2137,7 +2246,7 @@ export const storeRouter = router({
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
       const { walletAddress } = ctx as AuthenticatedContext;
-      const { status, limit, cursor } = input || { limit: 20 };
+      const { storeId, status, limit, cursor } = input || { limit: 20 };
 
       const user = await context.db.user.findUnique({
         where: { walletAddress },
@@ -2150,18 +2259,72 @@ export const storeRouter = router({
         });
       }
 
-      const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
-      });
-
-      if (!store) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "You don't have a store",
+      // If storeId provided, verify user owns it
+      if (storeId) {
+        const store = await context.db.store.findFirst({
+          where: { id: storeId, ownerId: user.id },
         });
+
+        if (!store) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Store not found or you don't own this store",
+          });
+        }
+
+        const where: any = { storeId };
+        if (status) where.fulfillmentStatus = status;
+
+        const orders = await context.db.storeOrder.findMany({
+          where,
+          take: limit + 1,
+          cursor: cursor ? { id: cursor } : undefined,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        });
+
+        let nextCursor: string | undefined;
+        if (orders.length > limit) {
+          const nextItem = orders.pop();
+          nextCursor = nextItem?.id;
+        }
+
+        return {
+          orders: orders.map(order => ({
+            id: order.id,
+            totalUSD: order.totalUSD,
+            paymentStatus: order.paymentStatus,
+            fulfillmentStatus: order.fulfillmentStatus,
+            itemCount: order.items.length,
+            itemSummary: order.items.slice(0, 2).map(i => i.product.name).join(', '),
+            shippingAddress: order.shippingAddress,
+            createdAt: order.createdAt.toISOString(),
+          })),
+          nextCursor,
+        };
       }
 
-      const where: any = { storeId: store.id };
+      // If no storeId, get orders from all user's stores
+      const stores = await context.db.store.findMany({
+        where: { ownerId: user.id },
+        select: { id: true },
+      });
+
+      if (stores.length === 0) {
+        return { orders: [], nextCursor: undefined };
+      }
+
+      const where: any = { 
+        storeId: { in: stores.map(s => s.id) }
+      };
       if (status) where.fulfillmentStatus = status;
 
       const orders = await context.db.storeOrder.findMany({
@@ -2202,6 +2365,47 @@ export const storeRouter = router({
     }),
 
   /**
+   * Update store status (admin) - suspend, reactivate, or delete
+   */
+  updateStoreStatus: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      status: z.enum(["APPROVED", "SUSPENDED", "REJECTED"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+      });
+
+      if (!store) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Store not found",
+        });
+      }
+
+      await context.db.store.update({
+        where: { id: input.storeId },
+        data: {
+          status: input.status,
+        },
+      });
+
+      const statusMessages: Record<string, string> = {
+        APPROVED: "Store reactivated",
+        SUSPENDED: "Store suspended",
+        REJECTED: "Store deleted",
+      };
+
+      return {
+        success: true,
+        message: statusMessages[input.status],
+      };
+    }),
+
+  /**
    * Update order fulfillment status (for store owners)
    */
   updateOrderStatus: authenticatedProcedure
@@ -2225,25 +2429,20 @@ export const storeRouter = router({
         });
       }
 
-      const store = await context.db.store.findFirst({
-        where: { ownerId: user.id },
-      });
-
-      if (!store) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "You don't have a store",
-        });
-      }
-
+      // Verify order belongs to one of user's stores
       const order = await context.db.storeOrder.findUnique({
         where: { id: input.orderId },
+        include: {
+          store: {
+            select: { ownerId: true, coopId: true },
+          },
+        },
       });
 
-      if (!order || order.storeId !== store.id) {
+      if (!order || order.store.ownerId !== user.id) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Order not found",
+          message: "Order not found or you don't own this order",
         });
       }
 
@@ -2266,7 +2465,7 @@ export const storeRouter = router({
       await context.db.notification.create({
         data: {
           userId: order.buyerId,
-          coopId: store.coopId,
+          coopId: order.store.coopId,
           type: 'ORDER_STATUS_UPDATE',
           title: 'Order Update',
           body: `Your order ${statusMessages[input.status]}.${input.trackingNumber ? ` Tracking: ${input.trackingNumber}` : ''}`,

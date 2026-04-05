@@ -394,21 +394,21 @@ export default async function HomePage() {
 
               <div className="mt-12 grid gap-6 md:grid-cols-3">
                 {coops.map((coop, i) => (
-                  <div key={coop.coopId} className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a]">
-                    <div className={`relative h-40 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
+                  <div key={coop.coopId} className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a] flex flex-col">
+                    <div className={`relative h-48 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
                       {coop.isLive ? (
                         <span className="absolute top-3 right-3 rounded-full bg-[#f59e0b] px-3 py-1 text-xs font-bold text-white">LIVE</span>
                       ) : (
                         <span className="absolute top-3 right-3 rounded-full bg-[#252525] px-3 py-1 text-xs font-bold text-slate-400">SOON</span>
                       )}
                     </div>
-                    <div className="p-6">
+                    <div className="p-6 flex-1 flex flex-col">
                       <h3 className="text-lg font-bold">{coop.name}</h3>
                       {coop.tagline && (
                         <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>
                       )}
                       {coop.description && (
-                        <p className="mt-3 text-sm text-slate-400 line-clamp-2">{coop.description}</p>
+                        <p className="mt-3 text-xs text-slate-400 leading-relaxed line-clamp-6">{coop.description}</p>
                       )}
                     </div>
                   </div>

@@ -1,123 +1,162 @@
 import { Router, Request, Response } from 'express';
-import multer from 'multer';
-import { uploadToPinata, getIPFSUrl } from '../services/pinata.js';
+import { generatePresignedUploadUrl, generatePresignedUrls, generateFileKey, getPublicUrl } from '../services/minio.js';
 
 const router = Router();
 
-// Configure multer for file uploads (memory storage)
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB max file size
-  },
-  fileFilter: (req, file, cb) => {
-    // Allow images and videos
+/**
+ * POST /api/upload/presigned
+ * Generate a presigned URL for direct upload to MinIO
+ */
+router.post('/presigned', async (req: Request, res: Response) => {
+  try {
+    const { filename, contentType, uploadType, resourceId } = req.body;
+    
+    // Get coopId from header
+    const coopId = req.headers['x-coop-id'] as string;
+    
+    if (!coopId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing X-Coop-Id header',
+      });
+    }
+
+    if (!filename || !contentType || !uploadType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: filename, contentType, uploadType',
+      });
+    }
+
+    // Validate upload type
+    const validUploadTypes = ['profile', 'store', 'product'];
+    if (!validUploadTypes.includes(uploadType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid uploadType. Must be one of: ${validUploadTypes.join(', ')}`,
+      });
+    }
+
+    // Validate content type
     const allowedMimes = [
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/webp',
       'video/mp4',
-      'video/quicktime', // .mov files
+      'video/quicktime',
       'video/webm',
     ];
 
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Invalid file type. Allowed: images (JPEG, PNG, WebP) and videos (MP4, MOV, WebM)`));
-    }
-  },
-});
-
-/**
- * POST /api/upload
- * Upload a file (photo or video) to IPFS
- */
-router.post('/', upload.single('file'), async (req: Request, res: Response) => {
-  try {
-    const file = req.file;
-
-    if (!file) {
+    if (!allowedMimes.includes(contentType)) {
       return res.status(400).json({
         success: false,
-        error: 'No file provided',
+        error: `Invalid content type. Allowed: ${allowedMimes.join(', ')}`,
       });
     }
 
-    console.log(`📁 Received file: ${file.originalname} (${file.size} bytes)`);
+    // Generate unique key for the file
+    const key = generateFileKey(uploadType as 'profile' | 'store' | 'product', resourceId || 'temp', filename);
 
-    // Upload to IPFS via Pinata
-    const cid = await uploadToPinata(file.buffer, file.originalname);
+    // Generate presigned URL (5 minutes expiration)
+    const presignedUrl = await generatePresignedUploadUrl(coopId, key, contentType, 300);
 
-    // Get public URL
-    const url = getIPFSUrl(cid);
+    // Get public URL for accessing the file after upload
+    const publicUrl = getPublicUrl(coopId, key);
 
-    console.log(`✅ Upload successful: ${url}`);
+    console.log(`✅ Generated presigned URL for coop ${coopId}, ${uploadType}: ${key}`);
 
     return res.json({
       success: true,
-      cid,
-      url,
-      filename: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
+      presignedUrl,
+      key,
+      publicUrl,
+      expiresIn: 300, // seconds
     });
   } catch (error) {
-    console.error('❌ Upload error:', error);
+    console.error('❌ Presigned URL generation error:', error);
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Upload failed',
+      error: error instanceof Error ? error.message : 'Failed to generate presigned URL',
     });
   }
 });
 
 /**
- * POST /api/upload/video
- * Upload introduction video (5-10 seconds)
- * More strict validation for video duration
+ * POST /api/upload/presigned-batch
+ * Generate multiple presigned URLs for batch uploads (e.g., product gallery)
  */
-router.post('/video', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/presigned-batch', async (req: Request, res: Response) => {
   try {
-    const file = req.file;
-
-    if (!file) {
+    const { count, contentType, uploadType, resourceId } = req.body;
+    
+    // Get coopId from header
+    const coopId = req.headers['x-coop-id'] as string;
+    
+    if (!coopId) {
       return res.status(400).json({
         success: false,
-        error: 'No file provided',
+        error: 'Missing X-Coop-Id header',
       });
     }
 
-    // Validate it's a video
-    if (!file.mimetype.startsWith('video/')) {
+    if (!count || !contentType || !uploadType) {
       return res.status(400).json({
         success: false,
-        error: 'File must be a video',
+        error: 'Missing required fields: count, contentType, uploadType',
       });
     }
 
-    console.log(`🎥 Received video: ${file.originalname} (${file.size} bytes)`);
+    // Validate count
+    if (typeof count !== 'number' || count < 1 || count > 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Count must be a number between 1 and 10',
+      });
+    }
 
-    // Upload to IPFS
-    const cid = await uploadToPinata(file.buffer, file.originalname);
-    const url = getIPFSUrl(cid);
+    // Validate upload type
+    const validUploadTypes = ['profile', 'store', 'product'];
+    if (!validUploadTypes.includes(uploadType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid uploadType. Must be one of: ${validUploadTypes.join(', ')}`,
+      });
+    }
 
-    console.log(`✅ Video upload successful: ${url}`);
+    // Validate content type
+    const allowedMimes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedMimes.includes(contentType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid content type for batch upload. Allowed: ${allowedMimes.join(', ')}`,
+      });
+    }
+
+    // Generate prefix for batch uploads
+    const prefix = `${uploadType}s/${resourceId || 'temp'}/`;
+
+    // Generate multiple presigned URLs
+    const uploads = await generatePresignedUrls(coopId, count, prefix, contentType);
+
+    console.log(`✅ Generated ${count} presigned URLs for coop ${coopId}, ${uploadType} batch upload`);
 
     return res.json({
       success: true,
-      cid,
-      url,
-      filename: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
+      uploads,
+      expiresIn: 300, // seconds
     });
   } catch (error) {
-    console.error('❌ Video upload error:', error);
+    console.error('❌ Batch presigned URL generation error:', error);
     return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Video upload failed',
+      error: error instanceof Error ? error.message : 'Failed to generate presigned URLs',
     });
   }
 });
