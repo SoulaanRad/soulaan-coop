@@ -178,7 +178,7 @@ describe('Store Admin Creation', () => {
       ).rejects.toThrow('Owner user not found');
     });
 
-    it('should fail when user already has a store', async () => {
+    it('should allow user to create multiple stores', async () => {
       const mockUser = {
         id: mockUserId,
         email: 'test@example.com',
@@ -191,6 +191,14 @@ describe('Store Admin Creation', () => {
         coopId: mockCoopId,
       };
 
+      const newStore = {
+        id: 'store-123',
+        ownerId: mockUserId,
+        coopId: mockCoopId,
+        name: 'Test Store',
+        status: 'APPROVED',
+      };
+
       vi.mocked(checkAdminStatusWithRole).mockResolvedValue({
         isAdmin: true,
         role: 'Treasury Safe Owner',
@@ -198,6 +206,7 @@ describe('Store Admin Creation', () => {
 
       vi.mocked(db.user.findUnique).mockResolvedValue(mockUser as any);
       vi.mocked(db.store.findFirst).mockResolvedValue(existingStore as any);
+      vi.mocked(db.store.create).mockResolvedValue(newStore as any);
 
       const mockContext = {
         db,
@@ -214,13 +223,15 @@ describe('Store Admin Creation', () => {
 
       const caller = storeRouter.createCaller(mockContext as any);
 
-      await expect(
-        caller.createStoreAdmin({
-          ownerId: mockUserId,
-          name: 'Test Store',
-          category: 'FOOD_BEVERAGE' as any,
-        })
-      ).rejects.toThrow('This user already has a store');
+      const result = await caller.createStoreAdmin({
+        ownerId: mockUserId,
+        name: 'Test Store',
+        category: 'FOOD_BEVERAGE' as any,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.store.id).toBe('store-123');
+      expect(result.store.name).toBe('Test Store');
     });
   });
 });
