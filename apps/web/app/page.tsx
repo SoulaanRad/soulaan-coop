@@ -78,7 +78,7 @@ const steps = [
   {
     number: "03",
     title: "Small cut funds the pot",
-    description: "2.5% from you, 2.5% from the business. Every cent goes to a shared treasury.",
+    description: "A small percentage from you and the business. Every cent goes to a shared treasury.",
   },
   {
     number: "04",
@@ -103,8 +103,8 @@ const businessBenefits = [
 
 const faqs = [
   {
-    q: "Why would I pay 2.5% extra?",
-    a: "Because it doesn't disappear into some corporate pocket. It goes into a community fund that supports local businesses, funds projects you vote on, and eventually pays you back. You're investing in your neighborhood, not Visa.",
+    q: "Why would I pay extra?",
+    a: "Because it doesn't disappear into some corporate pocket. It goes into a community fund that supports local businesses, funds projects you vote on, and eventually pays you back. You're investing in your neighborhood, not Visa. Each cooperative sets their own rates—typically competitive with credit card fees.",
   },
   {
     q: "An AI decides where money goes?",
@@ -203,11 +203,11 @@ export default async function HomePage() {
           <div className="mx-auto max-w-6xl">
             <div className="grid gap-8 text-center md:grid-cols-3">
               <div>
-                <p className="text-5xl font-black">2.5%</p>
+                <p className="text-5xl font-black">~2.5%</p>
                 <p className="mt-2 text-slate-400">You chip in</p>
               </div>
               <div>
-                <p className="text-5xl font-black">2.5%</p>
+                <p className="text-5xl font-black">~2.5%</p>
                 <p className="mt-2 text-slate-400">Business chips in</p>
               </div>
               <div>
@@ -217,6 +217,9 @@ export default async function HomePage() {
             </div>
             <p className="mt-8 text-center text-sm text-slate-400">
               No corporate extraction. No middlemen. Just neighbors looking out for neighbors.
+            </p>
+            <p className="mt-2 text-center text-xs text-slate-500">
+              *Percentages vary by cooperative. Each community sets their own rates.
             </p>
           </div>
         </section>
@@ -245,7 +248,7 @@ export default async function HomePage() {
 
             {/* Example */}
             <div className="mt-16 rounded-xl border border-white/10 bg-[#252525] p-8">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Real example</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Example (rates vary by coop)</p>
               <div className="mt-5 flex flex-wrap items-center gap-4">
                 <span className="text-lg font-bold">$100 tab</span>
                 <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -255,6 +258,9 @@ export default async function HomePage() {
                 <ChevronRight className="h-5 w-5 text-slate-400" />
                 <span className="text-lg font-bold text-[#f59e0b]">$5 to the pot</span>
               </div>
+              <p className="mt-4 text-xs text-slate-500">
+                *This example uses 2.5% rates. Your cooperative may set different percentages.
+              </p>
             </div>
           </div>
         </section>
@@ -334,7 +340,7 @@ export default async function HomePage() {
                   <Users className="h-4 w-4 text-[#f59e0b]" />
                   For Members
                 </div>
-                <h3 className="mt-5 text-2xl font-black">What you get for 2.5%</h3>
+                <h3 className="mt-5 text-2xl font-black">What you get</h3>
                 <ul className="mt-8 space-y-4">
                   {memberBenefits.map((benefit) => (
                     <li key={benefit} className="flex items-center gap-4">
@@ -359,9 +365,9 @@ export default async function HomePage() {
                   <Store className="h-4 w-4 text-[#f59e0b]" />
                   For Businesses
                 </div>
-                <h3 className="mt-5 text-2xl font-black">Why 2.5% is worth it</h3>
+                <h3 className="mt-5 text-2xl font-black">Why it's worth it</h3>
                 <p className="mt-3 text-slate-400">
-                  Less than credit cards. Money stays local. And your regulars become actual stakeholders.
+                  Competitive rates, often less than credit cards. Money stays local. And your regulars become actual stakeholders.
                 </p>
                 <ul className="mt-8 space-y-4">
                   {businessBenefits.map((benefit) => (

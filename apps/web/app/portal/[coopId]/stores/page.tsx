@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
+import { EditStoreDialog } from "@/components/portal/edit-store-dialog";
 
 type MainTab = "applications" | "stores" | "featured";
 type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
@@ -102,6 +103,7 @@ export default function StoreManagementPage() {
 // ALL STORES TAB
 // ============================================
 function AllStoresTab() {
+  const { coopId } = useCoopContext();
   const [statusFilter, setStatusFilter] = useState<StoreStatus | undefined>("APPROVED");
   const [search, setSearch] = useState("");
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
@@ -278,6 +280,19 @@ function AllStoresTab() {
                     >
                       {store.status}
                     </Badge>
+                    <EditStoreDialog 
+                      coopId={coopId} 
+                      store={{
+                        id: store.id,
+                        name: store.name,
+                        description: store.description,
+                        category: store.category,
+                        imageUrl: (store as any).imageUrl,
+                        bannerUrl: (store as any).bannerUrl,
+                        ownerId: (store as any).ownerId,
+                      }}
+                      onSuccess={() => refetch()}
+                    />
                     <Button
                       variant="ghost"
                       size="sm"

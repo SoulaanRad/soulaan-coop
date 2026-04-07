@@ -14,6 +14,7 @@ interface MinIOImageUploadProps {
   label?: string;
   description?: string;
   aspectRatio?: string;
+  currentImageUrl?: string | null;
 }
 
 export function MinIOImageUpload({
@@ -24,11 +25,12 @@ export function MinIOImageUpload({
   label = "Upload Image",
   description = "Select an image to upload",
   aspectRatio = "aspect-square",
+  currentImageUrl = null,
 }: MinIOImageUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(currentImageUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

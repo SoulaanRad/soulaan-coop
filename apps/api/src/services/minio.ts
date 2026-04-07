@@ -25,12 +25,12 @@ export const minioClient = new S3Client({
 
 /**
  * Get bucket name for a specific coop
- * Format: soulaan-{coopId}
+ * Format: cahootz-{coopId}
  */
 export function getCoopBucketName(coopId: string): string {
   // Sanitize coopId to be bucket-name safe (lowercase, alphanumeric, hyphens)
   const sanitized = coopId.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-  return `soulaan-${sanitized}`;
+  return `cahootz-${sanitized}`;
 }
 
 /**
@@ -44,6 +44,12 @@ async function bucketExists(bucketName: string): Promise<boolean> {
     if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
       return false;
     }
+    console.error(`❌ Error checking bucket ${bucketName}:`, {
+      name: error.name,
+      message: error.message,
+      statusCode: error.$metadata?.httpStatusCode,
+      response: error.$response,
+    });
     throw error;
   }
 }
@@ -59,8 +65,20 @@ export async function ensureCoopBucket(coopId: string): Promise<string> {
     
     if (!exists) {
       console.log(`📦 Creating bucket for coop ${coopId}: ${bucketName}`);
-      await minioClient.send(new CreateBucketCommand({ Bucket: bucketName }));
-      console.log(`✅ Bucket created: ${bucketName}`);
+      try {
+        await minioClient.send(new CreateBucketCommand({ Bucket: bucketName }));
+        console.log(`✅ Bucket created: ${bucketName}`);
+      } catch (createError: any) {
+        console.error(`❌ Error creating bucket ${bucketName}:`, {
+          name: createError.name,
+          message: createError.message,
+          statusCode: createError.$metadata?.httpStatusCode,
+          endpoint: env.MINIO_ENDPOINT,
+        });
+        throw createError;
+      }
+    } else {
+      console.log(`✅ Bucket already exists: ${bucketName}`);
     }
     
     return bucketName;

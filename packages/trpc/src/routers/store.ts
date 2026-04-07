@@ -1366,6 +1366,9 @@ export const storeRouter = router({
           isFeatured: store.isFeatured,
           acceptsUC: store.acceptsUC,
           ucDiscountPercent: store.ucDiscountPercent,
+          imageUrl: store.imageUrl,
+          bannerUrl: store.bannerUrl,
+          ownerId: store.ownerId,
           owner: {
             id: store.owner.id,
             name: store.owner.name,
@@ -1700,6 +1703,74 @@ export const storeRouter = router({
           id: store.id,
           name: store.name,
           status: store.status,
+        },
+      };
+    }),
+
+  /**
+   * Update an existing store (admin only)
+   */
+  updateStore: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      name: z.string().min(2).max(100).optional(),
+      description: z.string().max(1000).optional(),
+      category: StoreCategoryEnum.optional(),
+      imageUrl: z.string().url().optional(),
+      bannerUrl: z.string().url().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      zipCode: z.string().optional(),
+      phone: z.string().optional(),
+      email: z.string().email().optional(),
+      website: z.string().url().optional(),
+      acceptsUC: z.boolean().optional(),
+      ucDiscountPercent: z.number().min(0).max(100).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      // Verify store exists
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+      });
+
+      if (!store) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Store not found",
+        });
+      }
+
+      // Build update data object with only provided fields
+      const updateData: any = {};
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.description !== undefined) updateData.description = input.description;
+      if (input.category !== undefined) updateData.category = input.category as StoreCategory;
+      if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
+      if (input.bannerUrl !== undefined) updateData.bannerUrl = input.bannerUrl;
+      if (input.address !== undefined) updateData.address = input.address;
+      if (input.city !== undefined) updateData.city = input.city;
+      if (input.state !== undefined) updateData.state = input.state;
+      if (input.zipCode !== undefined) updateData.zipCode = input.zipCode;
+      if (input.phone !== undefined) updateData.phone = input.phone;
+      if (input.email !== undefined) updateData.email = input.email;
+      if (input.website !== undefined) updateData.website = input.website;
+      if (input.acceptsUC !== undefined) updateData.acceptsUC = input.acceptsUC;
+      if (input.ucDiscountPercent !== undefined) updateData.ucDiscountPercent = input.ucDiscountPercent;
+
+      const updatedStore = await context.db.store.update({
+        where: { id: input.storeId },
+        data: updateData,
+      });
+
+      return {
+        success: true,
+        store: {
+          id: updatedStore.id,
+          name: updatedStore.name,
+          category: updatedStore.category,
         },
       };
     }),
