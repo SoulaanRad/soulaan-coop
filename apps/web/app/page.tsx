@@ -68,7 +68,7 @@ const steps = [
   {
     number: "01",
     title: "Shop at local spots",
-    description: "Bars, restaurants, shops—anywhere in the network. Pay like normal.",
+    description: "Grocery stores, barbershops, restaurants—anywhere in the network. Pay like normal.",
   },
   {
     number: "02",
@@ -250,13 +250,13 @@ export default async function HomePage() {
             <div className="mt-16 rounded-xl border border-white/10 bg-[#252525] p-8">
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Example (rates vary by coop)</p>
               <div className="mt-5 flex flex-wrap items-center gap-4">
-                <span className="text-lg font-bold">$100 tab</span>
+                <span className="text-lg font-bold">$40 haircut</span>
                 <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg">You pay <span className="font-bold">$102.50</span></span>
+                <span className="text-lg">You pay <span className="font-bold">$41</span></span>
                 <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg">Bar gets <span className="font-bold">$97.50</span></span>
+                <span className="text-lg">Barber gets <span className="font-bold">$39</span></span>
                 <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg font-bold text-[#f59e0b]">$5 to the pot</span>
+                <span className="text-lg font-bold text-[#f59e0b]">$2 to the pot</span>
               </div>
               <p className="mt-4 text-xs text-slate-500">
                 *This example uses 2.5% rates. Your cooperative may set different percentages.
