@@ -1,5 +1,6 @@
 import type { NextRequest} from "next/server";
 import { NextResponse } from "next/server";
+import { env } from "~/env";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get API URL from environment
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/trpc", "") || "http://localhost:3001";
+    const apiUrl = env.NEXT_PUBLIC_API_URL?.replace("/trpc", "") || "http://localhost:3001";
 
     // Forward request to Express API server
     const response = await fetch(`${apiUrl}/api/upload/presigned-batch`, {
