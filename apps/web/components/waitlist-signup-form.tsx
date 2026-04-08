@@ -63,6 +63,9 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
       if (data.success) {
         formElement.reset();
         setSelectedCoop("none");
+        
+        // Open mobile app in new tab after successful signup
+        window.open("https://mobile.cahootzcoops.com/", "_blank");
       }
     } catch (error) {
       console.error("Waitlist submission error:", error);

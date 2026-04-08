@@ -180,7 +180,7 @@ export default function ProposalDetailScreen() {
         api.getProposal(id, user?.walletAddress),
         api.listProposalComments(id, user?.walletAddress),
         api.getReactionCounts(id, user?.walletAddress),
-        api.getCoopConfig(),
+        api.getCoopConfig('soulaan'),
         api.getProposalRevisions(id, user?.walletAddress),
       ]);
       setProposal(p);

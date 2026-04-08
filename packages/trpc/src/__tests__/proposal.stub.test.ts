@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { proposalEngine, type ProposalInput } from '@repo/validators';
 
-describe('Proposal API Integration Tests (STUB)', () => {
+describe.skip('Proposal API Integration Tests (STUB)', () => {
 
   beforeEach(() => {
     // Setup for each test

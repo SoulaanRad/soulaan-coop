@@ -1,3 +1,5 @@
+import { coopConfig } from './coop-config';
+
 // Get API URL from environment variable or fallback to defaults
 const getApiBaseUrl = () => {
   const envApiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -23,6 +25,14 @@ export const config = {
   RETRY_DELAY: 1000, // 1 second
 };
 
+/**
+ * Get the current coop ID from the active coop config
+ * This is dynamic and changes based on the user's active coop
+ */
+export function getCoopId(): string {
+  return coopConfig().id;
+}
+
 // Helper function to get the correct API URL
 export const getApiUrl = () => {
   const baseUrl = config.API_BASE_URL;
@@ -39,7 +49,7 @@ export const networkConfig = {
   // Enable network debugging in development
   enableNetworkLogging: __DEV__,
 
-  // Headers for all requests
+  // Headers for all requests (without X-Coop-Id - must be added dynamically)
   defaultHeaders: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -51,3 +61,14 @@ export const networkConfig = {
     credentials: true,
   }
 };
+
+/**
+ * Get headers with the current coop ID
+ * Use this instead of networkConfig.defaultHeaders for requests that need X-Coop-Id
+ */
+export function getHeadersWithCoopId(): Record<string, string> {
+  return {
+    ...networkConfig.defaultHeaders,
+    'X-Coop-Id': getCoopId(),
+  };
+}

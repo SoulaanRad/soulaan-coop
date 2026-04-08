@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
+import { CompactImageUpload } from "./compact-image-upload";
+import { useCoopContext } from "@/lib/coop-context";
 
 interface CreateProductDialogProps {
   storeId: string;
@@ -30,10 +32,13 @@ interface CreateProductDialogProps {
 }
 
 export function CreateProductDialog({ storeId, storeName, onSuccess }: CreateProductDialogProps) {
+  const { coopId } = useCoopContext();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
   const [priceUSD, setPriceUSD] = useState("");
   const [quantity, setQuantity] = useState("0");
 
@@ -53,6 +58,8 @@ export function CreateProductDialog({ storeId, storeName, onSuccess }: CreatePro
     setName("");
     setDescription("");
     setCategory("");
+    setImageUrl("");
+    setAdditionalImages([]);
     setPriceUSD("");
     setQuantity("0");
   };
@@ -64,6 +71,8 @@ export function CreateProductDialog({ storeId, storeName, onSuccess }: CreatePro
       name,
       description: description || undefined,
       category: category as any,
+      imageUrl: imageUrl || undefined,
+      images: additionalImages.length > 0 ? additionalImages : undefined,
       priceUSD: parseFloat(priceUSD),
       quantity: parseInt(quantity),
     });
@@ -77,7 +86,7 @@ export function CreateProductDialog({ storeId, storeName, onSuccess }: CreatePro
           Add Product
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800">
         <DialogHeader>
           <DialogTitle className="text-white">Add Product to {storeName}</DialogTitle>
           <DialogDescription className="text-gray-400">
@@ -134,6 +143,33 @@ export function CreateProductDialog({ storeId, storeName, onSuccess }: CreatePro
                 )}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label className="text-gray-300 mb-2 block">Product Images (Optional)</Label>
+            <div className="flex flex-wrap gap-2">
+              <CompactImageUpload
+                uploadType="product"
+                coopId={coopId}
+                resourceId={storeId}
+                label="Main Image"
+                onUploadComplete={(url) => setImageUrl(url)}
+              />
+              <CompactImageUpload
+                uploadType="product"
+                coopId={coopId}
+                resourceId={storeId}
+                label="Image 2"
+                onUploadComplete={(url) => setAdditionalImages(prev => [...prev, url])}
+              />
+              <CompactImageUpload
+                uploadType="product"
+                coopId={coopId}
+                resourceId={storeId}
+                label="Image 3"
+                onUploadComplete={(url) => setAdditionalImages(prev => [...prev, url])}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

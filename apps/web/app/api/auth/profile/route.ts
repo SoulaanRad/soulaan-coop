@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const db =
-  globalForPrisma?.prisma ??
+  globalForPrisma.prisma ??
   new PrismaClient({
     log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });

@@ -1081,6 +1081,19 @@ export const api = {
     });
 
     const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error?.message || 'Failed to fetch store');
+    }
+    return result.result?.data || null;
+  },
+
+  async getMyStores(walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/trpc/store.getMyStores`, {
+      method: 'GET',
+      headers: createApiHeaders(walletAddress),
+    });
+
+    const result = await response.json();
     if (result.error) {
       throw new Error(result.error.message || 'Failed to get my store');
     }
@@ -1147,6 +1160,8 @@ export const api = {
     storeName: string;
     storeDescription: string;
     category: string;
+    imageUrl?: string;
+    bannerUrl?: string;
     businessName: string;
     businessAddress: string;
     businessCity: string;
@@ -1269,8 +1284,8 @@ export const api = {
   /**
    * Get my products (authenticated - store owners)
    */
-  async getMyProducts(walletAddress: string, includeInactive = false) {
-    const input = encodeURIComponent(JSON.stringify({ includeInactive }));
+  async getMyProducts(walletAddress: string, includeInactive = false, storeId?: string) {
+    const input = encodeURIComponent(JSON.stringify({ includeInactive, storeId }));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getMyProducts?input=${input}`, {
       method: 'GET',
       headers: createApiHeaders(walletAddress),
@@ -1291,6 +1306,7 @@ export const api = {
    * Add a product (authenticated - store owners)
    */
   async addProduct(data: {
+    storeId: string;
     name: string;
     description?: string;
     category: string;
@@ -1740,7 +1756,7 @@ export const api = {
    */
   async getStoreOrders(
     walletAddress: string,
-    options?: { status?: string; limit?: number; cursor?: string }
+    options?: { storeId?: string; status?: string; limit?: number; cursor?: string }
   ) {
     const input = encodeURIComponent(JSON.stringify(options || {}));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getStoreOrders?input=${input}`, {

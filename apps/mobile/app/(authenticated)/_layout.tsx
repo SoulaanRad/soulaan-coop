@@ -113,6 +113,7 @@ export default function AuthenticatedLayout() {
       <Tabs.Screen name="product-detail" options={{ href: null }} />
       <Tabs.Screen name="apply-store" options={{ href: null }} />
       <Tabs.Screen name="my-store" options={{ href: null }} />
+      <Tabs.Screen name="my-stores" options={{ href: null }} />
       <Tabs.Screen name="store-payments" options={{ href: null }} />
       <Tabs.Screen name="add-product" options={{ href: null }} />
       <Tabs.Screen name="edit-product" options={{ href: null }} />

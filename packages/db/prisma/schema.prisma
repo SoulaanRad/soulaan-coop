@@ -126,10 +126,12 @@ model Application {
   // Application data stored as JSON blob for flexibility
   data Json
 
-  // IPFS file uploads (CIDs - Content Identifiers)
-  photoCID    String? // Profile photo or ID photo
-  videoCID    String? // Introduction video (optional)
-  documentCID String? // Additional supporting documents
+  // File uploads - MinIO URLs (new) and IPFS CIDs (legacy, for backward compatibility)
+  photoUrl    String? // Profile photo URL (MinIO)
+  videoUrl    String? // Introduction video URL (MinIO)
+  photoCID    String? // Legacy: Profile photo IPFS CID
+  videoCID    String? // Legacy: Introduction video IPFS CID
+  documentCID String? // Additional supporting documents (IPFS)
 
   // Review Process
   reviewedBy  String?

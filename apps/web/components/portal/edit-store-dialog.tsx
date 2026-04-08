@@ -21,61 +21,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
-import { useWeb3Auth } from "@/hooks/use-web3-auth";
+import { Pencil, Loader2 } from "lucide-react";
 import { MinIOImageUpload } from "./minio-image-upload";
 
-interface CreateStoreDialogProps {
+interface EditStoreDialogProps {
   coopId: string;
+  store: {
+    id: string;
+    name: string;
+    description: string | null;
+    category: string;
+    imageUrl: string | null;
+    bannerUrl: string | null;
+    ownerId: string;
+  };
   onSuccess?: () => void;
 }
 
-export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps) {
-  const { address } = useWeb3Auth();
+export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogProps) {
   const [open, setOpen] = useState(false);
-  const [ownerId, setOwnerId] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [bannerUrl, setBannerUrl] = useState("");
-
-  const { data: currentUser } = api.user.getUserByWallet.useQuery(
-    { walletAddress: address || "" },
-    { enabled: !!address }
-  );
+  const [name, setName] = useState(store.name);
+  const [description, setDescription] = useState(store.description || "");
+  const [category, setCategory] = useState(store.category);
+  const [imageUrl, setImageUrl] = useState(store.imageUrl || "");
+  const [bannerUrl, setBannerUrl] = useState(store.bannerUrl || "");
 
   const { data: categories, isLoading: loadingCategories } = api.categories.getStoreCategories.useQuery({
     includeAdminOnly: true,
   });
 
-  const createStore = api.store.createStoreAdmin.useMutation({
+  const updateStore = api.store.updateStore.useMutation({
     onSuccess: () => {
       setOpen(false);
-      resetForm();
       onSuccess?.();
     },
   });
 
   useEffect(() => {
-    if (currentUser?.id && !ownerId) {
-      setOwnerId(currentUser.id);
+    if (open) {
+      setName(store.name);
+      setDescription(store.description || "");
+      setCategory(store.category);
+      setImageUrl(store.imageUrl || "");
+      setBannerUrl(store.bannerUrl || "");
     }
-  }, [currentUser, ownerId]);
-
-  const resetForm = () => {
-    setOwnerId(currentUser?.id || "");
-    setName("");
-    setDescription("");
-    setCategory("");
-    setImageUrl("");
-    setBannerUrl("");
-  };
+  }, [open, store]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createStore.mutate({
-      ownerId,
+    updateStore.mutate({
+      storeId: store.id,
       name,
       description: description || undefined,
       category: category as any,
@@ -87,33 +82,19 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-amber-600 hover:bg-amber-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Store
+        <Button size="sm" variant="outline" className="border-slate-700">
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit Store
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800">
         <DialogHeader>
-          <DialogTitle className="text-white">Create New Store</DialogTitle>
+          <DialogTitle className="text-white">Edit Store</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Create a store for an existing user (admin only)
+            Update store information and images
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="ownerId" className="text-gray-300">
-              Owner User ID *
-            </Label>
-            <Input
-              id="ownerId"
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              placeholder="Enter user ID"
-              required
-              className="bg-slate-800 border-slate-700 text-white"
-            />
-          </div>
-
           <div>
             <Label htmlFor="name" className="text-gray-300">
               Store Name *
@@ -169,11 +150,12 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
             <MinIOImageUpload
               uploadType="store"
               coopId={coopId}
-              resourceId={ownerId}
-              label="Store Image (Optional)"
+              resourceId={store.ownerId}
+              label="Store Image"
               description="Upload a logo or main image for the store"
               aspectRatio="aspect-square"
               onUploadComplete={(url) => setImageUrl(url)}
+              currentImageUrl={imageUrl}
             />
           </div>
 
@@ -181,11 +163,12 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
             <MinIOImageUpload
               uploadType="store"
               coopId={coopId}
-              resourceId={ownerId}
-              label="Store Banner (Optional)"
+              resourceId={store.ownerId}
+              label="Store Banner"
               description="Upload a wide banner image for the store"
               aspectRatio="aspect-video"
               onUploadComplete={(url) => setBannerUrl(url)}
+              currentImageUrl={bannerUrl}
             />
           </div>
 
@@ -200,22 +183,22 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
             </Button>
             <Button
               type="submit"
-              disabled={createStore.isPending}
+              disabled={updateStore.isPending}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              {createStore.isPending ? (
+              {updateStore.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  Updating...
                 </>
               ) : (
-                "Create Store"
+                "Update Store"
               )}
             </Button>
           </div>
 
-          {createStore.error && (
-            <p className="text-red-400 text-sm">{createStore.error.message}</p>
+          {updateStore.error && (
+            <p className="text-red-400 text-sm">{updateStore.error.message}</p>
           )}
         </form>
       </DialogContent>

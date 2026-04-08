@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft,
   Package,
@@ -36,6 +36,9 @@ type FilterStatus = 'ALL' | 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' |
 
 export default function StoreOrdersScreen() {
   const { user } = useAuth();
+  const params = useLocalSearchParams();
+  const storeId = params.storeId as string | undefined;
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,7 +47,7 @@ export default function StoreOrdersScreen() {
   const loadOrders = useCallback(async () => {
     if (!user?.walletAddress) return;
     try {
-      const options = selectedStatus === 'ALL' ? {} : { status: selectedStatus };
+      const options = selectedStatus === 'ALL' ? { storeId } : { status: selectedStatus, storeId };
       console.log('Loading orders with filter:', options);
       const result = await api.getStoreOrders(user.walletAddress, options);
       console.log(`Loaded ${result.orders?.length || 0} orders`);
@@ -53,7 +56,7 @@ export default function StoreOrdersScreen() {
       console.error('Failed to load orders:', error);
       setOrders([]);
     }
-  }, [user?.walletAddress, selectedStatus]);
+  }, [user?.walletAddress, selectedStatus, storeId]);
 
   useEffect(() => {
     const init = async () => {
