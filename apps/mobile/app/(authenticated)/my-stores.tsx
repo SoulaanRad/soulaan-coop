@@ -187,7 +187,7 @@ export default function MyStoresScreen() {
               No Stores Yet
             </Text>
             <Text className="text-gray-500 dark:text-gray-400 text-center mt-2">
-              You haven't created any stores yet. Apply now to start selling.
+              You haven&apos;t created any stores yet. Apply now to start selling.
             </Text>
             <TouchableOpacity
               onPress={() => router.push('/apply-store')}
