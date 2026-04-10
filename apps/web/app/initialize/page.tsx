@@ -641,6 +641,32 @@ export default function InitializePage() {
               pollingInterval: 2_000,
             });
             console.log("✅ GOVERNANCE_AWARD role granted to deployer");
+            
+            // Wait for role to propagate and verify on network
+            console.log("⏳ Verifying role propagation on network...");
+            let roleVerified = false;
+            for (let i = 0; i < 5; i++) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              try {
+                const roleCheck = await deployPublicClient.readContract({
+                  address: soulaaniCoinAddress,
+                  abi: soulaaniCoinArtifact.abi,
+                  functionName: "hasRole",
+                  args: [GOVERNANCE_AWARD_ROLE, address],
+                });
+                if (roleCheck) {
+                  roleVerified = true;
+                  console.log("✅ Role verified on network");
+                  break;
+                }
+              } catch (e) {
+                console.log(`⏳ Waiting for role to propagate (attempt ${i + 1}/5)...`);
+              }
+            }
+            
+            if (!roleVerified) {
+              throw new Error("Role grant succeeded but not visible on network after 15s - please wait and try again");
+            }
           } catch (roleError: any) {
             console.error("❌ Failed to grant role:", roleError);
             throw new Error(`Cannot mint SC: deployer doesn't have GOVERNANCE_AWARD role and failed to grant it. Error: ${roleError.message}`);
@@ -681,13 +707,86 @@ export default function InitializePage() {
           });
           
           try {
-            const mintHash = await walletClient.writeContract({
-              address: soulaaniCoinAddress,
-              abi: soulaaniCoinArtifact.abi,
-              functionName: "mintReward",
-              args: [address, seedAmount, reasonBytes32],
-              chain: selectedChain,
-            });
+            // Retry helper for mint operation with exponential backoff
+            const mintWithRetry = async (maxRetries = 3): Promise<Hash> => {
+              for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                  console.log(`⏳ Mint attempt ${attempt}/${maxRetries}...`);
+                  
+                  // Verify prerequisites right before minting
+                  console.log("⏳ Verifying prerequisites before minting...");
+                  const [finalMemberCheck, finalRoleCheck] = await Promise.all([
+                    deployPublicClient.readContract({
+                      address: soulaaniCoinAddress,
+                      abi: soulaaniCoinArtifact.abi,
+                      functionName: "isActiveMember",
+                      args: [address],
+                    }),
+                    deployPublicClient.readContract({
+                      address: soulaaniCoinAddress,
+                      abi: soulaaniCoinArtifact.abi,
+                      functionName: "hasRole",
+                      args: [GOVERNANCE_AWARD_ROLE, address],
+                    }),
+                  ]);
+                  
+                  console.log("Pre-mint verification:", {
+                    isActiveMember: finalMemberCheck,
+                    hasGovernanceAward: finalRoleCheck,
+                  });
+                  
+                  if (!finalMemberCheck) {
+                    throw new Error("Deployer is not an active member - addMember may not have propagated yet");
+                  }
+                  if (!finalRoleCheck) {
+                    throw new Error("Deployer does not have GOVERNANCE_AWARD role - grantRole may not have propagated yet");
+                  }
+                  
+                  console.log("✅ Prerequisites verified");
+                  
+                  // Estimate gas using our reliable RPC (not wallet's potentially stale RPC)
+                  console.log("⏳ Estimating gas for mint transaction...");
+                  const gasEstimate = await deployPublicClient.estimateContractGas({
+                    address: soulaaniCoinAddress,
+                    abi: soulaaniCoinArtifact.abi,
+                    functionName: "mintReward",
+                    args: [address, seedAmount, reasonBytes32],
+                    account: address,
+                  });
+                  
+                  // Add 20% buffer for safety
+                  const gasLimit = (gasEstimate * 120n) / 100n;
+                  console.log(`✅ Gas estimated: ${gasEstimate.toString()} (using ${gasLimit.toString()} with 20% buffer)`);
+                  
+                  const mintHash = await walletClient.writeContract({
+                    address: soulaaniCoinAddress,
+                    abi: soulaaniCoinArtifact.abi,
+                    functionName: "mintReward",
+                    args: [address, seedAmount, reasonBytes32],
+                    chain: selectedChain,
+                    gas: gasLimit, // Override wallet's estimation with our reliable estimate
+                  });
+                  
+                  return mintHash; // Success!
+                } catch (error: any) {
+                  const isLastAttempt = attempt === maxRetries;
+                  const isGasError = error.message?.includes("gas") || 
+                                    error.message?.includes("estimation") ||
+                                    error.message?.includes("propagated");
+                  
+                  if (isLastAttempt || !isGasError) {
+                    throw error; // Don't retry on last attempt or non-gas errors
+                  }
+                  
+                  const delay = 5000 * attempt; // 5s, 10s, 15s
+                  console.log(`⚠️ Mint failed (${error.message}), waiting ${delay/1000}s before retry...`);
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                }
+              }
+              throw new Error("Mint retry logic failed unexpectedly");
+            };
+            
+            const mintHash = await mintWithRetry();
             console.log("✅ Mint reward tx sent:", mintHash);
             console.log(`   View on BaseScan: https://basescan.org/tx/${mintHash}`);
             

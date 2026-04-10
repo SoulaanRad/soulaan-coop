@@ -28,6 +28,7 @@ import { scMintEventsRouter } from "./sc-mint-events.js";
 import { stripeConnectRouter } from "./stripe-connect.js";
 import { scVerificationRouter } from "./sc-verification.js";
 import { platformConfigRouter } from "./platform-config.js";
+import { publicCoopInfoRouter } from "./public-coop-info.js";
 
 export const appRouter = router({
   user: userRouter,
@@ -58,6 +59,7 @@ export const appRouter = router({
   stripeConnect: stripeConnectRouter,
   scVerification: scVerificationRouter,
   platformConfig: platformConfigRouter,
+  publicCoopInfo: publicCoopInfoRouter,
 });
 
 export type AppRouter = typeof appRouter;

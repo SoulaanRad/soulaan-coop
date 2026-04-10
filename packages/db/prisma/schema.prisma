@@ -217,24 +217,24 @@ model CoopConfig {
   // Question types: text, textarea, email, phone, select, multiselect, radio, checkbox, number, date, file
 
   // Governance configuration
-  charterText               String   @db.Text
+  charterText               String @db.Text
   missionGoals              Json // [{ key, label, priorityWeight, description? }]
   structuralWeights         Json // { feasibility, risk, accountability } — sum to 1
   scoreMix                  Json // { missionWeight, structuralWeight } — sum to 1
-  screeningPassThreshold    Float    @default(0.6) // 0..1
-  quorumPercent             Float    @default(15)
-  approvalThresholdPercent  Float    @default(51)
-  votingWindowDays          Int      @default(7)
-  scVotingCapPercent        Float    @default(2)
+  screeningPassThreshold    Float  @default(0.6) // 0..1
+  quorumPercent             Float  @default(15)
+  approvalThresholdPercent  Float  @default(51)
+  votingWindowDays          Int    @default(7)
+  scVotingCapPercent        Float  @default(2)
   proposalCategories        Json // [{ key, label, isActive }]
   sectorExclusions          Json // ["fashion", "restaurant", ...]
-  scorerAgents              Json     @default("[]") // [{ agentKey, label, enabled, promptTemplate?, model? }]
-  minScBalanceToSubmit      Float    @default(0)
-  aiAutoApproveThresholdUSD Float    @default(500)
-  councilVoteThresholdUSD   Float    @default(5000)
-  strongGoalThreshold       Float    @default(0.70)
-  missionMinThreshold       Float    @default(0.50)
-  structuralGate            Float    @default(0.65)
+  scorerAgents              Json   @default("[]") // [{ agentKey, label, enabled, promptTemplate?, model? }]
+  minScBalanceToSubmit      Float  @default(0)
+  aiAutoApproveThresholdUSD Float  @default(500)
+  councilVoteThresholdUSD   Float  @default(5000)
+  strongGoalThreshold       Float  @default(0.70)
+  missionMinThreshold       Float  @default(0.50)
+  structuralGate            Float  @default(0.65)
 
   // Chain configuration (merged from CoopChainConfig)
   chainId                      Int?
@@ -252,9 +252,9 @@ model CoopConfig {
   scTokenSymbol                String? @default("SC") // e.g., "SC", "SFNC"
   scTokenName                  String? @default("SoulaaniCoin") // e.g., "SoulaaniCoin", "SF Nightlife Coin"
 
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
-  createdBy                 String // wallet address
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String // wallet address
 
   // Relations
   audits CoopConfigAudit[]
@@ -310,6 +310,75 @@ model CoopConfigAudit {
   diff         Json // [{ field, before, after }]
 
   @@index([coopConfigId])
+  @@schema("public")
+}
+
+// Public-facing coop information for landing pages
+model PublicCoopInfo {
+  id     String @id @default(cuid())
+  coopId String @unique
+
+  // Hero Section
+  name         String?
+  tagline      String?
+  heroTitle    String?
+  heroSubtitle String? @db.Text
+  heroImageUrl String?
+  logoUrl      String?
+
+  // Branding
+  primaryColor    String  @default("#f59e0b")
+  accentColor     String  @default("#ea580c")
+  backgroundColor String  @default("#1a1a1a")
+  coverImageUrl   String?
+
+  // About Section
+  aboutTitle  String? @default("About Us")
+  aboutBody   String? @db.Text
+  missionBody String? @db.Text
+
+  // Eligibility Section
+  eligibilityTitle String? @default("Who Can Join")
+  eligibilityBody  String? @db.Text
+
+  // Features (JSON array of { title, description, iconName? })
+  features Json? // [{ title: string, description: string, iconName?: string }]
+
+  // FAQ (JSON array of { question, answer })
+  faqs Json? // [{ question: string, answer: string }]
+
+  // Contact Information
+  contactEmail  String?
+  contactLinks  Json? // [{ label: string, url: string, type?: 'email' | 'phone' | 'social' }]
+  newsletterUrl String?
+
+  // Call-to-Action
+  primaryCtaLabel String? @default("Join Now")
+  primaryCtaUrl   String?
+  mobileAppUrl    String? // e.g., "https://mobile.cahootzcoops.com"
+
+  // Preview Section (hybrid: live data + curated overrides)
+  previewMode      String @default("hybrid") // "live" | "curated" | "hybrid"
+  previewOverrides Json? // { stores?: [...], proposals?: [...], stats?: {...} }
+
+  // Publishing
+  isPublished    Boolean @default(false)
+  seoTitle       String?
+  seoDescription String?
+
+  // Domain Mapping
+  primaryDomain     String?
+  additionalDomains Json? // [string]
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // wallet address
+  updatedBy String? // wallet address
+
+  @@index([coopId])
+  @@index([isPublished])
+  @@index([primaryDomain])
   @@schema("public")
 }
 
