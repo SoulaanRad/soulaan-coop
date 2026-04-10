@@ -17,14 +17,15 @@ async function getPublicCoopInfo(coopId: string) {
   }
   try {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
-    const url = `${apiUrl}/publicCoopInfo.getByCoopIdWithUnpublished`;
+    // tRPC GET format: input is a JSON string in the query parameter
+    const input = JSON.stringify({ coopId });
+    const url = `${apiUrl}/publicCoopInfo.getByCoopIdWithUnpublished?input=${encodeURIComponent(input)}`;
     
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ coopId }),
       cache: 'no-store',
     });
 
@@ -50,14 +51,15 @@ async function getPublicCoopInfo(coopId: string) {
 async function getPreviewData(coopId: string, previewMode: 'live' | 'curated' | 'hybrid') {
   try {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
-    const url = `${apiUrl}/publicCoopInfo.getPreviewData`;
+    // tRPC GET format: input is a JSON string in the query parameter
+    const input = JSON.stringify({ coopId, previewMode });
+    const url = `${apiUrl}/publicCoopInfo.getPreviewData?input=${encodeURIComponent(input)}`;
     
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ coopId, previewMode }),
       cache: 'no-store',
     });
 
