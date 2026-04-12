@@ -6,12 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Wallet, Shield, User, Copy, CheckCircle, Coins } from "lucide-react";
+import { Wallet, Shield, User, Copy, CheckCircle, Coins, Globe, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 export default function SettingsPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const { isAdmin, adminRole, address: sessionAddress } = useWeb3Auth();
   const { address } = useAccount();
   const [copied, setCopied] = useState(false);
@@ -180,6 +184,32 @@ export default function SettingsPage() {
                 )}
               </ul>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Public Page Editor - Admin Only */}
+      {isAdmin && (
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Globe className="h-5 w-5 text-blue-500" />
+              Public Landing Page
+            </CardTitle>
+            <CardDescription>
+              Manage your coop&apos;s public-facing website and custom domain
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-300 mb-4">
+              Create and customize a public landing page for your coop that can be accessed at /c/{coopId} or via a custom domain.
+            </p>
+            <Button asChild className="bg-blue-600 hover:bg-blue-700">
+              <Link href={`/portal/${coopId}/settings/public-page`} className="inline-flex items-center gap-2">
+                Edit Public Page
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       )}

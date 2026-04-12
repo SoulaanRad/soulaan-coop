@@ -144,7 +144,7 @@ export default function LoginPage() {
     
     try {
       // Validate form
-      if (!profileData.name || !profileData.phoneNumber) {
+      if (!profileData.name || !profileData.email || !profileData.phoneNumber) {
         throw new Error('Please fill in all required fields');
       }
       
@@ -311,13 +311,14 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email *</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="john@example.com"
                   value={profileData.email}
                   onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  required
                 />
               </div>
 
