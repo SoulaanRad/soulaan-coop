@@ -160,6 +160,17 @@ model UserCoopMembership {
   status MembershipStatus @default(PENDING)
   roles  String[]         @default(["member"]) // member, business, admin, governor (per-coop)
 
+  // Coop-specific data
+  username         String? // Username for transfer recipient lookup (coop-scoped)
+  permissions      String[]  @default([])
+  
+  // Session tracking
+  lastLogin        DateTime?
+  sessionToken     String?
+  lastBalanceCheck DateTime?
+  loginAttempts    Int       @default(0)
+  lastLoginAttempt DateTime?
+
   // Approval tracking
   approvedBy      String?
   approvedAt      DateTime?
@@ -178,6 +189,7 @@ model UserCoopMembership {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, coopId])
+  @@unique([username, coopId])
   @@index([coopId, status])
   @@index([userId])
   @@schema("public")
@@ -613,30 +625,6 @@ model CommentAIEvaluation {
 }
 
 // ── Admin Authentication Models ────────────────────────────────
-model UserProfile {
-  id               String    @id @default(cuid())
-  walletAddress    String
-  coopId           String
-  username         String? // Username for transfer recipient lookup
-  name             String
-  email            String?
-  phoneNumber      String
-  role             String    @default("member")
-  permissions      String[]  @default([])
-  lastLogin        DateTime?
-  sessionToken     String?
-  lastBalanceCheck DateTime?
-  loginAttempts    Int       @default(0)
-  lastLoginAttempt DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  @@unique([walletAddress, coopId])
-  @@unique([username, coopId])
-  @@index([coopId])
-  @@schema("auth")
-}
-
 model AuthChallenge {
   id        String   @id @default(cuid())
   address   String

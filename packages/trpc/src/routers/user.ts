@@ -122,10 +122,11 @@ export const userRouter = router({
   getUserByWallet: authenticatedProcedure
     .input(z.object({
       walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+      coopId: z.string().optional(),
     }))
     .output(z.object({
       id: z.string(),
-      email: z.string(),
+      email: z.string().nullable(),
       name: z.string().nullable(),
       roles: z.array(z.string()),
       status: z.string(),
@@ -135,6 +136,8 @@ export const userRouter = router({
     }).nullable())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
+
+      console.log(`🔍 getUserByWallet: Looking for wallet ${input.walletAddress} in coop ${input.coopId || 'none'}`);
 
       const user = await context.db.user.findFirst({
         where: { 
@@ -155,6 +158,15 @@ export const userRouter = router({
         },
       });
 
+      if (!user) {
+        console.log(`❌ No User found for wallet ${input.walletAddress}`);
+        return null;
+      }
+
+      console.log(`✅ Found User: ${user.id}, wallet: ${user.walletAddress}, name: ${user.name}`);
+
+      // Profile data (name, email, phone) comes from User table
+      // No need to check UserCoopMembership for profile data
       return user;
     }),
 

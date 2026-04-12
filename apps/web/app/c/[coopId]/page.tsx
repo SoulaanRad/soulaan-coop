@@ -196,6 +196,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
     bgColor: primaryColorHex,
     accentColor: accentColorHex,
     gradientStyle, // Inline style object for gradient backgrounds
+    features: publicInfo.features as any[] || [],
     memberCount: 0, // TODO: Get from stats
     storeCount: previewData?.stores?.length || 0,
     totalProducts: 0, // TODO: Calculate from stores
@@ -335,26 +336,39 @@ export default async function CoopPublicPage({ params }: PageProps) {
                   independence together. Get access to exclusive discounts,
                   voting rights, and community benefits.
                 </p>
-                <ul className="mt-6 space-y-3">
-                  <li className="flex items-center gap-2">
-                    <div className="rounded-full bg-white/20 p-1">
-                      <Sparkles className="h-4 w-4" />
-                    </div>
-                    <span>Exclusive member discounts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="rounded-full bg-white/20 p-1">
-                      <Users className="h-4 w-4" />
-                    </div>
-                    <span>Vote on community proposals</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <div className="rounded-full bg-white/20 p-1">
-                      <Store className="h-4 w-4" />
-                    </div>
-                    <span>Support Black-owned businesses</span>
-                  </li>
-                </ul>
+                {coop.features.length > 0 ? (
+                  <ul className="mt-6 space-y-3">
+                    {coop.features.map((feature: any, index: number) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <div className="rounded-full bg-white/20 p-1">
+                          <Sparkles className="h-4 w-4" />
+                        </div>
+                        <span>{feature.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="mt-6 space-y-3">
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-white/20 p-1">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <span>Exclusive member discounts</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-white/20 p-1">
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <span>Vote on community proposals</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="rounded-full bg-white/20 p-1">
+                        <Store className="h-4 w-4" />
+                      </div>
+                      <span>Support Black-owned businesses</span>
+                    </li>
+                  </ul>
+                )}
               </div>
               <JoinWaitlistForm coopId={coop.id} coopName={coop.name} primaryColor={coop.bgColor} />
             </div>

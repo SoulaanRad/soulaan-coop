@@ -271,6 +271,7 @@ export const publicCoopInfoRouter = router({
           mobileAppUrl: z.string().url().optional().nullable(),
           previewMode: z.enum(['live', 'curated', 'hybrid']).optional(),
           previewOverrides: z.any().optional(),
+          showStatsBar: z.boolean().optional(),
           isPublished: z.boolean().optional(),
           seoTitle: z.string().optional(),
           seoDescription: z.string().optional(),

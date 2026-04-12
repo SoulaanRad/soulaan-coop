@@ -65,8 +65,6 @@ export default function PublicPageSettingsPage() {
   const [isPublished, setIsPublished] = useState(false);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
-  const [primaryDomain, setPrimaryDomain] = useState("");
-  const [additionalDomains, setAdditionalDomains] = useState<string[]>([]);
 
   // Load existing public info
   const { data: publicInfo, isLoading, refetch } = api.publicCoopInfo.getForEdit.useQuery(
@@ -93,6 +91,7 @@ export default function PublicPageSettingsPage() {
     onSuccess: () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      refetch();
     },
   });
 
@@ -127,8 +126,6 @@ export default function PublicPageSettingsPage() {
       setIsPublished(publicInfo.isPublished);
       setSeoTitle(publicInfo.seoTitle || "");
       setSeoDescription(publicInfo.seoDescription || "");
-      setPrimaryDomain(publicInfo.primaryDomain || "");
-      setAdditionalDomains((publicInfo.additionalDomains as string[]) || []);
     }
   }, [publicInfo]);
 
@@ -164,8 +161,6 @@ export default function PublicPageSettingsPage() {
         isPublished,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
-        primaryDomain: primaryDomain || null,
-        additionalDomains: additionalDomains.length > 0 ? additionalDomains : undefined,
       },
     });
   };
@@ -210,20 +205,6 @@ export default function PublicPageSettingsPage() {
     const updated = [...contactLinks];
     updated[index] = { ...updated[index], [field]: value };
     setContactLinks(updated);
-  };
-
-  const addDomain = () => {
-    setAdditionalDomains([...additionalDomains, ""]);
-  };
-
-  const removeDomain = (index: number) => {
-    setAdditionalDomains(additionalDomains.filter((_, i) => i !== index));
-  };
-
-  const updateDomain = (index: number, value: string) => {
-    const updated = [...additionalDomains];
-    updated[index] = value;
-    setAdditionalDomains(updated);
   };
 
   if (!isAdmin) {
@@ -782,51 +763,6 @@ export default function PublicPageSettingsPage() {
           </div>
           <p className="text-sm text-gray-500">
             Hide the stats bar when your coop is just starting out to avoid showing empty numbers.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Domain Mapping */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Domain Mapping</CardTitle>
-          <CardDescription>Connect custom domains to this page</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Primary Domain</Label>
-            <Input
-              value={primaryDomain}
-              onChange={(e) => setPrimaryDomain(e.target.value)}
-              placeholder="soulaan.com"
-            />
-          </div>
-          <div>
-            <Label>Additional Domains</Label>
-            {additionalDomains.map((domain, index) => (
-              <div key={index} className="flex gap-2 mt-2">
-                <Input
-                  value={domain}
-                  onChange={(e) => updateDomain(index, e.target.value)}
-                  placeholder="example.com"
-                  className="flex-1"
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeDomain(index)}
-                >
-                  <Trash2 size={16} />
-                </Button>
-              </div>
-            ))}
-            <Button onClick={addDomain} variant="outline" className="w-full mt-2">
-              <Plus size={16} className="mr-2" />
-              Add Domain
-            </Button>
-          </div>
-          <p className="text-sm text-gray-500">
-            Configure DNS to point your custom domain to this app, then add it here.
           </p>
         </CardContent>
       </Card>

@@ -23,7 +23,7 @@ const profileSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
   coopId: z.string().min(1, 'Coop ID is required'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email'),
+  email: z.string().email('Please enter a valid email').min(1, 'Email is required'),
   phoneNumber: z.string().min(10, 'Please enter a valid phone number'),
 });
 
@@ -85,34 +85,24 @@ export async function POST(request: NextRequest) {
           status: 'ACTIVE',
         },
       });
+      
+      console.log(`✅ Created User record for ${walletAddress} with email ${email}`);
+    } else {
+      console.log(`✅ Found existing User record for ${walletAddress}`);
     }
 
-    // Create or update the profile with coop-scoped unique key
-    const profile = await db.userProfile.upsert({
-      where: { 
-        walletAddress_coopId: {
-          walletAddress,
-          coopId,
-        },
-      },
-      update: {
+    // Update user record with profile data
+    await db.user.update({
+      where: { id: user.id },
+      data: {
         name,
         email,
-        phoneNumber,
-        updatedAt: new Date(),
-      },
-      create: {
-        walletAddress,
-        coopId,
-        name,
-        email,
-        phoneNumber,
-        role: 'member',
+        phone: phoneNumber,
       },
     });
 
-    // Create or update membership record (for users who got SC tokens directly without application)
-    await db.userCoopMembership.upsert({
+    // Create or update membership record
+    const membership = await db.userCoopMembership.upsert({
       where: {
         userId_coopId: {
           userId: user.id,
@@ -128,6 +118,7 @@ export async function POST(request: NextRequest) {
       },
       update: {
         lastActiveAt: new Date(),
+        updatedAt: new Date(),
       },
     });
     
@@ -135,14 +126,15 @@ export async function POST(request: NextRequest) {
     session.hasProfile = true;
     await session.save();
     
-    // Return the profile
+    // Return the user/profile
     return NextResponse.json({
       success: true,
       profile: {
-        id: profile.id,
-        walletAddress: profile.walletAddress,
-        name: profile.name,
-        role: profile.role,
+        id: user.id,
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        roles: membership.roles,
       },
     });
   } catch (error) {
@@ -170,7 +162,7 @@ export async function GET(_request: NextRequest) {
       );
     }
     
-    // Get the profile for the active coop
+    // Get the user and membership for the active coop
     if (!session.activeCoopId) {
       return NextResponse.json(
         { error: 'No active coop in session' },
@@ -178,33 +170,36 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    const profile = await db.userProfile.findUnique({
-      where: { 
-        walletAddress_coopId: {
-          walletAddress: session.address,
-          coopId: session.activeCoopId,
+    const user = await db.user.findUnique({
+      where: { walletAddress: session.address },
+      include: {
+        memberships: {
+          where: { coopId: session.activeCoopId },
         },
       },
     });
     
-    if (!profile) {
+    if (!user || user.memberships.length === 0) {
       return NextResponse.json(
         { error: 'Profile not found' },
         { status: 404 }
       );
     }
+
+    const membership = user.memberships[0];
     
-    // Return the profile
+    // Return the profile from user
     return NextResponse.json({
-      id: profile.id,
-      walletAddress: profile.walletAddress,
-      name: profile.name,
-      email: profile.email,
-      phoneNumber: profile.phoneNumber,
-      role: profile.role,
-      permissions: profile.permissions,
-      createdAt: profile.createdAt,
-      updatedAt: profile.updatedAt,
+      id: user.id,
+      userId: user.id,
+      walletAddress: user.walletAddress,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phone,
+      roles: membership.roles,
+      permissions: membership.permissions,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     });
   } catch (error) {
     console.error('Error getting profile:', error);

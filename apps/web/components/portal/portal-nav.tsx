@@ -86,9 +86,11 @@ export function PortalNav({ coopId }: { coopId?: string }) {
   
   // Get current user info
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
-    { walletAddress: address || '' },
+    { walletAddress: address || '', coopId },
     { enabled: !!address }
   );
+
+  console.log("currentUser: ", currentUser);
   
   // Prefix all nav links with coopId if provided
   const prefixHref = (href: string) => {
