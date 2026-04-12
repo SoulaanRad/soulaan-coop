@@ -10,36 +10,9 @@ import { mintUCToUser, awardStoreTransactionReward } from "../services/wallet-se
 import { sendToSoulaanUser } from "../services/p2p-service.js";
 import { convertUSDToUC } from "../utils/currency-converter.js";
 
-// Enums for validation
-const StoreCategoryEnum = z.enum([
-  "FOOD_BEVERAGE",
-  "RETAIL",
-  "SERVICES",
-  "HEALTH_WELLNESS",
-  "ENTERTAINMENT",
-  "EDUCATION",
-  "PROFESSIONAL",
-  "HOME_GARDEN",
-  "AUTOMOTIVE",
-  "FOUNDER_PACKAGE",
-  "OTHER",
-]);
-
-const ProductCategoryEnum = z.enum([
-  "FOOD",
-  "BEVERAGES",
-  "CLOTHING",
-  "ELECTRONICS",
-  "HOME",
-  "BEAUTY",
-  "HEALTH",
-  "SPORTS",
-  "TOYS",
-  "BOOKS",
-  "SERVICES",
-  "FOUNDER_BADGES",
-  "OTHER",
-]);
+// Category validation - now accepts any string since categories are dynamic
+const StoreCategoryEnum = z.string().min(1).max(100);
+const ProductCategoryEnum = z.string().min(1).max(100);
 
 export const storeRouter = router({
   // ══════════════════════════════════════════════════════════════
@@ -577,7 +550,7 @@ export const storeRouter = router({
             coopId,
             name: input.storeName,
             description: input.storeDescription,
-            category: input.category as StoreCategory,
+            category: input.category,
             imageUrl: input.imageUrl,
             bannerUrl: input.bannerUrl,
             status: "PENDING",
@@ -801,7 +774,7 @@ export const storeRouter = router({
           storeId: store.id,
           name: input.name,
           description: input.description,
-          category: input.category as ProductCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,
@@ -882,7 +855,7 @@ export const storeRouter = router({
         where: { id: productId },
         data: {
           ...updateData,
-          ...(category && { category: category as ProductCategory }),
+          ...(category && { category }),
         } as Prisma.ProductUpdateInput,
       });
 
@@ -1150,7 +1123,7 @@ export const storeRouter = router({
         if (input.verified) {
           txHash = await verifyStoreOnChain(
             store.owner.walletAddress,
-            store.category,
+            store.category || 'OTHER',
             store.id
           );
         } else {
@@ -1244,7 +1217,7 @@ export const storeRouter = router({
         // Prepare batch data
         const batchData = validStores.map(store => ({
           ownerAddress: store.owner.walletAddress!,
-          category: store.category,
+          category: store.category || 'OTHER',
           storeId: store.id,
         }));
 
@@ -1681,7 +1654,7 @@ export const storeRouter = router({
           coopId,
           name: input.name,
           description: input.description,
-          category: input.category as StoreCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           bannerUrl: input.bannerUrl,
           address: input.address,
@@ -1747,7 +1720,7 @@ export const storeRouter = router({
       const updateData: any = {};
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
-      if (input.category !== undefined) updateData.category = input.category as StoreCategory;
+      if (input.category !== undefined) updateData.category = input.category;
       if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
       if (input.bannerUrl !== undefined) updateData.bannerUrl = input.bannerUrl;
       if (input.address !== undefined) updateData.address = input.address;
@@ -1817,7 +1790,7 @@ export const storeRouter = router({
           storeId: input.storeId,
           name: input.name,
           description: input.description,
-          category: input.category as ProductCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,

@@ -1138,7 +1138,7 @@ model Store {
 
   name        String
   description String?
-  category    StoreCategory
+  category    String?
   imageUrl    String?
   bannerUrl   String?
 
@@ -1199,7 +1199,7 @@ model Product {
 
   name        String
   description String?
-  category    ProductCategory
+  category    String?
   imageUrl    String?
   images      String[] // Additional images
 
@@ -1399,16 +1399,25 @@ enum PaymentRequestStatus {
 
 enum StoreCategory {
   FOOD_BEVERAGE
-  RETAIL
+  FASHION_APPAREL
+  BEAUTY_WELLNESS
+  HOME_GARDEN
+  TECH_ELECTRONICS
+  ARTS_CRAFTS
   SERVICES
+  BOOKS_MEDIA
+  SPORTS_FITNESS
+  AUTOMOTIVE
+  PETS
+  TOYS_GAMES
+  OTHER
+  // Deprecated - keeping for backward compatibility
+  RETAIL
   HEALTH_WELLNESS
   ENTERTAINMENT
   EDUCATION
   PROFESSIONAL
-  HOME_GARDEN
-  AUTOMOTIVE
   FOUNDER_PACKAGE
-  OTHER
 
   @@schema("public")
 }
@@ -1417,13 +1426,20 @@ enum ProductCategory {
   FOOD
   BEVERAGES
   CLOTHING
+  ACCESSORIES
   ELECTRONICS
   HOME
+  HOME_DECOR
   BEAUTY
   HEALTH
   SPORTS
   TOYS
   BOOKS
+  ART
+  JEWELRY
+  PET_SUPPLIES
+  AUTOMOTIVE
+  DIGITAL
   SERVICES
   FOUNDER_BADGES
   OTHER
