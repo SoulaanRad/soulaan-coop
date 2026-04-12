@@ -43,6 +43,7 @@ import {
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
 import { EditStoreDialog } from "@/components/portal/edit-store-dialog";
+import { EditProductDialog } from "@/components/portal/edit-product-dialog";
 
 type MainTab = "applications" | "stores" | "featured";
 type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
@@ -518,25 +519,28 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
               <span className="text-xs text-gray-500">
                 {product.quantity} in stock • {product.totalSold} sold
               </span>
-              <Button
-                variant={product.isFeatured ? "default" : "outline"}
-                size="sm"
-                className={product.isFeatured ? "bg-amber-600 hover:bg-amber-700 h-7 text-xs" : "h-7 text-xs"}
-                onClick={() => toggleProductFeatured.mutate({ productId: product.id, featured: !product.isFeatured })}
-                disabled={toggleProductFeatured.isPending}
-              >
-                {product.isFeatured ? (
-                  <>
-                    <Star className="h-3 w-3 mr-1 fill-current" />
-                    Featured
-                  </>
-                ) : (
-                  <>
-                    <Star className="h-3 w-3 mr-1" />
-                    Feature
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-1">
+                <EditProductDialog product={product} onSuccess={() => refetch()} />
+                <Button
+                  variant={product.isFeatured ? "default" : "outline"}
+                  size="sm"
+                  className={product.isFeatured ? "bg-amber-600 hover:bg-amber-700 h-7 text-xs" : "h-7 text-xs"}
+                  onClick={() => toggleProductFeatured.mutate({ productId: product.id, featured: !product.isFeatured })}
+                  disabled={toggleProductFeatured.isPending}
+                >
+                  {product.isFeatured ? (
+                    <>
+                      <Star className="h-3 w-3 mr-1 fill-current" />
+                      Featured
+                    </>
+                  ) : (
+                    <>
+                      <Star className="h-3 w-3 mr-1" />
+                      Feature
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         ))}

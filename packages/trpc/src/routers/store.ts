@@ -157,7 +157,8 @@ export const storeRouter = router({
         reviewCount: store.reviewCount,
         totalOrders: store.totalOrders,
         productCount: store._count.products,
-        owner: store.owner
+        owner: store.owner,
+        businessId: store.businessId,
       };
     }),
 
@@ -1575,19 +1576,30 @@ export const storeRouter = router({
     .input(z.object({
       productId: z.string(),
       name: z.string().min(2).max(200).optional(),
-      description: z.string().max(2000).optional(),
+      description: z.string().max(2000).nullable().optional(),
+      category: ProductCategoryEnum.nullable().optional(),
+      imageUrl: z.string().url().nullable().optional(),
+      images: z.array(z.string().url()).optional(),
       priceUSD: z.number().positive().optional(),
       compareAtPrice: z.number().positive().nullable().optional(),
+      ucDiscountPrice: z.number().positive().nullable().optional(),
+      sku: z.string().nullable().optional(),
+      quantity: z.number().int().min(0).optional(),
+      trackInventory: z.boolean().optional(),
+      allowBackorder: z.boolean().optional(),
       isActive: z.boolean().optional(),
       isFeatured: z.boolean().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const { productId, ...data } = input;
+      const { productId, category, ...data } = input;
 
       const product = await context.db.product.update({
         where: { id: productId },
-        data,
+        data: {
+          ...data,
+          ...(category !== undefined && { category }),
+        },
         include: {
           store: {
             select: { name: true },

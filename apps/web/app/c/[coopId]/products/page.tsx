@@ -27,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CartButton } from "../components/cart-button";
 import { env } from "@/env";
 
 const categories = [
@@ -126,20 +127,23 @@ export default async function ProductsPage({ params, searchParams }: PageProps) 
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
-              <Link href={`/c/${coopId}`}>
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                All Products
-              </h1>
-              <p className="text-muted-foreground">
-                {products.length} products available
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" asChild>
+                <Link href={`/c/${coopId}`}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                  All Products
+                </h1>
+                <p className="text-muted-foreground">
+                  {products.length} products available
+                </p>
+              </div>
             </div>
+            <CartButton coopId={coopId} />
           </div>
         </div>
       </header>

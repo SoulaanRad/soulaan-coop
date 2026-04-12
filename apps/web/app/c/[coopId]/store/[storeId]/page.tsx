@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CartButton } from "../../components/cart-button";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -43,7 +44,22 @@ const categoryLabels: Record<string, string> = {
   RETAIL: "Retail",
   SERVICES: "Services",
   HEALTH_WELLNESS: "Health & Wellness",
+  FASHION_APPAREL: "Fashion & Apparel",
+  BEAUTY_WELLNESS: "Beauty & Wellness",
+  HOME_GARDEN: "Home & Garden",
+  TECH_ELECTRONICS: "Tech & Electronics",
+  ARTS_CRAFTS: "Arts & Crafts",
+  BOOKS_MEDIA: "Books & Media",
+  SPORTS_FITNESS: "Sports & Fitness",
+  AUTOMOTIVE: "Automotive",
+  PETS: "Pets",
+  TOYS_GAMES: "Toys & Games",
 };
+
+function formatCategoryLabel(category: string | null): string {
+  if (!category) return "General";
+  return categoryLabels[category] || category.replace(/_/g, " ");
+}
 
 async function getStore(storeId: string) {
   try {
@@ -133,17 +149,20 @@ export default async function StoreDetailPage({ params }: PageProps) {
       <header className="relative bg-gradient-to-br from-orange-600 to-amber-500">
         <div className="absolute inset-0 bg-black/20" />
         <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mb-4 text-white hover:bg-white/20"
-            asChild
-          >
-            <Link href={`/c/${coopId}/stores`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Stores
-            </Link>
-          </Button>
+          <div className="mb-4 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20"
+              asChild
+            >
+              <Link href={`/c/${coopId}/stores`}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Stores
+              </Link>
+            </Button>
+            <CartButton coopId={coopId} />
+          </div>
 
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
@@ -159,7 +178,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <Badge className="bg-white/20 text-white">
-                  {categoryLabels[store.category] || store.category}
+                  {formatCategoryLabel(store.category)}
                 </Badge>
                 {store.rating && (
                   <div className="flex items-center gap-1 text-white">

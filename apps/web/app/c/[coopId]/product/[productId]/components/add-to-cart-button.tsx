@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Minus, Plus, ShoppingCart, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/contexts/cart-context";
 
 interface AddToCartButtonProps {
   product: {
@@ -10,27 +12,44 @@ interface AddToCartButtonProps {
     name: string;
     priceUSD: number;
     productType: string;
-    storeName: string;
-    storeId: string;
+    imageUrl?: string | null;
+  };
+  store: {
+    id: string;
+    name: string;
+    isScVerified: boolean;
   };
   coopSlug: string;
   disabled?: boolean;
 }
 
-export function AddToCartButton({ product, coopSlug, disabled }: AddToCartButtonProps) {
+export function AddToCartButton({ product, store, coopSlug, disabled }: AddToCartButtonProps) {
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+  const { addItem } = useCart();
+  const router = useRouter();
 
   const handleAddToCart = () => {
     setIsAdding(true);
     try {
-      // TODO: Implement cart functionality
-      // For now, just redirect to mobile app or show a message
-      console.log('Add to cart:', { product, quantity });
+      addItem(
+        {
+          id: product.id,
+          name: product.name,
+          imageUrl: product.imageUrl || null,
+          priceUSD: product.priceUSD,
+        },
+        {
+          id: store.id,
+          name: store.name,
+          isScVerified: store.isScVerified,
+        },
+        quantity
+      );
       
-      // Redirect to mobile app with product info
-      const mobileAppUrl = `https://mobile.cahootzcoops.com/product/${product.id}`;
-      window.location.href = mobileAppUrl;
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 2000);
     } catch (error) {
       console.error('Error adding to cart:', error);
     } finally {
@@ -70,13 +89,37 @@ export function AddToCartButton({ product, coopSlug, disabled }: AddToCartButton
         onClick={handleAddToCart}
         disabled={disabled || isAdding}
       >
-        <ShoppingCart className="mr-2 h-5 w-5" />
-        {isAdding ? "Adding..." : "Add to Cart"}
+        {justAdded ? (
+          <>
+            <Check className="mr-2 h-5 w-5" />
+            Added to Cart!
+          </>
+        ) : (
+          <>
+            <ShoppingCart className="mr-2 h-5 w-5" />
+            {isAdding ? "Adding..." : "Add to Cart"}
+          </>
+        )}
       </Button>
 
-      <p className="text-xs text-muted-foreground text-center">
-        Shopping is available through our mobile app
-      </p>
+      {/* Out of Stock Message */}
+      {disabled && !isAdding && (
+        <p className="text-sm text-red-500 text-center font-medium">
+          This item is currently out of stock
+        </p>
+      )}
+
+      {/* View Cart Button */}
+      {justAdded && (
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full"
+          onClick={() => router.push(`/c/${coopSlug}/cart`)}
+        >
+          View Cart
+        </Button>
+      )}
     </div>
   );
 }

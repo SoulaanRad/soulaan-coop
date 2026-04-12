@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AddToCartButton } from "./components/add-to-cart-button";
+import { CartButton } from "../../components/cart-button";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -107,12 +108,15 @@ export default async function ProductDetailPage({ params }: PageProps) {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/c/${coopId}/products`}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Products
-            </Link>
-          </Button>
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/c/${coopId}/products`}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Products
+              </Link>
+            </Button>
+            <CartButton coopId={coopId} />
+          </div>
         </div>
       </header>
 
@@ -213,8 +217,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   name: product.name,
                   priceUSD: product.priceUSD,
                   productType: product.productType,
-                  storeName: product.store.name,
-                  storeId: product.store.id,
+                  imageUrl: product.imageUrl,
+                }}
+                store={{
+                  id: product.store.id,
+                  name: product.store.name,
+                  isScVerified: product.store.isScVerified || false,
                 }}
                 coopSlug={coopId}
                 disabled={product.trackInventory && product.quantity === 0}
