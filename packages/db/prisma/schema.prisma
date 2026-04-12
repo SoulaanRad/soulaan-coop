@@ -361,6 +361,9 @@ model PublicCoopInfo {
   previewMode      String @default("hybrid") // "live" | "curated" | "hybrid"
   previewOverrides Json? // { stores?: [...], proposals?: [...], stats?: {...} }
 
+  // Display Options
+  showStatsBar Boolean @default(true) // Show/hide the stats bar (members, stores, products, treasury)
+
   // Publishing
   isPublished    Boolean @default(false)
   seoTitle       String?

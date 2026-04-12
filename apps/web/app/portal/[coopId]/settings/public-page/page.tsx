@@ -61,6 +61,7 @@ export default function PublicPageSettingsPage() {
   const [primaryCtaUrl, setPrimaryCtaUrl] = useState("");
   const [mobileAppUrl, setMobileAppUrl] = useState("https://mobile.cahootzcoops.com");
   const [previewMode, setPreviewMode] = useState<'live' | 'curated' | 'hybrid'>('hybrid');
+  const [showStatsBar, setShowStatsBar] = useState(true);
   const [isPublished, setIsPublished] = useState(false);
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
@@ -122,6 +123,7 @@ export default function PublicPageSettingsPage() {
       setPrimaryCtaUrl(publicInfo.primaryCtaUrl || "");
       setMobileAppUrl(publicInfo.mobileAppUrl || "https://mobile.cahootzcoops.com");
       setPreviewMode(publicInfo.previewMode as 'live' | 'curated' | 'hybrid');
+      setShowStatsBar(publicInfo.showStatsBar ?? true);
       setIsPublished(publicInfo.isPublished);
       setSeoTitle(publicInfo.seoTitle || "");
       setSeoDescription(publicInfo.seoDescription || "");
@@ -158,6 +160,7 @@ export default function PublicPageSettingsPage() {
         primaryCtaUrl: primaryCtaUrl || null,
         mobileAppUrl: mobileAppUrl || null,
         previewMode,
+        showStatsBar,
         isPublished,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
@@ -749,6 +752,36 @@ export default function PublicPageSettingsPage() {
           </div>
           <p className="text-sm text-gray-500">
             Live mode shows recent stores and proposals automatically. Curated mode requires manual content. Hybrid uses live data but allows you to override specific items.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Display Options */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Display Options</CardTitle>
+          <CardDescription>Control what appears on your public page</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Show Stats Bar</Label>
+              <p className="text-sm text-muted-foreground">
+                Display member count, stores, products, and treasury stats
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showStatsBar}
+                onChange={(e) => setShowStatsBar(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+            </label>
+          </div>
+          <p className="text-sm text-gray-500">
+            Hide the stats bar when your coop is just starting out to avoid showing empty numbers.
           </p>
         </CardContent>
       </Card>

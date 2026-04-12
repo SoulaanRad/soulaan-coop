@@ -1,15 +1,19 @@
-import Link from 'next/link';
-import { Check, ArrowRight, Users, Target, Shield, Mail, ExternalLink, Store as StoreIcon, FileText, TrendingUp } from 'lucide-react';
-import Image from 'next/image';
-import { env } from '@/env';
-import { api } from "@/lib/trpc/client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import {
+  ArrowRight,
+  Users,
+  Store,
+  Sparkles,
+} from "lucide-react";
 
-interface CoopPageProps {
-  params: {
-    coopId: string;
-  };
-}
-
+import { Button } from "@/components/ui/button";
+import { CoopHero } from "./components/coop-hero";
+import { StoreCard } from "./components/store-card";
+import { FeaturedProducts } from "./components/featured-products";
+import { JoinWaitlistForm } from "./components/join-waitlist-form";
+import { env } from "@/env";
 
 async function getPublicCoopInfo(coopId: string) {
   if(!coopId) {
@@ -17,7 +21,6 @@ async function getPublicCoopInfo(coopId: string) {
   }
   try {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
-    // tRPC GET format: input is a JSON string in the query parameter
     const input = JSON.stringify({ coopId });
     const url = `${apiUrl}/publicCoopInfo.getByCoopIdWithUnpublished?input=${encodeURIComponent(input)}`;
     
@@ -30,13 +33,6 @@ async function getPublicCoopInfo(coopId: string) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Failed to fetch public coop info:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorText,
-        url
-      });
       return null;
     }
 
@@ -48,10 +44,35 @@ async function getPublicCoopInfo(coopId: string) {
   }
 }
 
+async function getCoopConfig(coopId: string) {
+  try {
+    const apiUrl = env.NEXT_PUBLIC_API_URL;
+    const input = JSON.stringify({ coopId });
+    const url = `${apiUrl}/coopConfig.getActive?input=${encodeURIComponent(input)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.result.data;
+  } catch (error) {
+    console.error('Error fetching coop config:', error);
+    return null;
+  }
+}
+
 async function getPreviewData(coopId: string, previewMode: 'live' | 'curated' | 'hybrid') {
   try {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
-    // tRPC GET format: input is a JSON string in the query parameter
     const input = JSON.stringify({ coopId, previewMode });
     const url = `${apiUrl}/publicCoopInfo.getPreviewData?input=${encodeURIComponent(input)}`;
     
@@ -64,7 +85,6 @@ async function getPreviewData(coopId: string, previewMode: 'live' | 'curated' | 
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch preview data:', response.statusText);
       return null;
     }
 
@@ -76,514 +96,303 @@ async function getPreviewData(coopId: string, previewMode: 'live' | 'curated' | 
   }
 }
 
-function ComingSoonPage({ coopId, publicInfo }: { coopId: string; publicInfo: any }) {
-  // Use branding from unpublished row if available, otherwise use defaults
-  const name = publicInfo?.name || coopId;
-  const tagline = publicInfo?.tagline || 'Building community wealth together';
-  const primaryColor = publicInfo?.primaryColor || '#f59e0b';
-  const backgroundColor = publicInfo?.backgroundColor || '#1a1a1a';
-  const logoUrl = publicInfo?.logoUrl;
+async function getFeaturedProducts(coopId: string) {
+  try {
+    const apiUrl = env.NEXT_PUBLIC_API_URL;
+    const input = JSON.stringify({ coopId, limit: 8 });
+    const url = `${apiUrl}/store.getProducts?input=${encodeURIComponent(input)}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
 
-  const primaryStyle = { backgroundColor: primaryColor };
-  const bgStyle = { backgroundColor: backgroundColor };
+    if (!response.ok) {
+      return [];
+    }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center" style={bgStyle}>
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        {logoUrl && (
-          <div className="mb-8 flex justify-center">
-            <Image
-              src={logoUrl}
-              alt={`${name} logo`}
-              width={120}
-              height={120}
-              className="rounded-lg"
-            />
-          </div>
-        )}
-        
-        <div className="mb-8">
-          <div className="inline-block px-6 py-3 rounded-full text-white font-semibold mb-6" style={primaryStyle}>
-            Coming Soon
-          </div>
-        </div>
-
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">
-          {name}
-        </h1>
-        
-        <p className="text-xl md:text-2xl mb-8 text-gray-300">
-          {tagline}
-        </p>
-
-        <p className="text-lg text-gray-400 mb-10 max-w-2xl mx-auto">
-          We&apos;re working on our public page. Check back soon to learn more about our cooperative and how to join our community.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href={`/portal/${coopId}`}
-            className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg inline-flex items-center justify-center transition-all"
-          >
-            Member Portal
-            <ArrowRight className="ml-2" size={20} />
-          </Link>
-        </div>
-
-        <div className="mt-16 pt-8 border-t border-gray-700">
-          <p className="text-gray-500 text-sm">
-            Are you an admin? Visit the{' '}
-            <Link href={`/portal/${coopId}/settings/public-page`} className="underline hover:text-gray-400">
-              portal settings
-            </Link>
-            {' '}to set up your public page.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+    const data = await response.json();
+    const products = data.result.data.products || [];
+    
+    // Filter to only featured products
+    return products.filter((p: any) => p.isFeatured);
+  } catch (error) {
+    console.error('Error fetching featured products:', error);
+    return [];
+  }
 }
 
-export default async function CoopPublicPage({ params }: CoopPageProps) {
+
+
+
+
+interface PageProps {
+  params: Promise<{ coopId: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { coopId } = await params;
-  console.log('check coopId', coopId);
   const publicInfo = await getPublicCoopInfo(coopId);
 
-  // Show coming soon page if missing or unpublished
-  if (!publicInfo?.isPublished) {
-    return <ComingSoonPage coopId={coopId} publicInfo={publicInfo} />;
+  if (!publicInfo) {
+    return {
+      title: "Coop Not Found",
+    };
   }
 
-  const features = (publicInfo.features as { title: string; description: string; iconName?: string }[]) || [];
-  const faqs = (publicInfo.faqs as { question: string; answer: string }[]) || [];
-  const contactLinks = (publicInfo.contactLinks as { label: string; url: string; type?: string }[]) || [];
-  
-  const previewData = await getPreviewData(coopId, publicInfo.previewMode);
-  const previewOverrides = publicInfo.previewOverrides as { stores?: any[]; proposals?: any[]; stats?: any } | null;
+  const name = publicInfo.name || coopId;
+  const description = publicInfo.aboutBody || publicInfo.tagline || `Join ${name}`;
 
-  const bgStyle = { backgroundColor: publicInfo.backgroundColor };
-  const primaryStyle = { backgroundColor: publicInfo.primaryColor };
-  const accentStyle = { backgroundColor: publicInfo.accentColor };
+  return {
+    title: `${name} | Shop & Join`,
+    description,
+    openGraph: {
+      title: `${name} | Shop & Join`,
+      description,
+      type: "website",
+    },
+  };
+}
+
+export default async function CoopPublicPage({ params }: PageProps) {
+  const { coopId } = await params;
+  
+  const publicInfo = await getPublicCoopInfo(coopId);
+  
+  if (!publicInfo) {
+    notFound();
+  }
+
+  // Fetch coop config for colors and other settings
+  const coopConfig = await getCoopConfig(coopId);
+
+  // Fetch preview data (stores and proposals)
+  const previewData = await getPreviewData(coopId, publicInfo.previewMode as 'live' | 'curated' | 'hybrid');
+  
+  // Fetch featured products for this coop
+  const featuredProducts = await getFeaturedProducts(coopId);
+  
+  // Colors are stored as hex values like "#16a34a"
+  // Create gradient from primary and accent colors
+  const primaryColorHex = coopConfig?.bgColor || '#ea580c'; // orange-600
+  const accentColorHex = coopConfig?.accentColor || '#d97706'; // amber-600
+  
+  // Create inline style for gradient background
+  const gradientStyle = {
+    background: `linear-gradient(to bottom right, ${primaryColorHex}, ${accentColorHex})`,
+  };
+  
+  // Transform publicInfo to match expected coop structure
+  const coop = {
+    id: coopId,
+    slug: coopId,
+    name: publicInfo.name || coopId,
+    tagline: publicInfo.tagline || 'Building community wealth together',
+    description: publicInfo.aboutBody || publicInfo.heroSubtitle || '',
+    mission: publicInfo.missionBody || '',
+    bgColor: primaryColorHex,
+    accentColor: accentColorHex,
+    gradientStyle, // Inline style object for gradient backgrounds
+    memberCount: 0, // TODO: Get from stats
+    storeCount: previewData?.stores?.length || 0,
+    totalProducts: 0, // TODO: Calculate from stores
+    stats: {
+      treasurySize: '$0', // TODO: Get from treasury
+      proposalsFunded: 0, // TODO: Get from proposals
+      averageDiscount: '15%',
+    },
+  };
+
+  // Use preview data for stores, or fall back to mock data
+  const stores = previewData?.stores?.map((store: any) => ({
+    id: store.id,
+    name: store.name,
+    description: store.description || '',
+    category: store.category || 'OTHER',
+    imageUrl: store.imageUrl || '/placeholder-store.jpg',
+    rating: 0, // TODO: Get from reviews
+    reviewCount: 0,
+    productCount: 0, // TODO: Get from products
+    isScVerified: false, // TODO: Get from store data
+    isFeatured: false,
+  })) || mockStores;
+
+  // Use real featured products, or fall back to mock data
+  const products = featuredProducts.length > 0 ? featuredProducts.map((product: any) => ({
+    id: product.id,
+    name: product.name,
+    description: product.description || '',
+    priceUSD: product.priceUSD,
+    imageUrl: product.imageUrl || '/placeholder-product.jpg',
+    storeName: product.store?.name || '',
+    category: product.category || 'OTHER',
+    productType: 'PHYSICAL', // Default to PHYSICAL since productType doesn't exist in schema
+  })) : [];
 
   return (
-    <div className="min-h-screen" style={bgStyle}>
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div className="relative text-white" style={primaryStyle}>
-        {publicInfo.coverImageUrl && (
-          <div className="absolute inset-0 opacity-20">
-            <Image
-              src={publicInfo.coverImageUrl}
-              alt="Cover"
-              fill
-              className="object-cover"
-            />
-          </div>
-        )}
-        <div className="relative container mx-auto px-4 py-20">
-          <div className="max-w-4xl mx-auto text-center">
-            {publicInfo.logoUrl && (
-              <div className="mb-6 flex justify-center">
-                <Image
-                  src={publicInfo.logoUrl}
-                  alt={`${publicInfo.name} logo`}
-                  width={120}
-                  height={120}
-                  className="rounded-lg"
-                />
-              </div>
-            )}
-            <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              {publicInfo.heroTitle || publicInfo.name || coopId}
-            </h1>
-            {(publicInfo.heroSubtitle || publicInfo.tagline) && (
-              <p className="text-xl md:text-2xl mb-8 text-gray-100">
-                {publicInfo.heroSubtitle || publicInfo.tagline}
-              </p>
-            )}
-            {publicInfo.heroImageUrl && (
-              <div className="mb-10 relative h-64 rounded-xl overflow-hidden">
-                <Image
-                  src={publicInfo.heroImageUrl}
-                  alt="Hero"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href={publicInfo.primaryCtaUrl || publicInfo.mobileAppUrl || `https://mobile.cahootzcoops.com`}
-                className="hover:opacity-90 text-white px-8 py-4 rounded-lg font-semibold text-lg inline-flex items-center justify-center transition-all"
-                style={accentStyle}
-              >
-                {publicInfo.primaryCtaLabel || 'Join Now'}
-                <ArrowRight className="ml-2" size={20} />
-              </Link>
-              <Link
-                href={`/portal/${coopId}`}
-                className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg inline-flex items-center justify-center transition-all"
-              >
-                Member Portal
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CoopHero coop={coop} />
 
-      {/* About Section */}
-      {publicInfo.aboutBody && (
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                {publicInfo.aboutTitle || 'About Us'}
-              </h2>
+      {/* Stats Bar - conditionally rendered based on showStatsBar */}
+      {publicInfo.showStatsBar && (
+        <section className="border-b bg-card">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground md:text-3xl">
+                  {coop.memberCount.toLocaleString()}
+                </div>
+                <div className="text-sm text-muted-foreground">Members</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground md:text-3xl">
+                  {coop.storeCount}
+                </div>
+                <div className="text-sm text-muted-foreground">Stores</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground md:text-3xl">
+                  {coop.totalProducts}
+                </div>
+                <div className="text-sm text-muted-foreground">Products</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground md:text-3xl">
+                  {coop.stats.treasurySize}
+                </div>
+                <div className="text-sm text-muted-foreground">Treasury</div>
+              </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-              <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {publicInfo.aboutBody}
+          </div>
+        </section>
+      )}
+
+      {/* Featured Products Section */}
+      <section className="py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                Featured Products
+              </h2>
+              <p className="mt-1 text-muted-foreground">
+                Popular items from our community stores
               </p>
             </div>
+            <Button variant="outline" asChild>
+              <Link href={`/c/${coopId}/products`}>
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <FeaturedProducts products={products} coopSlug={coopId} />
+        </div>
+      </section>
+
+      {/* Stores Section */}
+      <section className="border-t bg-muted/30 py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                Community Stores
+              </h2>
+              <p className="mt-1 text-muted-foreground">
+                Shop from businesses in our cooperative network
+              </p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href={`/c/${coopId}/stores`}>
+                All Stores
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {stores.map((store: any) => (
+              <StoreCard key={store.id} store={store} coopSlug={coopId} />
+            ))}
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Mission Section */}
-      {publicInfo.missionBody && (
-        <div className="bg-gray-50 dark:bg-gray-900 py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <Target className="w-12 h-12 mx-auto mb-4" style={{ color: publicInfo.primaryColor }} />
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                  Our Mission
+      {/* Join Section */}
+      <section className="py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="overflow-hidden rounded-2xl" style={coop.gradientStyle}>
+            <div className="grid items-center gap-8 p-8 md:grid-cols-2 md:p-12">
+              <div className="text-white">
+                <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+                  Join Our Community
                 </h2>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-                <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                  {publicInfo.missionBody}
+                <p className="mt-4 text-lg text-white/90">
+                  Become a member of {coop.name} and help build economic
+                  independence together. Get access to exclusive discounts,
+                  voting rights, and community benefits.
                 </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Features Section */}
-      {features.length > 0 && (
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Why Join {publicInfo.name}?
-              </h2>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {features.map((feature, index) => (
-                <div
-                  key={index}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
-                >
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4" style={accentStyle}>
-                    <Check className="text-white" size={24} />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Eligibility Section */}
-      {publicInfo.eligibilityBody && (
-        <div className="bg-gray-50 dark:bg-gray-900 py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <Shield className="w-12 h-12 mx-auto mb-4" style={{ color: publicInfo.accentColor }} />
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                  {publicInfo.eligibilityTitle || 'Who Can Join'}
-                </h2>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-                <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                  {publicInfo.eligibilityBody}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Preview Section - Hybrid: Live data + curated overrides */}
-      {(previewData || previewOverrides) && (
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                See What&apos;s Happening
-              </h2>
-            </div>
-
-            {/* Stores Preview */}
-            {(previewData?.stores.length || previewOverrides?.stores?.length) ? (
-              <div className="mb-12">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <StoreIcon size={24} style={{ color: publicInfo.primaryColor }} />
-                  Local Stores
-                </h3>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {(previewOverrides?.stores || previewData?.stores || []).slice(0, 3).map((store: any, index: number) => (
-                    <div key={store.id || index} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                      {store.imageUrl && (
-                        <div className="relative h-40 mb-4 rounded-lg overflow-hidden">
-                          <Image
-                            src={store.imageUrl}
-                            alt={store.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        {store.name}
-                      </h4>
-                      {store.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                          {store.description}
-                        </p>
-                      )}
-                      {store.category && (
-                        <span className="inline-block mt-3 px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                          {store.category}
-                        </span>
-                      )}
+                <ul className="mt-6 space-y-3">
+                  <li className="flex items-center gap-2">
+                    <div className="rounded-full bg-white/20 p-1">
+                      <Sparkles className="h-4 w-4" />
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Proposals Preview */}
-            {(previewData?.proposals.length || previewOverrides?.proposals?.length) ? (
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <FileText size={24} style={{ color: publicInfo.primaryColor }} />
-                  Recent Proposals
-                </h3>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {(previewOverrides?.proposals || previewData?.proposals || []).slice(0, 3).map((proposal: any, index: number) => (
-                    <div key={proposal.id || index} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full text-white" style={accentStyle}>
-                          {proposal.status}
-                        </span>
-                      </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        {proposal.title}
-                      </h4>
-                      {proposal.summary && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-3">
-                          {proposal.summary}
-                        </p>
-                      )}
-                      {proposal.budgetAmount && (
-                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          Budget: {proposal.budgetCurrency} ${proposal.budgetAmount.toLocaleString()}
-                        </p>
-                      )}
+                    <span>Exclusive member discounts</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="rounded-full bg-white/20 p-1">
+                      <Users className="h-4 w-4" />
                     </div>
-                  ))}
-                </div>
+                    <span>Vote on community proposals</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="rounded-full bg-white/20 p-1">
+                      <Store className="h-4 w-4" />
+                    </div>
+                    <span>Support Black-owned businesses</span>
+                  </li>
+                </ul>
               </div>
-            ) : null}
-
-            {/* Stats Preview */}
-            {previewOverrides?.stats && (
-              <div className="mt-12 grid md:grid-cols-3 gap-6">
-                {previewOverrides.stats.totalMembers && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <Users className="w-12 h-12 mx-auto mb-3" style={{ color: publicInfo.primaryColor }} />
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                      {previewOverrides.stats.totalMembers}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">Members</p>
-                  </div>
-                )}
-                {previewOverrides.stats.totalStores && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <StoreIcon className="w-12 h-12 mx-auto mb-3" style={{ color: publicInfo.primaryColor }} />
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                      {previewOverrides.stats.totalStores}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">Local Stores</p>
-                  </div>
-                )}
-                {previewOverrides.stats.totalFunded && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 text-center">
-                    <TrendingUp className="w-12 h-12 mx-auto mb-3" style={{ color: publicInfo.primaryColor }} />
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                      ${previewOverrides.stats.totalFunded.toLocaleString()}
-                    </p>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">Funded</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* FAQ Section */}
-      {faqs.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-900 py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                  Frequently Asked Questions
-                </h2>
-              </div>
-              <div className="space-y-6">
-                {faqs.map((faq, index) => (
-                  <div key={index} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                      {faq.question}
-                    </h3>
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                      {faq.answer}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <JoinWaitlistForm coopId={coop.id} coopName={coop.name} primaryColor={coop.bgColor} />
             </div>
           </div>
         </div>
-      )}
-
-      {/* Contact Section */}
-      {(publicInfo.contactEmail || contactLinks.length > 0 || publicInfo.newsletterUrl) && (
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <Mail className="w-12 h-12 mx-auto mb-4" style={{ color: publicInfo.primaryColor }} />
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                Get In Touch
-              </h2>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-              {publicInfo.contactEmail && (
-                <div className="mb-6">
-                  <p className="text-gray-700 dark:text-gray-300">
-                    Email us at:{' '}
-                    <a
-                      href={`mailto:${publicInfo.contactEmail}`}
-                      className="font-semibold hover:underline"
-                      style={{ color: publicInfo.primaryColor }}
-                    >
-                      {publicInfo.contactEmail}
-                    </a>
-                  </p>
-                </div>
-              )}
-              {contactLinks.length > 0 && (
-                <div className="flex flex-wrap gap-4 mb-6">
-                  {contactLinks.map((link, index) => (
-                    <a
-                      key={index}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    >
-                      <ExternalLink size={16} />
-                      {link.label}
-                    </a>
-                  ))}
-                </div>
-              )}
-              {publicInfo.newsletterUrl && (
-                <div>
-                  <Link
-                    href={publicInfo.newsletterUrl}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-white hover:opacity-90 transition-all"
-                    style={primaryStyle}
-                  >
-                    Subscribe to Newsletter
-                    <ArrowRight size={18} />
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Final CTA Section */}
-      <div className="text-white py-16" style={primaryStyle}>
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <Users className="w-16 h-16 mx-auto mb-6" />
-            <h2 className="text-3xl md:text-4xl font-bold mb-6">
-              Ready to Join Our Community?
-            </h2>
-            <p className="text-xl mb-8 text-gray-100">
-              {publicInfo.tagline || `Become a member of ${publicInfo.name || coopId}`}
-            </p>
-            <Link
-              href={publicInfo.primaryCtaUrl || publicInfo.mobileAppUrl || `https://mobile.cahootzcoops.com`}
-              className="hover:opacity-90 text-white px-10 py-5 rounded-lg font-semibold text-xl inline-flex items-center justify-center transition-all"
-              style={accentStyle}
-            >
-              {publicInfo.primaryCtaLabel || 'Get Started'}
-              <ArrowRight className="ml-2" size={24} />
-            </Link>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p>&copy; {new Date().getFullYear()} {publicInfo.name || coopId}. All rights reserved.</p>
-          <div className="mt-4 space-x-6">
-            <Link href={`/portal/${coopId}`} className="hover:text-white transition-colors">
-              Member Portal
-            </Link>
-            <Link href={`/portal/${coopId}/proposals`} className="hover:text-white transition-colors">
-              Proposals
-            </Link>
-            <Link href={`/portal/${coopId}/stores`} className="hover:text-white transition-colors">
-              Stores
-            </Link>
+      <footer className="border-t bg-card py-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} {coop.name}. Part of the Cahootz
+              Cooperative Network.
+            </div>
+            <div className="flex gap-6">
+              <Link
+                href={`/c/${coopId}/about`}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                About
+              </Link>
+              <Link
+                href={`/c/${coopId}/stores`}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Stores
+              </Link>
+              <Link
+                href={`/c/${coopId}/products`}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Products
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
     </div>
   );
-}
-
-export async function generateMetadata({ params }: CoopPageProps) {
-  const { coopId } = await params;
-  const publicInfo = await getPublicCoopInfo(coopId);
-
-  // Handle missing or unpublished pages
-  if (!publicInfo?.isPublished) {
-    const name = publicInfo?.name || coopId;
-    return {
-      title: `${name} - Coming Soon`,
-      description: publicInfo?.tagline || `${name} is building their cooperative community. Check back soon to learn more.`,
-    };
-  }
-
-  return {
-    title: publicInfo.seoTitle || publicInfo.name || coopId,
-    description: publicInfo.seoDescription || publicInfo.tagline || publicInfo.aboutBody || `Join ${publicInfo.name || coopId}`,
-  };
 }
