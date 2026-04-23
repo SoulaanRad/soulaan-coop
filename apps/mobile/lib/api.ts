@@ -976,7 +976,8 @@ export const api = {
     limit?: number;
     cursor?: string;
   }) {
-    const input = encodeURIComponent(JSON.stringify(options || {}));
+    const coopId = process.env.EXPO_PUBLIC_COOP_ID || '';
+    const input = encodeURIComponent(JSON.stringify({ coopId, ...options }));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getStores?input=${input}`, {
       method: 'GET',
       headers: {
@@ -1200,6 +1201,9 @@ export const api = {
     businessType?: 'individual' | 'company';
     country?: string;
   }, walletAddress: string) {
+    console.log('🔗 [Stripe Connect] Creating business for store', data);
+    console.log('🔗 [Stripe Connect] Wallet address', walletAddress);
+    console.log('🔗 [Stripe Connect] API base URL', API_BASE_URL);
     const response = await fetch(`${API_BASE_URL}/trpc/stripeConnect.createBusinessForStore`, {
       method: 'POST',
       headers: createApiHeaders(walletAddress),

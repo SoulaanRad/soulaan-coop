@@ -62,20 +62,31 @@ export const storeRouter = router({
           { createdAt: "desc" },
         ],
         include: {
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
           _count: {
             select: { products: { where: { isActive: true } } },
           },
         },
       });
 
+      // Filter out stores without Stripe Connect accounts that can accept payments
+      const filteredStores = stores.filter((store): store is typeof store & { business: NonNullable<typeof store.business> } => {
+        // Store must have a business with a Stripe account that has charges enabled
+        return store.business?.stripeAccount?.chargesEnabled === true;
+      });
+
       let nextCursor: string | undefined;
-      if (stores.length > limit) {
-        const nextItem = stores.pop();
+      if (filteredStores.length > limit) {
+        const nextItem = filteredStores.pop();
         nextCursor = nextItem?.id;
       }
 
       return {
-        stores: stores.map((store) => ({
+        stores: filteredStores.map((store) => ({
           id: store.id,
           name: store.name,
           description: store.description,
@@ -167,6 +178,7 @@ export const storeRouter = router({
    */
   getProducts: publicProcedure
     .input(z.object({
+      coopId: z.string().optional(),
       storeId: z.string().optional(),
       category: ProductCategoryEnum.optional(),
       featured: z.boolean().optional(),
@@ -176,12 +188,18 @@ export const storeRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const { storeId, category, featured, search, limit, cursor } = input;
+      const { coopId, storeId, category, featured, search, limit, cursor } = input;
 
       const where: any = {
         isActive: true,
         store: {
           status: "APPROVED",
+          ...(coopId && { coopId }),
+          business: {
+            stripeAccount: {
+              chargesEnabled: true,
+            },
+          },
         },
       };
 
@@ -260,12 +278,26 @@ export const storeRouter = router({
               acceptsUC: true,
               ucDiscountPercent: true,
               status: true,
+              business: {
+                select: {
+                  stripeAccount: {
+                    select: {
+                      chargesEnabled: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       });
 
-      if (!product || !product.isActive || product.store.status !== "APPROVED") {
+      if (
+        !product || 
+        !product.isActive || 
+        product.store.status !== "APPROVED" ||
+        !product.store.business?.stripeAccount?.chargesEnabled
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Product not found",
@@ -1314,6 +1346,11 @@ export const storeRouter = router({
               walletAddress: true,
             },
           },
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
           _count: {
             select: {
               products: true,
@@ -1362,6 +1399,18 @@ export const storeRouter = router({
           productCount: store._count.products,
           orderCount: store._count.orders,
           createdAt: store.createdAt,
+        stripeAccount: store.business?.stripeAccount ? {
+          businessId: store.business.stripeAccount.businessId,
+          stripeAccountId: store.business.stripeAccount.stripeAccountId,
+          chargesEnabled: store.business.stripeAccount.chargesEnabled,
+          payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+          detailsSubmitted: store.business.stripeAccount.detailsSubmitted,
+          onboardingStatus: store.business.stripeAccount.onboardingStatus,
+          verificationStatus: store.business.stripeAccount.verificationStatus,
+          requirementsCurrentlyDue: store.business.stripeAccount.requirementsCurrentlyDue,
+          requirementsPastDue: store.business.stripeAccount.requirementsPastDue,
+          disabledReason: store.business.stripeAccount.disabledReason,
+        } : null,
         })),
         nextCursor,
       };
@@ -1476,9 +1525,14 @@ export const storeRouter = router({
         description: product.description,
         category: product.category,
         imageUrl: product.imageUrl,
+        images: product.images,
         priceUSD: product.priceUSD,
         compareAtPrice: product.compareAtPrice,
+        ucDiscountPrice: product.ucDiscountPrice,
+        sku: product.sku,
         quantity: product.quantity,
+        trackInventory: product.trackInventory,
+        allowBackorder: product.allowBackorder,
         isActive: product.isActive,
         isFeatured: product.isFeatured,
         totalSold: product.totalSold,
@@ -1540,6 +1594,11 @@ export const storeRouter = router({
           isActive: true,
           store: {
             status: "APPROVED",
+            business: {
+              stripeAccount: {
+                chargesEnabled: true,
+              },
+            },
           },
         },
         take: limit,

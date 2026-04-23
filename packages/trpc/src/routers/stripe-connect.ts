@@ -79,11 +79,13 @@ export const stripeConnectRouter = router({
       }
 
       if (business?.stripeAccount) {
-        
+        // Use APP_URL for the base URL (backend environment variable)
+        const baseUrl = process.env.APP_URL || 'http://localhost:3001';
+        console.log('🔗 [Stripe Connect] Base URL', baseUrl);
         const onboardingUrl = await generateOnboardingLink({
           accountId: business.stripeAccount.stripeAccountId,
-          refreshUrl: `${process.env.APP_URL}/business/onboarding`,
-          returnUrl: `${process.env.APP_URL}/business/dashboard`,
+          refreshUrl: `${baseUrl}/business/onboarding`,
+          returnUrl: `${baseUrl}/business/dashboard`,
         });
 
         return {

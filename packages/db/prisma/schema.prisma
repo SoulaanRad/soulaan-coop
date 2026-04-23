@@ -1704,6 +1704,9 @@ model StripeAccount {
   // Onboarding status (internal tracking)
   onboardingStatus StripeOnboardingStatus @default(DRAFT)
 
+  // Rejection/Disabled reason from Stripe
+  disabledReason String?
+
   // Future: card issuing eligibility (not implemented yet)
   cardIssuingEligible Boolean @default(false)
 

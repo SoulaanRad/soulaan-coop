@@ -120,12 +120,13 @@ export const adminRouter = router({
     }),
 
   /**
-   * Update user status
+   * Update user status for a specific coop
    * TODO: Add permission check - only admins with proper role should be able to update
    */
   updateUserStatus: publicProcedure
     .input(z.object({
       userId: z.string(),
+      coopId: z.string(),
       status: z.enum(['PENDING', 'ACTIVE', 'REJECTED', 'SUSPENDED']),
       reviewNotes: z.string().optional(),
       // TODO: Add adminUserId to track who made the change
@@ -146,7 +147,46 @@ export const adminRouter = router({
       //   });
       // }
 
-      const user = await context.db.user.update({
+      // Update the coop-scoped membership status
+      const membership = await context.db.userCoopMembership.update({
+        where: {
+          userId_coopId: {
+            userId: input.userId,
+            coopId: input.coopId,
+          },
+        },
+        data: {
+          status: input.status,
+          ...(input.status === 'ACTIVE' && {
+            approvedAt: new Date(),
+            joinedAt: new Date(),
+          }),
+          ...(input.status === 'REJECTED' && {
+            rejectedAt: new Date(),
+            rejectionReason: input.reviewNotes,
+          }),
+        },
+      });
+
+      // Update the application for this specific coop
+      await context.db.application.updateMany({
+        where: {
+          userId: input.userId,
+          coopId: input.coopId,
+        },
+        data: {
+          status: input.status === 'ACTIVE' ? 'APPROVED' :
+                 input.status === 'REJECTED' ? 'REJECTED' : 
+                 input.status === 'PENDING' ? 'SUBMITTED' : 'UNDER_REVIEW',
+          reviewNotes: input.reviewNotes,
+          reviewedAt: new Date(),
+          // TODO: Add reviewedBy: input.adminUserId,
+        },
+      });
+
+      // Also update global user status for backward compatibility
+      // (can be removed once all code uses membership status)
+      await context.db.user.update({
         where: {
           id: input.userId,
         },
@@ -155,23 +195,7 @@ export const adminRouter = router({
         },
       });
 
-      // If there's an application, update its status and review info
-      if (input.reviewNotes) {
-        await context.db.application.updateMany({
-          where: {
-            userId: input.userId,
-          },
-          data: {
-            status: input.status === 'ACTIVE' ? 'APPROVED' :
-                   input.status === 'REJECTED' ? 'REJECTED' : 'SUBMITTED',
-            reviewNotes: input.reviewNotes,
-            reviewedAt: new Date(),
-            // TODO: Add reviewedBy: input.adminUserId,
-          },
-        });
-      }
-
-      return user;
+      return membership;
     }),
 
   /**
@@ -559,6 +583,7 @@ export const adminRouter = router({
   syncMembershipToContract: privateProcedure
     .input(z.object({
       userId: z.string(),
+      coopId: z.string().optional(), // Make coopId explicit
     }))
     .output(z.object({
       success: z.boolean(),
@@ -571,9 +596,9 @@ export const adminRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      const coopId = input.coopId || (ctx as CoopScopedContext).coopId || '???';
 
-      console.log(`\n🔷 syncMembershipToContract for user ${input.userId}`);
+      console.log(`\n🔷 syncMembershipToContract for user ${input.userId} in coop ${coopId}`);
 
       // Get backend wallet private key from environment
       const backendWalletPrivateKey = process.env.BACKEND_WALLET_PRIVATE_KEY;
@@ -586,10 +611,14 @@ export const adminRouter = router({
       }
 
       try {
-        // Get user from DB
+        // Get user and their membership for this coop
         const user = await context.db.user.findUnique({
           where: { id: input.userId },
-          select: { walletAddress: true, status: true, name: true, email: true },
+          select: { 
+            walletAddress: true, 
+            name: true, 
+            email: true,
+          },
         });
 
         if (!user) {
@@ -606,13 +635,31 @@ export const adminRouter = router({
           });
         }
 
+        // Get the coop-scoped membership status
+        const membership = await context.db.userCoopMembership.findUnique({
+          where: {
+            userId_coopId: {
+              userId: input.userId,
+              coopId: coopId,
+            },
+          },
+          select: { status: true },
+        });
+
+        if (!membership) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User is not a member of this coop",
+          });
+        }
+
         // Get current contract status
         const contractStatusBefore = await getMemberStatus(user.walletAddress, coopId);
 
-        // Sync to contract
+        // Sync to contract using the coop-scoped membership status
         const result = await syncMembershipToContract(
           user.walletAddress,
-          user.status,
+          membership.status,
           backendWalletPrivateKey,
           coopId
         );
@@ -631,7 +678,7 @@ export const adminRouter = router({
           action: result.action,
           txHash: result.txHash,
           error: result.error,
-          dbStatus: user.status,
+          dbStatus: membership.status,
           contractStatusBefore: MemberStatus[contractStatusBefore],
           contractStatusAfter,
         };
