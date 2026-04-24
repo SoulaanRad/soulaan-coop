@@ -214,8 +214,7 @@ const server = app.listen(port, async () => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   console.log('\n📋 Environment Variables:');
-  console.log(`  COOP_ID: ${env.COOP_ID}`);
-  console.log(`  PINATA_JWT: ${env.PINATA_JWT ? '✅ Set' : '❌ Not set'}`);
+  console.log(`  BLOB_READ_WRITE_TOKEN: ${env.BLOB_READ_WRITE_TOKEN ? '✅ Set' : '❌ Not set'}`);
   console.log(`  WALLET_ENCRYPTION_KEY: ${env.WALLET_ENCRYPTION_KEY ? '✅ Set' : '❌ Not set'}`);
   console.log(`  DATABASE_URL: ${env.DATABASE_URL ? '✅ Set' : '❌ Not set'}`);
   console.log(`  STRIPE_SECRET_KEY: ${env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Not set'}`);

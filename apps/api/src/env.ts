@@ -21,10 +21,8 @@ export const env = createEnv({
     PAYPAL_CLIENT_SECRET: z.string().optional(),
     SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().optional(),
     SLACK_WEBHOOK_URL: z.string().url().optional(),
-    // MinIO Configuration
-    MINIO_ENDPOINT: z.string().url(),
-    MINIO_ACCESS_KEY: z.string().min(1),
-    MINIO_SECRET_KEY: z.string().min(1),
+    // Vercel Blob
+    BLOB_READ_WRITE_TOKEN: z.string().min(1),
   },
   clientPrefix: "PUBLIC_",
   client: {},

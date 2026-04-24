@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
@@ -59,8 +60,8 @@ export function MinIOImageUpload({
     setIsUploading(true);
 
     try {
-      // Step 1: Get presigned URL from API
-      const presignedResponse = await fetch("/api/upload/presigned", {
+      // Step 1: Get client token from API
+      const tokenResponse = await fetch("/api/upload/presigned", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,28 +75,20 @@ export function MinIOImageUpload({
         }),
       });
 
-      const presignedData = await presignedResponse.json();
+      const tokenData = await tokenResponse.json();
 
-      if (!presignedData.success) {
-        throw new Error(presignedData.error || "Failed to get presigned URL");
+      if (!tokenData.success) {
+        throw new Error(tokenData.error || "Failed to get upload token");
       }
 
-      // Step 2: Upload file directly to MinIO using presigned URL
-      const uploadResponse = await fetch(presignedData.presignedUrl, {
-        method: "PUT",
-        body: selectedFile,
-        headers: {
-          "Content-Type": selectedFile.type,
-        },
+      // Step 2: Upload directly to Vercel Blob using client token
+      const blob = await upload(tokenData.pathname, selectedFile, {
+        access: "public",
+        clientUploadToken: tokenData.clientToken,
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
-      }
-
-      // Success!
-      setUploadedUrl(presignedData.publicUrl);
-      onUploadComplete(presignedData.publicUrl);
+      setUploadedUrl(blob.url);
+      onUploadComplete(blob.url);
     } catch (error) {
       console.error("Upload error:", error);
       alert(error instanceof Error ? error.message : "Upload failed. Please try again.");

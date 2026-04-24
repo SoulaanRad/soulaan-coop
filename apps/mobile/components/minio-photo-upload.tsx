@@ -87,8 +87,8 @@ export default function MinIOPhotoUpload({
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-      // Step 1: Get presigned URL from API
-      const presignedResponse = await fetch(`${API_BASE_URL}/api/upload/presigned`, {
+      // Step 1: Get client upload token from API
+      const tokenResponse = await fetch(`${API_BASE_URL}/api/upload/presigned`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,36 +102,39 @@ export default function MinIOPhotoUpload({
         }),
       });
 
-      const presignedData = await presignedResponse.json();
+      const tokenData = await tokenResponse.json();
 
-      if (!presignedData.success) {
-        throw new Error(presignedData.error || 'Failed to get presigned URL');
+      if (!tokenData.success) {
+        throw new Error(tokenData.error || 'Failed to get upload token');
       }
 
-      // Step 2: Upload file directly to MinIO using presigned URL
+      // Step 2: Upload directly to Vercel Blob using client token
       const fileResponse = await fetch(photoUri);
       const fileBlob = await fileResponse.blob();
 
-      const uploadResponse = await fetch(presignedData.presignedUrl, {
+      const uploadResponse = await fetch(tokenData.uploadUrl, {
         method: 'PUT',
-        body: fileBlob,
         headers: {
-          'Content-Type': type,
+          Authorization: `Bearer ${tokenData.clientToken}`,
+          'x-api-version': '7',
+          'x-content-type': type,
         },
+        body: fileBlob,
       });
 
       if (!uploadResponse.ok) {
         throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
 
-      // Success! Return the public URL
+      const blobResult = await uploadResponse.json();
+
       Alert.alert(
         'Success!',
         'Your photo has been uploaded',
         [
           {
             text: 'OK',
-            onPress: () => onUploadComplete(presignedData.publicUrl),
+            onPress: () => onUploadComplete(blobResult.url),
           },
         ]
       );

@@ -1214,6 +1214,9 @@ model Product {
   trackInventory Boolean @default(true)
   allowBackorder Boolean @default(false)
 
+  // Source
+  sourceUrl String? // URL this product was imported from
+
   // Status
   isActive   Boolean @default(true)
   isFeatured Boolean @default(false)

@@ -74,8 +74,8 @@ export default function MinIOMultiPhotoUpload({
     setIsUploading(true);
 
     try {
-      // Step 1: Get batch presigned URLs from API
-      const presignedResponse = await fetch(`${API_BASE_URL}/api/upload/presigned-batch`, {
+      // Step 1: Get batch upload tokens from API
+      const tokenResponse = await fetch(`${API_BASE_URL}/api/upload/presigned-batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,45 +89,46 @@ export default function MinIOMultiPhotoUpload({
         }),
       });
 
-      const presignedData = await presignedResponse.json();
+      const tokenData = await tokenResponse.json();
 
-      if (!presignedData.success) {
-        throw new Error(presignedData.error || 'Failed to get presigned URLs');
+      if (!tokenData.success) {
+        throw new Error(tokenData.error || 'Failed to get upload tokens');
       }
 
-      // Step 2: Upload all photos in parallel
+      // Step 2: Upload all photos in parallel directly to Vercel Blob
       const uploadPromises = photos.map(async (photo, index) => {
         try {
-          // Update status to uploading
-          setPhotos(prev => prev.map((p, i) => 
+          setPhotos(prev => prev.map((p, i) =>
             i === index ? { ...p, status: 'uploading' as const } : p
           ));
 
-          const presignedInfo = presignedData.uploads[index];
+          const uploadInfo = tokenData.uploads[index];
 
-          // Fetch file as blob
           const fileResponse = await fetch(photo.uri);
           const fileBlob = await fileResponse.blob();
 
-          // Upload to MinIO
-          const uploadResponse = await fetch(presignedInfo.presignedUrl, {
+          const uploadResponse = await fetch(uploadInfo.uploadUrl, {
             method: 'PUT',
-            body: fileBlob,
             headers: {
-              'Content-Type': 'image/jpeg',
+              Authorization: `Bearer ${uploadInfo.clientToken}`,
+              'x-api-version': '7',
+              'x-content-type': 'image/jpeg',
             },
+            body: fileBlob,
           });
 
           if (!uploadResponse.ok) {
             throw new Error(`Upload failed with status: ${uploadResponse.status}`);
           }
 
-          // Update status to success
-          setPhotos(prev => prev.map((p, i) => 
-            i === index ? { ...p, status: 'success' as const, url: presignedInfo.publicUrl } : p
+          const blobResult = await uploadResponse.json();
+          const publicUrl = blobResult.url;
+
+          setPhotos(prev => prev.map((p, i) =>
+            i === index ? { ...p, status: 'success' as const, url: publicUrl } : p
           ));
 
-          return presignedInfo.publicUrl;
+          return publicUrl;
         } catch (error) {
           // Update status to error
           setPhotos(prev => prev.map((p, i) => 

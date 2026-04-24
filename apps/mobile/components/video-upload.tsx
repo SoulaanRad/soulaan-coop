@@ -115,8 +115,8 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `video/${match[1]}` : 'video/mp4';
 
-      // Step 1: Get presigned URL from API
-      const presignedResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
+      // Step 1: Get client upload token from API
+      const tokenResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,42 +130,45 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
         }),
       });
 
-      const presignedData = await presignedResponse.json();
+      const tokenData = await tokenResponse.json();
 
-      if (!presignedData.success) {
-        throw new Error(presignedData.error || 'Failed to get presigned URL');
+      if (!tokenData.success) {
+        throw new Error(tokenData.error || 'Failed to get upload token');
       }
 
       setUploadProgress(30);
 
-      // Step 2: Upload file directly to MinIO using presigned URL
+      // Step 2: Upload directly to Vercel Blob using client token
       const fileResponse = await fetch(videoUri);
       const fileBlob = await fileResponse.blob();
 
       setUploadProgress(50);
 
-      const uploadResponse = await fetch(presignedData.presignedUrl, {
+      const uploadResponse = await fetch(tokenData.uploadUrl, {
         method: 'PUT',
-        body: fileBlob,
         headers: {
-          'Content-Type': type,
+          Authorization: `Bearer ${tokenData.clientToken}`,
+          'x-api-version': '7',
+          'x-content-type': type,
         },
+        body: fileBlob,
       });
 
       if (!uploadResponse.ok) {
         throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
 
+      const blobResult = await uploadResponse.json();
+
       setUploadProgress(100);
 
-      // Success! Return the public URL (using key as CID for backward compatibility)
       Alert.alert(
         'Success!',
         'Your introduction video has been uploaded',
         [
           {
             text: 'OK',
-            onPress: () => onUploadComplete(presignedData.key, presignedData.publicUrl),
+            onPress: () => onUploadComplete(tokenData.pathname, blobResult.url),
           },
         ]
       );
@@ -250,7 +253,7 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
         <View className="bg-amber-50 p-4 rounded-xl space-y-2">
           <View className="flex-row items-center justify-center">
             <ActivityIndicator size="small" color="#D97706" />
-            <Text className="text-amber-700 ml-2">Uploading to IPFS...</Text>
+            <Text className="text-amber-700 ml-2">Uploading...</Text>
           </View>
           {uploadProgress > 0 && (
             <View className="bg-amber-200 h-2 rounded-full overflow-hidden">
