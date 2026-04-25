@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { useCoopContext } from "@/lib/coop-context";
+import { env } from "~/env";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -1548,7 +1549,7 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => window.open(`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_MODE === 'live' ? '' : 'test/'}connect/accounts/${stripeAccount.stripeAccountId}`, '_blank')}
+            onClick={() => window.open(`https://dashboard.stripe.com/${env.NEXT_PUBLIC_STRIPE_MODE === 'live' ? '' : 'test/'}connect/accounts/${stripeAccount.stripeAccountId}`, '_blank')}
             className="border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 text-xs h-7"
           >
             <ExternalLink className="h-3 w-3 mr-1" />

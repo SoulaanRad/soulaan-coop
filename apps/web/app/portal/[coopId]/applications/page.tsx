@@ -127,7 +127,7 @@ export default function ApplicationsPage() {
 
   // Handle both singular and array format for applications
   const application = (currentApp as any).application || currentApp.applications?.[0];
-  const appData = application?.data as any;
+  const appData = application?.data;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
