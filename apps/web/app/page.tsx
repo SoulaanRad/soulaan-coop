@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
+import type React from "react";
 import {
   ArrowRight,
+  BadgeCheck,
+  Calendar,
   Check,
-  ChevronRight,
+  Clock,
+  Globe,
+  Landmark,
+  MessageSquare,
+  ShieldCheck,
+  Smartphone,
   Store,
   Users,
+  Vote,
+  Wallet,
   Zap,
-  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -27,445 +36,575 @@ async function getActiveCoops(): Promise<CoopOption[]> {
   try {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
     const response = await fetch(`${apiUrl}/trpc/coopConfig.listActiveCoops`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
     });
-
-    if (!response.ok) {
-      console.error('Failed to fetch coops:', response.statusText);
-      return [];
-    }
-
+    if (!response.ok) return [];
     const data = await response.json();
     return data.result.data as CoopOption[];
-  } catch (error) {
-    console.error('Error fetching coops:', error);
+  } catch {
     return [];
   }
 }
 
 const CARD_GRADIENTS = [
-  "from-[#f59e0b]/20 to-[#ea580c]/10",
-  "from-purple-500/20 to-violet-500/10",
-  "from-green-500/20 to-emerald-500/10",
-  "from-blue-500/20 to-cyan-500/10",
-  "from-pink-500/20 to-rose-500/10",
+  "from-[#f59e0b]/25 to-[#0f766e]/20",
+  "from-[#22c55e]/20 to-[#0ea5e9]/15",
+  "from-[#ef4444]/20 to-[#f59e0b]/20",
+  "from-[#14b8a6]/20 to-[#64748b]/20",
+  "from-[#facc15]/20 to-[#dc2626]/20",
 ];
 
 export const metadata: Metadata = {
-  title: "Cahootz | Shop Local. Earn Tokens. Fund Your Community.",
+  title: "Cahootz | The App for Community-Owned Economies",
   description:
-    "A cooperative business network where every purchase earns you tokens. Small fees fund community projects decided by AI governance.",
+    "Join a co-op, support local businesses, earn participation rewards, and vote on how shared community resources are used.",
   alternates: {
     canonical: "https://soulaan.coop",
   },
 };
 
-const steps = [
+const proofPoints = [
   {
-    number: "01",
-    title: "Shop at local spots",
-    description: "Grocery stores, barbershops, restaurants—anywhere in the network. Pay like normal.",
+    icon: <Store className="h-5 w-5" />,
+    value: "Shop local",
+    label: "Find businesses in your co-op network and keep spending close to home.",
   },
   {
-    number: "02",
-    title: "Stack tokens automatically",
-    description: "Every dollar you spend earns tokens. No apps to scan, no codes to enter.",
+    icon: <Vote className="h-5 w-5" />,
+    value: "Vote on proposals",
+    label: "Help decide which projects, businesses, and community needs get funded.",
   },
   {
-    number: "03",
-    title: "Small cut funds the pot",
-    description: "A small percentage from you and the business. Every cent goes to a shared treasury.",
+    icon: <Landmark className="h-5 w-5" />,
+    value: "Build the treasury",
+    label: "Small contributions from activity flow into resources members can govern.",
+  },
+];
+
+interface Feature {
+  icon: React.ReactNode;
+  label: string;
+  title: string;
+  description: string;
+  status: "live" | "coming-soon";
+}
+
+const features: Feature[] = [
+  {
+    icon: <Smartphone className="h-6 w-6" />,
+    label: "Member App",
+    title: "Your co-op in your pocket",
+    description:
+      "Join a network, see activity, manage your profile, and stay connected to the people and businesses building with you.",
+    status: "live",
   },
   {
-    number: "04",
-    title: "AI follows your rules",
-    description: "Community-agreed rules decide where the money goes. No politics. No BS.",
+    icon: <Store className="h-6 w-6" />,
+    label: "Local Commerce",
+    title: "Spend where it comes back",
+    description:
+      "Discover community businesses, buy from the network, and turn everyday transactions into shared momentum.",
+    status: "live",
+  },
+  {
+    icon: <Vote className="h-6 w-6" />,
+    label: "Governance",
+    title: "Real decisions, not suggestion boxes",
+    description:
+      "Submit proposals, discuss tradeoffs, vote, and see why decisions were approved or rejected.",
+    status: "live",
+  },
+  {
+    icon: <Wallet className="h-6 w-6" />,
+    label: "Tokens & Rewards",
+    title: "Participation you can measure",
+    description:
+      "Unity Coin powers purchases and rewards. SoulaaniCoin represents membership, reputation, and governance rights.",
+    status: "live",
+  },
+  {
+    icon: <Globe className="h-6 w-6" />,
+    label: "Public Co-op Pages",
+    title: "A front door people can share",
+    description:
+      "Each co-op can publish its mission, stores, products, and join path so neighbors know where to plug in.",
+    status: "live",
+  },
+  {
+    icon: <Calendar className="h-6 w-6" />,
+    label: "Events",
+    title: "Move from group chat to showing up",
+    description:
+      "Organize meetups, pop-ups, town halls, and volunteer days tied to the co-op's real activity.",
+    status: "coming-soon",
   },
 ];
 
 const memberBenefits = [
-  "Earn tokens on every purchase",
-  "Redeem for drinks, discounts, merch",
-  "Vote on how treasury gets spent",
-  "Share in the upside",
+  "Find co-op businesses and community activity in one place",
+  "Earn rewards for spending and participating in the network",
+  "Vote on proposals that can fund real local projects",
+  "Follow decisions, treasury activity, and member updates",
+  "Help grow a system built for ownership instead of extraction",
 ];
 
 const businessBenefits = [
-  "Loyal customers who actually come back",
-  "Lower than credit card fees",
-  "Access to treasury funding",
-  "Community has your back",
+  "Reach members already looking for local places to support",
+  "Accept community-powered payments and rewards",
+  "Show up on your co-op's public page and marketplace",
+  "Build customer loyalty around ownership, not coupons",
+  "Request support through transparent member proposals",
 ];
 
 const faqs = [
   {
-    q: "Why would I pay extra?",
-    a: "Because it doesn't disappear into some corporate pocket. It goes into a community fund that supports local businesses, funds projects you vote on, and eventually pays you back. You're investing in your neighborhood, not Visa. Each cooperative sets their own rates—typically competitive with credit card fees.",
+    q: "What does Cahootz actually do?",
+    a: "Cahootz is the app layer for a cooperative economy. Members use it to join a co-op, find local businesses, earn participation rewards, submit and vote on proposals, and help govern shared resources.",
   },
   {
-    q: "An AI decides where money goes?",
-    a: "The AI doesn't decide anything. It follows a rulebook the community writes. Rules like 'prioritize local impact' or 'keep 20% in reserve.' You create the rules, you change the rules. The AI just applies them without favoritism.",
+    q: "Is this just a loyalty app?",
+    a: "No. Rewards are only one part. The important difference is that the network also has membership, governance, a shared treasury, public co-op pages, and tools for businesses to participate in community ownership.",
   },
   {
-    q: "What if I disagree with a decision?",
-    a: "Propose a rule change. Get enough token holders to vote for it, and the rules update. Simple as that.",
+    q: "Does AI control the money?",
+    a: "No. The AI helps evaluate proposals against rules the co-op sets. Members still define the rules, change the rules, and make the governing decisions.",
   },
   {
-    q: "How's this different from credit card rewards?",
-    a: "Credit card rewards come from merchant fees that go to banks. Here, the fees stay local. The treasury belongs to the community—the people who actually live and work here.",
+    q: "Why would a business join?",
+    a: "A business gets discovered by people who want to buy local, can build loyalty around a larger mission, and can request community support through proposals instead of relying only on banks or ads.",
+  },
+  {
+    q: "How do I start?",
+    a: "Join the waitlist as a member or add your business. If your co-op is already live, you can visit its public page and start there.",
   },
 ];
 
 export default async function HomePage() {
   const coops = await getActiveCoops();
+
   return (
-    <div className="min-h-screen bg-[#1a1a1a] text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#1a1a1a]/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-white font-black text-lg">
+    <div className="min-h-screen bg-[#111111] text-white">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#111111]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-lg font-black text-[#111111]">
               C
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-bold tracking-tight leading-tight">Cahootz</span>
-              <span className="text-xs text-slate-400 leading-tight">Digital coop network</span>
+              <span className="text-xl font-bold leading-tight tracking-tight">Cahootz</span>
+              <span className="text-xs leading-tight text-slate-400">Community-owned economy</span>
             </div>
           </Link>
 
           <nav className="hidden items-center gap-8 text-sm md:flex">
-            <Link href="#how-it-works" className="text-slate-400 hover:text-white transition-colors">
+            <Link href="#how-it-works" className="text-slate-400 transition hover:text-white">
               How it works
             </Link>
-            <Link href="#governance" className="text-slate-400 hover:text-white transition-colors">
-              Governance
+            <Link href="#features" className="text-slate-400 transition hover:text-white">
+              Features
             </Link>
-            <Link href="#businesses" className="text-slate-400 hover:text-white transition-colors">
-              For Businesses
+            <Link href="#join" className="text-slate-400 transition hover:text-white">
+              Join
             </Link>
           </nav>
 
-          <Link
-            href="#join"
-            className="rounded-lg bg-[#f59e0b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#ea580c] transition-colors"
+          <a
+            href="https://mobile.cahootzcoops.com/"
+            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
           >
-            Get started
-          </Link>
+            Open app
+            <ArrowRight className="h-4 w-4" />
+          </a>
         </div>
       </header>
 
       <main>
-        {/* Hero */}
-        <section className="px-6 py-24 md:py-32">
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-1.5 text-sm font-medium text-[#f59e0b]">
+        <section
+          className="relative overflow-hidden border-b border-white/10 bg-cover bg-center px-5 py-16 sm:px-6 md:py-24"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(17,17,17,0.98) 0%, rgba(17,17,17,0.9) 50%, rgba(17,17,17,0.62) 100%), url('/images/soulaan-flag.jpg')",
+          }}
+        >
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
                 <Zap className="h-4 w-4" />
-                Coops built for real-world stability
+                Built for co-ops, local businesses, and member power
               </div>
-              <h1 className="mt-6 text-5xl font-semibold leading-tight md:text-7xl">
-                Build Stability Together
+              <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[1.03] tracking-tight sm:text-6xl md:text-7xl">
+                Turn local spending into shared power.
               </h1>
-              <p className="mt-6 text-xl text-slate-300 leading-relaxed max-w-2xl">
-                Join a cooperative that helps members support businesses, fund
-                projects, and vote on solutions to real economic problems.
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200 md:text-xl">
+                Cahootz helps communities run a real cooperative economy: members join,
+                shop the network, earn rewards, vote on proposals, and grow a treasury
+                that stays accountable to the people using it.
               </p>
-              <p className="mt-5 text-lg text-slate-400 leading-relaxed max-w-2xl">
-                Instead of waiting for institutions to fix things,
-                cooperatives let communities organize resources and build
-                systems that create stability, ownership, and opportunity.
-              </p>
-              <div className="mt-10 flex flex-wrap gap-4">
+              <div className="mt-9 flex flex-wrap gap-3">
                 <Link
                   href="#join"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-6 py-3.5 text-base font-semibold text-white hover:bg-[#ea580c] transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-5 py-3 text-base font-semibold text-[#111111] transition hover:bg-[#facc15]"
                 >
-                  Join as a member
+                  Join the community
                   <ArrowRight className="h-5 w-5" />
                 </Link>
                 <Link
-                  href="#businesses"
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-6 py-3.5 text-base font-semibold hover:bg-white/5 transition-colors"
+                  href="#business-form"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-5 py-3 text-base font-semibold transition hover:bg-white/10"
                 >
                   Add your business
                 </Link>
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* Stats bar */}
-        <section className="border-y border-white/10 bg-[#252525] px-6 py-12">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-8 text-center md:grid-cols-3">
-              <div>
-                <p className="text-5xl font-black">~2.5%</p>
-                <p className="mt-2 text-slate-400">You chip in</p>
-              </div>
-              <div>
-                <p className="text-5xl font-black">~2.5%</p>
-                <p className="mt-2 text-slate-400">Business chips in</p>
-              </div>
-              <div>
-                <p className="text-5xl font-black text-[#f59e0b]">100%</p>
-                <p className="mt-2 text-slate-400">Stays in the community</p>
+            <div className="mx-auto w-full max-w-md lg:ml-auto">
+              <div className="rounded-lg border border-white/15 bg-[#181818]/95 p-4 shadow-2xl shadow-black/40">
+                <div className="rounded-lg border border-[#f59e0b]/25 bg-[#121212] p-4 text-white">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-widest text-[#facc15]">Today in your co-op</p>
+                      <h2 className="mt-1 text-xl font-black">Gen Z Co-op</h2>
+                    </div>
+                    <div className="rounded-lg bg-[#f59e0b] px-3 py-1 text-xs font-bold text-[#111111]">LIVE</div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {[
+                      ["9", "Proposals"],
+                      ["18", "Stores"],
+                      ["320", "Members"],
+                    ].map(([value, label]) => (
+                      <div key={label} className="rounded-lg border border-white/10 bg-white/[0.04] p-3 text-center">
+                        <p className="text-2xl font-black">{value}</p>
+                        <p className="mt-1 text-[11px] font-medium text-slate-400">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {[
+                      {
+                        icon: <Store className="h-4 w-4" />,
+                        title: "Book a member workspace",
+                        detail: "Earn rewards while supporting co-op spaces.",
+                      },
+                      {
+                        icon: <MessageSquare className="h-4 w-4" />,
+                        title: "Discuss the creator fund proposal",
+                        detail: "24 members commented before the vote.",
+                      },
+                      {
+                        icon: <ShieldCheck className="h-4 w-4" />,
+                        title: "Treasury rule check passed",
+                        detail: "AI applied the co-op's reserve rules.",
+                      },
+                    ].map((item) => (
+                      <div key={item.title} className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f59e0b]/15 text-[#facc15]">
+                          {item.icon}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold">{item.title}</p>
+                          <p className="mt-0.5 text-xs leading-5 text-slate-400">{item.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="mt-8 text-center text-sm text-slate-400">
-              No corporate extraction. No middlemen. Just neighbors looking out for neighbors.
-            </p>
-            <p className="mt-2 text-center text-xs text-slate-500">
-              *Percentages vary by cooperative. Each community sets their own rates.
-            </p>
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how-it-works" className="px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <h2 className="text-3xl font-black tracking-tight md:text-4xl">How it works</h2>
-            <p className="mt-3 text-lg text-slate-400">
-              Dead simple. No hoops, no hassle.
-            </p>
-
-            <div className="mt-16 grid gap-12 md:grid-cols-2">
-              {steps.map(({ number, title, description }) => (
-                <div key={number} className="flex gap-5">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#252525] text-sm font-bold text-[#f59e0b]">
-                    {number}
+        <section id="how-it-works" className="border-b border-white/10 bg-[#161616] px-5 py-14 text-white sm:px-6">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-4 md:grid-cols-3">
+              {proofPoints.map((point) => (
+                <div key={point.value} className="rounded-lg border border-white/10 bg-[#111111] p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f59e0b]/15 text-[#facc15]">
+                    {point.icon}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold">{title}</h3>
-                    <p className="mt-2 text-slate-400">{description}</p>
-                  </div>
+                  <h2 className="mt-5 text-2xl font-black">{point.value}</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{point.label}</p>
                 </div>
               ))}
             </div>
-
-            {/* Example */}
-            <div className="mt-16 rounded-xl border border-white/10 bg-[#252525] p-8">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Example (rates vary by coop)</p>
-              <div className="mt-5 flex flex-wrap items-center gap-4">
-                <span className="text-lg font-bold">$40 haircut</span>
-                <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg">You pay <span className="font-bold">$41</span></span>
-                <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg">Barber gets <span className="font-bold">$39</span></span>
-                <ChevronRight className="h-5 w-5 text-slate-400" />
-                <span className="text-lg font-bold text-[#f59e0b]">$2 to the pot</span>
-              </div>
-              <p className="mt-4 text-xs text-slate-500">
-                *This example uses 2.5% rates. Your cooperative may set different percentages.
-              </p>
-            </div>
           </div>
         </section>
 
-        {/* AI Governance */}
-        <section id="governance" className="border-t border-white/10 bg-[#252525] px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-4 py-1.5 text-sm font-medium text-[#f59e0b]">
-                AI Governance
-              </div>
-              <h2 className="mt-5 text-3xl font-black tracking-tight md:text-4xl">
-                You write the rules.<br />
-                The AI follows them.
+        <section id="features" className="px-5 py-20 sm:px-6 md:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">What people use it for</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+                One app for the work a co-op already has to do.
               </h2>
-              <p className="mt-5 text-lg text-slate-400 leading-relaxed">
-                No board of directors. No committee meetings that drag on forever. 
-                An AI evaluates proposals and allocates funds—but it only does 
-                what the community tells it to. Fair, fast, no favoritism.
+              <p className="mt-4 text-lg leading-8 text-slate-400">
+                Cahootz is where members, businesses, proposals, purchases, and public
+                trust all meet, so people can move from interest to action quickly.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-6 md:grid-cols-2">
-              <div className="rounded-xl border border-white/10 bg-[#1a1a1a] p-8">
-                <h3 className="text-lg font-bold">Rules the AI follows right now:</h3>
+            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature) => (
+                <div key={feature.label} className="rounded-lg border border-white/10 bg-[#1b1b1b] p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#f59e0b]/10 text-[#facc15]">
+                      {feature.icon}
+                    </div>
+                    {feature.status === "coming-soon" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1 text-xs font-medium text-slate-400">
+                        <Clock className="h-3 w-3" />
+                        Soon
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                        <BadgeCheck className="h-3 w-3" />
+                        Live
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-5 text-xs font-bold uppercase tracking-widest text-slate-500">{feature.label}</p>
+                  <h3 className="mt-2 text-lg font-bold">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-white/10 bg-[#1b1b1b] px-5 py-20 sm:px-6 md:py-24">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Why it matters</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
+                The money loop is the message.
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-slate-400">
+                Most platforms extract attention, fees, and customer relationships.
+                Cahootz is designed so the activity of the network strengthens the network:
+                members support businesses, businesses serve members, and the co-op treasury
+                funds work the community can see and govern.
+              </p>
+              <Link
+                href="#join"
+                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
+              >
+                Start with the app
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[
+                ["1", "Join", "Members join a co-op and get a clear place to participate."],
+                ["2", "Spend", "Local purchases and business activity happen inside the network."],
+                ["3", "Decide", "Members propose, debate, and vote on what should be funded."],
+                ["4", "Reinvest", "The treasury backs projects that create more local stability."],
+              ].map(([step, title, body]) => (
+                <div key={step} className="rounded-lg border border-white/10 bg-[#111111] p-6">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-sm font-black text-[#111111]">
+                    {step}
+                  </div>
+                  <h3 className="mt-5 text-xl font-black">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="governance" className="px-5 py-20 sm:px-6 md:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
+                  <Vote className="h-4 w-4" />
+                  Member-led governance
+                </div>
+                <h2 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">
+                  You write the rules. The AI follows them.
+                </h2>
+                <p className="mt-5 text-lg leading-8 text-slate-400">
+                  AI helps screen proposals against the co-op's charter, budget, and reserve
+                  rules. It does not replace members. It makes the reasoning visible so people
+                  can make better decisions faster.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-[#1b1b1b] p-6">
+                <h3 className="text-lg font-bold">What members can do</h3>
                 <ul className="mt-6 space-y-4">
-                  <li className="flex items-start gap-4">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#f59e0b]" />
-                    <span><strong>Local first</strong> — Funds must benefit the immediate community</span>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#f59e0b]" />
-                    <span><strong>Small business priority</strong> — Preference for spots under $1M revenue</span>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#f59e0b]" />
-                    <span><strong>Emergency fund</strong> — Always keep 20% on hand for rainy days</span>
-                  </li>
-                  <li className="flex items-start gap-4">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#f59e0b]" />
-                    <span><strong>Show your work</strong> — Every decision gets a public explanation</span>
-                  </li>
+                  {[
+                    "Submit funding proposals with budget and impact details",
+                    "Comment before a vote so objections are visible early",
+                    "Vote according to the co-op's membership rules",
+                    "Review AI scoring, charter alignment, and decision history",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-3">
+                      <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                      <span className="text-slate-300">{item}</span>
+                    </li>
+                  ))}
                 </ul>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-[#1a1a1a] p-8">
-                <h3 className="text-lg font-bold">How to change the rules:</h3>
-                <div className="mt-6 space-y-6">
-                  <div className="flex gap-4">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f59e0b] text-sm font-bold text-white">1</div>
-                    <p className="text-slate-400">Any token holder proposes a new rule or change</p>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f59e0b] text-sm font-bold text-white">2</div>
-                    <p className="text-slate-400">Community votes with tokens (more tokens = more weight)</p>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f59e0b] text-sm font-bold text-white">3</div>
-                    <p className="text-slate-400">Pass the vote, update the rules. AI adapts immediately.</p>
-                  </div>
-                </div>
-                <p className="mt-8 text-sm text-slate-400 border-t border-white/10 pt-6">
-                  The AI is a tool. You&apos;re the boss.
-                </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* For Members & Businesses */}
-        <section id="businesses" className="border-t border-white/10 px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-16 md:grid-cols-2">
-              {/* Members */}
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#252525] px-4 py-2 text-sm font-semibold">
-                  <Users className="h-4 w-4 text-[#f59e0b]" />
-                  For Members
-                </div>
-                <h3 className="mt-5 text-2xl font-black">What you get</h3>
-                <ul className="mt-8 space-y-4">
-                  {memberBenefits.map((benefit) => (
-                    <li key={benefit} className="flex items-center gap-4">
-                      <Check className="h-5 w-5 text-slate-400" />
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="#join"
-                  className="mt-10 inline-flex items-center gap-3 rounded-xl border border-white/10 bg-[#252525] px-6 py-4 font-semibold hover:bg-[#2a2a2a] transition-colors"
-                >
-                  <Smartphone className="h-5 w-5 text-[#f59e0b]" />
-                  Download the app
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
+        <section className="border-y border-white/10 bg-[#161616] px-5 py-20 text-white sm:px-6 md:py-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
+            <div className="rounded-lg border border-white/10 bg-[#111111] p-7">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-bold text-[#facc15]">
+                <Users className="h-4 w-4" />
+                For Members
               </div>
+              <h2 className="mt-5 text-3xl font-black">Use the app to help build what you want to live in.</h2>
+              <ul className="mt-8 space-y-4">
+                {memberBenefits.map((benefit) => (
+                  <li key={benefit} className="flex items-start gap-3">
+                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                    <span className="text-slate-300">{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+              <a
+                href="https://mobile.cahootzcoops.com/"
+                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#facc15]"
+              >
+                Open the mobile app
+                <ArrowRight className="h-5 w-5" />
+              </a>
+            </div>
 
-              {/* Businesses */}
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#252525] px-4 py-2 text-sm font-semibold">
-                  <Store className="h-4 w-4 text-[#f59e0b]" />
-                  For Businesses
-                </div>
-                <h3 className="mt-5 text-2xl font-black">Why it's worth it</h3>
-                <p className="mt-3 text-slate-400">
-                  Competitive rates, often less than credit cards. Money stays local. And your regulars become actual stakeholders.
-                </p>
-                <ul className="mt-8 space-y-4">
-                  {businessBenefits.map((benefit) => (
-                    <li key={benefit} className="flex items-center gap-4">
-                      <Check className="h-5 w-5 text-slate-400" />
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="#business-form"
-                  className="mt-10 inline-flex items-center gap-2 font-semibold text-[#f59e0b] hover:underline"
-                >
-                  Apply to join the network
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
+            <div className="rounded-lg border border-white/10 bg-[#111111] p-7">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-bold text-[#facc15]">
+                <Store className="h-4 w-4" />
+                For Businesses
               </div>
+              <h2 className="mt-5 text-3xl font-black">Turn customers into a community that comes back.</h2>
+              <ul className="mt-8 space-y-4">
+                {businessBenefits.map((benefit) => (
+                  <li key={benefit} className="flex items-start gap-3">
+                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                    <span className="text-slate-300">{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="#business-form"
+                className="mt-8 inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-3 font-semibold transition hover:bg-white/10"
+              >
+                Apply as a business
+                <ArrowRight className="h-5 w-5" />
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* Active Networks — pulled from CoopConfig */}
         {coops.length > 0 && (
-          <section className="border-t border-white/10 bg-[#252525] px-6 py-24">
-            <div className="mx-auto max-w-6xl">
-              <h2 className="text-3xl font-black tracking-tight md:text-4xl">Active networks</h2>
-              <p className="mt-3 text-lg text-slate-400">
-                Cahootz powers co-ops across the Bay Area.
-              </p>
+          <section className="border-b border-white/10 bg-[#1b1b1b] px-5 py-20 sm:px-6 md:py-24">
+            <div className="mx-auto max-w-7xl">
+              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Active networks</p>
+                  <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Visit a live co-op.</h2>
+                </div>
+                <p className="max-w-xl text-slate-400">
+                  Public pages turn a co-op from an idea into something people can inspect,
+                  shop, and join.
+                </p>
+              </div>
 
-              <div className="mt-12 grid gap-6 md:grid-cols-3">
+              <div className="mt-10 grid gap-4 md:grid-cols-3">
                 {coops.map((coop, i) => (
-                  <div key={coop.coopId} className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1a] flex flex-col">
-                    <div className={`relative h-48 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
-                      {coop.isLive ? (
-                        <span className="absolute top-3 right-3 rounded-full bg-[#f59e0b] px-3 py-1 text-xs font-bold text-white">LIVE</span>
-                      ) : (
-                        <span className="absolute top-3 right-3 rounded-full bg-[#252525] px-3 py-1 text-xs font-bold text-slate-400">SOON</span>
-                      )}
+                  <Link
+                    key={coop.coopId}
+                    href={`/c/${coop.coopId}`}
+                    className="group overflow-hidden rounded-lg border border-white/10 bg-[#111111] transition hover:-translate-y-0.5 hover:border-[#f59e0b]/50"
+                  >
+                    <div className={`relative h-36 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
+                      <span className="absolute right-3 top-3 rounded-lg bg-[#111111]/80 px-3 py-1 text-xs font-bold text-white">
+                        {coop.isLive ? "LIVE" : "SOON"}
+                      </span>
                     </div>
-                    <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-lg font-bold">{coop.name}</h3>
-                      {coop.tagline && (
-                        <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>
-                      )}
+                    <div className="p-5">
+                      <h3 className="text-lg font-bold group-hover:text-[#facc15]">{coop.name}</h3>
+                      {coop.tagline && <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>}
                       {coop.description && (
-                        <p className="mt-3 text-xs text-slate-400 leading-relaxed line-clamp-6">{coop.description}</p>
+                        <p className="mt-3 line-clamp-4 text-xs leading-6 text-slate-500">{coop.description}</p>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
           </section>
         )}
 
-        {/* FAQ */}
-        <section className="border-t border-white/10 px-6 py-24">
-          <div className="mx-auto max-w-3xl">
-            <h2 className="text-3xl font-black tracking-tight md:text-4xl">Real talk</h2>
+        <section className="px-5 py-20 sm:px-6 md:py-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.7fr_1fr]">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Real talk</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Questions people ask before they join.</h2>
+            </div>
 
-            <div className="mt-12 space-y-10">
+            <div className="space-y-4">
               {faqs.map(({ q, a }) => (
-                <div key={q}>
+                <div key={q} className="rounded-lg border border-white/10 bg-[#1b1b1b] p-6">
                   <h3 className="text-lg font-bold">{q}</h3>
-                  <p className="mt-3 text-slate-400 leading-relaxed">{a}</p>
+                  <p className="mt-3 leading-7 text-slate-400">{a}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Join Section */}
-        <section id="join" className="border-t border-white/10 bg-[#f59e0b] px-6 py-24">
-          <div className="mx-auto max-w-6xl">
-            <div className="grid gap-16 md:grid-cols-2">
+        <section id="join" className="border-t border-white/10 bg-[#f59e0b] px-5 py-20 text-[#111111] sm:px-6 md:py-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+            <div>
+              <p className="text-sm font-black uppercase tracking-widest text-[#111111]/70">Join Cahootz</p>
+              <h2 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
+                Start as a member, business, or co-op builder.
+              </h2>
+              <p className="mt-5 text-lg leading-8 text-[#111111]/75">
+                Join the waitlist and we'll route you toward the right co-op, public page,
+                or business onboarding path. The goal is simple: make it easier to turn
+                participation into ownership.
+              </p>
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {["Join", "Shop", "Vote"].map((step) => (
+                  <div key={step} className="rounded-lg border border-[#111111]/10 bg-white/30 p-4">
+                    <p className="text-sm font-black uppercase tracking-widest text-[#111111]/60">
+                      {step}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
               <div>
-                <h2 className="text-3xl font-black tracking-tight text-white md:text-4xl">
-                  Join the waitlist
-                </h2>
-                <p className="mt-5 text-lg text-white/80 leading-relaxed">
-                  Be the first to know when we launch in your area. 
-                  Get early access to the network that keeps money in the neighborhood.
+                <h3 className="text-2xl font-black">Join as a member</h3>
+                <p className="mt-2 text-sm leading-6 text-[#111111]/70">
+                  Get notified, pick a co-op if you have one, and open the app after signup.
                 </p>
-                <div className="mt-10">
-                  <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-white/10" />}>
+                <div className="mt-5">
+                  <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-white/30" />}>
                     <WaitlistSignupForm coops={coops} />
                   </Suspense>
                 </div>
               </div>
 
               <div id="business-form">
-                <h3 className="text-2xl font-bold text-white">Add your business</h3>
-                <p className="mt-3 text-white/70">
-                  Join the network. Get discovered by locals who want to support you.
+                <h3 className="text-2xl font-black">Add your business</h3>
+                <p className="mt-2 text-sm leading-6 text-[#111111]/70">
+                  Tell us where you operate and how you want to participate in the network.
                 </p>
-                <div className="mt-8">
-                  <Suspense fallback={<div className="h-96 animate-pulse rounded-xl bg-white/10" />}>
+                <div className="mt-5">
+                  <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-white/30" />}>
                     <BusinessSignupForm coops={coops} />
                   </Suspense>
                 </div>
@@ -475,20 +614,17 @@ export default async function HomePage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-[#252525] px-6 py-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f59e0b] text-white font-black">
-                C
-              </div>
-              <span className="font-bold">Cahootz</span>
+      <footer className="border-t border-white/10 bg-[#111111] px-5 py-10 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 md:flex-row">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f59e0b] font-black text-[#111111]">
+              C
             </div>
-            <p className="text-sm text-slate-400">
-              Keeping money where it belongs—in the neighborhood.
-            </p>
+            <span className="font-bold">Cahootz</span>
           </div>
+          <p className="text-center text-sm text-slate-400 md:text-right">
+            The community platform for co-ops that want local spending, governance, and ownership in one loop.
+          </p>
         </div>
       </footer>
     </div>
