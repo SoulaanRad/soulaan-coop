@@ -60,6 +60,15 @@ describe('Application Router - submitApplication', () => {
             createdAt: new Date(),
           }),
         },
+        userCoopMembership: {
+          upsert: vi.fn().mockResolvedValue({
+            id: 'membership_123',
+            userId: 'user_123',
+            coopId: 'soulaan',
+            status: 'PENDING',
+            roles: ['member'],
+          }),
+        },
       });
     });
 
@@ -263,6 +272,15 @@ describe('Application Router - submitApplication', () => {
           create: vi.fn().mockResolvedValue({
             id: 'app_456',
             userId: 'user_123',
+          }),
+        },
+        userCoopMembership: {
+          upsert: vi.fn().mockResolvedValue({
+            id: 'membership_123',
+            userId: 'user_123',
+            coopId: 'soulaan',
+            status: 'PENDING',
+            roles: ['member'],
           }),
         },
       });
