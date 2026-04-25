@@ -222,10 +222,10 @@ export default async function HomePage() {
 
       <main>
         <section
-          className="relative overflow-hidden border-b border-white/10 bg-cover bg-center px-5 py-16 sm:px-6 md:py-24"
+          className="relative overflow-hidden border-b border-white/10 px-5 py-16 sm:px-6 md:py-24"
           style={{
             backgroundImage:
-              "linear-gradient(90deg, rgba(17,17,17,0.98) 0%, rgba(17,17,17,0.9) 50%, rgba(17,17,17,0.62) 100%), url('/images/soulaan-flag.jpg')",
+              "radial-gradient(circle at 18% 12%, rgba(245,158,11,0.16), transparent 34%), radial-gradient(circle at 88% 8%, rgba(20,184,166,0.12), transparent 30%), linear-gradient(135deg, #111111 0%, #161616 48%, #0f1413 100%)",
           }}
         >
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
