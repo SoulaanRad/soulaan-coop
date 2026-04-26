@@ -92,7 +92,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
           Create Store
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] bg-slate-900 border-slate-800">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800">
         <DialogHeader>
           <DialogTitle className="text-white">Create New Store</DialogTitle>
           <DialogDescription className="text-gray-400">

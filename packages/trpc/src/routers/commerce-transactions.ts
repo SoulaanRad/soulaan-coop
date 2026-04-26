@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router } from '../trpc.js';
+import { router, publicProcedure } from '../trpc.js';
 import { authenticatedProcedure, privateProcedure } from '../procedures/index.js';
 import { db } from '@repo/db';
 import { 
@@ -107,26 +107,59 @@ export const commerceTransactionsRouter = router({
 
   /**
    * Create commerce transaction and Stripe payment intent
+   * Supports both authenticated users and guest checkout
    */
-  createCheckout: authenticatedProcedure
+  createCheckout: publicProcedure
     .input(z.object({
-      userId: z.string(),
+      userId: z.string().optional(),
+      guestEmail: z.string().email().optional(),
+      guestName: z.string().optional(),
+      coopId: z.string(),
       businessId: z.string(),
       listedAmountCents: z.number().int().positive(),
       currency: z.string().default('USD'),
       metadata: z.record(z.unknown()).optional(),
     }))
-    .mutation(async ({ input, ctx }) => {
-      const { userId, businessId, listedAmountCents, currency, metadata } = input;
-      const coopId = (ctx as CoopScopedContext).coopId || '???';
+    .mutation(async ({ input }) => {
+      const { userId, guestEmail, guestName, coopId, businessId, listedAmountCents, currency, metadata } = input;
+
+      let customerId = userId;
+
+      // Handle guest checkout
+      if (!customerId && guestEmail) {
+        let guestUser = await db.user.findUnique({
+          where: { email: guestEmail },
+        });
+
+        if (!guestUser) {
+          guestUser = await db.user.create({
+            data: {
+              email: guestEmail,
+              name: guestName || guestEmail.split('@')[0],
+              walletAddress: `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            },
+          });
+        }
+
+        customerId = guestUser.id;
+      }
+
+      if (!customerId) {
+        throw new Error('Either userId or guestEmail must be provided');
+      }
 
       const result = await createCommerceTransaction({
-        customerId: userId,
+        customerId,
         businessId,
         listedAmountCents,
         coopId,
         currency,
-        metadata,
+        metadata: {
+          ...metadata,
+          isGuestCheckout: !userId,
+          guestEmail,
+          guestName,
+        },
       });
 
       // Calculate breakdown for response

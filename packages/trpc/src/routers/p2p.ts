@@ -95,21 +95,19 @@ export const p2pRouter = router({
         if (input.recipientType === 'userId') {
           recipientId = input.recipient;
         } else if (input.recipientType === 'username') {
-          // Look up by username
+          // Look up by username in UserCoopMembership
           const coopId = (ctx as CoopScopedContext).coopId || '???';
-          const profile = await context.db.userProfile.findUnique({
+          const membership = await context.db.userCoopMembership.findFirst({
             where: { 
-              username_coopId: {
-                username: input.recipient,
-                coopId,
-              }
+              username: input.recipient,
+              coopId,
             },
-            select: { walletAddress: true },
+            select: { userId: true },
           });
 
-          if (profile?.walletAddress) {
+          if (membership?.userId) {
             const user = await context.db.user.findUnique({
-              where: { walletAddress: profile.walletAddress },
+              where: { id: membership.userId },
               select: { id: true },
             });
             recipientId = user?.id || null;
@@ -257,27 +255,30 @@ export const p2pRouter = router({
 
       try {
         if (input.type === 'username') {
-          const profile = await context.db.userProfile.findUnique({
+          const membership = await context.db.userCoopMembership.findFirst({
             where: { 
-              username_coopId: {
-                username: input.query,
-                coopId,
-              }
+              username: input.query,
+              coopId,
             },
-            select: { walletAddress: true, name: true },
+            include: {
+              user: {
+                select: { id: true, walletAddress: true },
+              },
+            },
           });
 
-          if (profile?.walletAddress) {
-            const user = await context.db.user.findUnique({
-              where: { walletAddress: profile.walletAddress },
-              select: { id: true },
+          if (membership?.user) {
+            // Get full user details for display name
+            const fullUser = await context.db.user.findUnique({
+              where: { id: membership.userId },
+              select: { name: true },
             });
-
+            
             return {
               found: true,
               isSoulaanUser: true,
-              userId: user?.id,
-              displayName: profile.name,
+              userId: membership.user.id,
+              displayName: fullUser?.name || 'Unknown',
             };
           }
         } else if (input.type === 'phone') {

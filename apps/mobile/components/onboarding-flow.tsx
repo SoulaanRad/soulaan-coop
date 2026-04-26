@@ -29,6 +29,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
+  CheckCircle2,
+  Mail,
 } from 'lucide-react-native';
 
 
@@ -75,6 +77,13 @@ export default function OnboardingFlow() {
   const [canResend, setCanResend] = useState(true);
   const [resendTimer, setResendTimer] = useState(0);
   const [loginError, setLoginError] = useState<string>('');
+  const [waitlistData, setWaitlistData] = useState({
+    name: '',
+    email: '',
+    suggestedCoop: '',
+  });
+  const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [waitlistMessage, setWaitlistMessage] = useState('');
 
   // API hooks
   const { submitApplication, isLoading: isSubmitting, error: submitError, clearError: clearSubmitError } = useSubmitApplication();
@@ -108,8 +117,7 @@ export default function OnboardingFlow() {
         setAvailableCoops(coops);
       } catch (error) {
         console.error('Failed to load coops:', error);
-        // Fallback to hardcoded data if fetch fails
-        const fallbackCoops:any[] = []
+        const fallbackCoops: any[] = [];
         console.log('Using fallback coops:', fallbackCoops);
         setAvailableCoops(fallbackCoops);
       } finally {
@@ -230,6 +238,34 @@ export default function OnboardingFlow() {
       },
     }));
     setErrorMessage('');
+  };
+
+  const handleWaitlistSignup = async () => {
+    if (waitlistStatus === 'submitting') return;
+
+    const email = waitlistData.email.trim();
+    if (!email.includes('@')) {
+      setWaitlistStatus('error');
+      setWaitlistMessage('Enter a valid email to join the waitlist.');
+      return;
+    }
+
+    setWaitlistStatus('submitting');
+    setWaitlistMessage('');
+
+    try {
+      const result = await api.submitWaitlist({
+        email,
+        name: waitlistData.name.trim() || undefined,
+        suggestedCoop: waitlistData.suggestedCoop.trim() || undefined,
+      });
+      setWaitlistStatus('success');
+      setWaitlistMessage(result.message || "You're on the list. We'll be in touch soon.");
+    } catch (error) {
+      console.error('Waitlist signup error:', error);
+      setWaitlistStatus('error');
+      setWaitlistMessage(error instanceof Error ? error.message : 'Could not join the waitlist. Please try again.');
+    }
   };
 
   const renderDynamicQuestion = (question: ApplicationQuestion) => {
@@ -367,8 +403,7 @@ export default function OnboardingFlow() {
   };
 
   const nextStep = () => {
-    // Total steps: splash screens + browse coops + coop details + personal info + questions + commitment + success + login
-      setCurrentStep(currentStep + 1);
+    setCurrentStep(currentStep + 1);
   };
 
   const prevStep = () => {
@@ -378,7 +413,6 @@ export default function OnboardingFlow() {
   };
 
   const goToLogin = () => {
-    // Login is at: splashScreens + 1 (browse) + 1 (details) + 4 (form steps) + 1 (success) = index 10
     setCurrentStep(splashScreens.length + 7);
   };
 
@@ -715,18 +749,81 @@ export default function OnboardingFlow() {
     );
   };
 
-  const renderBrowseCoops = () => (
-    <View className="flex-1 bg-background">
-      {/* Sticky Header */}
-      <View className="bg-background border-b border-cream-200 p-6 pb-4">
-        <View className="w-full max-w-md mx-auto">
-          <View className="items-center">
-            <View className="bg-gold-600 p-3 rounded-full mb-4">
-              <Icon as={Store} size={32} className="text-white" />
+  const renderWaitlistCard = () => (
+    <Card className="bg-charcoal-800 border-gold-600/30 shadow-lg overflow-hidden">
+      <CardContent className="p-5">
+        <View className="flex-row items-start gap-3 mb-4">
+          <View className="h-11 w-11 rounded-2xl bg-gold-600/20 items-center justify-center">
+            <Icon as={Mail} size={20} className="text-gold-400" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-white text-xl font-black">Join the waitlist</Text>
+            <Text className="text-charcoal-300 text-sm leading-5 mt-1">
+              Not sure which co-op fits yet? Get early access and updates first.
+            </Text>
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <Input
+            value={waitlistData.email}
+            onChangeText={(email) => {
+              setWaitlistData((prev) => ({ ...prev, email }));
+              setWaitlistStatus('idle');
+              setWaitlistMessage('');
+            }}
+            className="flex-1 h-12 rounded-xl border-white/10 bg-white text-charcoal-900"
+            placeholder="Email address"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Button
+            onPress={handleWaitlistSignup}
+            disabled={waitlistStatus === 'submitting' || !waitlistData.email.trim()}
+            className="h-12 rounded-xl bg-gold-600 px-4"
+          >
+            <Text className="text-charcoal-900 font-black">
+              {waitlistStatus === 'submitting' ? 'Joining...' : 'Join'}
+            </Text>
+          </Button>
+        </View>
+
+        {waitlistMessage ? (
+          <View
+            className={`mt-4 rounded-xl border p-3 ${
+              waitlistStatus === 'success'
+                ? 'border-green-500/30 bg-green-500/10'
+                : 'border-red-500/30 bg-red-500/10'
+            }`}
+          >
+            <View className="flex-row gap-2">
+              <Icon
+                as={waitlistStatus === 'success' ? CheckCircle2 : Shield}
+                size={16}
+                className={waitlistStatus === 'success' ? 'text-green-400' : 'text-red-300'}
+              />
+              <Text className={`flex-1 text-sm ${waitlistStatus === 'success' ? 'text-green-100' : 'text-red-100'}`}>
+                {waitlistMessage}
+              </Text>
             </View>
-            <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">Choose Your Co-op</Text>
-            <Text className="text-charcoal-600 text-center">
-              Select a cooperative community to join. Each co-op has its own mission and benefits.
+          </View>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+
+  const renderBrowseCoops = () => (
+    <View className="flex-1 bg-charcoal-900">
+      {/* Sticky Header */}
+      <View className="bg-charcoal-900 border-b border-white/10 p-6 pb-4">
+        <View className="w-full max-w-md mx-auto">
+          <View>
+            <View className="bg-gold-600/15 p-3 rounded-2xl mb-4 self-start">
+              <Icon as={Store} size={28} className="text-gold-400" />
+            </View>
+            <Text className="text-3xl font-black text-white mb-2">Choose Your Co-op</Text>
+            <Text className="text-charcoal-300 leading-6">
+              Explore live communities, then apply when one feels aligned with your goals.
             </Text>
           </View>
         </View>
@@ -735,11 +832,15 @@ export default function OnboardingFlow() {
       {/* Scrollable Co-op List */}
       <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 16 }}>
         <View className="w-full max-w-md mx-auto">
+          <View className="mb-4">
+            {renderWaitlistCard()}
+          </View>
+
           {/* Loading State */}
           {isLoadingCoops && (
             <View className="items-center py-8">
               <ActivityIndicator size="large" color="#D4AF37" />
-              <Text className="text-charcoal-600 mt-4">Loading available co-ops...</Text>
+              <Text className="text-charcoal-300 mt-4">Loading available co-ops...</Text>
             </View>
           )}
 
@@ -772,28 +873,34 @@ export default function OnboardingFlow() {
                 // Parse color - could be hex (#2563eb) or Tailwind class (bg-blue-700)
                 const isHexColor = coop.bgColor?.startsWith('#');
                 const bgColorStyle = isHexColor ? coop.bgColor : undefined;
-                const bgColorClass = !isHexColor && coop.bgColor ? coop.bgColor : 'bg-white';
+                const bgColorClass = !isHexColor && coop.bgColor ? coop.bgColor : 'bg-charcoal-800';
                 
                 // Determine text color based on background luminance
-                const useWhiteText = isColorDark(coop.bgColor || '');
+                const useWhiteText = coop.bgColor ? isColorDark(coop.bgColor || '') : true;
                 const textColorClass = useWhiteText ? 'text-white' : 'text-charcoal-800';
                 const subtextColorClass = useWhiteText ? 'text-cream-100' : 'text-charcoal-600';
                 
                 return (
                   <Pressable key={coop.id} onPress={() => selectCoop(coop.id)}>
                     <Card 
-                      className={`${bgColorClass} border-cream-200 shadow-lg`}
+                      className={`${bgColorClass} border-white/10 shadow-lg overflow-hidden`}
                       style={bgColorStyle ? { backgroundColor: bgColorStyle } : undefined}
                     >
                       <CardContent className="p-6">
-                        <Text className={`text-xl font-bold ${textColorClass} mb-1`}>{coop.name}</Text>
-                        <Text className={`${subtextColorClass} font-semibold mb-3`}>{coop.tagline}</Text>
-                        <Text className={`${subtextColorClass} text-sm mb-4`}>{coop.description}</Text>
+                        <View className="flex-row items-start justify-between gap-4 mb-4">
+                          <View className="flex-1">
+                            <Text className={`text-2xl font-black ${textColorClass} mb-1`}>{coop.name}</Text>
+                            <Text className={`${subtextColorClass} font-semibold`}>{coop.tagline}</Text>
+                          </View>
+                          <View className="h-10 w-10 rounded-xl bg-black/20 items-center justify-center">
+                            <Icon as={ChevronRight} size={20} className={textColorClass} />
+                          </View>
+                        </View>
+                        <Text className={`${subtextColorClass} text-sm leading-6 mb-4`}>{coop.description}</Text>
                         <View className="flex flex-row items-center justify-between">
-                          <Badge className={useWhiteText ? "bg-white/20" : "bg-charcoal-100"}>
+                          <Badge className={useWhiteText ? "bg-white/20" : "bg-gold-600/15"}>
                             <Text className={`text-xs ${useWhiteText ? 'text-white' : 'text-charcoal-700'}`}>Learn More</Text>
                           </Badge>
-                          <Icon as={ChevronRight} size={20} className={textColorClass} />
                         </View>
                       </CardContent>
                     </Card>
@@ -806,23 +913,23 @@ export default function OnboardingFlow() {
           {/* No Coops Available */}
           {!isLoadingCoops && coopsWithIcons.length === 0 && (
             <View className="items-center py-8">
-              <Text className="text-charcoal-600 text-center">No cooperatives available at this time.</Text>
+              <Text className="text-charcoal-300 text-center">No cooperatives available at this time.</Text>
             </View>
           )}
         </View>
       </ScrollView>
 
       {/* Sticky Footer */}
-      <View className="bg-background border-t border-cream-200 p-6 pt-4">
+      <View className="bg-charcoal-900 border-t border-white/10 p-6 pt-4">
         <View className="w-full max-w-md mx-auto">
           <View className="flex flex-row justify-between items-center">
             <Button variant="ghost" onPress={prevStep}>
-              <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
-              <Text className="text-charcoal-600 ml-1">Back</Text>
+              <Icon as={ChevronLeft} size={16} className="text-charcoal-300" />
+              <Text className="text-charcoal-300 ml-1">Back</Text>
             </Button>
             <Button variant="ghost" onPress={goToLogin}>
-              <Text className="text-charcoal-600">Already a member? </Text>
-              <Text className="text-gold-600 font-semibold">Sign In</Text>
+              <Text className="text-charcoal-300">Already a member? </Text>
+              <Text className="text-gold-400 font-semibold">Sign In</Text>
             </Button>
           </View>
         </View>
@@ -835,39 +942,48 @@ export default function OnboardingFlow() {
     if (!selectedCoop) return null;
 
     return (
-      <ScrollView className="flex-1 bg-background">
+      <ScrollView className="flex-1 bg-charcoal-900">
         <View className="min-h-screen flex-1 p-6">
           <View className="w-full max-w-md mx-auto">
             {/* Header */}
-            <View className="items-center mb-6">
-              <View className={`${selectedCoop.accentColor} p-3 rounded-full mb-4`}>
-                <Icon as={Heart} size={32} className="text-white" />
+            <View className="mb-6">
+              <View className="flex-row items-center justify-between mb-5">
+                <Button variant="ghost" onPress={prevStep} className="px-0">
+                  <Icon as={ChevronLeft} size={16} className="text-charcoal-300" />
+                  <Text className="text-charcoal-300 ml-1">Co-ops</Text>
+                </Button>
+                <Button variant="ghost" onPress={goToLogin} className="px-0">
+                  <Text className="text-gold-400 font-semibold">Sign in</Text>
+                </Button>
               </View>
-              <Text className="text-2xl font-bold text-charcoal-800 mb-2 text-center">{selectedCoop.name}</Text>
-              <Text className="text-lg text-charcoal-600 text-center">{selectedCoop.tagline}</Text>
+              <View className="bg-gold-600/15 p-3 rounded-2xl mb-4 self-start">
+                <Icon as={Heart} size={28} className="text-gold-400" />
+              </View>
+              <Text className="text-4xl font-black text-white mb-2">{selectedCoop.name}</Text>
+              <Text className="text-lg text-gold-300 font-semibold">{selectedCoop.tagline}</Text>
             </View>
 
             {/* Mission */}
-            <Card className="bg-white border-cream-200 mb-4">
+            <Card className="bg-charcoal-800 border-white/10 mb-4">
               <CardContent className="p-5">
-                <Text className="font-semibold text-charcoal-800 mb-2">Our Mission</Text>
-                <Text className="text-charcoal-600 text-sm leading-relaxed">{selectedCoop.mission}</Text>
+                <Text className="font-semibold text-white mb-2">Mission</Text>
+                <Text className="text-charcoal-300 text-sm leading-relaxed">{selectedCoop.mission}</Text>
               </CardContent>
             </Card>
 
             {/* Features */}
-            <Card className="bg-white border-cream-200 mb-4">
+            <Card className="bg-charcoal-800 border-white/10 mb-4">
               <CardContent className="p-5">
-                <Text className="font-semibold text-charcoal-800 mb-4">What You Get</Text>
+                <Text className="font-semibold text-white mb-4">What You Get</Text>
                 <View className="gap-4">
                   {selectedCoop.features.map((feature, index) => (
                     <View key={index} className="flex flex-row gap-3">
-                      <View className={`${selectedCoop.accentColor} p-2 rounded-lg h-10 w-10 items-center justify-center`}>
-                        <Icon as={feature.icon} size={20} className="text-white" />
+                      <View className="bg-gold-600/15 p-2 rounded-lg h-10 w-10 items-center justify-center">
+                        <Icon as={feature.icon} size={20} className="text-gold-400" />
                       </View>
                       <View className="flex-1">
-                        <Text className="font-medium text-charcoal-800">{feature.title}</Text>
-                        <Text className="text-sm text-charcoal-600">{feature.description}</Text>
+                        <Text className="font-medium text-white">{feature.title}</Text>
+                        <Text className="text-sm text-charcoal-300">{feature.description}</Text>
                       </View>
                     </View>
                   ))}
@@ -876,13 +992,13 @@ export default function OnboardingFlow() {
             </Card>
 
             {/* Eligibility */}
-            <Card className="bg-gold-50 border-gold-200 mb-6">
+            <Card className="bg-gold-600/10 border-gold-600/25 mb-6">
               <CardContent className="p-4">
                 <View className="flex flex-row items-start gap-2">
-                  <Icon as={Shield} size={20} className="text-gold-600 mt-0.5" />
+                  <Icon as={Shield} size={20} className="text-gold-400 mt-0.5" />
                   <View className="flex-1">
-                    <Text className="font-medium text-gold-800 mb-1">Eligibility</Text>
-                    <Text className="text-sm text-gold-700">{selectedCoop.eligibility}</Text>
+                    <Text className="font-medium text-gold-300 mb-1">Eligibility</Text>
+                    <Text className="text-sm text-gold-100">{selectedCoop.eligibility}</Text>
                   </View>
                 </View>
               </CardContent>
@@ -890,21 +1006,21 @@ export default function OnboardingFlow() {
 
             {/* Action Buttons */}
             <View className="gap-3 mb-6">
-              <Button className={selectedCoop.bgColor} onPress={startApplication}>
-                <Text className="text-white font-semibold">Apply to Join {selectedCoop.name}</Text>
-                <Icon as={ChevronRight} size={16} className="text-white ml-2" />
+              <Button className="bg-gold-600 h-12 rounded-xl" onPress={startApplication}>
+                <Text className="text-charcoal-900 font-black">Apply to Join {selectedCoop.name}</Text>
+                <Icon as={ChevronRight} size={16} className="text-charcoal-900 ml-2" />
               </Button>
-              <Button variant="outline" onPress={prevStep}>
-                <Icon as={ChevronLeft} size={16} className="text-charcoal-600" />
-                <Text className="text-charcoal-600 ml-1">Back to Co-ops</Text>
+              <Button variant="outline" onPress={prevStep} className="border-white/15 bg-white/5 h-12 rounded-xl">
+                <Icon as={ChevronLeft} size={16} className="text-charcoal-200" />
+                <Text className="text-charcoal-200 ml-1">Back to Co-ops</Text>
               </Button>
             </View>
 
             {/* Login Link */}
             <View className="items-center">
               <Button variant="ghost" onPress={goToLogin}>
-                <Text className="text-charcoal-600">Already a member? </Text>
-                <Text className="text-gold-600 font-semibold">Sign In</Text>
+                <Text className="text-charcoal-300">Already a member? </Text>
+                <Text className="text-gold-400 font-semibold">Sign In</Text>
               </Button>
             </View>
           </View>

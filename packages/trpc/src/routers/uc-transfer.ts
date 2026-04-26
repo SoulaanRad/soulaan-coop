@@ -127,31 +127,33 @@ export const ucTransferRouter = router({
       console.log('👤 Username:', input.username);
 
       try {
-        // Search in UserProfile table
-        const profile = await context.db.userProfile.findUnique({
+        // Search in UserCoopMembership table
+        const membership = await context.db.userCoopMembership.findFirst({
           where: { 
-            username_coopId: {
-              username: input.username,
-              coopId: input.coopId,
-            }
+            username: input.username,
+            coopId: input.coopId,
           },
-          select: {
-            walletAddress: true,
-            name: true,
-            email: true,
+          include: {
+            user: {
+              select: {
+                walletAddress: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         });
 
-        if (!profile) {
+        if (!membership || !membership.user) {
           console.log('❌ User not found');
           return null;
         }
 
-        console.log('✅ User found:', profile.walletAddress);
+        console.log('✅ User found:', membership.user.walletAddress);
         return {
-          walletAddress: profile.walletAddress,
-          displayName: profile.name,
-          email: profile.email || undefined,
+          walletAddress: membership.user.walletAddress || '',
+          displayName: membership.user.name || 'Unknown',
+          email: membership.user.email || undefined,
         };
       } catch (error) {
         console.error('💥 ERROR in getUserByUsername:', error);

@@ -139,6 +139,27 @@ export const applicationRouter = router({
           });
           console.log('✅ Application created:', application.id);
 
+          // Create PENDING membership record for this coop
+          console.log('👥 Creating PENDING membership record...');
+          await tx.userCoopMembership.upsert({
+            where: {
+              userId_coopId: {
+                userId: user.id,
+                coopId: input.coopId,
+              },
+            },
+            create: {
+              userId: user.id,
+              coopId: input.coopId,
+              status: "PENDING",
+              roles: ["member"],
+            },
+            update: {
+              status: "PENDING",
+            },
+          });
+          console.log('✅ PENDING membership record created');
+
           return { user, application };
         });
         console.log('✅ Transaction completed successfully');

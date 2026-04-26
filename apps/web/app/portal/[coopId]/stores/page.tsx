@@ -4,6 +4,7 @@ import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import { useCoopContext } from "@/lib/coop-context";
+import { env } from "~/env";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +44,7 @@ import {
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
 import { EditStoreDialog } from "@/components/portal/edit-store-dialog";
+import { EditProductDialog } from "@/components/portal/edit-product-dialog";
 
 type MainTab = "applications" | "stores" | "featured";
 type ApplicationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
@@ -427,11 +429,14 @@ function AllStoresTab() {
                       <StoreStatusActions storeId={store.id} currentStatus={store.status} onSuccess={() => refetch()} />
                     </div>
 
-                    {/* On-Chain Status Check */}
-                    <StoreOnChainStatusPanel
+                    {/* Stripe Connect Status */}
+                    <StripeConnectStatusPanel store={store} />
+
+                    {/* On-Chain Status Check - Disabled until VerifiedStoreRegistry is deployed */}
+                    {/* <StoreOnChainStatusPanel
                       storeId={store.id}
                       onFixApplied={() => refetch()}
-                    />
+                    /> */}
 
                     {/* SC Rewards Section (only for SC-verified stores) */}
                     {store.isScVerified && (
@@ -455,7 +460,7 @@ function AllStoresTab() {
 // STORE PRODUCTS PANEL
 // ============================================
 function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName: string }) {
-  const { data: products, isLoading, error, refetch } = api.store.getStoreProductsAdmin.useQuery({
+  const { data, isLoading, error, refetch } = api.store.getStoreProductsAdmin.useQuery({
     storeId,
     includeInactive: true,
   });
@@ -463,6 +468,8 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
   const toggleProductFeatured = api.store.toggleProductFeatured.useMutation({
     onSuccess: () => refetch(),
   });
+
+  const products = Array.isArray(data) ? data : [];
 
   if (isLoading) {
     return <div className="py-4 text-center text-gray-400">Loading products...</div>;
@@ -518,25 +525,28 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
               <span className="text-xs text-gray-500">
                 {product.quantity} in stock • {product.totalSold} sold
               </span>
-              <Button
-                variant={product.isFeatured ? "default" : "outline"}
-                size="sm"
-                className={product.isFeatured ? "bg-amber-600 hover:bg-amber-700 h-7 text-xs" : "h-7 text-xs"}
-                onClick={() => toggleProductFeatured.mutate({ productId: product.id, featured: !product.isFeatured })}
-                disabled={toggleProductFeatured.isPending}
-              >
-                {product.isFeatured ? (
-                  <>
-                    <Star className="h-3 w-3 mr-1 fill-current" />
-                    Featured
-                  </>
-                ) : (
-                  <>
-                    <Star className="h-3 w-3 mr-1" />
-                    Feature
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-1">
+                <EditProductDialog product={product} onSuccess={() => refetch()} />
+                <Button
+                  variant={product.isFeatured ? "default" : "outline"}
+                  size="sm"
+                  className={product.isFeatured ? "bg-amber-600 hover:bg-amber-700 h-7 text-xs" : "h-7 text-xs"}
+                  onClick={() => toggleProductFeatured.mutate({ productId: product.id, featured: !product.isFeatured })}
+                  disabled={toggleProductFeatured.isPending}
+                >
+                  {product.isFeatured ? (
+                    <>
+                      <Star className="h-3 w-3 mr-1 fill-current" />
+                      Featured
+                    </>
+                  ) : (
+                    <>
+                      <Star className="h-3 w-3 mr-1" />
+                      Feature
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         ))}
@@ -1483,5 +1493,215 @@ function StoreStatusActions({
         Delete Store
       </Button>
     </>
+  );
+}
+
+// ============================================
+// STRIPE CONNECT STATUS PANEL
+// ============================================
+function StripeConnectStatusPanel({ store }: { store: any }) {
+  const syncStatus = api.stripeConnect.syncStatus.useMutation({
+    onSuccess: () => {
+      window.location.reload();
+    },
+  });
+
+  const handleSync = () => {
+    if (!store.stripeAccount) return;
+    syncStatus.mutate({
+      userId: store.ownerId,
+      businessId: store.stripeAccount.businessId,
+    } as any);
+  };
+
+  if (!store.stripeAccount) {
+    return (
+      <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-gray-400" />
+            <h4 className="text-sm font-medium text-white">Stripe Connect Status</h4>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          <span className="text-gray-400">No Stripe Connect account set up yet</span>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Store owner needs to complete Stripe Connect onboarding to accept payments.
+        </p>
+      </div>
+    );
+  }
+
+  const { stripeAccount } = store;
+  const hasIssues = stripeAccount.requirementsCurrentlyDue?.length > 0 || 
+                    stripeAccount.requirementsPastDue?.length > 0;
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-green-400" />
+          <h4 className="text-sm font-medium text-white">Stripe Connect Status</h4>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => window.open(`https://dashboard.stripe.com/${env.NEXT_PUBLIC_STRIPE_MODE === 'live' ? '' : 'test/'}connect/accounts/${stripeAccount.stripeAccountId}`, '_blank')}
+            className="border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 text-xs h-7"
+          >
+            <ExternalLink className="h-3 w-3 mr-1" />
+            View in Stripe
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleSync}
+            disabled={syncStatus.isPending}
+            className="border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 text-xs h-7"
+          >
+            {syncStatus.isPending ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3 mr-1" />
+            )}
+            Sync Status
+          </Button>
+        </div>
+      </div>
+
+      {/* Status Grid */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-slate-800 rounded p-2">
+          <p className="text-xs text-gray-400 mb-1">Onboarding</p>
+          <Badge className={
+            stripeAccount.onboardingStatus === 'COMPLETE' 
+              ? 'bg-green-500/10 text-green-400'
+              : stripeAccount.onboardingStatus === 'RESTRICTED'
+              ? 'bg-red-500/10 text-red-400'
+              : 'bg-yellow-500/10 text-yellow-400'
+          }>
+            {stripeAccount.onboardingStatus || 'UNKNOWN'}
+          </Badge>
+        </div>
+        <div className="bg-slate-800 rounded p-2">
+          <p className="text-xs text-gray-400 mb-1">Verification</p>
+          <Badge className={
+            stripeAccount.verificationStatus === 'VERIFIED' 
+              ? 'bg-green-500/10 text-green-400'
+              : stripeAccount.verificationStatus === 'REJECTED'
+              ? 'bg-red-500/10 text-red-400'
+              : 'bg-yellow-500/10 text-yellow-400'
+          }>
+            {stripeAccount.verificationStatus || 'UNVERIFIED'}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Capabilities */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="flex items-center gap-1 text-xs">
+          {stripeAccount.detailsSubmitted ? (
+            <CheckCircle2 className="h-3 w-3 text-green-400" />
+          ) : (
+            <XCircle className="h-3 w-3 text-gray-500" />
+          )}
+          <span className={stripeAccount.detailsSubmitted ? 'text-green-400' : 'text-gray-500'}>
+            Details
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          {stripeAccount.chargesEnabled ? (
+            <CheckCircle2 className="h-3 w-3 text-green-400" />
+          ) : (
+            <XCircle className="h-3 w-3 text-gray-500" />
+          )}
+          <span className={stripeAccount.chargesEnabled ? 'text-green-400' : 'text-gray-500'}>
+            Charges
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          {stripeAccount.payoutsEnabled ? (
+            <CheckCircle2 className="h-3 w-3 text-green-400" />
+          ) : (
+            <XCircle className="h-3 w-3 text-gray-500" />
+          )}
+          <span className={stripeAccount.payoutsEnabled ? 'text-green-400' : 'text-gray-500'}>
+            Payouts
+          </span>
+        </div>
+      </div>
+
+      {/* Requirements / Issues */}
+      {hasIssues && (
+        <div className="bg-red-900/20 border border-red-500/30 rounded p-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-400 mb-1">Action Required</p>
+              {stripeAccount.requirementsPastDue?.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs text-red-300 font-medium mb-1">Past Due:</p>
+                  <ul className="text-xs text-red-300 space-y-0.5 ml-4">
+                    {stripeAccount.requirementsPastDue.map((req: string, i: number) => (
+                      <li key={i} className="list-disc">{req.replace(/_/g, ' ')}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {stripeAccount.requirementsCurrentlyDue?.length > 0 && (
+                <div>
+                  <p className="text-xs text-yellow-300 font-medium mb-1">Currently Due:</p>
+                  <ul className="text-xs text-yellow-300 space-y-0.5 ml-4">
+                    {stripeAccount.requirementsCurrentlyDue.map((req: string, i: number) => (
+                      <li key={i} className="list-disc">{req.replace(/_/g, ' ')}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+        {/* Verification Rejected */}
+        {stripeAccount.verificationStatus === 'REJECTED' && (
+          <div className="bg-red-900/20 border border-red-500/30 rounded p-3 mt-3">
+            <div className="flex items-start gap-2">
+              <XCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-400 mb-1">Verification Rejected</p>
+                {stripeAccount.disabledReason && (
+                  <p className="text-xs text-red-300 mb-2 font-mono bg-red-950/30 p-2 rounded">
+                    Reason: {stripeAccount.disabledReason.replace(/_/g, ' ')}
+                  </p>
+                )}
+                <p className="text-xs text-red-300">
+                  Stripe has rejected this account's verification. The store owner needs to contact Stripe support or resubmit with corrected information.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* Success State */}
+      {stripeAccount.chargesEnabled && stripeAccount.payoutsEnabled && !hasIssues && (
+        <div className="bg-green-900/20 border border-green-500/30 rounded p-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-400" />
+            <p className="text-sm text-green-400">
+              Fully operational - can accept payments and receive payouts
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Account ID */}
+      <p className="text-xs text-gray-500 mt-3 font-mono">
+        Account: {stripeAccount.stripeAccountId}
+      </p>
+    </div>
   );
 }

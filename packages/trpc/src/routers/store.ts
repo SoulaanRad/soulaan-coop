@@ -10,36 +10,9 @@ import { mintUCToUser, awardStoreTransactionReward } from "../services/wallet-se
 import { sendToSoulaanUser } from "../services/p2p-service.js";
 import { convertUSDToUC } from "../utils/currency-converter.js";
 
-// Enums for validation
-const StoreCategoryEnum = z.enum([
-  "FOOD_BEVERAGE",
-  "RETAIL",
-  "SERVICES",
-  "HEALTH_WELLNESS",
-  "ENTERTAINMENT",
-  "EDUCATION",
-  "PROFESSIONAL",
-  "HOME_GARDEN",
-  "AUTOMOTIVE",
-  "FOUNDER_PACKAGE",
-  "OTHER",
-]);
-
-const ProductCategoryEnum = z.enum([
-  "FOOD",
-  "BEVERAGES",
-  "CLOTHING",
-  "ELECTRONICS",
-  "HOME",
-  "BEAUTY",
-  "HEALTH",
-  "SPORTS",
-  "TOYS",
-  "BOOKS",
-  "SERVICES",
-  "FOUNDER_BADGES",
-  "OTHER",
-]);
+// Category validation - now accepts any string since categories are dynamic
+const StoreCategoryEnum = z.string().min(1).max(100);
+const ProductCategoryEnum = z.string().min(1).max(100);
 
 export const storeRouter = router({
   // ══════════════════════════════════════════════════════════════
@@ -89,20 +62,31 @@ export const storeRouter = router({
           { createdAt: "desc" },
         ],
         include: {
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
           _count: {
             select: { products: { where: { isActive: true } } },
           },
         },
       });
 
+      // Filter out stores without Stripe Connect accounts that can accept payments
+      const filteredStores = stores.filter((store): store is typeof store & { business: NonNullable<typeof store.business> } => {
+        // Store must have a business with a Stripe account that has charges enabled
+        return store.business?.stripeAccount?.chargesEnabled === true;
+      });
+
       let nextCursor: string | undefined;
-      if (stores.length > limit) {
-        const nextItem = stores.pop();
+      if (filteredStores.length > limit) {
+        const nextItem = filteredStores.pop();
         nextCursor = nextItem?.id;
       }
 
       return {
-        stores: stores.map((store) => ({
+        stores: filteredStores.map((store) => ({
           id: store.id,
           name: store.name,
           description: store.description,
@@ -184,7 +168,8 @@ export const storeRouter = router({
         reviewCount: store.reviewCount,
         totalOrders: store.totalOrders,
         productCount: store._count.products,
-        owner: store.owner
+        owner: store.owner,
+        businessId: store.businessId,
       };
     }),
 
@@ -193,6 +178,7 @@ export const storeRouter = router({
    */
   getProducts: publicProcedure
     .input(z.object({
+      coopId: z.string().optional(),
       storeId: z.string().optional(),
       category: ProductCategoryEnum.optional(),
       featured: z.boolean().optional(),
@@ -202,12 +188,18 @@ export const storeRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const { storeId, category, featured, search, limit, cursor } = input;
+      const { coopId, storeId, category, featured, search, limit, cursor } = input;
 
       const where: any = {
         isActive: true,
         store: {
           status: "APPROVED",
+          ...(coopId && { coopId }),
+          business: {
+            stripeAccount: {
+              chargesEnabled: true,
+            },
+          },
         },
       };
 
@@ -286,12 +278,26 @@ export const storeRouter = router({
               acceptsUC: true,
               ucDiscountPercent: true,
               status: true,
+              business: {
+                select: {
+                  stripeAccount: {
+                    select: {
+                      chargesEnabled: true,
+                    },
+                  },
+                },
+              },
             },
           },
         },
       });
 
-      if (!product || !product.isActive || product.store.status !== "APPROVED") {
+      if (
+        !product || 
+        !product.isActive || 
+        product.store.status !== "APPROVED" ||
+        !product.store.business?.stripeAccount?.chargesEnabled
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Product not found",
@@ -577,7 +583,7 @@ export const storeRouter = router({
             coopId,
             name: input.storeName,
             description: input.storeDescription,
-            category: input.category as StoreCategory,
+            category: input.category,
             imageUrl: input.imageUrl,
             bannerUrl: input.bannerUrl,
             status: "PENDING",
@@ -801,7 +807,7 @@ export const storeRouter = router({
           storeId: store.id,
           name: input.name,
           description: input.description,
-          category: input.category as ProductCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,
@@ -882,7 +888,7 @@ export const storeRouter = router({
         where: { id: productId },
         data: {
           ...updateData,
-          ...(category && { category: category as ProductCategory }),
+          ...(category && { category }),
         } as Prisma.ProductUpdateInput,
       });
 
@@ -1150,7 +1156,7 @@ export const storeRouter = router({
         if (input.verified) {
           txHash = await verifyStoreOnChain(
             store.owner.walletAddress,
-            store.category,
+            store.category || 'OTHER',
             store.id
           );
         } else {
@@ -1244,7 +1250,7 @@ export const storeRouter = router({
         // Prepare batch data
         const batchData = validStores.map(store => ({
           ownerAddress: store.owner.walletAddress!,
-          category: store.category,
+          category: store.category || 'OTHER',
           storeId: store.id,
         }));
 
@@ -1340,6 +1346,11 @@ export const storeRouter = router({
               walletAddress: true,
             },
           },
+          business: {
+            include: {
+              stripeAccount: true,
+            },
+          },
           _count: {
             select: {
               products: true,
@@ -1388,6 +1399,18 @@ export const storeRouter = router({
           productCount: store._count.products,
           orderCount: store._count.orders,
           createdAt: store.createdAt,
+        stripeAccount: store.business?.stripeAccount ? {
+          businessId: store.business.stripeAccount.businessId,
+          stripeAccountId: store.business.stripeAccount.stripeAccountId,
+          chargesEnabled: store.business.stripeAccount.chargesEnabled,
+          payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+          detailsSubmitted: store.business.stripeAccount.detailsSubmitted,
+          onboardingStatus: store.business.stripeAccount.onboardingStatus,
+          verificationStatus: store.business.stripeAccount.verificationStatus,
+          requirementsCurrentlyDue: store.business.stripeAccount.requirementsCurrentlyDue,
+          requirementsPastDue: store.business.stripeAccount.requirementsPastDue,
+          disabledReason: store.business.stripeAccount.disabledReason,
+        } : null,
         })),
         nextCursor,
       };
@@ -1502,9 +1525,14 @@ export const storeRouter = router({
         description: product.description,
         category: product.category,
         imageUrl: product.imageUrl,
+        images: product.images,
         priceUSD: product.priceUSD,
         compareAtPrice: product.compareAtPrice,
+        ucDiscountPrice: product.ucDiscountPrice,
+        sku: product.sku,
         quantity: product.quantity,
+        trackInventory: product.trackInventory,
+        allowBackorder: product.allowBackorder,
         isActive: product.isActive,
         isFeatured: product.isFeatured,
         totalSold: product.totalSold,
@@ -1566,6 +1594,11 @@ export const storeRouter = router({
           isActive: true,
           store: {
             status: "APPROVED",
+            business: {
+              stripeAccount: {
+                chargesEnabled: true,
+              },
+            },
           },
         },
         take: limit,
@@ -1602,19 +1635,30 @@ export const storeRouter = router({
     .input(z.object({
       productId: z.string(),
       name: z.string().min(2).max(200).optional(),
-      description: z.string().max(2000).optional(),
+      description: z.string().max(2000).nullable().optional(),
+      category: ProductCategoryEnum.nullable().optional(),
+      imageUrl: z.string().url().nullable().optional(),
+      images: z.array(z.string().url()).optional(),
       priceUSD: z.number().positive().optional(),
       compareAtPrice: z.number().positive().nullable().optional(),
+      ucDiscountPrice: z.number().positive().nullable().optional(),
+      sku: z.string().nullable().optional(),
+      quantity: z.number().int().min(0).optional(),
+      trackInventory: z.boolean().optional(),
+      allowBackorder: z.boolean().optional(),
       isActive: z.boolean().optional(),
       isFeatured: z.boolean().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const { productId, ...data } = input;
+      const { productId, category, ...data } = input;
 
       const product = await context.db.product.update({
         where: { id: productId },
-        data,
+        data: {
+          ...data,
+          ...(category !== undefined && { category }),
+        },
         include: {
           store: {
             select: { name: true },
@@ -1681,7 +1725,7 @@ export const storeRouter = router({
           coopId,
           name: input.name,
           description: input.description,
-          category: input.category as StoreCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           bannerUrl: input.bannerUrl,
           address: input.address,
@@ -1747,7 +1791,7 @@ export const storeRouter = router({
       const updateData: any = {};
       if (input.name !== undefined) updateData.name = input.name;
       if (input.description !== undefined) updateData.description = input.description;
-      if (input.category !== undefined) updateData.category = input.category as StoreCategory;
+      if (input.category !== undefined) updateData.category = input.category;
       if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
       if (input.bannerUrl !== undefined) updateData.bannerUrl = input.bannerUrl;
       if (input.address !== undefined) updateData.address = input.address;
@@ -1817,7 +1861,7 @@ export const storeRouter = router({
           storeId: input.storeId,
           name: input.name,
           description: input.description,
-          category: input.category as ProductCategory,
+          category: input.category,
           imageUrl: input.imageUrl,
           images: input.images || [],
           priceUSD: input.priceUSD,

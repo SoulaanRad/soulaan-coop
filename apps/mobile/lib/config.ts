@@ -44,6 +44,10 @@ export const getApiUrl = () => {
   return baseUrl;
 };
 
+export const getWebUrl = () => {
+  return process.env.EXPO_PUBLIC_WEB_URL || (__DEV__ ? 'http://localhost:3000' : 'https://soulaan.coop');
+};
+
 // Network configuration for Expo
 export const networkConfig = {
   // Enable network debugging in development

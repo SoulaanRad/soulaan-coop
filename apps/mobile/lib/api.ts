@@ -1,7 +1,7 @@
 // Expo-compatible API client for Soulaan co-op application
 // Uses native fetch API - no additional dependencies required
 
-import { getApiUrl, networkConfig } from './config';
+import { getApiUrl, getWebUrl, networkConfig } from './config';
 
 // API configuration
 export const API_BASE_URL = getApiUrl();
@@ -54,6 +54,12 @@ export interface LoginData {
   password: string;
 }
 
+export interface WaitlistSignupData {
+  email: string;
+  name?: string;
+  suggestedCoop?: string;
+}
+
 // Helper functions for API calls
 export const api = {
   /**
@@ -93,6 +99,29 @@ export const api = {
 
     // tRPC wraps the response in result.data
     return result.result?.data;
+  },
+
+  async submitWaitlist(data: WaitlistSignupData) {
+    const response = await fetch(`${getWebUrl()}/api/waitlist`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify({
+        email: data.email,
+        name: data.name,
+        source: 'hero',
+        suggestedCoop: data.suggestedCoop,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Could not join the waitlist. Please try again.');
+    }
+
+    return result as { success: boolean; message: string };
   },
 
   /**
@@ -976,7 +1005,8 @@ export const api = {
     limit?: number;
     cursor?: string;
   }) {
-    const input = encodeURIComponent(JSON.stringify(options || {}));
+    const coopId = process.env.EXPO_PUBLIC_COOP_ID || '';
+    const input = encodeURIComponent(JSON.stringify({ coopId, ...options }));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getStores?input=${input}`, {
       method: 'GET',
       headers: {
@@ -1200,6 +1230,9 @@ export const api = {
     businessType?: 'individual' | 'company';
     country?: string;
   }, walletAddress: string) {
+    console.log('🔗 [Stripe Connect] Creating business for store', data);
+    console.log('🔗 [Stripe Connect] Wallet address', walletAddress);
+    console.log('🔗 [Stripe Connect] API base URL', API_BASE_URL);
     const response = await fetch(`${API_BASE_URL}/trpc/stripeConnect.createBusinessForStore`, {
       method: 'POST',
       headers: createApiHeaders(walletAddress),
@@ -2256,6 +2289,5 @@ export const api = {
       };
     }
 };
-
 
 

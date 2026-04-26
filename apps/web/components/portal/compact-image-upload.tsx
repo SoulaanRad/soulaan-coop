@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2, Check, X } from "lucide-react";
 
@@ -38,38 +39,32 @@ export function CompactImageUpload({
     setUploadSuccess(false);
 
     try {
-      const presignedResponse = await fetch("/api/upload/presigned", {
+      const tokenResponse = await fetch("/api/upload/presigned", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Coop-Id": coopId,
         },
         body: JSON.stringify({
+          filename: file.name,
           uploadType,
           resourceId,
           contentType: file.type,
         }),
       });
 
-      if (!presignedResponse.ok) {
-        throw new Error("Failed to get upload URL");
+      if (!tokenResponse.ok) {
+        throw new Error("Failed to get upload token");
       }
 
-      const { presignedUrl, publicUrl } = await presignedResponse.json();
+      const tokenData = await tokenResponse.json();
 
-      const uploadResponse = await fetch(presignedUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-        },
-        body: file,
+      const blob = await upload(tokenData.pathname, file, {
+        access: "public",
+        clientUploadToken: tokenData.clientToken,
       });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file");
-      }
-
-      onUploadComplete(publicUrl);
+      onUploadComplete(blob.url);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 2000);
     } catch (err) {

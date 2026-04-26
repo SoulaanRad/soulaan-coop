@@ -41,10 +41,11 @@ export async function createConnectAccount(params: {
     console.log(`⚠️ [Stripe Connect] Business already has Stripe account: ${existingAccount.stripeAccountId}`);
 
     // Generate new onboarding link for existing account
+    const baseUrl = process.env.APP_URL || 'http://localhost:3001';
     const onboardingUrl = await generateOnboardingLink({
       accountId: existingAccount.stripeAccountId,
-      refreshUrl: `${process.env.APP_URL}/business/onboarding`,
-      returnUrl: `${process.env.APP_URL}/business/dashboard`,
+      refreshUrl: `${baseUrl}/business/onboarding`,
+      returnUrl: `${baseUrl}/business/dashboard`,
     });
 
     return {
@@ -108,10 +109,11 @@ export async function createConnectAccount(params: {
   console.log(`✅ [Stripe Connect] Database record created: ${stripeAccount.id}`);
 
   // Generate onboarding link
+  const baseUrl = process.env.APP_URL || 'http://localhost:3001';
   const onboardingUrl = await generateOnboardingLink({
     accountId: account.id,
-    refreshUrl: `${process.env.APP_URL}/business/onboarding`,
-    returnUrl: `${process.env.APP_URL}/business/dashboard`,
+    refreshUrl: `${baseUrl}/business/onboarding`,
+    returnUrl: `${baseUrl}/business/dashboard`,
   });
 
   return {
@@ -134,6 +136,9 @@ export async function generateOnboardingLink(params: {
   const { accountId, refreshUrl, returnUrl } = params;
 
   console.log(`🔗 [Stripe Connect] Generating onboarding link for account ${accountId}`);
+  console.log(`🔗 [Stripe Connect] Base URL`, process.env.APP_URL);
+  console.log(`🔗 [Stripe Connect] Refresh URL`, refreshUrl);
+  console.log(`🔗 [Stripe Connect] Return URL`, returnUrl);
 
   const Stripe = (await import('stripe')).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -225,6 +230,7 @@ export async function syncAccountStatus(accountId: string): Promise<{
       requirementsPastDue: account.requirements?.past_due || [],
       verificationStatus,
       onboardingStatus,
+      disabledReason: account.requirements?.disabled_reason || null,
     },
   });
 

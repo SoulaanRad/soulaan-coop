@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { api } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ import {
 import { CheckCircle2, XCircle, Loader2, ChevronRight, ChevronLeft } from "lucide-react";
 
 export default function ApplicationsPage() {
+  const params = useParams();
+  const coopId = params.coopId as string;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewNotes, setReviewNotes] = useState("");
 
@@ -41,18 +44,20 @@ export default function ApplicationsPage() {
     if (!currentApp) return;
     updateStatus.mutate({
       userId: currentApp.id,
+      coopId,
       status: 'ACTIVE',
       reviewNotes: reviewNotes || undefined,
-    });
+    } as any);
   };
 
   const handleReject = () => {
     if (!currentApp) return;
     updateStatus.mutate({
       userId: currentApp.id,
+      coopId,
       status: 'REJECTED',
       reviewNotes: reviewNotes || undefined,
-    });
+    } as any);
   };
 
   const handleNext = () => {
@@ -120,7 +125,9 @@ export default function ApplicationsPage() {
     );
   }
 
-  const appData = currentApp.application?.data as any;
+  // Handle both singular and array format for applications
+  const application = (currentApp as any).application || currentApp.applications?.[0];
+  const appData = application?.data;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -243,7 +250,7 @@ export default function ApplicationsPage() {
               )}
 
               {/* Introduction Video */}
-              {currentApp.application?.videoCID && (
+              {application?.videoCID && (
                 <div>
                   <h3 className="font-semibold text-lg mb-3 text-amber-500">Introduction Video</h3>
                   <div className="bg-slate-950 rounded-lg overflow-hidden">
@@ -253,31 +260,31 @@ export default function ApplicationsPage() {
                       preload="metadata"
                     >
                       <source
-                        src={`https://gateway.pinata.cloud/ipfs/${currentApp.application.videoCID}`}
+                        src={`https://gateway.pinata.cloud/ipfs/${application.videoCID}`}
                         type="video/mp4"
                       />
                       Your browser doesn't support video playback.
                     </video>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Stored on IPFS: {currentApp.application.videoCID}
+                    Stored on IPFS: {application.videoCID}
                   </p>
                 </div>
               )}
 
               {/* Profile Photo */}
-              {currentApp.application?.photoCID && (
+              {application?.photoCID && (
                 <div>
                   <h3 className="font-semibold text-lg mb-3 text-amber-500">Profile Photo</h3>
                   <div className="bg-slate-950 rounded-lg overflow-hidden p-4">
                     <img
-                      src={`https://gateway.pinata.cloud/ipfs/${currentApp.application.photoCID}`}
+                      src={`https://gateway.pinata.cloud/ipfs/${application.photoCID}`}
                       alt="Profile"
                       className="max-w-sm rounded-lg"
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Stored on IPFS: {currentApp.application.photoCID}
+                    Stored on IPFS: {application.photoCID}
                   </p>
                 </div>
               )}

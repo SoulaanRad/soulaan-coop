@@ -1,4 +1,4 @@
-import type { NextRequest} from "next/server";
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { env } from "@/env";
@@ -23,73 +23,61 @@ interface WaitlistData {
   suggestedCoop?: string;
 }
 
+const waitlistSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  name: z.string().optional(),
+  source: z.enum(["hero", "contact"]),
+  suggestedCoop: z.string().optional(),
+});
 
+async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
+  const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
+
+  if (!slackWebhookUrl) {
+    console.log("No Slack webhook configured");
+    return false;
+  }
+
+  const message = {
+    text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
+  };
+
+  const response = await fetch(slackWebhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(message),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Slack webhook failed: ${response.status}`);
+  }
+
+  return true;
+}
 
 export async function POST(request: NextRequest) {
-
-  // Send waitlist signup to Slack
-  async function sendWaitlistToSlack(data: WaitlistData, origin: string) {
-    const slackWebhookUrl = env.SLACK_WEBHOOK_URL;
-
-    if (!slackWebhookUrl) {
-      console.log("No Slack webhook configured");
-      return;
-    }
-
-    const message = {
-      text: `🎉 New Soulaan Waitlist Signup!\n\n*Email:* ${data.email}\n*Name:* ${data.name || "Not provided"}\n*Source:* ${data.source}\n*Interested Coop:* ${data.suggestedCoop || "Not provided"}\n*Website URL:* ${origin}\n*Time:* ${new Date().toLocaleString()}`,
-    };
-
-    const response = await fetch(slackWebhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(message),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Slack webhook failed: ${response.status}`);
-    }
-  }
   try {
-    const body = await request.json();
-    const { email, name, source, suggestedCoop } = body as WaitlistData;
-    console.log("waitlist-form request", body);
+    const body = waitlistSchema.parse(await request.json());
+    console.log("waitlist-form request", {
+      ...body,
+      email: "[redacted]",
+    });
 
     // Capture the origin URL
     const origin = request.headers.get("origin") || request.headers.get("referer") || "Unknown";
 
-    // Validation
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!email?.includes("@")) {
-      return NextResponse.json(
-        { success: false, message: "Please enter a valid email address" },
-        { status: 400 }
-      );
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!source || !["hero", "contact"].includes(source)) {
-      return NextResponse.json(
-        { success: false, message: "Invalid source" },
-        { status: 400 }
-      );
-    }
-
     const waitlistData: WaitlistData = {
-      email,
-      name: name || undefined,
-      source: source,
-      suggestedCoop: suggestedCoop?.trim() || undefined,
+      email: body.email,
+      name: body.name || undefined,
+      source: body.source,
+      suggestedCoop: body.suggestedCoop?.trim() || undefined,
     };
 
-    // Send to Slack first
-    await sendWaitlistToSlack(waitlistData, origin);
-
-    // Save to database
+    // Save to database first so notification failures do not lose signups.
     await db.waitlistEntry.upsert({
-      where: { email },
+      where: { email: waitlistData.email },
       update: {
         name: waitlistData.name,
         source: waitlistData.source,
@@ -107,6 +95,12 @@ export async function POST(request: NextRequest) {
           : undefined,
       },
     });
+
+    try {
+      await sendWaitlistToSlack(waitlistData, origin);
+    } catch (error) {
+      console.error("Slack waitlist notification error:", error);
+    }
 
     // Identify user in PostHog
     try {
@@ -138,12 +132,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid form data. Please check your input.",
+          message: error.issues[0]?.message || "Invalid form data. Please check your input.",
         },
         { status: 400 }
       );
     }
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Error joining waitlist. Please try again.",
+      },
+      { status: 500 }
+    );
   }
 }
-
 

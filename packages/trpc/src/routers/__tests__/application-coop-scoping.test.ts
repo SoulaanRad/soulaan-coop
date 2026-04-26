@@ -54,6 +54,15 @@ describe('Application Coop Scoping', () => {
             createdAt: new Date(),
           }),
         },
+        userCoopMembership: {
+          upsert: vi.fn().mockResolvedValue({
+            id: 'membership_1',
+            userId: testUserId,
+            coopId: 'coop1',
+            status: 'PENDING',
+            roles: ['member'],
+          }),
+        },
       };
       return callback(mockTx);
     });
@@ -89,6 +98,15 @@ describe('Application Coop Scoping', () => {
             coopId: 'coop2',
             status: 'SUBMITTED',
             createdAt: new Date(),
+          }),
+        },
+        userCoopMembership: {
+          upsert: vi.fn().mockResolvedValue({
+            id: 'membership_2',
+            userId: testUserId,
+            coopId: 'coop2',
+            status: 'PENDING',
+            roles: ['member'],
           }),
         },
       };
@@ -147,6 +165,15 @@ describe('Application Coop Scoping', () => {
             coopId: 'coop1',
             status: 'SUBMITTED',
             createdAt: new Date(),
+          }),
+        },
+        userCoopMembership: {
+          upsert: vi.fn().mockResolvedValue({
+            id: 'membership_3',
+            userId: testUserId,
+            coopId: 'coop1',
+            status: 'PENDING',
+            roles: ['member'],
           }),
         },
       };

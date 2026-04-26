@@ -202,19 +202,27 @@ export async function createSession(address: string, coopId?: string): Promise<A
   const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
 
   console.log(`\n🔐 Creating session for ${address}${coopId ? ` (coop: ${coopId})` : ''}`);
+  if(!coopId) {
+    throw new Error('Coop ID is required');
+  }
 
-  // Check if the user has a profile for this coop
-  let profile = null;
+  // Check if the user has a membership and profile data for this coop
+  let hasProfile = false;
   if (coopId) {
-    profile = await db.userProfile.findUnique({
-      where: { 
-        walletAddress_coopId: {
-          walletAddress: address,
-          coopId: coopId,
+    const user = await db.user.findUnique({
+      where: { walletAddress: address },
+      include: {
+        memberships: {
+          where: { coopId: coopId },
+          select: { id: true },
         },
       },
     });
+    // User has profile if they have a User record with name and a membership for this coop
+    hasProfile = !!user && !!user.name && user.memberships.length > 0;
+    console.log('🔒 Has profile:', hasProfile, 'User name:', user?.name, 'Memberships:', user?.memberships.length);
   }
+
 
   // Check admin status using API server (secure server-side check)
   let isAdmin = false;
@@ -243,28 +251,35 @@ export async function createSession(address: string, coopId?: string): Promise<A
   // Update the session
   session.address = address;
   session.isLoggedIn = true;
-  session.hasProfile = !!profile;
+  session.hasProfile = hasProfile;
   session.activeCoopId = coopId;
   session.isAdmin = isAdmin;
   session.adminRole = adminRole;
 
   // Update last login time if profile exists
-  if (profile && coopId) {
-    await db.userProfile.update({
-      where: { 
-        walletAddress_coopId: {
-          walletAddress: address,
+  if (hasProfile && coopId) {
+    const user = await db.user.findUnique({
+      where: { walletAddress: address },
+    });
+    
+    if (user) {
+      await db.userCoopMembership.updateMany({
+        where: { 
+          userId: user.id,
           coopId: coopId,
         },
-      },
-      data: { lastLogin: new Date() },
-    });
+        data: { 
+          lastLogin: new Date(),
+          lastActiveAt: new Date(),
+        },
+      });
+    }
   }
 
   // Save the session
   await session.save();
 
-  console.log(`✅ Session created for ${address}, hasProfile: ${!!profile}, isAdmin: ${isAdmin}, role: ${adminRole || 'N/A'}`);
+  console.log(`✅ Session created for ${address}, hasProfile: ${hasProfile}, isAdmin: ${isAdmin}, role: ${adminRole || 'N/A'}`);
 
   return session;
 }

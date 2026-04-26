@@ -17,7 +17,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -31,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Eye, FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle, Star, X } from "lucide-react";
+import { FileText, CheckCircle2, XCircle, Loader2, Wallet, RefreshCw, Info, AlertTriangle, Star, X } from "lucide-react";
 
 type UserStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 
@@ -89,13 +88,8 @@ export default function MemberManagement() {
   const users = statusFilter === 'ALL' ? allUsers : filteredUsers;
 
   // Get stats
-  const { data: stats, error: statsError } = api.admin.getApplicationStats.useQuery(
-    { coopId },
-    {
-      onError: (err) => {
-        console.error('❌ Error loading stats:', err);
-      },
-    }
+  const { data: stats } = api.admin.getApplicationStats.useQuery(
+    { coopId }
   );
 
   // Update status mutation
@@ -150,15 +144,6 @@ export default function MemberManagement() {
     { userId: selectedUserForBlockchainInfo || '' },
     { 
       enabled: !!selectedUserForBlockchainInfo && blockchainInfoModalOpen,
-      onSuccess: (data) => {
-        if (data.blockchain) {
-          console.log('🔍 Blockchain Info:', {
-            scBalance: data.blockchain.scBalance,
-            ucBalance: data.blockchain.ucBalance,
-            ethBalance: data.blockchain.ethBalance,
-          });
-        }
-      }
     }
   );
 
@@ -190,13 +175,19 @@ export default function MemberManagement() {
   const handleStatusChange = (userId: string, newStatus: UserStatus) => {
     updateStatus.mutate({
       userId,
+      coopId,
       status: newStatus,
       reviewNotes: reviewNotes || undefined,
-    });
+    } as any);
   };
 
   const handleViewApplication = (user: any) => {
-    setSelectedUser(user);
+    // Normalize the application data - handle both singular and array format
+    const normalizedUser = {
+      ...user,
+      application: user.application || user.applications?.[0],
+    };
+    setSelectedUser(normalizedUser);
     setIsDialogOpen(true);
   };
 
@@ -231,7 +222,7 @@ export default function MemberManagement() {
       message: `Syncing membership for ${userName} to the blockchain...`,
     });
     setSyncModalOpen(true);
-    syncMembership.mutate({ userId });
+    syncMembership.mutate({ userId, coopId } as any);
   };
 
   const closeSyncModal = () => {
@@ -388,8 +379,8 @@ export default function MemberManagement() {
                     {user.phone || 'N/A'}
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(user.status)}>
-                      {user.status}
+                    <Badge className={getStatusColor(user.membershipStatus || user.status)}>
+                      {user.membershipStatus || user.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -424,7 +415,7 @@ export default function MemberManagement() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCreateWallet(user.id, user.name || user.email)}
-                        disabled={createWallet.isPending || user.status !== 'ACTIVE'}
+                        disabled={createWallet.isPending || (user.membershipStatus || user.status) !== 'ACTIVE'}
                         className="text-blue-500 hover:text-blue-400"
                       >
                         <Wallet className="h-4 w-4 mr-1" />
@@ -436,7 +427,7 @@ export default function MemberManagement() {
                     {formatDate(user.createdAt)}
                   </TableCell>
                   <TableCell>
-                    {user.application ? (
+                    {(user.applications && user.applications.length > 0) || user.application ? (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -462,7 +453,7 @@ export default function MemberManagement() {
                           <Star className="h-4 w-4" />
                         </Button>
                       )}
-                      {user.status === 'ACTIVE' && (
+                      {(user.membershipStatus || user.status) === 'ACTIVE' && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -473,7 +464,7 @@ export default function MemberManagement() {
                           Suspend
                         </Button>
                       )}
-                      {user.status === 'SUSPENDED' && (
+                      {(user.membershipStatus || user.status) === 'SUSPENDED' && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -484,12 +475,12 @@ export default function MemberManagement() {
                           Reactivate
                         </Button>
                       )}
-                      {user.status === 'PENDING' && (
+                      {(user.membershipStatus || user.status) === 'PENDING' && (
                         <span className="text-sm text-gray-500">
                           Pending approval
                         </span>
                       )}
-                      {user.status === 'REJECTED' && (
+                      {(user.membershipStatus || user.status) === 'REJECTED' && (
                         <span className="text-sm text-gray-500">
                           -
                         </span>
