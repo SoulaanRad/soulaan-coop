@@ -6,20 +6,20 @@
 
 */
 -- AlterTable
-ALTER TABLE "Application" ADD COLUMN     "photoUrl" TEXT,
-ADD COLUMN     "videoUrl" TEXT;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "photoUrl" TEXT;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "videoUrl" TEXT;
 
 -- AlterTable
-ALTER TABLE "PublicCoopInfo" ADD COLUMN     "showStatsBar" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "PublicCoopInfo" ADD COLUMN IF NOT EXISTS "showStatsBar" BOOLEAN NOT NULL DEFAULT true;
 
 -- DropTable
-DROP TABLE "AdminApprovalRequest";
+DROP TABLE IF EXISTS "AdminApprovalRequest";
 
 -- DropTable
-DROP TABLE "AdminMFAConfig";
+DROP TABLE IF EXISTS "AdminMFAConfig";
 
 -- DropEnum
-DROP TYPE "ApprovalStatus";
+DROP TYPE IF EXISTS "ApprovalStatus";
 
 -- DropEnum
-DROP TYPE "MFAMethod";
+DROP TYPE IF EXISTS "MFAMethod";
