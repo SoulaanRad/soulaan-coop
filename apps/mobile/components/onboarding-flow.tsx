@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ScrollView, View, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useSubmitApplication } from '@/hooks/use-api';
 import { useAuth } from '@/contexts/auth-context';
@@ -204,26 +204,30 @@ export default function OnboardingFlow() {
     },
   ];
 
-  // Add icons to features from backend data
-  const coopsWithIcons = availableCoops?.map(coop => ({
-    ...coop,
-    features: coop.features.map((feature) => {
-      // Map feature titles to appropriate icons
-      let icon = Store; // default
-      if (feature.title.includes('Coin') || feature.title.includes('Governance')) icon = Vote;
-      if (feature.title.includes('AI') || feature.title.includes('Proposal')) icon = TrendingUp;
-      if (feature.title.includes('Housing')) icon = Building;
-      if (feature.title.includes('Employment') || feature.title.includes('Network')) icon = Users;
-      if (feature.title.includes('Venue') || feature.title.includes('Ownership')) icon = Store;
-      
-      return { ...feature, icon };
-    }),
-  })) || [];
+  // Add icons to features from backend data - memoized to prevent infinite re-renders
+  const coopsWithIcons = useMemo(() => {
+    return availableCoops?.map(coop => ({
+      ...coop,
+      features: coop.features.map((feature) => {
+        // Map feature titles to appropriate icons
+        let icon = Store; // default
+        if (feature.title.includes('Coin') || feature.title.includes('Governance')) icon = Vote;
+        if (feature.title.includes('AI') || feature.title.includes('Proposal')) icon = TrendingUp;
+        if (feature.title.includes('Housing')) icon = Building;
+        if (feature.title.includes('Employment') || feature.title.includes('Network')) icon = Users;
+        if (feature.title.includes('Venue') || feature.title.includes('Ownership')) icon = Store;
+        
+        return { ...feature, icon };
+      }),
+    })) || [];
+  }, [availableCoops]);
 
-  // Debug logging
-  console.log('availableCoops:', availableCoops);
-  console.log('coopsWithIcons:', coopsWithIcons);
-  console.log('isLoadingCoops:', isLoadingCoops);
+  // Debug logging - only on mount or when values change
+  useEffect(() => {
+    console.log('availableCoops:', availableCoops);
+    console.log('coopsWithIcons:', coopsWithIcons);
+    console.log('isLoadingCoops:', isLoadingCoops);
+  }, [availableCoops, coopsWithIcons, isLoadingCoops]);
 
   const handleInputChange = (field: keyof FormData, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
