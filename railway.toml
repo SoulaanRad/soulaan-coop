@@ -1,8 +1,9 @@
 [build]
 builder = "nixpacks"
+buildCommand = "pnpm build -F @soulaan-coop/api..."
 
 [deploy]
-startCommand = "pnpm start:api"
+startCommand = "pnpm db:migrate-prod && pnpm start:api"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
