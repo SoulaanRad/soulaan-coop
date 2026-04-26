@@ -3,7 +3,6 @@ import type React from "react";
 import {
   ArrowRight,
   BadgeCheck,
-  Calendar,
   Check,
   Clock,
   Globe,
@@ -59,7 +58,7 @@ const CARD_GRADIENTS = [
 export const metadata: Metadata = {
   title: "Cahootz | The App for Community-Owned Economies",
   description:
-    "Join a co-op, support local businesses, earn participation rewards, and vote on how shared community resources are used.",
+    "Join a co-op, support local businesses, earn participation rewards, vote on proposals, and fund the tools your community needs.",
   alternates: {
     canonical: "https://soulaan.coop",
   },
@@ -78,8 +77,8 @@ const proofPoints = [
   },
   {
     icon: <Landmark className="h-5 w-5" />,
-    value: "Build the treasury",
-    label: "Small contributions from activity flow into resources members can govern.",
+    value: "Fund new tools",
+    label: "Use proposals to back vendors, features, and projects members actually need.",
   },
 ];
 
@@ -118,10 +117,10 @@ const features: Feature[] = [
   },
   {
     icon: <Wallet className="h-6 w-6" />,
-    label: "Tokens & Rewards",
-    title: "Participation you can measure",
+    label: "SoulCoin & Rewards",
+    title: "Membership people can verify",
     description:
-      "Unity Coin powers purchases and rewards. SoulaaniCoin represents membership, reputation, and governance rights.",
+      "SoulCoin represents co-op membership, reputation, and governance rights without tying the page to one specific co-op token.",
     status: "live",
   },
   {
@@ -133,11 +132,11 @@ const features: Feature[] = [
     status: "live",
   },
   {
-    icon: <Calendar className="h-6 w-6" />,
-    label: "Events",
-    title: "Move from group chat to showing up",
+    icon: <Zap className="h-6 w-6" />,
+    label: "Vendor Roadmap",
+    title: "Fund features like a startup",
     description:
-      "Organize meetups, pop-ups, town halls, and volunteer days tied to the co-op's real activity.",
+      "Members can approve budgets for vendors to build new tools, integrations, pages, and workflows the co-op needs next.",
     status: "coming-soon",
   },
 ];
@@ -145,7 +144,7 @@ const features: Feature[] = [
 const memberBenefits = [
   "Find co-op businesses and community activity in one place",
   "Earn rewards for spending and participating in the network",
-  "Vote on proposals that can fund real local projects",
+  "Vote on proposals that can fund real local projects and new features",
   "Follow decisions, treasury activity, and member updates",
   "Help grow a system built for ownership instead of extraction",
 ];
@@ -155,17 +154,25 @@ const businessBenefits = [
   "Accept community-powered payments and rewards",
   "Show up on your co-op's public page and marketplace",
   "Build customer loyalty around ownership, not coupons",
-  "Request support through transparent member proposals",
+  "Request support or paid feature work through transparent member proposals",
 ];
 
 const faqs = [
   {
     q: "What does Cahootz actually do?",
-    a: "Cahootz is the app layer for a cooperative economy. Members use it to join a co-op, find local businesses, earn participation rewards, submit and vote on proposals, and help govern shared resources.",
+    a: "Cahootz is the app layer for a cooperative economy. Members use it to join a co-op, find local businesses, earn participation rewards, submit and vote on proposals, and help fund the tools, vendors, and shared resources the co-op needs.",
   },
   {
     q: "Is this just a loyalty app?",
-    a: "No. Rewards are only one part. The important difference is that the network also has membership, governance, a shared treasury, public co-op pages, and tools for businesses to participate in community ownership.",
+    a: "No. Rewards are only one part. The important difference is that the network also has membership, governance, a shared treasury, public co-op pages, and a way for members to fund vendors who can build useful features for the co-op.",
+  },
+  {
+    q: "What is SoulCoin?",
+    a: "SoulCoin is the membership and governance token model for a co-op. Each co-op can use its own SoulCoin to represent membership, reputation, and voting rights.",
+  },
+  {
+    q: "Can a co-op fund new software or services?",
+    a: "Yes. A co-op can use proposals to define what it needs, vote on the budget, and hire vendors to build features, integrations, public pages, internal tools, events, or services that help the co-op grow like a member-owned startup.",
   },
   {
     q: "Does AI control the money?",
@@ -240,7 +247,8 @@ export default async function HomePage() {
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200 md:text-xl">
                 Cahootz helps communities run a real cooperative economy: members join,
                 shop the network, earn rewards, vote on proposals, and grow a treasury
-                that stays accountable to the people using it.
+                that can fund vendors, tools, and shared resources accountable to the
+                people using it.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Link
@@ -297,8 +305,8 @@ export default async function HomePage() {
                       },
                       {
                         icon: <ShieldCheck className="h-4 w-4" />,
-                        title: "Treasury rule check passed",
-                        detail: "AI applied the co-op's reserve rules.",
+                        title: "Vendor feature budget approved",
+                        detail: "Members funded the next co-op tool build.",
                       },
                     ].map((item) => (
                       <div key={item.title} className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
@@ -386,7 +394,7 @@ export default async function HomePage() {
                 Most platforms extract attention, fees, and customer relationships.
                 Cahootz is designed so the activity of the network strengthens the network:
                 members support businesses, businesses serve members, and the co-op treasury
-                funds work the community can see and govern.
+                funds vendors, tools, and projects the community can see and govern.
               </p>
               <Link
                 href="#join"
@@ -402,7 +410,7 @@ export default async function HomePage() {
                 ["1", "Join", "Members join a co-op and get a clear place to participate."],
                 ["2", "Spend", "Local purchases and business activity happen inside the network."],
                 ["3", "Decide", "Members propose, debate, and vote on what should be funded."],
-                ["4", "Reinvest", "The treasury backs projects that create more local stability."],
+                ["4", "Build", "The treasury can pay vendors to ship features, services, and projects."],
               ].map(([step, title, body]) => (
                 <div key={step} className="rounded-lg border border-white/10 bg-[#111111] p-6">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-sm font-black text-[#111111]">
@@ -440,6 +448,7 @@ export default async function HomePage() {
                   {[
                     "Submit funding proposals with budget and impact details",
                     "Comment before a vote so objections are visible early",
+                    "Hire vendors to build member-approved tools and services",
                     "Vote according to the co-op's membership rules",
                     "Review AI scoring, charter alignment, and decision history",
                   ].map((item) => (
@@ -575,7 +584,7 @@ export default async function HomePage() {
                 participation into ownership.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                {["Join", "Shop", "Vote"].map((step) => (
+                {["Join", "Shop", "Build"].map((step) => (
                   <div key={step} className="rounded-lg border border-[#111111]/10 bg-white/30 p-4">
                     <p className="text-sm font-black uppercase tracking-widest text-[#111111]/60">
                       {step}
