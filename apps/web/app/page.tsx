@@ -198,7 +198,7 @@ export default async function HomePage() {
       
       <Script
         async
-        src="http://www.usetina.com/tina.js"
+        src="https://www.usetina.com/tina.js"
         data-site-key="tina_dCbAoHEO1ISRi3XI_Hg9MG_Y"
         strategy="afterInteractive"
       />
