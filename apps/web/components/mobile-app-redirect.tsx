@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Smartphone } from "lucide-react";
+import { ArrowRight, Users } from "lucide-react";
 
 interface MobileAppRedirectProps {
   variant?: "hero" | "card";
@@ -11,18 +11,8 @@ export function MobileAppRedirect({
   variant = "hero",
   className = "",
 }: MobileAppRedirectProps) {
-  const getMobileAppUrl = () => {
-    // Check if we're in development
-    if (typeof window !== "undefined") {
-      const isDev = window.location.hostname === "localhost" || 
-                    window.location.hostname === "127.0.0.1";
-      return isDev ? "http://localhost:8081" : "https://mobile.cahootzcoops.com";
-    }
-    return "https://mobile.cahootzcoops.com";
-  };
-
   const handleRedirect = () => {
-    window.location.href = getMobileAppUrl();
+    window.location.href = "/#join";
   };
 
   if (variant === "card") {
@@ -30,25 +20,25 @@ export function MobileAppRedirect({
       <div className={`rounded-xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm ${className}`}>
         <div className="mb-6 flex items-center gap-3">
           <div className="rounded-full bg-orange-500/20 p-3">
-            <Smartphone className="h-6 w-6 text-orange-400" />
+            <Users className="h-6 w-6 text-orange-400" />
           </div>
           <h3 className="text-xl font-semibold text-white">Join a Cooperative</h3>
         </div>
         
         <p className="mb-6 text-slate-300">
-          Ready to join? Sign up through our mobile app to get started with a cooperative that matches your needs.
+          Ready to join? Submit an application for a live co-op directly from the website.
         </p>
 
         <button
           onClick={handleRedirect}
           className="group flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3 font-semibold text-white transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/25"
         >
-          Open Mobile App
+          Submit an Application
           <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
         </button>
 
         <p className="mt-4 text-center text-sm text-slate-400">
-          Available on web, iOS, and Android
+          Choose a co-op, answer its questions, and get a reference number.
         </p>
       </div>
     );
@@ -61,13 +51,13 @@ export function MobileAppRedirect({
         onClick={handleRedirect}
         className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-4 text-lg font-semibold text-white transition-all hover:from-orange-600 hover:to-orange-700 hover:shadow-lg hover:shadow-orange-500/25"
       >
-        <Smartphone className="h-5 w-5" />
-        Join a Cooperative
+        <Users className="h-5 w-5" />
+        Submit an Application
         <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
       </button>
       
       <p className="text-sm text-slate-400">
-        Sign up through our mobile app
+        Apply from the website
       </p>
     </div>
   );

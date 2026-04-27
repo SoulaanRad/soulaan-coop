@@ -219,10 +219,10 @@ export default async function HomePage() {
           </nav>
 
           <a
-            href="https://mobile.cahootzcoops.com/"
+            href="#join"
             className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
           >
-            Open app
+            Apply now
             <ArrowRight className="h-4 w-4" />
           </a>
         </div>
@@ -401,7 +401,7 @@ export default async function HomePage() {
                 href="#join"
                 className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
               >
-                Start with the app
+                Submit an application
                 <ArrowRight className="h-5 w-5" />
               </Link>
             </div>
@@ -481,10 +481,10 @@ export default async function HomePage() {
                 ))}
               </ul>
               <a
-                href="https://mobile.cahootzcoops.com/"
+                href="#join"
                 className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#facc15]"
               >
-                Open the mobile app
+                Submit an application
                 <ArrowRight className="h-5 w-5" />
               </a>
             </div>
