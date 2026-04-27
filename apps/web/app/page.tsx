@@ -20,6 +20,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
+import { MemberApplicationFlow } from "@/components/member-application-flow";
 import { WaitlistSignupForm } from "@/components/waitlist-signup-form";
 import { env } from "@/env";
 
@@ -572,19 +573,23 @@ export default async function HomePage() {
         </section>
 
         <section id="join" className="border-t border-white/10 bg-[#f59e0b] px-5 py-20 text-[#111111] sm:px-6 md:py-24">
-          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.7fr_1.3fr]">
             <div>
               <p className="text-sm font-black uppercase tracking-widest text-[#111111]/70">Join Cahootz</p>
               <h2 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">
-                Start as a member, business, or co-op builder.
+                Apply to a co-op from the website.
               </h2>
               <p className="mt-5 text-lg leading-8 text-[#111111]/75">
-                Join the waitlist and we'll route you toward the right co-op, public page,
-                or business onboarding path. The goal is simple: make it easier to turn
-                participation into ownership.
+                Pick a live co-op, answer the questions that community configured,
+                and get a real application reference for your records. If your co-op
+                is not live yet, the waitlist can capture the one you want to create.
               </p>
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                {["Join", "Shop", "Build"].map((step) => (
+              <div className="mt-8 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                {[
+                  "Choose a co-op",
+                  "Answer its questions",
+                  "Submit for review",
+                ].map((step) => (
                   <div key={step} className="rounded-lg border border-[#111111]/10 bg-white/30 p-4">
                     <p className="text-sm font-black uppercase tracking-widest text-[#111111]/60">
                       {step}
@@ -594,25 +599,25 @@ export default async function HomePage() {
               </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div>
-                <h3 className="text-2xl font-black">Join as a member</h3>
-                <p className="mt-2 text-sm leading-6 text-[#111111]/70">
-                  Get notified, pick a co-op if you have one, and open the app after signup.
-                </p>
-                <div className="mt-5">
-                  <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-white/30" />}>
-                    <WaitlistSignupForm coops={coops} />
-                  </Suspense>
-                </div>
-              </div>
+            <div className="space-y-6">
+              <Suspense fallback={<div className="h-[36rem] animate-pulse rounded-lg bg-white/40" />}>
+                <MemberApplicationFlow />
+              </Suspense>
 
-              <div id="business-form">
-                <h3 className="text-2xl font-black">Add your business</h3>
-                <p className="mt-2 text-sm leading-6 text-[#111111]/70">
-                  Tell us where you operate and how you want to participate in the network.
-                </p>
-                <div className="mt-5">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-lg border border-[#111111]/10 bg-white/35 p-6">
+                  <h3 className="text-2xl font-black">Not seeing your co-op?</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#111111]/70">
+                    Join the list and tell us the co-op you want to join or create next.
+                  </p>
+                  <div className="mt-5">
+                    <Suspense fallback={<div className="h-80 animate-pulse rounded-lg bg-white/30" />}>
+                      <WaitlistSignupForm coops={coops} />
+                    </Suspense>
+                  </div>
+                </div>
+
+                <div id="business-form">
                   <Suspense fallback={<div className="h-96 animate-pulse rounded-lg bg-white/30" />}>
                     <BusinessSignupForm coops={coops} />
                   </Suspense>
