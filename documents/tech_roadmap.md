@@ -48,7 +48,6 @@
   - [x] AI-assisted review ensures alignment with Co-op rules.  
 - Implement simple voting for treasury allocation.  
 
-  <!-- 🤖 AI-generated sub-items based on completed work -->
   - [ ] Add monitoring alerts for unusual patterns in proposal submissions (e.g., spikes in submissions). � �
 
 ---
@@ -77,4 +76,11 @@
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
 ---
-*🤖 Roadmap updated 2026-03-26 - AI-generated sub-items added based on completed work analysis*
+
+## Create merchant tools. 🟡
+*AI-suggested based on recent work: With the upcoming merchant tools, it is vital to ensure that they are secure, well-documented, and thoroughly tested to facilitate smooth adoption by businesses.*
+
+  - [ ] Create documentation for merchants detailing the integration process and usage of tools.
+
+---
+*🤖 Roadmap updated 2026-04-27 - AI-generated sub-items added based on completed work analysis*
