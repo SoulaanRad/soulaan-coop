@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { appRouter } from '../routers/index.js';
 import type { Context } from '../context.js';
+import { sendApplicationSubmittedNotification } from '../services/slack-notification-service.js';
+
+vi.mock('../services/slack-notification-service.js', () => ({
+  sendApplicationSubmittedNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 // Mock Prisma client
 const mockPrismaClient = {
@@ -117,6 +124,18 @@ describe('Application Router - submitApplication', () => {
     });
     
     expect(mockPrismaClient.$transaction).toHaveBeenCalled();
+    await flushPromises();
+    expect(mockPrismaClient.coopConfig.findFirst).toHaveBeenCalledWith({
+      where: { coopId: 'soulaan', isActive: true },
+      select: { name: true },
+    });
+    expect(sendApplicationSubmittedNotification).toHaveBeenCalledWith({
+      coopId: 'soulaan',
+      coopName: 'Test Coop',
+      applicantEmail: 'deon@appi.com',
+      applicantName: 'Deon Robinson',
+      applicationId: 'app_456',
+    });
   });
 
   it('should reject application if user already applied to same coop', async () => {
@@ -317,4 +336,3 @@ describe('Application Router - submitApplication', () => {
     expect(result.success).toBe(true);
   });
 });
-

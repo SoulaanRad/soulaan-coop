@@ -164,21 +164,26 @@ export const applicationRouter = router({
         });
         console.log('✅ Transaction completed successfully');
 
-        // Send Slack notification (non-blocking)
-        const coopConfig = await context.db.coopConfig.findFirst({
-          where: { coopId: input.coopId, isActive: true },
-          select: { name: true },
-        });
-        
-        sendApplicationSubmittedNotification({
-          coopId: input.coopId,
-          coopName: coopConfig?.name ?? undefined,
-          applicantEmail: input.email,
-          applicantName: `${input.firstName} ${input.lastName}`,
-          applicationId: result.application.id,
-        }).catch((err) => {
-          console.error('Failed to send Slack notification:', err);
-        });
+        // Send Slack notification after the application is committed.
+        // Keep this fully non-blocking so Slack or coop display lookups never fail a saved application.
+        void (async () => {
+          try {
+            const coopConfig = await context.db.coopConfig.findFirst({
+              where: { coopId: input.coopId, isActive: true },
+              select: { name: true },
+            });
+
+            await sendApplicationSubmittedNotification({
+              coopId: input.coopId,
+              coopName: coopConfig?.name ?? undefined,
+              applicantEmail: input.email,
+              applicantName: `${input.firstName} ${input.lastName}`,
+              applicationId: result.application.id,
+            });
+          } catch (err) {
+            console.error('Failed to send Slack notification:', err);
+          }
+        })();
 
         const response = {
           success: true,
