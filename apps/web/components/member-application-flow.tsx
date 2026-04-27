@@ -519,6 +519,24 @@ function CoopSelectionStep({
               <p className={cn("mt-3 text-xs leading-5", selected ? "text-slate-300" : "text-[#111111]/55")}>
                 {coop.description}
               </p>
+              {selected && (
+                <div className="mt-4 space-y-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-[#facc15]">Eligibility</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-300">{coop.eligibility}</p>
+                  </div>
+                  {coop.features.length > 0 && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {coop.features.slice(0, 4).map((feature) => (
+                        <div key={feature.title} className="rounded-lg bg-black/15 p-2">
+                          <p className="text-xs font-black text-white">{feature.title}</p>
+                          <p className="mt-1 text-[11px] leading-4 text-slate-300">{feature.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </button>
           );
         })}
