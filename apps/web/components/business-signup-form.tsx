@@ -4,7 +4,14 @@ import type React from "react";
 import { Suspense, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Store } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import type { CoopOption } from "@/app/api/coops/route";
+
+interface CoopOption {
+  coopId: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  isLive: boolean;
+}
 
 interface BusinessSignupFormProps {
   coops?: CoopOption[];

@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { CoopOption } from "@/app/api/coops/route";
+
+interface CoopOption {
+  coopId: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  isLive: boolean;
+}
 
 interface WaitlistSignupFormProps {
   coops?: CoopOption[];
@@ -23,7 +23,7 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
     success: boolean;
     message: string;
   } | null>(null);
-  const [selectedCoop, setSelectedCoop] = useState("none");
+  const [suggestedCoop, setSuggestedCoop] = useState("");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,8 +35,9 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
 
     const waitlistData = {
       email: formData.get("email") as string,
+      name: formData.get("name") as string,
       source: "hero",
-      suggestedCoop: selectedCoop === "none" ? "" : selectedCoop,
+      suggestedCoop: suggestedCoop.trim(),
     };
 
     try {
@@ -62,10 +63,7 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
 
       if (data.success) {
         formElement.reset();
-        setSelectedCoop("none");
-        
-        // Open mobile app in new tab after successful signup
-        window.open("https://mobile.cahootzcoops.com/", "_blank");
+        setSuggestedCoop("");
       }
     } catch (error) {
       console.error("Waitlist submission error:", error);
@@ -81,6 +79,19 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
+        <Label htmlFor="name" className="text-[#1a1a1a] font-semibold">
+          Name
+        </Label>
+        <Input
+          id="name"
+          name="name"
+          type="text"
+          placeholder="Your name"
+          className="bg-white border-white/30 text-[#1a1a1a] placeholder:text-slate-400"
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="email" className="text-[#1a1a1a] font-semibold">
           Email address
         </Label>
@@ -95,22 +106,26 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="coop" className="text-[#1a1a1a] font-semibold">
-          Interested in a specific coop?
+        <Label htmlFor="suggestedCoop" className="text-[#1a1a1a] font-semibold">
+          Co-op you want to join or create
         </Label>
-        <Select value={selectedCoop} onValueChange={setSelectedCoop}>
-          <SelectTrigger className="bg-white border-white/30 text-[#1a1a1a]">
-            <SelectValue placeholder="Select a coop" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No preference</SelectItem>
-            {coops.map((coop) => (
-              <SelectItem key={coop.coopId} value={coop.coopId}>
-                {coop.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Input
+          id="suggestedCoop"
+          name="suggestedCoop"
+          type="text"
+          list="member-waitlist-coop-options"
+          value={suggestedCoop}
+          onChange={(event) => setSuggestedCoop(event.target.value)}
+          placeholder="A live co-op, a neighborhood group, or a new idea"
+          className="bg-white border-white/30 text-[#1a1a1a] placeholder:text-slate-400"
+        />
+        <datalist id="member-waitlist-coop-options">
+          {coops.map((coop) => (
+            <option key={coop.coopId} value={coop.name} />
+          ))}
+          <option value="I want to create a new co-op" />
+          <option value="I am not sure yet" />
+        </datalist>
       </div>
 
       <Button
