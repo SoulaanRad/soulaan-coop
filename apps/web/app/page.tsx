@@ -248,16 +248,13 @@ export default async function HomePage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
                 <Zap className="h-4 w-4" />
-                Built for co-ops, local businesses, and member power
+                For groups that want to keep more of what they build
               </div>
               <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[1.03] tracking-tight sm:text-6xl md:text-7xl">
-                Turn local spending into shared power.
+                Where your spending actually builds something.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200 md:text-xl">
-                Cahootz helps communities run a real cooperative economy: members join,
-                shop the network, earn rewards, vote on proposals, and grow a treasury
-                that can fund vendors, tools, and shared resources accountable to the
-                people using it.
+              Bring your people into one system where you can organize what you’re doing, make decisions together, and fund what comes next.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <Link
@@ -400,7 +397,7 @@ export default async function HomePage() {
                 The money loop is the message.
               </h2>
               <p className="mt-5 text-lg leading-8 text-slate-400">
-                Most platforms extract attention, fees, and customer relationships.
+                Right now, you do the work, bring the customers, and someone else owns the system.
                 Cahootz is designed so the activity of the network strengthens the network:
                 members support businesses, businesses serve members, and the co-op treasury
                 funds vendors, tools, and projects the community can see and govern.
