@@ -251,7 +251,7 @@ export default async function HomePage() {
                 For groups that want to keep more of what they build
               </div>
               <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-[1.03] tracking-tight sm:text-6xl md:text-7xl">
-                Where your spending actually builds something.
+                One place for a collective to run, decide, and build.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-200 md:text-xl">
               Bring your people into one system where you can organize what you’re doing, make decisions together, and fund what comes next.
