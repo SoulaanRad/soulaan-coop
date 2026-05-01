@@ -1500,9 +1500,21 @@ function StoreStatusActions({
 // STRIPE CONNECT STATUS PANEL
 // ============================================
 function StripeConnectStatusPanel({ store }: { store: any }) {
+  const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [businessType, setBusinessType] = useState<"individual" | "company">("company");
+  const [showSetupForm, setShowSetupForm] = useState(false);
+
   const syncStatus = api.stripeConnect.syncStatus.useMutation({
     onSuccess: () => {
       window.location.reload();
+    },
+  });
+
+  const initiateOnboarding = api.stripeConnect.adminInitiateOnboarding.useMutation({
+    onSuccess: (data) => {
+      setOnboardingUrl(data.onboardingUrl);
+      setShowSetupForm(false);
     },
   });
 
@@ -1514,6 +1526,52 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
     } as any);
   };
 
+  const handleInitiate = () => {
+    initiateOnboarding.mutate({
+      storeId: store.id,
+      businessType,
+      returnUrl: window.location.href,
+      refreshUrl: window.location.href,
+    });
+  };
+
+  const handleCopy = () => {
+    if (!onboardingUrl) return;
+    navigator.clipboard.writeText(onboardingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const OnboardingLinkResult = () => (
+    <div className="mt-3 bg-slate-800 rounded p-3 space-y-2">
+      <p className="text-xs text-gray-400 font-medium">Onboarding link generated — share with store owner:</p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-xs text-blue-300 bg-slate-900 rounded px-2 py-1 truncate">
+          {onboardingUrl}
+        </code>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleCopy}
+          className="border border-slate-600 text-gray-300 hover:bg-slate-700 text-xs h-7 shrink-0"
+        >
+          {copied ? <CheckCircle2 className="h-3 w-3 mr-1 text-green-400" /> : <ExternalLink className="h-3 w-3 mr-1" />}
+          {copied ? "Copied!" : "Copy"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => window.open(onboardingUrl!, "_blank")}
+          className="border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 text-xs h-7 shrink-0"
+        >
+          <ExternalLink className="h-3 w-3 mr-1" />
+          Open
+        </Button>
+      </div>
+      <p className="text-xs text-gray-500">Link expires after use. Generate a new one if needed.</p>
+    </div>
+  );
+
   if (!store.stripeAccount) {
     return (
       <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
@@ -1522,21 +1580,94 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
             <DollarSign className="h-4 w-4 text-gray-400" />
             <h4 className="text-sm font-medium text-white">Stripe Connect Status</h4>
           </div>
+          {!showSetupForm && !onboardingUrl && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowSetupForm(true)}
+              className="border border-green-500/40 text-green-400 hover:bg-green-500/10 text-xs h-7"
+            >
+              <Link2 className="h-3 w-3 mr-1" />
+              Setup Stripe Connect
+            </Button>
+          )}
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          <span className="text-gray-400">No Stripe Connect account set up yet</span>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Store owner needs to complete Stripe Connect onboarding to accept payments.
-        </p>
+
+        {!onboardingUrl && !showSetupForm && (
+          <>
+            <div className="flex items-center gap-2 text-sm">
+              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <span className="text-gray-400">No Stripe Connect account set up yet</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Store owner needs to complete Stripe Connect onboarding to accept payments.
+            </p>
+          </>
+        )}
+
+        {showSetupForm && (
+          <div className="space-y-3 mt-2">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Business type</label>
+              <div className="flex gap-2">
+                {(["company", "individual"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setBusinessType(t)}
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+                      businessType === t
+                        ? "border-green-500 bg-green-500/10 text-green-400"
+                        : "border-slate-600 text-gray-400 hover:border-slate-500"
+                    }`}
+                  >
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {store.owner?.email && (
+              <p className="text-xs text-gray-500">
+                Owner email: <span className="text-gray-300">{store.owner.email}</span>
+              </p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleInitiate}
+                disabled={initiateOnboarding.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white text-xs h-7"
+              >
+                {initiateOnboarding.isPending ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Link2 className="h-3 w-3 mr-1" />
+                )}
+                Create Account & Get Link
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowSetupForm(false)}
+                className="border border-slate-600 text-gray-400 text-xs h-7"
+              >
+                Cancel
+              </Button>
+            </div>
+            {initiateOnboarding.isError && (
+              <p className="text-xs text-red-400">{initiateOnboarding.error.message}</p>
+            )}
+          </div>
+        )}
+
+        {onboardingUrl && <OnboardingLinkResult />}
       </div>
     );
   }
 
   const { stripeAccount } = store;
-  const hasIssues = stripeAccount.requirementsCurrentlyDue?.length > 0 || 
+  const hasIssues = stripeAccount.requirementsCurrentlyDue?.length > 0 ||
                     stripeAccount.requirementsPastDue?.length > 0;
+  const needsOnboarding = !stripeAccount.chargesEnabled;
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
@@ -1546,6 +1677,22 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
           <h4 className="text-sm font-medium text-white">Stripe Connect Status</h4>
         </div>
         <div className="flex gap-2">
+          {needsOnboarding && !onboardingUrl && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleInitiate}
+              disabled={initiateOnboarding.isPending}
+              className="border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 text-xs h-7"
+            >
+              {initiateOnboarding.isPending ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Link2 className="h-3 w-3 mr-1" />
+              )}
+              Get Onboarding Link
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -1571,6 +1718,8 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
           </Button>
         </div>
       </div>
+
+      {onboardingUrl && <OnboardingLinkResult />}
 
       {/* Status Grid */}
       <div className="grid grid-cols-2 gap-3 mb-3">

@@ -112,9 +112,15 @@ export default function StripeOnboardingScreen() {
 
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
-    const data = await api.getMyStore(user.walletAddress);
-    setStore(data);
-  }, [user?.walletAddress]);
+    if (storeId) {
+      const stores = await api.getMyStores(user.walletAddress);
+      const found = stores?.find((s: any) => s.id === storeId) ?? null;
+      setStore(found);
+    } else {
+      const data = await api.getMyStore(user.walletAddress);
+      setStore(data);
+    }
+  }, [user?.walletAddress, storeId]);
 
   useEffect(() => {
     async function init() {
@@ -130,13 +136,14 @@ export default function StripeOnboardingScreen() {
     void init();
   }, [loadStore]);
 
-  const syncStatus = useCallback(async (quiet = false) => {
-    if (!user?.walletAddress || !user?.id || !store?.businessId) return;
+  const syncStatus = useCallback(async (quiet = false, businessIdOverride?: string) => {
+    const businessId = businessIdOverride || store?.businessId;
+    if (!user?.walletAddress || !user?.id || !businessId) return;
     try {
       setSyncing(true);
       const status = await api.syncStripeBusinessStatus({
         userId: user.id,
-        businessId: store.businessId,
+        businessId,
       }, user.walletAddress);
       await loadStore();
 
@@ -175,8 +182,8 @@ export default function StripeOnboardingScreen() {
       // Open Stripe's hosted onboarding in a browser
       await WebBrowser.openBrowserAsync(result.onboardingUrl);
 
-      // Auto-check status once the browser closes
-      await syncStatus(true);
+      // Auto-sync using the returned businessId — store state may still be stale
+      await syncStatus(true, result.businessId);
     } catch (error: any) {
       Alert.alert('Setup Error', error.message || 'Failed to start payment setup');
     } finally {
