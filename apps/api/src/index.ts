@@ -224,7 +224,31 @@ const server = app.listen(port, async () => {
   
   // Test database connection after server starts
   const dbConnected = await testDatabaseConnection();
-  
+
+  // Send startup notifications to Slack (production only)
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const { sendApiStartupNotification, sendApiHealthNotification } = await import("@repo/trpc/services/slack-notification-service");
+
+      await sendApiStartupNotification({
+        service: "api",
+        port: port,
+        environment: process.env.NODE_ENV,
+      });
+
+      if (dbConnected) {
+        await sendApiHealthNotification({
+          status: "up",
+          service: "api",
+          uptime: 0,
+          environment: process.env.NODE_ENV,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send startup notification:', error);
+    }
+  }
+
   // Start health monitoring (check every 60 seconds)
   startHealthMonitoring(60000);
 });
