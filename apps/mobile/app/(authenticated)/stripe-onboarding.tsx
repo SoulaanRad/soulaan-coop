@@ -114,6 +114,7 @@ export default function StripeOnboardingScreen() {
   const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
   const [pendingBusinessId, setPendingBusinessId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [businessType, setBusinessType] = useState<'company' | 'individual'>('company');
 
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
@@ -152,17 +153,20 @@ export default function StripeOnboardingScreen() {
       }, user.walletAddress);
       await loadStore();
 
-      if (!quiet) {
-        if (status.chargesEnabled) {
-          Alert.alert('You\'re approved!', 'Your store is now live and ready to accept payments.');
-        } else if (status.requirementsCurrentlyDue?.length > 0) {
-          Alert.alert(
-            'Action required',
-            'There are still a few steps to complete. Tap "Finish Setup" to continue.',
-          );
-        } else {
-          Alert.alert('Still under review', 'Hang tight — this usually takes just a few minutes. Check back soon.');
-        }
+      if (status.chargesEnabled) {
+        if (!quiet) Alert.alert('You\'re approved!', 'Your store is now live and ready to accept payments.');
+      } else if (status.onboardingStatus === 'REJECTED') {
+        Alert.alert(
+          'Account not approved',
+          'Your Stripe account was not approved. This is usually due to verification issues. Tap "Try Again" to restart the process or contact support.',
+        );
+      } else if (status.requirementsCurrentlyDue?.length > 0 || status.onboardingStatus === 'RESTRICTED') {
+        Alert.alert(
+          'Action required',
+          'Stripe needs a bit more information before your account can be activated. Tap "Finish Setup" to complete the remaining steps.',
+        );
+      } else if (!quiet) {
+        Alert.alert('Still under review', 'Hang tight — this usually takes just a few minutes. Check back soon.');
       }
     } catch (error: any) {
       if (!quiet) Alert.alert('Error', error.message || 'Failed to check status');
@@ -179,7 +183,7 @@ export default function StripeOnboardingScreen() {
         userId: user.id,
         storeId,
         email: user.email || '',
-        businessType: 'company',
+        businessType,
         country: 'US',
       }, user.walletAddress);
       setOnboardingUrl(result.onboardingUrl);
@@ -194,8 +198,10 @@ export default function StripeOnboardingScreen() {
   const handleOpenInApp = async () => {
     if (!onboardingUrl) return;
     await WebBrowser.openBrowserAsync(onboardingUrl);
-    // Auto-sync after the in-app browser closes
-    await syncStatus(true, pendingBusinessId ?? undefined);
+    // Clear the URL so the UI resets to the status-driven state
+    setOnboardingUrl(null);
+    // Sync and surface any issues (not quiet — user needs to know if something is broken)
+    await syncStatus(false, pendingBusinessId ?? undefined);
   };
 
   const handleOpenInBrowser = () => {
@@ -236,7 +242,7 @@ export default function StripeOnboardingScreen() {
     <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace('/my-store')}>
           <ArrowLeft size={24} color="#374151" />
         </TouchableOpacity>
         <Text className="text-lg font-semibold text-gray-900 dark:text-white">Payment Setup</Text>
@@ -282,21 +288,53 @@ export default function StripeOnboardingScreen() {
           </View>
         )}
 
-        {/* What to expect card — only before setup */}
-        {!store?.stripeAccount && (
-          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
-            <Text className="font-semibold text-gray-900 dark:text-white mb-3">What you&apos;ll need</Text>
-            {[
-              'Your business name and address',
-              'Your date of birth and last 4 of SSN',
-              'A bank account for payouts',
-            ].map((item) => (
-              <View key={item} className="flex-row items-center mb-2">
-                <View className="w-2 h-2 rounded-full bg-amber-500 mr-3" />
-                <Text className="text-gray-600 dark:text-gray-300 text-sm">{item}</Text>
+        {/* Business type — only before any account is created and before URL is generated */}
+        {!stripeReady && !onboardingUrl && !store?.stripeAccount && (
+          <>
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
+              <Text className="font-semibold text-gray-900 dark:text-white mb-3">Account type</Text>
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  onPress={() => setBusinessType('company')}
+                  className={`flex-1 py-3 rounded-xl border-2 items-center ${
+                    businessType === 'company'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  <Text className={`font-semibold text-sm ${businessType === 'company' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-300'}`}>
+                    Business
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setBusinessType('individual')}
+                  className={`flex-1 py-3 rounded-xl border-2 items-center ${
+                    businessType === 'individual'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  <Text className={`font-semibold text-sm ${businessType === 'individual' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-300'}`}>
+                    Individual
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
+            </View>
+
+            <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4">
+              <Text className="font-semibold text-gray-900 dark:text-white mb-3">What you&apos;ll need</Text>
+              {[
+                'Your name and address',
+                businessType === 'company' ? 'EIN or last 4 of SSN' : 'Last 4 of your SSN',
+                'A bank account for payouts',
+              ].map((item) => (
+                <View key={item} className="flex-row items-center mb-2">
+                  <View className="w-2 h-2 rounded-full bg-amber-500 mr-3" />
+                  <Text className="text-gray-600 dark:text-gray-300 text-sm">{item}</Text>
+                </View>
+              ))}
+            </View>
+          </>
         )}
 
         {/* SC upsell after approval */}
@@ -369,11 +407,11 @@ export default function StripeOnboardingScreen() {
           </View>
         )}
 
-        {/* Check status */}
-        {!stripeReady && (
+        {/* Check status — shown whenever there's a business to check */}
+        {!stripeReady && (store?.businessId || pendingBusinessId) && (
           <TouchableOpacity
             onPress={() => syncStatus(false, pendingBusinessId ?? undefined)}
-            disabled={syncing || (!store?.businessId && !pendingBusinessId)}
+            disabled={syncing}
             className="bg-gray-100 dark:bg-gray-700 py-4 rounded-xl flex-row items-center justify-center"
           >
             {syncing ? (
@@ -387,7 +425,7 @@ export default function StripeOnboardingScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Post-approval actions */}
+        {/* Navigation */}
         {stripeReady ? (
           <>
             <TouchableOpacity
@@ -398,14 +436,19 @@ export default function StripeOnboardingScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.replace('/my-store')}
-              className="py-2"
+              className="py-3"
             >
               <Text className="text-center text-amber-600 dark:text-amber-400 font-semibold">Go to My Store</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <TouchableOpacity onPress={() => router.replace('/my-store')} className="py-2">
-            <Text className="text-center text-gray-500 dark:text-gray-400 font-medium">I&apos;ll finish this later</Text>
+          <TouchableOpacity
+            onPress={() => router.replace('/my-store')}
+            className="bg-gray-100 dark:bg-gray-700 py-4 rounded-xl"
+          >
+            <Text className="text-center text-gray-700 dark:text-gray-300 font-semibold">
+              Save &amp; Come Back Later
+            </Text>
           </TouchableOpacity>
         )}
       </View>

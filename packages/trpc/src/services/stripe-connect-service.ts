@@ -197,14 +197,21 @@ export async function syncAccountStatus(accountId: string): Promise<{
   let onboardingStatus: 'DRAFT' | 'SUBMITTED' | 'RESTRICTED' | 'CHARGES_ENABLED' | 'PAYOUTS_ENABLED' | 'REJECTED' =
     'DRAFT';
 
+  const disabledReason = account.requirements?.disabled_reason ?? '';
+  // Only truly rejected when Stripe explicitly rejects the account (fraud, ToS, etc.)
+  // "requirements.past_due", "requirements.pending_verification", etc. are fixable — treat as RESTRICTED
+  const isTrulyRejected = disabledReason.startsWith('rejected.');
+
   if (account.charges_enabled && account.payouts_enabled) {
     onboardingStatus = 'PAYOUTS_ENABLED';
   } else if (account.charges_enabled) {
     onboardingStatus = 'CHARGES_ENABLED';
   } else if (account.details_submitted) {
     onboardingStatus = 'SUBMITTED';
-  } else if (account.requirements?.disabled_reason) {
+  } else if (disabledReason && isTrulyRejected) {
     onboardingStatus = 'REJECTED';
+  } else if (disabledReason || (account.requirements?.currently_due?.length ?? 0) > 0) {
+    onboardingStatus = 'RESTRICTED';
   }
 
   // Determine verification status
@@ -214,7 +221,7 @@ export async function syncAccountStatus(accountId: string): Promise<{
     verificationStatus = 'VERIFIED';
   } else if (account.details_submitted) {
     verificationStatus = 'PENDING';
-  } else if (account.requirements?.disabled_reason) {
+  } else if (isTrulyRejected) {
     verificationStatus = 'REJECTED';
   }
 

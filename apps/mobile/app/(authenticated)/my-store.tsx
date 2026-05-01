@@ -302,7 +302,7 @@ export default function MyStoreScreen() {
                     }`}>
                       {store.status === 'PENDING'
                         ? 'Application Under Review'
-                        : 'Application Rejected'}
+                        : 'Action Required'}
                     </Text>
                     <Text className={`text-sm mt-1 ${
                       store.status === 'PENDING'
@@ -311,7 +311,7 @@ export default function MyStoreScreen() {
                     }`}>
                       {store.status === 'PENDING'
                         ? 'Your application is being reviewed. You will be notified once approved.'
-                        : store.application.rejectionReason || 'Your application was not approved. Please contact support for more information.'}
+                        : 'Your payment setup needs attention. Tap "Continue Stripe Connect" below to fix any outstanding issues and activate your store.'}
                     </Text>
                   </View>
                 </View>
