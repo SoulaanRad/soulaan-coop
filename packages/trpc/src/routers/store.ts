@@ -397,6 +397,8 @@ export const storeRouter = router({
               verificationStatus: store.business.stripeAccount.verificationStatus,
               chargesEnabled: store.business.stripeAccount.chargesEnabled,
               payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+              requirementsCurrentlyDue: store.business.stripeAccount.requirementsCurrentlyDue,
+              requirementsPastDue: store.business.stripeAccount.requirementsPastDue,
             }
           : null,
         scApplicationStatus: store.scApplicationStatus,
@@ -481,6 +483,8 @@ export const storeRouter = router({
               verificationStatus: store.business.stripeAccount.verificationStatus,
               chargesEnabled: store.business.stripeAccount.chargesEnabled,
               payoutsEnabled: store.business.stripeAccount.payoutsEnabled,
+              requirementsCurrentlyDue: store.business.stripeAccount.requirementsCurrentlyDue,
+              requirementsPastDue: store.business.stripeAccount.requirementsPastDue,
             }
           : null,
         scApplicationStatus: store.scApplicationStatus,

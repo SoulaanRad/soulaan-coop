@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router } from '../trpc.js';
-import { authenticatedProcedure } from '../procedures/index.js';
+import { authenticatedProcedure, privateProcedure } from '../procedures/index.js';
 import { db } from '@repo/db';
 import { TRPCError } from '@trpc/server';
 import {
@@ -350,6 +350,110 @@ export const stripeConnectRouter = router({
         events: paginatedHistory,
         total: history.length,
         hasMore: end < history.length,
+      };
+    }),
+
+  /**
+   * Admin: create or resume Stripe Connect onboarding for any store.
+   * Bypasses store-owner ownership check — admin-only via privateProcedure.
+   */
+  adminInitiateOnboarding: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      email: z.string().email().optional(),
+      businessType: z.enum(['individual', 'company']).default('company'),
+      country: z.string().default('US'),
+      returnUrl: z.string().optional(),
+      refreshUrl: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { storeId, email, businessType, country, returnUrl, refreshUrl } = input;
+
+      const store = await db.store.findUnique({
+        where: { id: storeId },
+        include: {
+          application: true,
+          owner: { select: { id: true, email: true } },
+          business: { include: { stripeAccount: true } },
+        },
+      });
+
+      if (!store) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Store not found' });
+      }
+
+      const resolvedEmail = email || store.owner.email;
+      if (!resolvedEmail) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'No email available for this store owner' });
+      }
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+      const resolvedReturnUrl = returnUrl || `${baseUrl}/portal`;
+      const resolvedRefreshUrl = refreshUrl || `${baseUrl}/portal`;
+
+      if (!store.business) {
+        const newBusiness = await db.business.create({
+          data: {
+            ownerId: store.ownerId,
+            coopId: store.coopId,
+            name: store.application?.businessName || store.name,
+            city: store.application?.businessCity || '',
+            isApproved: false,
+          },
+        });
+
+        await db.store.update({
+          where: { id: storeId },
+          data: { businessId: newBusiness.id },
+        });
+
+        const result = await createConnectAccount({
+          businessId: newBusiness.id,
+          email: resolvedEmail,
+          businessType,
+          country,
+        });
+
+        return {
+          businessId: newBusiness.id,
+          storeId,
+          stripeAccountId: result.stripeAccountId,
+          onboardingUrl: result.onboardingUrl,
+          existingAccount: false,
+        };
+      }
+
+      const businessId = store.business.id;
+
+      if (store.business.stripeAccount) {
+        const onboardingUrl = await generateOnboardingLink({
+          accountId: store.business.stripeAccount.stripeAccountId,
+          refreshUrl: resolvedRefreshUrl,
+          returnUrl: resolvedReturnUrl,
+        });
+
+        return {
+          businessId,
+          storeId,
+          stripeAccountId: store.business.stripeAccount.stripeAccountId,
+          onboardingUrl,
+          existingAccount: true,
+        };
+      }
+
+      const result = await createConnectAccount({
+        businessId,
+        email: resolvedEmail,
+        businessType,
+        country,
+      });
+
+      return {
+        businessId,
+        storeId,
+        stripeAccountId: result.stripeAccountId,
+        onboardingUrl: result.onboardingUrl,
+        existingAccount: false,
       };
     }),
 
