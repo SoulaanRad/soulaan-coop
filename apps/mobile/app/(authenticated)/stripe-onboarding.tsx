@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
-  BadgeCheck,
   CreditCard,
   ExternalLink,
   AlertTriangle,
@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   RefreshCw,
+  Copy,
+  Globe,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { useCoin } from '@/contexts/platform-config-context';
@@ -109,6 +111,9 @@ export default function StripeOnboardingScreen() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null);
+  const [pendingBusinessId, setPendingBusinessId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const loadStore = useCallback(async () => {
     if (!user?.walletAddress) return;
@@ -166,29 +171,43 @@ export default function StripeOnboardingScreen() {
     }
   }, [user, store?.businessId, loadStore]);
 
-  const handleSetupPayments = async () => {
+  const handleGetLink = async () => {
     if (!user?.walletAddress || !user?.id || !storeId) return;
-
     try {
       setStarting(true);
       const result = await api.createBusinessForStore({
         userId: user.id,
         storeId,
-        email: user.email || store?.application?.ownerEmail || '',
+        email: user.email || '',
         businessType: 'company',
         country: 'US',
       }, user.walletAddress);
-
-      // Open Stripe's hosted onboarding in a browser
-      await WebBrowser.openBrowserAsync(result.onboardingUrl);
-
-      // Auto-sync using the returned businessId — store state may still be stale
-      await syncStatus(true, result.businessId);
+      setOnboardingUrl(result.onboardingUrl);
+      setPendingBusinessId(result.businessId);
     } catch (error: any) {
-      Alert.alert('Setup Error', error.message || 'Failed to start payment setup');
+      Alert.alert('Setup Error', error.message || 'Failed to generate setup link');
     } finally {
       setStarting(false);
     }
+  };
+
+  const handleOpenInApp = async () => {
+    if (!onboardingUrl) return;
+    await WebBrowser.openBrowserAsync(onboardingUrl);
+    // Auto-sync after the in-app browser closes
+    await syncStatus(true, pendingBusinessId ?? undefined);
+  };
+
+  const handleOpenInBrowser = () => {
+    if (!onboardingUrl) return;
+    Linking.openURL(onboardingUrl);
+  };
+
+  const handleCopyLink = async () => {
+    if (!onboardingUrl) return;
+    await Clipboard.setStringAsync(onboardingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   if (loading) {
@@ -296,10 +315,10 @@ export default function StripeOnboardingScreen() {
 
       {/* Action buttons */}
       <View className="px-5 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 gap-3">
-        {/* Primary action — setup or finish */}
-        {!stripeReady && (
+        {!stripeReady && !onboardingUrl && (
+          /* Generate link button */
           <TouchableOpacity
-            onPress={handleSetupPayments}
+            onPress={handleGetLink}
             disabled={starting}
             className="bg-amber-500 py-4 rounded-xl flex-row items-center justify-center"
           >
@@ -316,11 +335,45 @@ export default function StripeOnboardingScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Link options — shown after URL is generated */}
+        {!stripeReady && onboardingUrl && (
+          <View className="gap-2">
+            <Text className="text-xs text-gray-500 dark:text-gray-400 text-center mb-1">
+              Open Stripe to complete your setup
+            </Text>
+            <TouchableOpacity
+              onPress={handleOpenInApp}
+              className="bg-amber-500 py-4 rounded-xl flex-row items-center justify-center"
+            >
+              <ExternalLink size={18} color="white" />
+              <Text className="text-white font-bold ml-2">Open in App</Text>
+            </TouchableOpacity>
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={handleOpenInBrowser}
+                className="flex-1 bg-gray-100 dark:bg-gray-700 py-3 rounded-xl flex-row items-center justify-center"
+              >
+                <Globe size={16} color="#B45309" />
+                <Text className="text-gray-900 dark:text-white font-semibold ml-2 text-sm">Open in Browser</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCopyLink}
+                className="flex-1 bg-gray-100 dark:bg-gray-700 py-3 rounded-xl flex-row items-center justify-center"
+              >
+                <Copy size={16} color={copied ? '#16A34A' : '#B45309'} />
+                <Text className={`font-semibold ml-2 text-sm ${copied ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                  {copied ? 'Copied!' : 'Copy Link'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Check status */}
         {!stripeReady && (
           <TouchableOpacity
-            onPress={() => syncStatus(false)}
-            disabled={syncing || !store?.businessId}
+            onPress={() => syncStatus(false, pendingBusinessId ?? undefined)}
+            disabled={syncing || (!store?.businessId && !pendingBusinessId)}
             className="bg-gray-100 dark:bg-gray-700 py-4 rounded-xl flex-row items-center justify-center"
           >
             {syncing ? (
