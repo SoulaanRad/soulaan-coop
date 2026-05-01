@@ -520,12 +520,12 @@ export const storeRouter = router({
       imageUrl: z.string().url().optional(),
       bannerUrl: z.string().url().optional(),
 
-      // Business info
-      businessName: z.string().min(2),
-      businessAddress: z.string().min(5),
-      businessCity: z.string().min(2),
-      businessState: z.string().min(2),
-      businessZip: z.string().min(5),
+      // Business info (optional — Stripe collects verified details during Connect onboarding)
+      businessName: z.string().min(2).optional(),
+      businessAddress: z.string().optional(),
+      businessCity: z.string().optional(),
+      businessState: z.string().optional(),
+      businessZip: z.string().optional(),
 
       // Owner info
       ownerName: z.string().min(2),
@@ -598,11 +598,11 @@ export const storeRouter = router({
         await tx.storeApplication.create({
           data: {
             storeId: newStore.id,
-            businessName: input.businessName,
-            businessAddress: input.businessAddress,
-            businessCity: input.businessCity,
-            businessState: input.businessState,
-            businessZip: input.businessZip,
+            businessName: input.businessName || input.storeName,
+            businessAddress: input.businessAddress || '',
+            businessCity: input.businessCity || '',
+            businessState: input.businessState || '',
+            businessZip: input.businessZip || '',
             ownerName: input.ownerName,
             ownerEmail: input.ownerEmail,
             ownerPhone: input.ownerPhone,

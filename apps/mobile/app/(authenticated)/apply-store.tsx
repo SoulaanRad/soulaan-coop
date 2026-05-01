@@ -16,7 +16,6 @@ import { router } from 'expo-router';
 import {
   ArrowLeft,
   Store,
-  Building2,
   User,
   CheckCircle2,
   ChevronRight,
@@ -29,7 +28,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import MinIOPhotoUpload from '@/components/minio-photo-upload';
 
-type Step = 'store' | 'business' | 'owner' | 'review';
+type Step = 'store' | 'owner' | 'review';
 
 export default function ApplyStoreScreen() {
   const { user } = useAuth();
@@ -40,21 +39,11 @@ export default function ApplyStoreScreen() {
 
   // Form data
   const [formData, setFormData] = useState({
-    // Store info
     storeName: '',
     storeDescription: '',
     category: '',
     storeImageUrl: '',
     storeBannerUrl: '',
-
-    // Business info
-    businessName: '',
-    businessAddress: '',
-    businessCity: '',
-    businessState: '',
-    businessZip: '',
-
-    // Owner info
     ownerName: user?.name || '',
     ownerEmail: user?.email || '',
     ownerPhone: user?.phone || '',
@@ -64,24 +53,22 @@ export default function ApplyStoreScreen() {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showBannerUpload, setShowBannerUpload] = useState(false);
 
-  const updateField = (field: string, value: string | number) => {
+  const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const steps: { key: Step; label: string; icon: any }[] = [
     { key: 'store', label: 'Store', icon: Store },
-    { key: 'business', label: 'Business', icon: Building2 },
     { key: 'owner', label: 'Owner', icon: User },
     { key: 'review', label: 'Review', icon: CheckCircle2 },
   ];
 
   const currentStepIndex = steps.findIndex((s) => s.key === currentStep);
 
-  // Load store categories on mount
   React.useEffect(() => {
     const loadCategories = async () => {
       try {
-        const categories = await api.getStoreCategories(false); // Don't include admin-only
+        const categories = await api.getStoreCategories(false);
         setStoreCategories(categories);
       } catch (error) {
         console.error('Failed to load store categories:', error);
@@ -106,17 +93,6 @@ export default function ApplyStoreScreen() {
           return false;
         }
         return true;
-      case 'business':
-        if (!formData.businessName.trim()) {
-          Alert.alert('Required', 'Please enter your business name');
-          return false;
-        }
-        if (!formData.businessAddress.trim() || !formData.businessCity.trim() ||
-            !formData.businessState.trim() || !formData.businessZip.trim()) {
-          Alert.alert('Required', 'Please enter your complete business address');
-          return false;
-        }
-        return true;
       case 'owner':
         if (!formData.ownerName.trim() || !formData.ownerEmail.trim() || !formData.ownerPhone.trim()) {
           Alert.alert('Required', 'Please enter all owner information');
@@ -130,7 +106,6 @@ export default function ApplyStoreScreen() {
 
   const nextStep = () => {
     if (!validateStep()) return;
-
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
       setCurrentStep(steps[nextIndex].key);
@@ -152,7 +127,6 @@ export default function ApplyStoreScreen() {
 
     setLoading(true);
     try {
-      // Normalize website URL - add https:// if missing and not empty
       let websiteUrl = formData.websiteUrl?.trim();
       if (websiteUrl && !websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
         websiteUrl = `https://${websiteUrl}`;
@@ -164,11 +138,6 @@ export default function ApplyStoreScreen() {
         category: formData.category,
         imageUrl: formData.storeImageUrl || undefined,
         bannerUrl: formData.storeBannerUrl || undefined,
-        businessName: formData.businessName,
-        businessAddress: formData.businessAddress,
-        businessCity: formData.businessCity,
-        businessState: formData.businessState,
-        businessZip: formData.businessZip,
         ownerName: formData.ownerName,
         ownerEmail: formData.ownerEmail,
         ownerPhone: formData.ownerPhone,
@@ -203,9 +172,7 @@ export default function ApplyStoreScreen() {
       </Text>
 
       <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Store Name *
-        </Text>
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Store Name *</Text>
         <TextInput
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
           placeholder="Enter your store name"
@@ -216,9 +183,7 @@ export default function ApplyStoreScreen() {
       </View>
 
       <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Category *
-        </Text>
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category *</Text>
         <TouchableOpacity
           onPress={() => setShowCategoryPicker(!showCategoryPicker)}
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 flex-row items-center justify-between"
@@ -241,11 +206,11 @@ export default function ApplyStoreScreen() {
                   formData.category === cat.key ? 'bg-amber-50 dark:bg-amber-900/30' : ''
                 }`}
               >
-                <Text className={`${
+                <Text className={
                   formData.category === cat.key
                     ? 'text-amber-600 dark:text-amber-400 font-semibold'
                     : 'text-gray-700 dark:text-gray-300'
-                }`}>
+                }>
                   {cat.label}
                 </Text>
               </TouchableOpacity>
@@ -272,7 +237,6 @@ export default function ApplyStoreScreen() {
         </Text>
       </View>
 
-      {/* Store Image */}
       <View className="mb-4">
         <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Store Image (Optional)
@@ -303,7 +267,6 @@ export default function ApplyStoreScreen() {
         )}
       </View>
 
-      {/* Store Banner */}
       <View className="mb-4">
         <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Store Banner (Optional)
@@ -336,93 +299,14 @@ export default function ApplyStoreScreen() {
     </View>
   );
 
-  const renderBusinessStep = () => (
-    <View className="px-5">
-      <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Business Information
-      </Text>
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Business Name *
-        </Text>
-        <TextInput
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-          placeholder="Legal or DBA business name"
-          placeholderTextColor="#9CA3AF"
-          value={formData.businessName}
-          onChangeText={(v) => updateField('businessName', v)}
-        />
-      </View>
-
-      <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Business Address *
-      </Text>
-      <TextInput
-        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white mb-3"
-        placeholder="Street Address"
-        placeholderTextColor="#9CA3AF"
-        value={formData.businessAddress}
-        onChangeText={(v) => updateField('businessAddress', v)}
-      />
-      <View className="flex-row gap-3 mb-3">
-        <TextInput
-          className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-          placeholder="City"
-          placeholderTextColor="#9CA3AF"
-          value={formData.businessCity}
-          onChangeText={(v) => updateField('businessCity', v)}
-        />
-        <TextInput
-          className="w-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-          placeholder="State"
-          placeholderTextColor="#9CA3AF"
-          value={formData.businessState}
-          onChangeText={(v) => updateField('businessState', v)}
-          maxLength={2}
-          autoCapitalize="characters"
-        />
-      </View>
-      <TextInput
-        className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white mb-4"
-        placeholder="ZIP Code"
-        placeholderTextColor="#9CA3AF"
-        value={formData.businessZip}
-        onChangeText={(v) => updateField('businessZip', v)}
-        keyboardType="numeric"
-        maxLength={10}
-      />
-
-      <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Website URL (Optional)
-        </Text>
-        <TextInput
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
-          placeholder="yourwebsite.com or https://yourwebsite.com"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="url"
-          autoCapitalize="none"
-          value={formData.websiteUrl}
-          onChangeText={(v) => updateField('websiteUrl', v)}
-        />
-        <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          We&apos;ll add https:// if needed
-        </Text>
-      </View>
-    </View>
-  );
-
   const renderOwnerStep = () => (
     <View className="px-5">
       <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Owner Information
+        Your Information
       </Text>
 
       <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Full Name *
-        </Text>
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name *</Text>
         <TextInput
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
           placeholder="Your full name"
@@ -433,9 +317,7 @@ export default function ApplyStoreScreen() {
       </View>
 
       <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Email *
-        </Text>
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email *</Text>
         <TextInput
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
           placeholder="your@email.com"
@@ -448,9 +330,7 @@ export default function ApplyStoreScreen() {
       </View>
 
       <View className="mb-4">
-        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Phone *
-        </Text>
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone *</Text>
         <TextInput
           className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
           placeholder="(555) 555-5555"
@@ -459,6 +339,24 @@ export default function ApplyStoreScreen() {
           value={formData.ownerPhone}
           onChangeText={(v) => updateField('ownerPhone', v)}
         />
+      </View>
+
+      <View className="mb-4">
+        <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Website (Optional)
+        </Text>
+        <TextInput
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white"
+          placeholder="yourwebsite.com"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="url"
+          autoCapitalize="none"
+          value={formData.websiteUrl}
+          onChangeText={(v) => updateField('websiteUrl', v)}
+        />
+        <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          We&apos;ll add https:// if needed
+        </Text>
       </View>
     </View>
   );
@@ -484,17 +382,7 @@ export default function ApplyStoreScreen() {
 
       <View className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
         <Text className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-2">
-          Business Information
-        </Text>
-        <Text className="text-gray-900 dark:text-white font-medium">{formData.businessName}</Text>
-        <Text className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-          {formData.businessAddress}, {formData.businessCity}, {formData.businessState} {formData.businessZip}
-        </Text>
-      </View>
-
-      <View className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4">
-        <Text className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-2">
-          Owner Information
+          Your Information
         </Text>
         <Text className="text-gray-900 dark:text-white font-medium">{formData.ownerName}</Text>
         <Text className="text-gray-500 dark:text-gray-400 text-sm">{formData.ownerEmail}</Text>
@@ -509,7 +397,7 @@ export default function ApplyStoreScreen() {
           </Text>
         </View>
         <Text className="text-amber-700 dark:text-amber-300 text-sm">
-          After you submit this form, you will complete Stripe Connect onboarding. Your store goes live as soon as Stripe enables charges, and then you can optionally apply for SC verification.
+          After submitting, you&apos;ll complete Stripe Connect to verify your identity and set up payouts. Your store goes live as soon as Stripe enables charges.
         </Text>
       </View>
     </View>
@@ -527,7 +415,7 @@ export default function ApplyStoreScreen() {
             <ArrowLeft size={24} color="#374151" />
           </TouchableOpacity>
           <Text className="text-lg font-semibold text-gray-900 dark:text-white">
-            Become a Store
+            Open a Store
           </Text>
           <View className="w-6" />
         </View>
@@ -586,7 +474,6 @@ export default function ApplyStoreScreen() {
         {/* Content */}
         <ScrollView className="flex-1 py-4" showsVerticalScrollIndicator={false}>
           {currentStep === 'store' && renderStoreStep()}
-          {currentStep === 'business' && renderBusinessStep()}
           {currentStep === 'owner' && renderOwnerStep()}
           {currentStep === 'review' && renderReviewStep()}
         </ScrollView>
@@ -599,9 +486,7 @@ export default function ApplyStoreScreen() {
                 onPress={prevStep}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 py-4 rounded-xl"
               >
-                <Text className="text-center text-gray-700 dark:text-gray-300 font-semibold">
-                  Back
-                </Text>
+                <Text className="text-center text-gray-700 dark:text-gray-300 font-semibold">Back</Text>
               </TouchableOpacity>
             )}
             {currentStep === 'review' ? (
@@ -613,7 +498,7 @@ export default function ApplyStoreScreen() {
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-center text-white font-bold">Submit Application</Text>
+                  <Text className="text-center text-white font-bold">Create Store</Text>
                 )}
               </TouchableOpacity>
             ) : (
