@@ -194,43 +194,44 @@ export default function StoresScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-[#F7F4EF]">
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#B45309" />
-          <Text className="text-gray-500 mt-4">Loading marketplace...</Text>
+          <ActivityIndicator size="large" color="#7F1D1D" />
+          <Text className="text-slate-500 mt-4">Loading marketplace...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F7F4EF]" edges={['top']}>
       <ScrollView
         className="flex-1"
+        contentContainerStyle={{ paddingBottom: 112 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B45309" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7F1D1D" />
         }
         showsVerticalScrollIndicator={false}
       >
         <View className="p-5">
           {/* Header */}
-          <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center justify-between mb-5">
             <View className="flex-row items-center">
-              <TouchableOpacity onPress={() => router.back()} className="mr-3">
-                <ArrowLeft size={24} color="#374151" />
+              <TouchableOpacity onPress={() => router.back()} className="mr-3 h-11 w-11 items-center justify-center rounded-2xl bg-white">
+                <ArrowLeft size={22} color="#334155" />
               </TouchableOpacity>
               <View>
-                <Text className="text-xl font-bold text-gray-800">Co-op Store</Text>
-                <Text className="text-sm text-gray-500">Community-owned marketplace</Text>
+                <Text className="text-xs font-bold uppercase tracking-[2px] text-red-900/60">Marketplace</Text>
+                <Text className="text-2xl font-black text-slate-950">Co-op Store</Text>
               </View>
             </View>
             <View className="flex-row items-center">
               {/* Cart Button */}
               <TouchableOpacity
                 onPress={() => router.push('/(authenticated)/cart')}
-                className="mr-3 relative"
+                className="mr-3 h-11 w-11 items-center justify-center rounded-2xl bg-white relative"
               >
-                <ShoppingCart size={24} color="#374151" />
+                <ShoppingCart size={22} color="#334155" />
                 {totalItems > 0 && (
                   <View className="absolute -top-2 -right-2 bg-red-600 rounded-full min-w-[18px] h-[18px] items-center justify-center">
                     <Text className="text-white text-xs font-bold">
@@ -242,7 +243,7 @@ export default function StoresScreen() {
             {myStore ? (
               <TouchableOpacity
                 onPress={() => router.push('/my-stores')}
-                className="bg-amber-600 px-3 py-2 rounded-lg flex-row items-center"
+                className="bg-red-900 px-3 py-3 rounded-2xl flex-row items-center"
               >
                 <Store size={16} color="white" />
                 <Text className="text-white font-semibold text-sm ml-1">My Stores</Text>
@@ -250,7 +251,7 @@ export default function StoresScreen() {
             ) : (
               <TouchableOpacity
                 onPress={() => router.push('/apply-store')}
-                className="bg-red-700 px-3 py-2 rounded-lg flex-row items-center"
+                className="bg-red-900 px-3 py-3 rounded-2xl flex-row items-center"
               >
                 <Plus size={16} color="white" />
                 <Text className="text-white font-semibold text-sm ml-1">Create Store</Text>
@@ -260,20 +261,20 @@ export default function StoresScreen() {
           </View>
 
           {/* Store Info Banner */}
-          <View className="rounded-2xl overflow-hidden mb-4">
+          <View className="rounded-[28px] overflow-hidden mb-4" style={{ shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.16, shadowRadius: 20, elevation: 7 }}>
             <LinearGradient
-              colors={['#D97706', '#B45309']}
+              colors={['#7F1D1D', '#C2410C', '#F59E0B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ padding: 16 }}
+              style={{ padding: 20 }}
             >
               <View className="flex-row items-start">
-                <View className="w-10 h-10 bg-white/20 rounded-full items-center justify-center mr-3">
+                <View className="w-12 h-12 bg-white/15 rounded-2xl items-center justify-center mr-3">
                   <ShoppingBag size={20} color="white" />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-semibold text-white mb-1">Support Local, Build Wealth</Text>
-                  <Text className="text-xs text-amber-100 leading-5">
+                  <Text className="font-black text-xl text-white mb-1">Support Local, Build Wealth</Text>
+                  <Text className="text-sm text-orange-100 leading-5">
                     Every purchase supports community members. {coin.symbol} Verified stores earn {coin.symbol} from every transaction.
                   </Text>
                 </View>
@@ -282,23 +283,34 @@ export default function StoresScreen() {
           </View>
 
           {/* SC Eligibility Info */}
-          <View className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
+          <View className="bg-white border border-emerald-100 rounded-[22px] p-4 mb-4">
             <View className="flex-row items-start">
               <CheckCircle size={16} color="#16A34A" style={{ marginTop: 2 }} />
               <View className="flex-1 ml-2">
-                <Text className="text-xs text-green-800 leading-5">
+                <Text className="text-xs text-emerald-800 leading-5">
                   <Text className="font-bold">Want to earn {coin.symbol} from sales?</Text> Create a store and submit a proposal. Only stores that pass community deliberation become {coin.symbol} Verified and earn {coin.symbol} from purchases.
                 </Text>
               </View>
             </View>
           </View>
 
+          <View className="mb-4 flex-row items-center rounded-[22px] border border-white bg-white px-4 py-3">
+            <Search size={18} color="#94A3B8" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search products and stores"
+              placeholderTextColor="#94A3B8"
+              className="ml-3 flex-1 text-sm text-slate-900"
+            />
+          </View>
+
           {/* View Tabs */}
-          <View className="flex-row border-b border-gray-200 mb-4">
+          <View className="flex-row rounded-[22px] bg-white p-1 mb-4">
             <TouchableOpacity
               onPress={() => setViewMode('popular')}
-              className={`px-4 py-3 mr-2 rounded-t-lg ${
-                viewMode === 'popular' ? 'bg-amber-600' : 'bg-transparent'
+              className={`flex-1 px-4 py-3 rounded-2xl items-center ${
+                viewMode === 'popular' ? 'bg-red-900' : 'bg-transparent'
               }`}
             >
               <Text className={`text-sm font-medium ${
@@ -309,8 +321,8 @@ export default function StoresScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setViewMode('stores')}
-              className={`px-4 py-3 rounded-t-lg ${
-                viewMode === 'stores' ? 'bg-amber-600' : 'bg-transparent'
+              className={`flex-1 px-4 py-3 rounded-2xl items-center ${
+                viewMode === 'stores' ? 'bg-red-900' : 'bg-transparent'
               }`}
             >
               <Text className={`text-sm font-medium ${
@@ -332,7 +344,7 @@ export default function StoresScreen() {
                     onPress={() => setSelectedCategory(null)}
                     className={`mx-1 px-3 py-2 rounded-full border ${
                       selectedCategory === null
-                        ? 'bg-amber-600 border-amber-600'
+                        ? 'bg-red-900 border-red-900'
                         : 'bg-white border-gray-200'
                     }`}
                   >
@@ -348,7 +360,7 @@ export default function StoresScreen() {
                       onPress={() => setSelectedCategory(cat.key)}
                       className={`mx-1 px-3 py-2 rounded-full border ${
                         selectedCategory === cat.key
-                          ? 'bg-amber-600 border-amber-600'
+                          ? 'bg-red-900 border-red-900'
                           : 'bg-white border-gray-200'
                       }`}
                     >
@@ -376,12 +388,12 @@ export default function StoresScreen() {
                     <TouchableOpacity
                       key={product.id}
                       onPress={() => router.push(`/product-detail?id=${product.id}`)}
-                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden"
+                      className="bg-white rounded-[24px] mb-3 overflow-hidden"
                     >
                       <View className="p-4">
                         <View className="flex-row">
                           {/* Product Image */}
-                          <View className="w-20 h-20 bg-gray-100 rounded-lg items-center justify-center mr-3">
+                          <View className="w-20 h-20 bg-slate-100 rounded-2xl items-center justify-center mr-3">
                             {product.imageUrl ? (
                               <Image
                                 source={{ uri: product.imageUrl }}
@@ -399,7 +411,7 @@ export default function StoresScreen() {
                               {product.name}
                             </Text>
                             <View className="flex-row items-center mt-1">
-                              <View className="w-4 h-4 bg-amber-600 rounded-full items-center justify-center mr-1">
+                              <View className="w-4 h-4 bg-red-900 rounded-2xl items-center justify-center mr-1">
                                 <Text className="text-white text-xs font-bold">
                                   {product.store.name.charAt(0)}
                                 </Text>
@@ -421,11 +433,11 @@ export default function StoresScreen() {
 
                         {/* Price Section */}
                         <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <Text className="text-lg font-bold text-amber-700">
+                          <Text className="text-lg font-bold text-red-900">
                             ${formatPrice(product.priceUSD)}
                           </Text>
                           {getCartQuantity(product.id) > 0 ? (
-                            <View className="flex-row items-center bg-gray-100 rounded-lg">
+                            <View className="flex-row items-center bg-slate-100 rounded-2xl">
                               <TouchableOpacity
                                 onPress={() => {
                                   const qty = getCartQuantity(product.id);
@@ -438,9 +450,9 @@ export default function StoresScreen() {
                                 className="p-2"
                                 activeOpacity={0.7}
                               >
-                                <Minus size={16} color="#B45309" />
+                                <Minus size={16} color="#7F1D1D" />
                               </TouchableOpacity>
-                              <Text className="text-amber-700 font-bold text-sm min-w-[24px] text-center">
+                              <Text className="text-red-900 font-bold text-sm min-w-[24px] text-center">
                                 {getCartQuantity(product.id)}
                               </Text>
                               <TouchableOpacity
@@ -451,13 +463,13 @@ export default function StoresScreen() {
                                 className="p-2"
                                 activeOpacity={0.7}
                               >
-                                <Plus size={16} color="#B45309" />
+                                <Plus size={16} color="#7F1D1D" />
                               </TouchableOpacity>
                             </View>
                           ) : (
                             <TouchableOpacity
                               onPress={() => handleAddToCart(product)}
-                              className="bg-red-700 px-4 py-2 rounded-lg flex-row items-center"
+                              className="bg-red-900 px-4 py-2 rounded-2xl flex-row items-center"
                               activeOpacity={0.7}
                             >
                               <ShoppingCart size={14} color="white" />
@@ -485,12 +497,12 @@ export default function StoresScreen() {
                       <TouchableOpacity
                         key={store.id}
                         onPress={() => router.push(`/store-detail?id=${store.id}`)}
-                        className="bg-white rounded-2xl mr-3 shadow-sm overflow-hidden"
+                        className="bg-white rounded-[24px] mr-3 overflow-hidden"
                         style={{ width: 200 }}
                       >
                         <View className="p-3">
                           <View className="flex-row items-center mb-2">
-                            <View className="w-12 h-12 bg-red-700 rounded-full items-center justify-center mr-3">
+                            <View className="w-12 h-12 bg-red-900 rounded-full items-center justify-center mr-3">
                               {store.imageUrl ? (
                                 <Image
                                   source={{ uri: store.imageUrl }}
@@ -536,8 +548,8 @@ export default function StoresScreen() {
                               }}
                               className="flex-row items-center border border-amber-600 px-2 py-1 rounded"
                             >
-                              <Text className="text-amber-700 text-xs font-medium">Visit</Text>
-                              <ChevronRight size={12} color="#B45309" />
+                              <Text className="text-red-900 text-xs font-medium">Visit</Text>
+                              <ChevronRight size={12} color="#7F1D1D" />
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -555,7 +567,7 @@ export default function StoresScreen() {
                     onPress={() => setSelectedCategory(null)}
                     className={`mx-1 px-3 py-2 rounded-full border ${
                       selectedCategory === null
-                        ? 'bg-amber-600 border-amber-600'
+                        ? 'bg-red-900 border-red-900'
                         : 'bg-white border-gray-200'
                     }`}
                   >
@@ -571,7 +583,7 @@ export default function StoresScreen() {
                       onPress={() => setSelectedCategory(cat.key)}
                       className={`mx-1 px-3 py-2 rounded-full border ${
                         selectedCategory === cat.key
-                          ? 'bg-amber-600 border-amber-600'
+                          ? 'bg-red-900 border-red-900'
                           : 'bg-white border-gray-200'
                       }`}
                     >
@@ -600,12 +612,12 @@ export default function StoresScreen() {
                     <TouchableOpacity
                       key={store.id}
                       onPress={() => router.push(`/store-detail?id=${store.id}`)}
-                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden"
+                      className="bg-white rounded-[24px] mb-3 overflow-hidden"
                     >
                       <View className="p-4">
                         <View className="flex-row">
                           {/* Store Avatar */}
-                          <View className="w-14 h-14 bg-red-700 rounded-full items-center justify-center mr-3">
+                          <View className="w-14 h-14 bg-red-900 rounded-full items-center justify-center mr-3">
                             {store.imageUrl ? (
                               <Image
                                 source={{ uri: store.imageUrl }}
@@ -669,7 +681,7 @@ export default function StoresScreen() {
                             e.stopPropagation();
                             router.push(`/store-detail?id=${store.id}`);
                           }}
-                          className="bg-red-700 mt-3 py-3 rounded-xl flex-row items-center justify-center"
+                          className="bg-red-900 mt-3 py-3 rounded-2xl flex-row items-center justify-center"
                         >
                           <Text className="text-white font-semibold">Visit Store</Text>
                           <ChevronRight size={16} color="white" style={{ marginLeft: 4 }} />

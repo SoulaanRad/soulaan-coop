@@ -37,18 +37,18 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView className="flex-1">
+    <SafeAreaView className="flex-1 bg-[#F7F4EF]">
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 112 }} showsVerticalScrollIndicator={false}>
         {/* Profile Header with Gradient */}
         <LinearGradient
-          colors={['#78350F', '#D97706']}
+          colors={['#450A0A', '#7F1D1D', '#C2410C']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingTop: 48, paddingBottom: 60, paddingHorizontal: 24 }}
+          style={{ paddingTop: 46, paddingBottom: 74, paddingHorizontal: 24 }}
         >
           <View className="items-center">
             {/* Avatar Circle */}
-            <View className="w-24 h-24 rounded-full bg-white/20 items-center justify-center mb-4 border-4 border-white/30">
+            <View className="w-24 h-24 rounded-[32px] bg-white/15 items-center justify-center mb-4 border border-white/25">
               <Text className="text-white text-3xl font-bold">
                 {(user?.name || user?.email || '?').charAt(0).toUpperCase()}
               </Text>
@@ -56,11 +56,11 @@ export default function ProfileScreen() {
             <Text className="text-2xl font-bold text-white">
               {user?.name || 'Member'}
             </Text>
-            <Text className="text-amber-200 mt-1">
+            <Text className="text-orange-100 mt-1">
               {user?.email}
             </Text>
             {user?.phone && (
-              <Text className="text-amber-300 text-sm mt-1">
+              <Text className="text-orange-200 text-sm mt-1">
                 {user.phone}
               </Text>
             )}
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
 
         <View className="px-6 -mt-10">
           {/* Status Card */}
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-lg" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 }}>
+          <View className="bg-white rounded-[24px] p-5 mb-6" style={{ shadowColor: '#0F172A', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 18, elevation: 7 }}>
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
                 <View className="w-3 h-3 rounded-full bg-green-500 mr-2" />
@@ -78,8 +78,8 @@ export default function ProfileScreen() {
                   {user?.status?.toLowerCase() || 'Active'}
                 </Text>
               </View>
-              <View className="bg-amber-100 px-3 py-1 rounded-full">
-                <Text className="text-amber-700 text-sm font-medium capitalize">
+              <View className="bg-orange-50 px-3 py-1 rounded-full">
+                <Text className="text-red-900 text-sm font-medium capitalize">
                   {user?.roles?.join(', ') || 'Member'}
                 </Text>
               </View>
@@ -88,11 +88,11 @@ export default function ProfileScreen() {
 
           {/* Wallet Address */}
           {user?.walletAddress && (
-            <View className="bg-white rounded-2xl p-5 mb-4">
+            <View className="bg-white rounded-[24px] p-5 mb-4">
               <Text className="text-sm text-gray-500 mb-3 font-medium">Wallet Address</Text>
               <TouchableOpacity
                 onPress={handleCopyAddress}
-                className="flex-row items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100"
+                className="flex-row items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100"
               >
                 <Text className="text-sm font-mono text-gray-700">
                   {shortenAddress(user.walletAddress)}
@@ -112,11 +112,11 @@ export default function ProfileScreen() {
           {/* Add Money CTA */}
           <TouchableOpacity
             onPress={() => router.push('/fund-wallet' as any)}
-            className="rounded-2xl overflow-hidden mb-4"
+            className="rounded-[28px] overflow-hidden mb-4"
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#DC2626', '#D97706']}
+              colors={['#7F1D1D', '#C2410C', '#F59E0B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ padding: 20 }}
@@ -128,20 +128,20 @@ export default function ProfileScreen() {
                     Top up instantly with your saved card.
                   </Text>
                 </View>
-                <View className="w-12 h-12 rounded-xl bg-white/20 items-center justify-center">
+                <View className="w-12 h-12 rounded-2xl bg-white/15 items-center justify-center">
                   <Wallet size={22} color="#FFFFFF" />
                 </View>
               </View>
 
-              <View className="mt-4 self-start bg-white px-4 py-2 rounded-xl flex-row items-center">
-                <Plus size={16} color="#B45309" />
-                <Text className="text-amber-700 font-semibold ml-2">Add Money</Text>
+              <View className="mt-4 self-start bg-white px-4 py-2 rounded-2xl flex-row items-center">
+                <Plus size={16} color="#7F1D1D" />
+                <Text className="text-red-900 font-semibold ml-2">Add Money</Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>
 
           {/* Quick Actions */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4">
+          <View className="bg-white rounded-[24px] overflow-hidden mb-4">
             <Text className="text-sm text-gray-500 px-5 pt-5 pb-3 font-medium">Payment & Banking</Text>
 
             <TouchableOpacity
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Account Info */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-4">
+          <View className="bg-white rounded-[24px] overflow-hidden mb-4">
             <Text className="text-sm text-gray-500 px-5 pt-5 pb-3 font-medium">Account</Text>
 
             <View className="px-5 py-4 border-b border-gray-100">
@@ -211,7 +211,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Support & Help */}
-          <View className="bg-white rounded-2xl overflow-hidden mb-6">
+          <View className="bg-white rounded-[24px] overflow-hidden mb-6">
             <TouchableOpacity
               className="flex-row items-center px-5 py-4 border-b border-gray-100 active:bg-gray-50"
             >

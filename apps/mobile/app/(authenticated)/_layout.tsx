@@ -3,6 +3,11 @@ import { View } from 'react-native';
 import { Home, User, Store, FileText } from 'lucide-react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+const ACTIVE = '#7F1D1D';
+const ACTIVE_BG = '#FFF7ED';
+const INACTIVE_LIGHT = '#94A3B8';
+const INACTIVE_DARK = '#64748B';
+
 export default function AuthenticatedLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -11,27 +16,37 @@ export default function AuthenticatedLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#B45309',
-        tabBarInactiveTintColor: isDark ? '#6B7280' : '#9CA3AF',
+        tabBarActiveTintColor: ACTIVE,
+        tabBarInactiveTintColor: isDark ? INACTIVE_DARK : INACTIVE_LIGHT,
         tabBarStyle: {
-          backgroundColor: isDark ? '#111827' : '#FFFFFF',
+          position: 'absolute',
+          left: 18,
+          right: 18,
+          bottom: 14,
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.96)',
           borderTopWidth: 0,
-          elevation: 20,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          height: 85,
-          paddingTop: 8,
-          paddingBottom: 28,
+          borderRadius: 28,
+          elevation: 18,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.16,
+          shadowRadius: 22,
+          height: 72,
+          paddingTop: 10,
+          paddingBottom: 10,
+          paddingHorizontal: 10,
+        },
+        tabBarItemStyle: {
+          borderRadius: 22,
+          minHeight: 52,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
+          fontWeight: '700',
+          marginTop: 2,
         },
         tabBarIconStyle: {
-          marginTop: 4,
+          marginTop: 0,
         },
       }}
     >
@@ -41,10 +56,10 @@ export default function AuthenticatedLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? {
-              backgroundColor: '#FEF3C7',
-              borderRadius: 12,
-              padding: 8,
-            } : { padding: 8 }}>
+              backgroundColor: ACTIVE_BG,
+              borderRadius: 18,
+              padding: 9,
+            } : { padding: 9 }}>
               <Home color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
@@ -56,10 +71,10 @@ export default function AuthenticatedLayout() {
           title: 'Shop',
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? {
-              backgroundColor: '#FEF3C7',
-              borderRadius: 12,
-              padding: 8,
-            } : { padding: 8 }}>
+              backgroundColor: ACTIVE_BG,
+              borderRadius: 18,
+              padding: 9,
+            } : { padding: 9 }}>
               <Store color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
@@ -73,10 +88,10 @@ export default function AuthenticatedLayout() {
           title: 'Proposals',
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? {
-              backgroundColor: '#FEF3C7',
-              borderRadius: 12,
-              padding: 8,
-            } : { padding: 8 }}>
+              backgroundColor: ACTIVE_BG,
+              borderRadius: 18,
+              padding: 9,
+            } : { padding: 9 }}>
               <FileText color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
@@ -88,10 +103,10 @@ export default function AuthenticatedLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? {
-              backgroundColor: '#FEF3C7',
-              borderRadius: 12,
-              padding: 8,
-            } : { padding: 8 }}>
+              backgroundColor: ACTIVE_BG,
+              borderRadius: 18,
+              padding: 9,
+            } : { padding: 9 }}>
               <User color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),

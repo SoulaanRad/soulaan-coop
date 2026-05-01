@@ -2,11 +2,24 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
+import {
+  ArrowDownLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  Clock,
+  Coins,
+  Copy,
+  CreditCard,
+  Send,
+  ShoppingBag,
+  Store,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { coopConfig } from '@/lib/coop-config';
@@ -33,13 +46,13 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const config = coopConfig();
   const [scBalance, setScBalance] = useState<string>('0');
-  const [ucBalance, setUcBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState<string | null>(user?.walletAddress || null);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copied, setCopied] = useState(false);
+  const coopWalletName = user?.coop?.name || user?.coop?.shortName || config.name || config.shortName;
 
   useEffect(() => {
     if (user?.id) {
@@ -118,15 +131,13 @@ export default function HomeScreen() {
         // Don't fail the whole load if history fails
       }
 
-      // Fetch token balances (SC and UC)
+      // Fetch token balances from the backend and display the active wallet token.
       if (currentWalletAddress) {
         try {
           const tokenBalances = await api.getTokenBalances(currentWalletAddress);
           console.log('📊 Token Balances Response:', tokenBalances);
           console.log('💰 SC Balance:', tokenBalances.sc);
-          console.log('💰 UC Balance:', tokenBalances.uc);
           setScBalance(tokenBalances.sc);
-          setUcBalance(tokenBalances.uc);
         } catch (tokenErr) {
           console.error('Error loading token balances:', tokenErr);
         }
@@ -167,122 +178,177 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-[#F7F4EF]">
       <ScrollView
         className="flex-1"
+        contentContainerStyle={{ paddingBottom: 112 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7F1D1D" />
         }
       >
-        <View className="p-6">
-          {/* Welcome Header */}
-          <View className="flex-row items-start justify-between mb-4">
-            <View className="flex-1">
-              <Text className="text-lg text-gray-600">
-                Welcome back,
+        <View className="px-5 pt-4">
+          <View className="mb-5 flex-row items-start justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-xs font-bold uppercase tracking-[2px] text-red-900/60">
+                {coopWalletName} Wallet
               </Text>
-              <Text className="text-2xl font-bold text-gray-900">
-                {user?.name || user?.email?.split('@')[0]}
+              <Text className="mt-1 text-3xl font-black text-slate-950">
+                Hi, {user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'member'}
+              </Text>
+              <Text className="mt-1 text-sm text-slate-500">
+                Your co-op money, marketplace, and proposals in one place.
               </Text>
             </View>
 
-            {/* Wallet Address Badge */}
             {walletAddress ? (
               <TouchableOpacity
                 onPress={handleCopyAddress}
-                className="flex-row items-center rounded-full bg-gray-100 px-3 py-2"
-                activeOpacity={0.7}
+                className="flex-row items-center rounded-2xl border border-white bg-white/90 px-3 py-2"
+                activeOpacity={0.75}
+                style={{ shadowColor: '#0F172A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 }}
               >
-                <Wallet size={14} color="#6b7280" />
-                <Text className="ml-1.5 font-mono text-xs text-gray-600">
+                <Wallet size={14} color="#7F1D1D" />
+                <Text className="ml-2 font-mono text-xs font-semibold text-slate-600">
                   {truncateAddress(walletAddress)}
                 </Text>
                 {copied ? (
-                  <Check size={12} color="#22c55e" style={{ marginLeft: 4 }} />
+                  <Check size={13} color="#16A34A" style={{ marginLeft: 6 }} />
                 ) : (
-                  <Copy size={12} color="#9ca3af" style={{ marginLeft: 4 }} />
+                  <Copy size={13} color="#94A3B8" style={{ marginLeft: 6 }} />
                 )}
               </TouchableOpacity>
             ) : (
-              <Button
+              <TouchableOpacity
                 onPress={handleCreateWallet}
                 disabled={isCreatingWallet}
-                size="sm"
-                className="rounded-full"
+                className="flex-row items-center rounded-2xl bg-red-900 px-4 py-3"
+                activeOpacity={0.8}
               >
                 {isCreatingWallet ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <View className="flex-row items-center">
-                    <Wallet size={14} color="#fff" />
-                    <Text className="ml-1.5 text-xs font-medium text-white">Create Wallet</Text>
-                  </View>
+                  <>
+                    <Wallet size={16} color="#fff" />
+                    <Text className="ml-2 text-xs font-bold text-white">Create Wallet</Text>
+                  </>
                 )}
-              </Button>
+              </TouchableOpacity>
             )}
           </View>
 
-          {/* Balance Card - SC */}
-          <View className="mb-4 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+          <View className="mb-5 overflow-hidden rounded-[28px]" style={{ shadowColor: '#7F1D1D', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.2, shadowRadius: 22, elevation: 8 }}>
             <LinearGradient
-              colors={['#F59E0B', '#D97706', '#B45309']}
+              colors={['#7F1D1D', '#C2410C', '#F59E0B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ padding: 20, borderRadius: 16 }}
+              style={{ padding: 22 }}
             >
-              <View className="flex-row items-center mb-3">
-                <TrendingUp size={18} color="white" />
-                <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
+              <View className="mb-8 flex-row items-start justify-between">
+                <View>
+                  <View className="mb-3 self-start rounded-full bg-white/15 px-3 py-1">
+                    <Text className="text-xs font-bold uppercase tracking-[1px] text-white/80">Available Rewards</Text>
+                  </View>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text className="text-5xl font-black text-white">{formatSCBalance(scBalance)}</Text>
+                  )}
+                  <Text className="mt-1 text-sm font-semibold text-white/75">Soulaan Coin balance</Text>
+                </View>
+                <View className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15">
+                  <TrendingUp size={26} color="white" />
+                </View>
               </View>
-              {isLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} SC</Text>
-              )}
+
+              <View className="flex-row gap-3">
+                <View className="flex-1 rounded-2xl bg-white/15 p-4">
+                  <Text className="text-xs font-semibold text-white/65">Co-op</Text>
+                  <Text className="mt-1 text-xl font-black text-white" numberOfLines={1}>
+                    {coopWalletName}
+                  </Text>
+                </View>
+                <View className="flex-1 rounded-2xl bg-white/15 p-4">
+                  <Text className="text-xs font-semibold text-white/65">Rewards Token</Text>
+                  <Text className="mt-1 text-xl font-black text-white">SC</Text>
+                </View>
+              </View>
             </LinearGradient>
           </View>
 
-          {/* Quick Action Buttons */}
-          <View className="flex-row gap-3 mb-6">
+          <View className="mb-6 flex-row gap-3">
             <TouchableOpacity
               onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
+              className="flex-1 rounded-[22px] border border-white bg-white p-4"
+              activeOpacity={0.8}
+              style={{ shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 3 }}
             >
-              <Plus size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Add Card</Text>
+              <View className="mb-4 h-11 w-11 items-center justify-center rounded-2xl bg-orange-50">
+                <CreditCard size={21} color="#C2410C" />
+              </View>
+              <Text className="text-base font-black text-slate-950">Add Card</Text>
+              <Text className="mt-1 text-xs leading-4 text-slate-500">Save a payment method</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/stores' as any)}
+              className="flex-1 rounded-[22px] border border-white bg-white p-4"
+              activeOpacity={0.8}
+              style={{ shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 3 }}
+            >
+              <View className="mb-4 h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50">
+                <ShoppingBag size={21} color="#047857" />
+              </View>
+              <Text className="text-base font-black text-slate-950">Shop Local</Text>
+              <Text className="mt-1 text-xs leading-4 text-slate-500">Support member stores</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/(authenticated)/pay' as any)}
+              className="flex-1 rounded-[22px] border border-white bg-white p-4"
+              activeOpacity={0.8}
+              style={{ shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 3 }}
+            >
+              <View className="mb-4 h-11 w-11 items-center justify-center rounded-2xl bg-sky-50">
+                <Send size={21} color="#0369A1" />
+              </View>
+              <Text className="text-base font-black text-slate-950">Pay</Text>
+              <Text className="mt-1 text-xs leading-4 text-slate-500">Send or scan fast</Text>
             </TouchableOpacity>
           </View>
 
-
-          {/* Recent Activity */}
-          <View className="mb-4">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-gray-900">Recent Activity</Text>
-              {recentTransactions.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => router.push('/(authenticated)/history' as any)}
-                  className="bg-gray-100 px-3 py-1.5 rounded-full"
-                >
-                  <Text className="text-amber-700 text-sm font-medium">See All</Text>
-                </TouchableOpacity>
-              )}
+          <View className="mb-5 flex-row items-center justify-between">
+            <View>
+              <Text className="text-xl font-black text-slate-950">Recent Activity</Text>
+              <Text className="mt-1 text-xs text-slate-500">Purchases, rewards, and transfers</Text>
             </View>
+            {recentTransactions.length > 0 && (
+              <TouchableOpacity
+                onPress={() => router.push('/(authenticated)/history' as any)}
+                className="flex-row items-center rounded-full bg-white px-3 py-2"
+              >
+                <Text className="text-sm font-bold text-red-900">See All</Text>
+                <ArrowRight size={14} color="#7F1D1D" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            )}
+          </View>
 
-            {isLoading ? (
-              <View className="bg-white rounded-2xl p-8 items-center">
-                <ActivityIndicator size="small" color="#6B7280" />
+          {isLoading ? (
+            <View className="items-center rounded-[28px] bg-white p-10">
+              <ActivityIndicator size="small" color="#7F1D1D" />
+            </View>
+          ) : recentTransactions.length === 0 ? (
+            <View className="items-center rounded-[28px] border border-white bg-white px-6 py-5">
+              <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                <Clock size={26} color="#64748B" />
               </View>
-            ) : recentTransactions.length === 0 ? (
-              <View className="bg-white rounded-2xl p-8 items-center">
-                <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-4">
-                  <Clock size={32} color="#9CA3AF" />
-                </View>
-                <Text className="text-gray-700 font-medium text-lg">No transactions yet</Text>
-                <Text className="text-gray-400 text-sm mt-1 text-center">Send money to someone to get started</Text>
-              </View>
-            ) : (
-              <View className="bg-white rounded-2xl overflow-hidden">
+              <Text className="text-base font-black text-slate-800">No transactions yet</Text>
+              <Text className="mt-1 max-w-[260px] text-center text-xs leading-4 text-slate-500">
+                Start with a store purchase or member payment.
+              </Text>
+            </View>
+          ) : (
+            <View className="overflow-hidden rounded-[28px] border border-white bg-white">
                 {recentTransactions.map((tx, index) => {
                   // Determine icon and background color based on activity type
                   const isOrder = tx.activityType === 'order';
@@ -361,17 +427,9 @@ export default function HomeScreen() {
                     </View>
                   );
                 })}
-              </View>
-            )}
-          </View>
-
-          {/* Coop Info */}
-          {user?.coop && (
-            <View className="bg-white rounded-2xl p-4 mb-4">
-              <Text className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Member of</Text>
-              <Text className="text-base font-semibold text-gray-900">{user.coop.name}</Text>
             </View>
           )}
+
         </View>
       </ScrollView>
     </SafeAreaView>

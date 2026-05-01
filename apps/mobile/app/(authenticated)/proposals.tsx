@@ -36,8 +36,8 @@ import { api } from '@/lib/api';
 // ── Colors ───────────────────────────────────────────────────────────────────
 
 const C = {
-  red700: '#B91C1C',
-  red800: '#991B1B',
+  red700: '#7F1D1D',
+  red800: '#450A0A',
   gold50: '#FFFBEB',
   gold100: '#FEF3C7',
   gold200: '#FDE68A',
@@ -58,9 +58,9 @@ const C = {
   red50: '#FEF2F2',
   red200: '#FECACA',
   redText: '#DC2626',
-  cream50: '#FAF8F5',
-  cream100: '#F5F0EB',
-  cream200: '#E9E0D0',
+  cream50: '#FFFBF7',
+  cream100: '#F7F4EF',
+  cream200: '#EDE7DD',
   cream300: '#DDD2BF',
   charcoal400: '#9CA3AF',
   charcoal500: '#6B7280',
@@ -243,8 +243,10 @@ function EmptyState({ tab }: { tab: TabKey }) {
   const m = msgs[tab];
 
   return (
-    <View style={{ alignItems: 'center', paddingVertical: 64 }}>
-      {icons[tab]}
+    <View style={{ alignItems: 'center', paddingVertical: 56, paddingHorizontal: 18, backgroundColor: C.white, borderRadius: 28 }}>
+      <View style={{ width: 76, height: 76, borderRadius: 26, backgroundColor: C.gold50, alignItems: 'center', justifyContent: 'center' }}>
+        {icons[tab]}
+      </View>
       <Text style={{ color: C.charcoal700, fontWeight: '600', fontSize: 15, marginTop: 16, marginBottom: 4 }}>{m.title}</Text>
       <Text style={{ color: C.charcoal400, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 }}>{m.sub}</Text>
     </View>
@@ -822,21 +824,22 @@ export default function ProposalsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream100 }}>
       {/* Header */}
-      <LinearGradient colors={[C.red800, C.red700]} style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
+      <LinearGradient colors={[C.red800, C.red700, '#C2410C']} style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 22 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View>
-            <Text style={{ color: C.white, fontWeight: '700', fontSize: 20 }}>Community Proposals</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>Submit and deliberate on co-op initiatives</Text>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.66)', fontWeight: '800', fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase' }}>Governance</Text>
+            <Text style={{ color: C.white, fontWeight: '900', fontSize: 25, marginTop: 3 }}>Community Proposals</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.74)', fontSize: 13, marginTop: 4, lineHeight: 18 }}>Submit and deliberate on co-op initiatives</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowSubmit(true)} style={{ backgroundColor: C.whiteA20, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Plus size={16} color={C.white} />
-            <Text style={{ color: C.white, fontWeight: '600', fontSize: 13 }}>Submit</Text>
+          <TouchableOpacity onPress={() => setShowSubmit(true)} style={{ backgroundColor: C.white, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Plus size={16} color={C.red700} />
+            <Text style={{ color: C.red700, fontWeight: '800', fontSize: 13 }}>Submit</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
       {/* How it works banner */}
-      <View style={{ backgroundColor: C.gold50, borderBottomWidth: 1, borderBottomColor: C.gold200, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+      <View style={{ backgroundColor: C.white, marginHorizontal: 16, marginTop: -10, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 }}>
         <Sparkles size={14} color={C.gold700} style={{ marginTop: 2 }} />
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={{ color: C.gold800, fontSize: 12, lineHeight: 18 }}>
@@ -852,14 +855,14 @@ export default function ProposalsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.cream200, maxHeight: 48 }}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 6 }}
+        style={{ maxHeight: 58 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
       >
         {STATUS_TABS.map(tab => (
           <TouchableOpacity
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
-            style={{ height: 32, borderRadius: 8, paddingHorizontal: 12, backgroundColor: activeTab === tab.key ? C.red700 : '#F9FAFB', borderWidth: activeTab === tab.key ? 0 : 1, borderColor: C.cream200, alignItems: 'center', justifyContent: 'center' }}
+            style={{ height: 34, borderRadius: 17, paddingHorizontal: 14, backgroundColor: activeTab === tab.key ? C.red700 : C.white, borderWidth: activeTab === tab.key ? 0 : 1, borderColor: C.cream200, alignItems: 'center', justifyContent: 'center' }}
           >
             <Text style={{ color: activeTab === tab.key ? C.white : C.charcoal600, fontWeight: '600', fontSize: 12 }}>
               {tab.label}
@@ -871,7 +874,7 @@ export default function ProposalsScreen() {
       {/* Proposal list */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 112 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.gold600} />}
       >
         {loading ? (
