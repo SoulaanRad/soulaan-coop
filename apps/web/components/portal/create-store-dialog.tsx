@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
-import { MinIOImageUpload } from "./minio-image-upload";
+import { BlobImageUpload } from "./blob-image-upload";
 
 interface CreateStoreDialogProps {
   coopId: string;
@@ -166,7 +166,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
           </div>
 
           <div>
-            <MinIOImageUpload
+            <BlobImageUpload
               uploadType="store"
               coopId={coopId}
               resourceId={ownerId}
@@ -178,7 +178,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
           </div>
 
           <div>
-            <MinIOImageUpload
+            <BlobImageUpload
               uploadType="store"
               coopId={coopId}
               resourceId={ownerId}

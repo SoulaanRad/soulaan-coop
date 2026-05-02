@@ -24,8 +24,8 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-import MinIOPhotoUpload from '@/components/minio-photo-upload';
-import MinIOMultiPhotoUpload from '@/components/minio-multi-photo-upload';
+import BlobPhotoUpload from '@/components/blob-photo-upload';
+import BlobMultiPhotoUpload from '@/components/blob-multi-photo-upload';
 
 export default function AddProductScreen() {
   const { user } = useAuth();
@@ -428,7 +428,7 @@ export default function AddProductScreen() {
                   <X size={24} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
-              <MinIOPhotoUpload
+              <BlobPhotoUpload
                 uploadType="product"
                 resourceId={storeId}
                 onUploadComplete={(url) => {
@@ -455,7 +455,7 @@ export default function AddProductScreen() {
                   <X size={24} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
-              <MinIOMultiPhotoUpload
+              <BlobMultiPhotoUpload
                 uploadType="product"
                 resourceId={storeId}
                 maxImages={5}

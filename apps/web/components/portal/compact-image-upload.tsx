@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { upload } from "@vercel/blob/client";
+import { put } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2, Check, X } from "lucide-react";
 
@@ -59,9 +59,14 @@ export function CompactImageUpload({
 
       const tokenData = await tokenResponse.json();
 
-      const blob = await upload(tokenData.pathname, file, {
+      if (!tokenData.success) {
+        throw new Error(tokenData.error || "Failed to get upload token");
+      }
+
+      const blob = await put(tokenData.pathname, file, {
         access: "public",
-        clientUploadToken: tokenData.clientToken,
+        token: tokenData.clientToken,
+        contentType: file.type,
       });
 
       onUploadComplete(blob.url);

@@ -6,7 +6,7 @@ import { getApiUrl, getCoopId } from '@/lib/config';
 
 const API_BASE_URL = getApiUrl();
 
-interface MinIOPhotoUploadProps {
+interface BlobPhotoUploadProps {
   onUploadComplete: (url: string) => void;
   uploadType: 'profile' | 'store' | 'product';
   resourceId?: string;
@@ -15,14 +15,14 @@ interface MinIOPhotoUploadProps {
   aspectRatio?: [number, number];
 }
 
-export default function MinIOPhotoUpload({
+export default function BlobPhotoUpload({
   onUploadComplete,
   uploadType,
   resourceId,
   title = "Upload Photo",
   description = "Select or take a photo",
   aspectRatio = [1, 1],
-}: MinIOPhotoUploadProps) {
+}: BlobPhotoUploadProps) {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 

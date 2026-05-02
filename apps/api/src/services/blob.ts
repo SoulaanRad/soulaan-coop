@@ -54,6 +54,7 @@ export async function generateUploadToken(
     pathname,
     maximumSizeInBytes: maxSizeBytes,
     allowedContentTypes: [contentType],
+    addRandomSuffix: false,
     validUntil: Date.now() + 5 * 60 * 1000,
   });
 

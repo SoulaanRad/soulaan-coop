@@ -26,7 +26,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-import MinIOPhotoUpload from '@/components/minio-photo-upload';
+import BlobPhotoUpload from '@/components/blob-photo-upload';
 
 type Step = 'store' | 'owner' | 'review';
 
@@ -525,7 +525,7 @@ export default function ApplyStoreScreen() {
                   <X size={24} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
-              <MinIOPhotoUpload
+              <BlobPhotoUpload
                 uploadType="store"
                 resourceId="temp"
                 onUploadComplete={(url) => {
@@ -552,7 +552,7 @@ export default function ApplyStoreScreen() {
                   <X size={24} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
-              <MinIOPhotoUpload
+              <BlobPhotoUpload
                 uploadType="store"
                 resourceId="temp"
                 onUploadComplete={(url) => {

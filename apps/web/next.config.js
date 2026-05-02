@@ -33,6 +33,16 @@ const config = {
   /** We already do linting and typechecking as separate tasks in CI */
   typescript: { ignoreBuildErrors: true },
 
+  /** Allow uploaded images served from Vercel Blob public stores */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
+  },
+
   /** Turbopack configuration (Next.js 16 default) */
   turbopack: {
     // Empty config to silence the warning about webpack config

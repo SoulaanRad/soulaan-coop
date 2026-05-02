@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { upload } from "@vercel/blob/client";
+import { put } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Loader2, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 
-interface MinIOImageUploadProps {
+interface BlobImageUploadProps {
   onUploadComplete: (url: string) => void;
   uploadType: "profile" | "store" | "product";
   coopId: string;
@@ -18,7 +18,7 @@ interface MinIOImageUploadProps {
   currentImageUrl?: string | null;
 }
 
-export function MinIOImageUpload({
+export function BlobImageUpload({
   onUploadComplete,
   uploadType,
   coopId,
@@ -27,7 +27,7 @@ export function MinIOImageUpload({
   description = "Select an image to upload",
   aspectRatio = "aspect-square",
   currentImageUrl = null,
-}: MinIOImageUploadProps) {
+}: BlobImageUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl);
   const [isUploading, setIsUploading] = useState(false);
@@ -81,10 +81,11 @@ export function MinIOImageUpload({
         throw new Error(tokenData.error || "Failed to get upload token");
       }
 
-      // Step 2: Upload directly to Vercel Blob using client token
-      const blob = await upload(tokenData.pathname, selectedFile, {
+      // Step 2: Upload directly to Vercel Blob using the server-generated client token
+      const blob = await put(tokenData.pathname, selectedFile, {
         access: "public",
-        clientUploadToken: tokenData.clientToken,
+        token: tokenData.clientToken,
+        contentType: selectedFile.type,
       });
 
       setUploadedUrl(blob.url);

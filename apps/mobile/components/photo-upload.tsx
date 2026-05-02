@@ -108,7 +108,7 @@ export default function PhotoUpload({
         throw new Error(presignedData.error || 'Failed to get presigned URL');
       }
 
-      // Step 2: Upload file directly to MinIO using presigned URL
+      // Step 2: Upload file directly to blob storage using the presigned URL
       const fileResponse = await fetch(photoUri);
       const fileBlob = await fileResponse.blob();
 

@@ -6,7 +6,7 @@ import { getApiUrl, getCoopId } from '@/lib/config';
 
 const API_BASE_URL = getApiUrl();
 
-interface MinIOMultiPhotoUploadProps {
+interface BlobMultiPhotoUploadProps {
   onUploadComplete: (urls: string[]) => void;
   uploadType?: 'product';
   resourceId?: string;
@@ -22,14 +22,14 @@ interface UploadProgress {
   error?: string;
 }
 
-export default function MinIOMultiPhotoUpload({
+export default function BlobMultiPhotoUpload({
   onUploadComplete,
   uploadType = 'product',
   resourceId,
   maxImages = 5,
   title = "Upload Photos",
   description = "Select multiple photos for your product gallery",
-}: MinIOMultiPhotoUploadProps) {
+}: BlobMultiPhotoUploadProps) {
   const [photos, setPhotos] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 

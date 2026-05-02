@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pencil, Loader2 } from "lucide-react";
-import { MinIOImageUpload } from "./minio-image-upload";
+import { BlobImageUpload } from "./blob-image-upload";
 
 interface EditStoreDialogProps {
   coopId: string;
@@ -147,7 +147,7 @@ export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogPro
           </div>
 
           <div>
-            <MinIOImageUpload
+            <BlobImageUpload
               uploadType="store"
               coopId={coopId}
               resourceId={store.ownerId}
@@ -160,7 +160,7 @@ export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogPro
           </div>
 
           <div>
-            <MinIOImageUpload
+            <BlobImageUpload
               uploadType="store"
               coopId={coopId}
               resourceId={store.ownerId}
