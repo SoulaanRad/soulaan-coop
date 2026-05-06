@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Loader2 } from "lucide-react";
+import { ExternalLink, Pencil, Loader2, Star } from "lucide-react";
 import { CompactImageUpload } from "./compact-image-upload";
+import { useCoopContext } from "@/lib/coop-context";
 
 interface EditProductDialogProps {
   product: {
@@ -36,6 +37,7 @@ interface EditProductDialogProps {
     compareAtPrice?: number | null;
     ucDiscountPrice?: number | null;
     sku?: string | null;
+    sourceUrl?: string | null;
     quantity: number;
     trackInventory: boolean;
     allowBackorder: boolean;
@@ -46,6 +48,7 @@ interface EditProductDialogProps {
 }
 
 export function EditProductDialog({ product, onSuccess }: EditProductDialogProps) {
+  const { coopId } = useCoopContext();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description || "");
@@ -60,6 +63,7 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
   const [trackInventory, setTrackInventory] = useState(product.trackInventory);
   const [allowBackorder, setAllowBackorder] = useState(product.allowBackorder);
   const [isActive, setIsActive] = useState(product.isActive);
+  const [isFeatured, setIsFeatured] = useState(product.isFeatured);
 
   const { data: categories, isLoading: loadingCategories } = api.categories.getProductCategories.useQuery({
     includeAdminOnly: true,
@@ -88,6 +92,7 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
       setTrackInventory(product.trackInventory);
       setAllowBackorder(product.allowBackorder);
       setIsActive(product.isActive);
+      setIsFeatured(product.isFeatured);
     }
   }, [open, product]);
 
@@ -117,6 +122,7 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
     if (trackInventory !== product.trackInventory) updateData.trackInventory = trackInventory;
     if (allowBackorder !== product.allowBackorder) updateData.allowBackorder = allowBackorder;
     if (isActive !== product.isActive) updateData.isActive = isActive;
+    if (isFeatured !== product.isFeatured) updateData.isFeatured = isFeatured;
 
     updateProduct.mutate(updateData);
   };
@@ -150,6 +156,21 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
               className="bg-slate-800 border-slate-700 text-white"
             />
           </div>
+
+          {product.sourceUrl && (
+            <div className="rounded-lg border border-slate-700 bg-slate-800 p-3">
+              <Label className="text-gray-300">Source URL</Label>
+              <a
+                href={product.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-1 break-all text-sm text-amber-400 hover:text-amber-300"
+              >
+                {product.sourceUrl}
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="description" className="text-gray-300">
@@ -192,6 +213,9 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
             <Label className="text-gray-300 mb-2 block">Product Images</Label>
             <div className="flex flex-wrap gap-2">
               <CompactImageUpload
+                uploadType="product"
+                coopId={coopId}
+                resourceId={product.id}
                 value={imageUrl}
                 onChange={setImageUrl}
                 label="Main Image"
@@ -199,6 +223,9 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
               {[0, 1, 2].map((idx) => (
                 <CompactImageUpload
                   key={idx}
+                  uploadType="product"
+                  coopId={coopId}
+                  resourceId={product.id}
                   value={additionalImages[idx] || ""}
                   onChange={(url) => {
                     const newImages = [...additionalImages];
@@ -340,6 +367,23 @@ export function EditProductDialog({ product, onSuccess }: EditProductDialogProps
                 className={isActive ? "bg-green-600 hover:bg-green-700" : ""}
               >
                 {isActive ? "Active" : "Inactive"}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
+              <div>
+                <Label className="text-gray-300">Featured Product</Label>
+                <p className="text-xs text-gray-500">Highlight this product in featured product sections</p>
+              </div>
+              <Button
+                type="button"
+                variant={isFeatured ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsFeatured(!isFeatured)}
+                className={isFeatured ? "bg-amber-600 hover:bg-amber-700" : ""}
+              >
+                <Star className={`h-3 w-3 mr-1 ${isFeatured ? "fill-current" : ""}`} />
+                {isFeatured ? "Featured" : "Not Featured"}
               </Button>
             </div>
           </div>

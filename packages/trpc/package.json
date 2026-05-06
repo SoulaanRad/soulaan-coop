@@ -107,6 +107,7 @@
     "@repo/db": "workspace:*",
     "@repo/validators": "workspace:*",
     "@trpc/server": "catalog:",
+    "@vercel/blob": "^0.27.0",
     "bcryptjs": "^3.0.2",
     "iron-session": "catalog:",
     "next-auth": "^4.24.13",

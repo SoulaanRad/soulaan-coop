@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { CreateStoreDialog } from "@/components/portal/create-store-dialog";
 import { CreateProductDialog } from "@/components/portal/create-product-dialog";
+import { BulkProductImportDialog } from "@/components/portal/bulk-product-import-dialog";
 import { EditStoreDialog } from "@/components/portal/edit-store-dialog";
 import { EditProductDialog } from "@/components/portal/edit-product-dialog";
 
@@ -491,7 +492,10 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
     return (
       <div className="py-4 text-center">
         <p className="text-gray-400 mb-2">No products yet</p>
-        <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+        <div className="flex justify-center gap-2">
+          <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+          <BulkProductImportDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+        </div>
       </div>
     );
   }
@@ -500,7 +504,10 @@ function StoreProductsPanel({ storeId, storeName }: { storeId: string; storeName
     <div>
       <div className="flex items-center justify-between mb-3">
         <h4 className="font-medium text-white">Products ({products.length})</h4>
-        <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+        <div className="flex gap-2">
+          <BulkProductImportDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+          <CreateProductDialog storeId={storeId} storeName={storeName} onSuccess={() => refetch()} />
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {products.map((product) => (

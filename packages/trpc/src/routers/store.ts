@@ -9,6 +9,7 @@ import { chargePaymentMethod } from "../services/stripe-customer.js";
 import { mintUCToUser, awardStoreTransactionReward } from "../services/wallet-service.js";
 import { sendToSoulaanUser } from "../services/p2p-service.js";
 import { convertUSDToUC } from "../utils/currency-converter.js";
+import { mirrorProductImages, parseDelimitedProductRows } from "../services/product-import-service.js";
 
 // Category validation - now accepts any string since categories are dynamic
 const StoreCategoryEnum = z.string().min(1).max(100);
@@ -1534,6 +1535,7 @@ export const storeRouter = router({
         compareAtPrice: product.compareAtPrice,
         ucDiscountPrice: product.ucDiscountPrice,
         sku: product.sku,
+        sourceUrl: product.sourceUrl,
         quantity: product.quantity,
         trackInventory: product.trackInventory,
         allowBackorder: product.allowBackorder,
@@ -1888,6 +1890,435 @@ export const storeRouter = router({
           category: product.category,
           priceUSD: product.priceUSD,
         },
+      };
+    }),
+
+  /**
+   * Bulk import products for a store (admin only). Accepts CSV/TSV content pasted
+   * from a spreadsheet and can mirror remote image URLs into Vercel Blob.
+   */
+  bulkImportProductsAdmin: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      rawRows: z.string().min(1).max(250_000),
+      defaultQuantity: z.number().int().min(0).optional().default(100),
+      mirrorImages: z.boolean().optional().default(true),
+      retries: z.number().int().min(1).max(5).optional().default(3),
+      updateExisting: z.boolean().optional().default(true),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        select: { id: true, name: true },
+      });
+
+      if (!store) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Store not found",
+        });
+      }
+
+      let rows;
+      try {
+        rows = parseDelimitedProductRows(input.rawRows);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Unable to parse rows",
+        });
+      }
+
+      if (rows.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No product rows found",
+        });
+      }
+
+      if (rows.length > 100) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bulk import is limited to 100 products at a time",
+        });
+      }
+
+      const results: Array<{
+        rowNumber: number;
+        name: string;
+        status: "created" | "updated" | "failed";
+        productId?: string;
+        imageTotal?: number;
+        imagesUploaded?: number;
+        imageErrors?: string[];
+        error?: string;
+      }> = [];
+
+      for (const row of rows) {
+        try {
+          if (row.storeId && row.storeId !== input.storeId) {
+            throw new Error(`Row storeId ${row.storeId} does not match selected store ${input.storeId}`);
+          }
+
+          const mirroredImages = await mirrorProductImages({
+            storeId: input.storeId,
+            productName: row.name,
+            imageUrl: row.imageUrl,
+            images: row.images,
+            mirrorImages: input.mirrorImages,
+            retries: input.retries,
+          });
+
+          const data = {
+            name: row.name,
+            description: row.description,
+            category: row.category,
+            imageUrl: mirroredImages.imageUrl,
+            images: mirroredImages.images,
+            priceUSD: row.priceUSD,
+            sku: row.sku,
+            quantity: row.quantity ?? input.defaultQuantity,
+            trackInventory: row.trackInventory,
+            isActive: row.isActive,
+            isFeatured: row.isFeatured,
+            sourceUrl: row.sourceUrl,
+          };
+
+          const existing = input.updateExisting
+            ? await context.db.product.findFirst({
+                where: {
+                  storeId: input.storeId,
+                  OR: [
+                    ...(row.sourceUrl ? [{ sourceUrl: row.sourceUrl }] : []),
+                    ...(row.sku ? [{ sku: row.sku }] : []),
+                    { name: row.name },
+                  ],
+                },
+                select: { id: true },
+              })
+            : null;
+
+          if (existing) {
+            const product = await context.db.product.update({
+              where: { id: existing.id },
+              data,
+              select: { id: true },
+            });
+
+            results.push({
+              rowNumber: row.rowNumber,
+              name: row.name,
+              status: "updated",
+              productId: product.id,
+              imageTotal: mirroredImages.imageTotal,
+              imagesUploaded: mirroredImages.imagesUploaded,
+              imageErrors: mirroredImages.imageErrors,
+            });
+          } else {
+            const product = await context.db.product.create({
+              data: { storeId: input.storeId, ...data },
+              select: { id: true },
+            });
+
+            results.push({
+              rowNumber: row.rowNumber,
+              name: row.name,
+              status: "created",
+              productId: product.id,
+              imageTotal: mirroredImages.imageTotal,
+              imagesUploaded: mirroredImages.imagesUploaded,
+              imageErrors: mirroredImages.imageErrors,
+            });
+          }
+        } catch (error) {
+          results.push({
+            rowNumber: row.rowNumber,
+            name: row.name,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return {
+        success: true,
+        storeId: store.id,
+        total: results.length,
+        created: results.filter((result) => result.status === "created").length,
+        updated: results.filter((result) => result.status === "updated").length,
+        failed: results.filter((result) => result.status === "failed").length,
+        imageTotal: results.reduce((sum, result) => sum + (result.imageTotal ?? 0), 0),
+        imagesUploaded: results.reduce((sum, result) => sum + (result.imagesUploaded ?? 0), 0),
+        imageWarnings: results.reduce((sum, result) => sum + (result.imageErrors?.length ?? 0), 0),
+        results,
+      };
+    }),
+
+  /**
+   * Step 1 for portal bulk import: parse rows and optionally mirror remote images
+   * into Vercel Blob, but do not write any products yet.
+   */
+  prepareBulkProductImportAdmin: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      rawRows: z.string().min(1).max(250_000),
+      mirrorImages: z.boolean().optional().default(true),
+      retries: z.number().int().min(1).max(5).optional().default(3),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        select: { id: true, name: true },
+      });
+
+      if (!store) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Store not found",
+        });
+      }
+
+      let rows;
+      try {
+        rows = parseDelimitedProductRows(input.rawRows);
+      } catch (error) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error instanceof Error ? error.message : "Unable to parse rows",
+        });
+      }
+
+      if (rows.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No product rows found",
+        });
+      }
+
+      if (rows.length > 100) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Bulk import is limited to 100 products at a time",
+        });
+      }
+
+      const preparedProducts: Array<{
+        rowNumber: number;
+        name: string;
+        description?: string;
+        category: string;
+        imageUrl?: string;
+        images: string[];
+        priceUSD: number;
+        quantity?: number;
+        trackInventory: boolean;
+        sourceUrl?: string;
+        isActive: boolean;
+        isFeatured: boolean;
+        sku?: string;
+        imageTotal: number;
+        imagesUploaded: number;
+        imageErrors: string[];
+        status: "ready" | "failed";
+        error?: string;
+      }> = [];
+
+      for (const row of rows) {
+        try {
+          if (row.storeId && row.storeId !== input.storeId) {
+            throw new Error(`Row storeId ${row.storeId} does not match selected store ${input.storeId}`);
+          }
+
+          const mirroredImages = await mirrorProductImages({
+            storeId: input.storeId,
+            productName: row.name,
+            imageUrl: row.imageUrl,
+            images: row.images,
+            mirrorImages: input.mirrorImages,
+            retries: input.retries,
+          });
+
+          preparedProducts.push({
+            rowNumber: row.rowNumber,
+            name: row.name,
+            description: row.description,
+            category: row.category,
+            imageUrl: mirroredImages.imageUrl,
+            images: mirroredImages.images,
+            priceUSD: row.priceUSD,
+            quantity: row.quantity,
+            trackInventory: row.trackInventory,
+            sourceUrl: row.sourceUrl,
+            isActive: row.isActive,
+            isFeatured: row.isFeatured,
+            sku: row.sku,
+            imageTotal: mirroredImages.imageTotal,
+            imagesUploaded: mirroredImages.imagesUploaded,
+            imageErrors: mirroredImages.imageErrors,
+            status: "ready",
+          });
+        } catch (error) {
+          preparedProducts.push({
+            rowNumber: row.rowNumber,
+            name: row.name,
+            description: row.description,
+            category: row.category,
+            imageUrl: row.imageUrl,
+            images: row.images,
+            priceUSD: row.priceUSD,
+            quantity: row.quantity,
+            trackInventory: row.trackInventory,
+            sourceUrl: row.sourceUrl,
+            isActive: row.isActive,
+            isFeatured: row.isFeatured,
+            sku: row.sku,
+            imageTotal: (row.imageUrl ? 1 : 0) + row.images.length,
+            imagesUploaded: 0,
+            imageErrors: [],
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return {
+        success: true,
+        storeId: store.id,
+        total: preparedProducts.length,
+        ready: preparedProducts.filter((product) => product.status === "ready").length,
+        failed: preparedProducts.filter((product) => product.status === "failed").length,
+        imageTotal: preparedProducts.reduce((sum, product) => sum + product.imageTotal, 0),
+        imagesUploaded: preparedProducts.reduce((sum, product) => sum + product.imagesUploaded, 0),
+        imageWarnings: preparedProducts.reduce((sum, product) => sum + product.imageErrors.length, 0),
+        products: preparedProducts,
+      };
+    }),
+
+  /**
+   * Step 2 for portal bulk import: save already prepared products to the DB.
+   */
+  savePreparedBulkProductsAdmin: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      defaultQuantity: z.number().int().min(0).optional().default(100),
+      updateExisting: z.boolean().optional().default(true),
+      products: z.array(z.object({
+        rowNumber: z.number().int().min(1),
+        name: z.string().min(2).max(200),
+        description: z.string().max(2000).optional(),
+        category: ProductCategoryEnum,
+        imageUrl: z.string().url().optional(),
+        images: z.array(z.string().url()).optional().default([]),
+        priceUSD: z.number().positive(),
+        quantity: z.number().int().min(0).optional(),
+        trackInventory: z.boolean(),
+        sourceUrl: z.string().url().optional(),
+        isActive: z.boolean(),
+        isFeatured: z.boolean(),
+        sku: z.string().optional(),
+      })).min(1).max(100),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        select: { id: true },
+      });
+
+      if (!store) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Store not found",
+        });
+      }
+
+      const results: Array<{
+        rowNumber: number;
+        name: string;
+        status: "created" | "updated" | "failed";
+        productId?: string;
+        error?: string;
+      }> = [];
+
+      for (const productInput of input.products) {
+        try {
+          const data = {
+            name: productInput.name,
+            description: productInput.description,
+            category: productInput.category,
+            imageUrl: productInput.imageUrl,
+            images: productInput.images,
+            priceUSD: productInput.priceUSD,
+            sku: productInput.sku,
+            quantity: productInput.quantity ?? input.defaultQuantity,
+            trackInventory: productInput.trackInventory,
+            isActive: productInput.isActive,
+            isFeatured: productInput.isFeatured,
+            sourceUrl: productInput.sourceUrl,
+          };
+
+          const existing = input.updateExisting
+            ? await context.db.product.findFirst({
+                where: {
+                  storeId: input.storeId,
+                  OR: [
+                    ...(productInput.sourceUrl ? [{ sourceUrl: productInput.sourceUrl }] : []),
+                    ...(productInput.sku ? [{ sku: productInput.sku }] : []),
+                    { name: productInput.name },
+                  ],
+                },
+                select: { id: true },
+              })
+            : null;
+
+          if (existing) {
+            const product = await context.db.product.update({
+              where: { id: existing.id },
+              data,
+              select: { id: true },
+            });
+
+            results.push({
+              rowNumber: productInput.rowNumber,
+              name: productInput.name,
+              status: "updated",
+              productId: product.id,
+            });
+          } else {
+            const product = await context.db.product.create({
+              data: { storeId: input.storeId, ...data },
+              select: { id: true },
+            });
+
+            results.push({
+              rowNumber: productInput.rowNumber,
+              name: productInput.name,
+              status: "created",
+              productId: product.id,
+            });
+          }
+        } catch (error) {
+          results.push({
+            rowNumber: productInput.rowNumber,
+            name: productInput.name,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      return {
+        success: true,
+        total: results.length,
+        created: results.filter((result) => result.status === "created").length,
+        updated: results.filter((result) => result.status === "updated").length,
+        failed: results.filter((result) => result.status === "failed").length,
+        results,
       };
     }),
 

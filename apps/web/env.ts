@@ -30,6 +30,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_URI: z.string().url().optional(),
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+    NEXT_PUBLIC_STRIPE_MODE: z.enum(["test", "live"]).default("test"),
   },
   /**
    * Destructure all variables from `process.env` to make sure they aren't tree-shaken away.
@@ -44,6 +45,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DOMAIN: process.env.NEXT_PUBLIC_DOMAIN,
     NEXT_PUBLIC_URI: process.env.NEXT_PUBLIC_URI,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_STRIPE_MODE: process.env.NEXT_PUBLIC_STRIPE_MODE,
   },
   emptyStringAsUndefined: true,
   skipValidation:
