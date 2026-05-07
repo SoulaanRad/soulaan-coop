@@ -22,7 +22,6 @@ import {
   Plus,
   Minus,
   Package,
-  CheckCircle,
   ShoppingCart,
   X,
   Sparkles,
@@ -116,17 +115,21 @@ export default function StoresScreen() {
 
   const loadStores = useCallback(async () => {
     try {
-      // Load featured stores
-      const featuredResult = await api.getStores({ featured: true, limit: 5 });
-      setFeaturedStores(featuredResult.stores);
-
-      // Load all stores with filters
+      // Load all stores once, then derive featured locally. This avoids
+      // showing an empty featured carousel when no store has been explicitly
+      // marked as featured yet.
       const allResult = await api.getStores({
         category: selectedCategory || undefined,
         search: searchQuery || undefined,
         limit: 50,
       });
-      setStores(allResult.stores);
+      const allStores: StoreData[] = allResult.stores || [];
+      setStores(allStores);
+
+      const featuredOnly = allStores.filter((s) => s.isFeatured);
+      setFeaturedStores(
+        (featuredOnly.length > 0 ? featuredOnly : allStores).slice(0, 5)
+      );
     } catch (error) {
       console.error('Failed to load stores:', error);
     }
@@ -134,13 +137,17 @@ export default function StoresScreen() {
 
   const loadProducts = useCallback(async () => {
     try {
+      // Fetch all products in this coop, then prefer featured ones for the
+      // popular tab. Falling back to recent products keeps the section from
+      // appearing empty when nothing is explicitly featured yet.
       const result = await api.getProducts({
-        featured: true,
         category: selectedCategory || undefined,
         search: searchQuery || undefined,
         limit: 50,
       });
-      setProducts(result.products || []);
+      const all: ProductData[] = result.products || [];
+      const featured = all.filter((p) => p.isFeatured);
+      setProducts(featured.length > 0 ? featured : all);
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -282,17 +289,6 @@ export default function StoresScreen() {
           </View>
 
           {/* SC Eligibility Info */}
-          <View className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
-            <View className="flex-row items-start">
-              <CheckCircle size={16} color="#16A34A" style={{ marginTop: 2 }} />
-              <View className="flex-1 ml-2">
-                <Text className="text-xs text-green-800 leading-5">
-                  <Text className="font-bold">Want to earn {coin.symbol} from sales?</Text> Create a store and submit a proposal. Only stores that pass community deliberation become {coin.symbol} Verified and earn {coin.symbol} from purchases.
-                </Text>
-              </View>
-            </View>
-          </View>
-
           {/* View Tabs */}
           <View className="flex-row border-b border-gray-200 mb-4">
             <TouchableOpacity

@@ -2,6 +2,18 @@
 // Uses native fetch API - no additional dependencies required
 
 import { getApiUrl, getWebUrl, networkConfig } from './config';
+import { coopConfig } from './coop-config';
+
+/**
+ * Resolve the coopId to use for public marketplace queries.
+ * Prefer the authenticated user's coop (from coopConfig), then the
+ * EXPO_PUBLIC_COOP_ID env override, and finally fall back to 'soulaan'.
+ */
+function resolveCoopId(): string {
+  const fromConfig = coopConfig().id;
+  if (fromConfig && fromConfig !== 'default') return fromConfig;
+  return process.env.EXPO_PUBLIC_COOP_ID || 'soulaan';
+}
 
 // API configuration
 export const API_BASE_URL = getApiUrl();
@@ -1005,8 +1017,7 @@ export const api = {
     limit?: number;
     cursor?: string;
   }) {
-    const coopId = process.env.EXPO_PUBLIC_COOP_ID || '';
-    const input = encodeURIComponent(JSON.stringify({ coopId, ...options }));
+    const input = encodeURIComponent(JSON.stringify({ coopId: resolveCoopId(), ...options }));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getStores?input=${input}`, {
       method: 'GET',
       headers: {
@@ -1052,6 +1063,7 @@ export const api = {
    * Get products (public)
    */
   async getProducts(options: {
+    coopId?: string;
     storeId?: string;
     category?: string;
     featured?: boolean;
@@ -1059,7 +1071,12 @@ export const api = {
     limit?: number;
     cursor?: string;
   }) {
-    const input = encodeURIComponent(JSON.stringify(options));
+    // If no specific store is being queried, scope to the active coop so
+    // browsing surfaces don't accidentally mix products across coops.
+    const payload = options.storeId
+      ? options
+      : { coopId: options.coopId ?? resolveCoopId(), ...options };
+    const input = encodeURIComponent(JSON.stringify(payload));
     const response = await fetch(`${API_BASE_URL}/trpc/store.getProducts?input=${input}`, {
       method: 'GET',
       headers: {
