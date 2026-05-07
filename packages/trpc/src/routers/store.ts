@@ -74,9 +74,11 @@ export const storeRouter = router({
         },
       });
 
-      // Filter out stores without Stripe Connect accounts that can accept payments
-      const filteredStores = stores.filter((store): store is typeof store & { business: NonNullable<typeof store.business> } => {
-        // Store must have a business with a Stripe account that has charges enabled
+      // Only show approved stores that have a Stripe account fully ready to
+      // accept charges. Stores still onboarding are hidden so customers don't
+      // hit a "this store can't accept payments yet" wall at checkout.
+      // SC verification is never a visibility filter; it's just a badge.
+      const filteredStores = stores.filter((store) => {
         return store.business?.stripeAccount?.chargesEnabled === true;
       });
 
@@ -126,6 +128,13 @@ export const storeRouter = router({
               name: true,
             },
           },
+          business: {
+            include: {
+              stripeAccount: {
+                select: { chargesEnabled: true },
+              },
+            },
+          },
           _count: {
             select: { products: { where: { isActive: true } } },
           },
@@ -139,8 +148,13 @@ export const storeRouter = router({
         });
       }
 
-      // Only show approved stores publicly
-      if (store.status !== "APPROVED") {
+      // Only show approved stores whose Stripe account is fully ready to
+      // accept charges. Stores still onboarding are hidden from the public
+      // surface so customers don't land on a store they can't buy from.
+      if (
+        store.status !== "APPROVED" ||
+        !store.business?.stripeAccount?.chargesEnabled
+      ) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Store not found",
@@ -248,6 +262,7 @@ export const storeRouter = router({
           description: product.description,
           category: product.category,
           imageUrl: product.imageUrl,
+          images: product.images,
           priceUSD: product.priceUSD,
           ucDiscountPrice: product.ucDiscountPrice,
           quantity: product.trackInventory ? product.quantity : null,
@@ -281,11 +296,7 @@ export const storeRouter = router({
               status: true,
               business: {
                 select: {
-                  stripeAccount: {
-                    select: {
-                      chargesEnabled: true,
-                    },
-                  },
+                  stripeAccount: { select: { chargesEnabled: true } },
                 },
               },
             },
@@ -294,8 +305,8 @@ export const storeRouter = router({
       });
 
       if (
-        !product || 
-        !product.isActive || 
+        !product ||
+        !product.isActive ||
         product.store.status !== "APPROVED" ||
         !product.store.business?.stripeAccount?.chargesEnabled
       ) {
@@ -318,6 +329,7 @@ export const storeRouter = router({
         trackInventory: product.trackInventory,
         allowBackorder: product.allowBackorder,
         isFeatured: product.isFeatured,
+        sourceUrl: product.sourceUrl,
         totalSold: product.totalSold,
         store: {
           id: product.store.id,
@@ -1131,63 +1143,93 @@ export const storeRouter = router({
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
 
-      // Get store with owner info
+      // Load store + coopId so we can look up CoopConfig for contract addresses
       const store = await context.db.store.findUnique({
         where: { id: input.storeId },
-        include: {
-          owner: {
-            select: {
-              walletAddress: true,
-            },
-          },
+        select: {
+          id: true,
+          coopId: true,
+          category: true,
+          owner: { select: { walletAddress: true } },
         },
       });
 
       if (!store) {
-        throw new Error('Store not found');
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Store not found' });
       }
 
       if (!store.owner.walletAddress) {
-        throw new Error('Store owner does not have a wallet address');
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Store owner does not have a wallet address. They must connect a wallet first.',
+        });
       }
+
+      // Load contract addresses from CoopConfig (source of truth — no env vars)
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId: store.coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: {
+          verifiedStoreRegistryAddress: true,
+          scTokenAddress: true,
+          rpcUrl: true,
+        },
+      });
+
+      if (!coopConfig?.verifiedStoreRegistryAddress) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'VerifiedStoreRegistry contract address is not configured in CoopConfig. Set verifiedStoreRegistryAddress in your coop config.',
+        });
+      }
+
+      const registryConfig = {
+        registryAddress: coopConfig.verifiedStoreRegistryAddress,
+        rpcUrl: coopConfig.rpcUrl,
+      };
 
       let txHash: string | undefined;
 
       try {
-        // Import the registry service
         const { verifyStoreOnChain, unverifyStoreOnChain } = await import('../services/verified-store-registry-service');
 
-        // Call smart contract
         if (input.verified) {
           txHash = await verifyStoreOnChain(
             store.owner.walletAddress,
             store.category || 'OTHER',
-            store.id
+            store.id,
+            registryConfig,
           );
         } else {
-          txHash = await unverifyStoreOnChain(store.owner.walletAddress);
+          txHash = await unverifyStoreOnChain(store.owner.walletAddress, registryConfig);
         }
 
         console.log(`✅ On-chain verification ${input.verified ? 'granted' : 'removed'}: ${txHash}`);
 
-        // Also sync to UnityCoin contract for automatic treasury reserves
-        try {
-          const { syncStoreVerificationToContract } = await import('../services/store-sync-service');
-          await syncStoreVerificationToContract(store.owner.walletAddress, input.verified);
-          console.log(`✅ Store verification synced to UC contract`);
-        } catch (syncError) {
-          console.error('❌ Failed to sync to UC contract (non-critical):', syncError);
+        // Optionally sync to SoulaaniCoin contract (non-critical)
+        if (coopConfig.scTokenAddress) {
+          try {
+            const { syncStoreVerificationToContract } = await import('../services/store-sync-service');
+            await syncStoreVerificationToContract(store.owner.walletAddress, input.verified, {
+              scTokenAddress: coopConfig.scTokenAddress,
+              rpcUrl: coopConfig.rpcUrl,
+            });
+            console.log(`✅ Store verification synced to SC token contract`);
+          } catch (syncError) {
+            console.error('❌ Failed to sync to SC token contract (non-critical):', syncError);
+          }
         }
       } catch (error) {
         console.error('❌ On-chain verification failed:', error);
-        throw new Error(
-          `Failed to ${input.verified ? 'verify' : 'unverify'} store on-chain: ${
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to ${input.verified ? 'verify' : 'unverify'} store on-chain: ${
             error instanceof Error ? error.message : 'Unknown error'
-          }`
-        );
+          }`,
+        });
       }
 
-      // Update database to match on-chain state
+      // Update DB to match on-chain state
       await context.db.store.update({
         where: { id: input.storeId },
         data: {
@@ -1198,8 +1240,46 @@ export const storeRouter = router({
 
       return {
         success: true,
-        message: input.verified ? "Store SC verified on-chain" : "SC verification removed on-chain",
+        message: input.verified ? 'Store SC verified on-chain' : 'SC verification removed on-chain',
         txHash,
+      };
+    }),
+
+  /**
+   * Set SC verification in the database only (no blockchain call).
+   * Use this when you want to quickly mark/unmark a store without going
+   * through the full on-chain flow (e.g. Stripe not set up, no wallet, testing).
+   */
+  setScVerifiedAdmin: privateProcedure
+    .input(z.object({
+      storeId: z.string(),
+      verified: z.boolean(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+
+      const store = await context.db.store.findUnique({
+        where: { id: input.storeId },
+        select: { id: true, name: true },
+      });
+
+      if (!store) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Store not found' });
+      }
+
+      await context.db.store.update({
+        where: { id: input.storeId },
+        data: {
+          isScVerified: input.verified,
+          scVerifiedAt: input.verified ? new Date() : null,
+        },
+      });
+
+      return {
+        success: true,
+        message: input.verified
+          ? `${store.name} marked as SC Verified (DB only)`
+          : `SC Verification removed from ${store.name} (DB only)`,
       };
     }),
 
@@ -1213,18 +1293,35 @@ export const storeRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId;
 
-      // Get all SC-verified stores that need to be verified on-chain
+      if (!coopId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'coopId is required' });
+      }
+
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: { verifiedStoreRegistryAddress: true, rpcUrl: true },
+      });
+
+      if (!coopConfig?.verifiedStoreRegistryAddress) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'verifiedStoreRegistryAddress not configured in CoopConfig',
+        });
+      }
+
+      const registryConfig = {
+        registryAddress: coopConfig.verifiedStoreRegistryAddress,
+        rpcUrl: coopConfig.rpcUrl,
+      };
+
+      // Get all SC-verified stores for this coop that need to be verified on-chain
       const stores = await context.db.store.findMany({
-        where: {
-          isScVerified: true,
-        },
+        where: { coopId, isScVerified: true },
         include: {
-          owner: {
-            select: {
-              walletAddress: true,
-            },
-          },
+          owner: { select: { walletAddress: true } },
         },
         take: input.limit,
       });
@@ -1259,8 +1356,7 @@ export const storeRouter = router({
           storeId: store.id,
         }));
 
-        // Call smart contract batch verify
-        const txHash = await verifyStoresBatchOnChain(batchData);
+        const txHash = await verifyStoresBatchOnChain(batchData, registryConfig);
 
         console.log(`✅ Batch verified ${validStores.length} stores on-chain: ${txHash}`);
 
@@ -1706,10 +1802,18 @@ export const storeRouter = router({
       website: z.string().url().optional(),
       acceptsUC: z.boolean().optional().default(true),
       ucDiscountPercent: z.number().min(0).max(100).optional().default(20),
+      isScVerified: z.boolean().optional().default(false),
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
-      const coopId = (ctx as CoopScopedContext).coopId || '???';
+      const coopId = (ctx as CoopScopedContext).coopId;
+
+      if (!coopId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "coopId is required to create a store",
+        });
+      }
 
       // Verify owner exists
       const owner = await context.db.user.findUnique({
@@ -1722,8 +1826,6 @@ export const storeRouter = router({
           message: "Owner user not found",
         });
       }
-
-      // Allow users to have multiple stores - no restriction
 
       const store = await context.db.store.create({
         data: {
@@ -1744,6 +1846,8 @@ export const storeRouter = router({
           acceptsUC: input.acceptsUC,
           ucDiscountPercent: input.ucDiscountPercent,
           status: "APPROVED", // Admin-created stores are auto-approved
+          isScVerified: input.isScVerified ?? false,
+          scVerifiedAt: input.isScVerified ? new Date() : null,
         },
       });
 

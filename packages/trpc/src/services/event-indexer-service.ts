@@ -106,11 +106,7 @@ const VERIFIED_STORE_REGISTRY_ABI = [
   "event StoreCategoryUpdated(address indexed storeOwner, bytes32 oldCategoryKey, bytes32 newCategoryKey, address updatedBy, uint256 timestamp)",
 ];
 
-// Environment configuration
-const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org";
-const STORE_PAYMENT_ROUTER_ADDRESS = process.env.STORE_PAYMENT_ROUTER_ADDRESS;
-const SC_REWARD_ENGINE_ADDRESS = process.env.SC_REWARD_ENGINE_ADDRESS;
-const VERIFIED_STORE_REGISTRY_ADDRESS = process.env.VERIFIED_STORE_REGISTRY_ADDRESS;
+const DEFAULT_RPC_URL = "https://sepolia.base.org";
 const CHAIN_ID = 84532; // Base Sepolia
 
 let provider: ethers.JsonRpcProvider | null = null;
@@ -118,34 +114,71 @@ let routerContract: ethers.Contract | null = null;
 let engineContract: ethers.Contract | null = null;
 let registryContract: ethers.Contract | null = null;
 
-function initializeContracts() {
-  if (!provider) {
-    provider = new ethers.JsonRpcProvider(RPC_URL);
+interface ContractAddresses {
+  rpcUrl?: string | null;
+  storePaymentRouterAddress?: string | null;
+  scRewardEngineAddress?: string | null;
+  verifiedStoreRegistryAddress?: string | null;
+}
+
+function initializeContracts(addresses: ContractAddresses) {
+  const rpcUrl = addresses.rpcUrl || DEFAULT_RPC_URL;
+
+  if (!provider || provider._getConnection().url !== rpcUrl) {
+    provider = new ethers.JsonRpcProvider(rpcUrl);
+    // Reset contracts when provider changes
+    routerContract = null;
+    engineContract = null;
+    registryContract = null;
   }
 
-  if (!routerContract && STORE_PAYMENT_ROUTER_ADDRESS) {
+  if (!routerContract && addresses.storePaymentRouterAddress) {
     routerContract = new ethers.Contract(
-      STORE_PAYMENT_ROUTER_ADDRESS,
+      addresses.storePaymentRouterAddress,
       STORE_PAYMENT_ROUTER_ABI,
       provider
     );
   }
 
-  if (!engineContract && SC_REWARD_ENGINE_ADDRESS) {
+  if (!engineContract && addresses.scRewardEngineAddress) {
     engineContract = new ethers.Contract(
-      SC_REWARD_ENGINE_ADDRESS,
+      addresses.scRewardEngineAddress,
       SC_REWARD_ENGINE_ABI,
       provider
     );
   }
 
-  if (!registryContract && VERIFIED_STORE_REGISTRY_ADDRESS) {
+  if (!registryContract && addresses.verifiedStoreRegistryAddress) {
     registryContract = new ethers.Contract(
-      VERIFIED_STORE_REGISTRY_ADDRESS,
+      addresses.verifiedStoreRegistryAddress,
       VERIFIED_STORE_REGISTRY_ABI,
       provider
     );
   }
+}
+
+/**
+ * Load contract addresses from CoopConfig and initialize contracts.
+ * Call this at the start of any indexing operation.
+ */
+async function initializeContractsFromDB(db: PrismaClient, coopId?: string): Promise<void> {
+  const config = await db.coopConfig.findFirst({
+    where: coopId ? { coopId, isActive: true } : { isActive: true },
+    orderBy: { version: 'desc' },
+    select: {
+      rpcUrl: true,
+      storePaymentRouterAddress: true,
+      rewardEngineAddress: true,
+      verifiedStoreRegistryAddress: true,
+    },
+  });
+
+  initializeContracts({
+    rpcUrl: config?.rpcUrl,
+    storePaymentRouterAddress: config?.storePaymentRouterAddress,
+    scRewardEngineAddress: config?.rewardEngineAddress,
+    verifiedStoreRegistryAddress: config?.verifiedStoreRegistryAddress,
+  });
 }
 
 /**
@@ -195,7 +228,7 @@ export async function indexPurchaseEvents(
   toBlock: number
 ): Promise<number> {
   try {
-    initializeContracts();
+    await initializeContractsFromDB(db);
 
     if (!routerContract) {
       console.warn("⚠️  Router contract not initialized");
@@ -277,7 +310,7 @@ export async function indexRewardEvents(
   toBlock: number
 ): Promise<number> {
   try {
-    initializeContracts();
+    await initializeContractsFromDB(db);
 
     if (!engineContract) {
       console.warn("⚠️  Engine contract not initialized");
@@ -389,7 +422,7 @@ export async function indexSkippedRewardEvents(
   toBlock: number
 ): Promise<number> {
   try {
-    initializeContracts();
+    await initializeContractsFromDB(db);
 
     if (!engineContract) {
       console.warn("⚠️  Engine contract not initialized");
@@ -494,7 +527,7 @@ export async function getLastIndexedBlock(db: PrismaClient): Promise<number> {
  */
 export async function runIndexingCycle(db: PrismaClient): Promise<void> {
   try {
-    initializeContracts();
+    await initializeContractsFromDB(db);
 
     if (!provider) {
       throw new Error("Provider not initialized");

@@ -2,14 +2,19 @@ import React from 'react';
 import { ScrollView, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogOut, Copy, Check, Landmark, ChevronRight, CreditCard, Shield, HelpCircle, Package, Wallet, Plus } from 'lucide-react-native';
+import { LogOut, Copy, Check, ChevronRight, Shield, HelpCircle, Package, CreditCard } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/auth-context';
 import * as Clipboard from 'expo-clipboard';
+import { coopConfig } from '@/lib/coop-config';
+import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const config = coopConfig();
+  const primaryColor = resolveBrandColor(user?.coop?.primaryColor || config.primaryColor, '#B45309');
+  const accentColor = resolveBrandColor(user?.coop?.accentColor || config.accentColor, '#16A34A');
   const [copiedAddress, setCopiedAddress] = React.useState(false);
 
   const handleCopyAddress = async () => {
@@ -41,7 +46,7 @@ export default function ProfileScreen() {
       <ScrollView className="flex-1">
         {/* Profile Header with Gradient */}
         <LinearGradient
-          colors={['#78350F', '#D97706']}
+          colors={['#111827', accentColor, primaryColor]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: 48, paddingBottom: 60, paddingHorizontal: 24 }}
@@ -56,11 +61,11 @@ export default function ProfileScreen() {
             <Text className="text-2xl font-bold text-white">
               {user?.name || 'Member'}
             </Text>
-            <Text className="text-amber-200 mt-1">
+            <Text className="text-white/80 mt-1">
               {user?.email}
             </Text>
             {user?.phone && (
-              <Text className="text-amber-300 text-sm mt-1">
+              <Text className="text-white/70 text-sm mt-1">
                 {user.phone}
               </Text>
             )}
@@ -72,14 +77,14 @@ export default function ProfileScreen() {
           <View className="bg-white rounded-2xl p-5 mb-6 shadow-lg" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 8 }}>
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
-                <View className="w-3 h-3 rounded-full bg-green-500 mr-2" />
+                <View className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: accentColor }} />
                 <Text className="text-gray-600">Status:</Text>
                 <Text className="text-gray-900 font-semibold ml-1 capitalize">
                   {user?.status?.toLowerCase() || 'Active'}
                 </Text>
               </View>
-              <View className="bg-amber-100 px-3 py-1 rounded-full">
-                <Text className="text-amber-700 text-sm font-medium capitalize">
+              <View className="px-3 py-1 rounded-full" style={{ backgroundColor: withAlpha(accentColor, '1A') }}>
+                <Text className="text-sm font-medium capitalize" style={{ color: accentColor }}>
                   {user?.roles?.join(', ') || 'Member'}
                 </Text>
               </View>
@@ -109,47 +114,16 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* Add Money CTA */}
-          <TouchableOpacity
-            onPress={() => router.push('/fund-wallet' as any)}
-            className="rounded-2xl overflow-hidden mb-4"
-            activeOpacity={0.9}
-          >
-            <LinearGradient
-              colors={['#DC2626', '#D97706']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ padding: 20 }}
-            >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-white text-lg font-bold">Add Money to Wallet</Text>
-                  <Text className="text-white/85 text-sm mt-1">
-                    Top up instantly with your saved card.
-                  </Text>
-                </View>
-                <View className="w-12 h-12 rounded-xl bg-white/20 items-center justify-center">
-                  <Wallet size={22} color="#FFFFFF" />
-                </View>
-              </View>
-
-              <View className="mt-4 self-start bg-white px-4 py-2 rounded-xl flex-row items-center">
-                <Plus size={16} color="#B45309" />
-                <Text className="text-amber-700 font-semibold ml-2">Add Money</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-
           {/* Quick Actions */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4">
-            <Text className="text-sm text-gray-500 px-5 pt-5 pb-3 font-medium">Payment & Banking</Text>
+            <Text className="text-sm text-gray-500 px-5 pt-5 pb-3 font-medium">Activity</Text>
 
             <TouchableOpacity
               onPress={() => router.push('/(authenticated)/orders' as any)}
               className="flex-row items-center px-5 py-4 border-b border-gray-100 active:bg-gray-50"
             >
-              <View className="w-11 h-11 rounded-xl bg-green-100 items-center justify-center mr-4">
-                <Package size={22} color="#16A34A" />
+              <View className="w-11 h-11 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: withAlpha(accentColor, '1A') }}>
+                <Package size={22} color={accentColor} />
               </View>
               <View className="flex-1">
                 <Text className="text-base text-gray-900 font-medium">Order History</Text>
@@ -160,28 +134,14 @@ export default function ProfileScreen() {
 
             <TouchableOpacity
               onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-              className="flex-row items-center px-5 py-4 border-b border-gray-100 active:bg-gray-50"
+              className="flex-row items-center px-5 py-4 active:bg-gray-50"
             >
-              <View className="w-11 h-11 rounded-xl bg-purple-100 items-center justify-center mr-4">
-                <CreditCard size={22} color="#7C3AED" />
+              <View className="w-11 h-11 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: withAlpha(accentColor, '1A') }}>
+                <CreditCard size={22} color={accentColor} />
               </View>
               <View className="flex-1">
                 <Text className="text-base text-gray-900 font-medium">Payment Methods</Text>
-                <Text className="text-sm text-gray-500">Manage your cards</Text>
-              </View>
-              <ChevronRight size={20} color="#D1D5DB" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/bank-accounts' as any)}
-              className="flex-row items-center px-5 py-4 active:bg-gray-50"
-            >
-              <View className="w-11 h-11 rounded-xl bg-amber-100 items-center justify-center mr-4">
-                <Landmark size={22} color="#B45309" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base text-gray-900 font-medium">Bank Accounts</Text>
-                <Text className="text-sm text-gray-500">Manage withdrawal accounts</Text>
+                <Text className="text-sm text-gray-500">Add or manage saved cards</Text>
               </View>
               <ChevronRight size={20} color="#D1D5DB" />
             </TouchableOpacity>

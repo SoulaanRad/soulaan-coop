@@ -2,14 +2,15 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, View, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Plus, Store, TrendingUp, Coins } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Clock, Wallet, Copy, Check, Store, TrendingUp, Coins } from 'lucide-react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
+import { useCoin } from '@/contexts/platform-config-context';
 import { api } from '@/lib/api';
 import { coopConfig } from '@/lib/coop-config';
+import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
 
 /**
  * Format SC balance as whole integers with comma separators.
@@ -31,7 +32,10 @@ function truncateAddress(address: string): string {
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const coin = useCoin();
   const config = coopConfig();
+  const primaryColor = resolveBrandColor(user?.coop?.primaryColor || config.primaryColor, '#B45309');
+  const accentColor = resolveBrandColor(user?.coop?.accentColor || config.accentColor, '#16A34A');
   const [scBalance, setScBalance] = useState<string>('0');
   const [ucBalance, setUcBalance] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(true);
@@ -99,10 +103,10 @@ export default function HomeScreen() {
           ...r,
           activityType: 'scReward',
           counterparty: r.reason === 'STORE_PURCHASE_REWARD' 
-            ? `SC Reward from ${r.relatedStore?.name || 'Store'}`
+            ? `${coin.symbol} Reward from ${r.relatedStore?.name || 'Store'}`
             : r.reason === 'STORE_SALE_REWARD'
-            ? `SC Reward - Sale`
-            : 'SC Reward',
+            ? `${coin.symbol} Reward - Sale`
+            : `${coin.symbol} Reward`,
           amount: r.amountSC,
           type: 'received', // SC rewards are always incoming
           createdAt: r.completedAt || r.createdAt,
@@ -204,11 +208,11 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
             ) : (
-              <Button
+              <TouchableOpacity
                 onPress={handleCreateWallet}
                 disabled={isCreatingWallet}
-                size="sm"
-                className="rounded-full"
+                className="rounded-full px-4 py-2"
+                style={{ backgroundColor: accentColor, opacity: isCreatingWallet ? 0.7 : 1 }}
               >
                 {isCreatingWallet ? (
                   <ActivityIndicator size="small" color="#fff" />
@@ -218,42 +222,29 @@ export default function HomeScreen() {
                     <Text className="ml-1.5 text-xs font-medium text-white">Create Wallet</Text>
                   </View>
                 )}
-              </Button>
+              </TouchableOpacity>
             )}
           </View>
 
           {/* Balance Card - SC */}
-          <View className="mb-4 rounded-2xl overflow-hidden" style={{ shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
+          <View className="mb-4 rounded-2xl overflow-hidden" style={{ shadowColor: accentColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>
             <LinearGradient
-              colors={['#F59E0B', '#D97706', '#B45309']}
+              colors={['#111827', accentColor, primaryColor]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ padding: 20, borderRadius: 16 }}
             >
               <View className="flex-row items-center mb-3">
                 <TrendingUp size={18} color="white" />
-                <Text className="text-white/90 text-xs font-medium ml-2">Soulaan Coin</Text>
+                <Text className="text-white/90 text-xs font-medium ml-2">{coin.name}</Text>
               </View>
               {isLoading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} SC</Text>
+                <Text className="text-white text-2xl font-bold">{formatSCBalance(scBalance)} {coin.symbol}</Text>
               )}
             </LinearGradient>
           </View>
-
-          {/* Quick Action Buttons */}
-          <View className="flex-row gap-3 mb-6">
-            <TouchableOpacity
-              onPress={() => router.push('/(authenticated)/payment-methods' as any)}
-              className="flex-1 bg-white rounded-2xl py-4 flex-row items-center justify-center border border-gray-100"
-              style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}
-            >
-              <Plus size={20} color="#B45309" />
-              <Text className="text-amber-700 font-bold ml-2">Add Card</Text>
-            </TouchableOpacity>
-          </View>
-
 
           {/* Recent Activity */}
           <View className="mb-4">
@@ -264,7 +255,7 @@ export default function HomeScreen() {
                   onPress={() => router.push('/(authenticated)/history' as any)}
                   className="bg-gray-100 px-3 py-1.5 rounded-full"
                 >
-                  <Text className="text-amber-700 text-sm font-medium">See All</Text>
+                  <Text className="text-sm font-medium" style={{ color: accentColor }}>See All</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -289,18 +280,16 @@ export default function HomeScreen() {
                   const isSCReward = tx.activityType === 'scReward';
                   const isReceived = tx.type === 'received';
                   
-                  const bgColor = isOrder 
-                    ? 'bg-amber-100' 
-                    : isSCReward
-                      ? 'bg-amber-100'
-                    : isReceived 
-                      ? 'bg-green-100' 
-                      : 'bg-gray-100';
+                  const iconBgColor = isOrder || isSCReward
+                    ? withAlpha(accentColor, '1A')
+                    : isReceived
+                      ? '#DCFCE7'
+                      : '#F3F4F6';
                   
                   const icon = isOrder ? (
-                    <Store size={22} color="#D97706" />
+                    <Store size={22} color={accentColor} />
                   ) : isSCReward ? (
-                    <Coins size={22} color="#F59E0B" />
+                    <Coins size={22} color={accentColor} />
                   ) : isReceived ? (
                     <ArrowDownLeft size={22} color="#16A34A" />
                   ) : (
@@ -310,7 +299,8 @@ export default function HomeScreen() {
                   const content = (
                     <>
                       <View
-                        className={`w-12 h-12 rounded-2xl items-center justify-center mr-4 ${bgColor}`}
+                        className="w-12 h-12 rounded-2xl items-center justify-center mr-4"
+                        style={{ backgroundColor: iconBgColor }}
                       >
                         {icon}
                       </View>
@@ -321,12 +311,11 @@ export default function HomeScreen() {
                         </Text>
                       </View>
                       <Text
-                        className={`font-bold text-lg ${
-                          isSCReward ? 'text-amber-600' : isReceived ? 'text-green-600' : 'text-gray-900'
-                        }`}
+                        className={`font-bold text-lg ${isReceived && !isSCReward ? 'text-green-600' : 'text-gray-900'}`}
+                        style={isSCReward ? { color: accentColor } : undefined}
                       >
                         {isSCReward 
-                          ? `+${formatSCBalance(String(tx.amount))} SC`
+                          ? `+${formatSCBalance(String(tx.amount))} ${coin.symbol}`
                           : `${isReceived ? '+' : '-'}$${tx.amount.toFixed(2)}`
                         }
                       </Text>

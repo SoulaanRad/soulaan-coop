@@ -68,7 +68,7 @@ function CheckoutForm({
       <Button
         type="submit"
         size="lg"
-        className="w-full bg-orange-500 hover:bg-orange-600"
+        className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
         disabled={!stripe || isProcessing}
       >
         {isProcessing ? (
@@ -267,8 +267,8 @@ export default function CheckoutPage() {
               Your order has been successfully placed.
             </p>
             {storeInfo?.isScVerified && (
-              <div className="mb-4 rounded-lg bg-amber-500/10 p-4">
-                <p className="text-sm text-amber-700">
+              <div className="mb-4 rounded-lg bg-[var(--coop-accent)]/10 p-4">
+                <p className="text-sm text-[var(--coop-accent)]">
                   🪙 You'll earn SC rewards when your payment completes!
                 </p>
               </div>
@@ -277,7 +277,7 @@ export default function CheckoutPage() {
               <Button variant="outline" asChild className="flex-1">
                 <Link href={`/c/${coopId}/stores`}>Continue Shopping</Link>
               </Button>
-              <Button asChild className="flex-1 bg-orange-500 hover:bg-orange-600">
+              <Button asChild className="flex-1 bg-[var(--coop-accent)] hover:opacity-90 transition-opacity">
                 <Link href={`/c/${coopId}`}>Go to Home</Link>
               </Button>
             </div>
@@ -344,7 +344,7 @@ export default function CheckoutPage() {
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
                   disabled={loading}
                 >
                   {loading ? (
@@ -371,7 +371,7 @@ export default function CheckoutPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-500" />
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[var(--coop-accent)]" />
           <p className="text-muted-foreground">Initializing checkout...</p>
         </div>
       </div>
@@ -425,8 +425,8 @@ export default function CheckoutPage() {
                     <span>{storeInfo.name}</span>
                     {storeInfo.isScVerified && (
                       <div className="flex items-center gap-1">
-                        <BadgeCheck className="h-4 w-4 text-amber-600" />
-                        <span className="text-amber-600">SC Verified</span>
+                        <BadgeCheck className="h-4 w-4 text-[var(--coop-accent)]" />
+                        <span className="text-[var(--coop-accent)]">SC Verified</span>
                       </div>
                     )}
                   </div>

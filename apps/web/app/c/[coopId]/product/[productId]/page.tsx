@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import {
   ArrowLeft,
   Download,
+  ExternalLink,
   Package,
   Star,
   Store,
@@ -102,6 +104,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
           100
       )
     : 0;
+  const galleryImages = [product.imageUrl, ...(product.images || [])].filter(
+    (url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index
+  );
+  const mainImage = galleryImages[0];
 
   return (
     <div className="min-h-screen bg-background">
@@ -124,23 +130,61 @@ export default async function ProductDetailPage({ params }: PageProps) {
       <section className="py-8 md:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-2">
-            {/* Product Image */}
-            <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
-              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-50">
-                <TypeIcon className="h-24 w-24 text-orange-300" />
-              </div>
-              {discount > 0 && (
-                <Badge className="absolute left-4 top-4 bg-red-500 text-white">
-                  {discount}% OFF
+            {/* Product Images */}
+            <div className="space-y-3">
+              <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <TypeIcon className="h-24 w-24 text-muted-foreground/30" />
+                </div>
+                {mainImage && (
+                  <FallbackImage
+                    src={mainImage}
+                    alt={product.name}
+                    fill
+                    priority
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                )}
+                {discount > 0 && (
+                  <Badge className="absolute left-4 top-4 bg-red-500 text-white">
+                    {discount}% OFF
+                  </Badge>
+                )}
+                <Badge
+                  variant="secondary"
+                  className="absolute right-4 top-4 gap-1"
+                >
+                  <TypeIcon className="h-3 w-3" />
+                  {productTypeLabels[product.productType] || "Product"}
                 </Badge>
+              </div>
+
+              {galleryImages.length > 1 && (
+                <div className="grid grid-cols-4 gap-3">
+                  {galleryImages.map((url, index) => (
+                    <div
+                      key={url}
+                      className={`relative aspect-square overflow-hidden rounded-lg border bg-muted ${
+                        index === 0 ? "border-[var(--coop-accent)]" : "border-border"
+                      }`}
+                    >
+                      <FallbackImage
+                        src={url}
+                        alt={`${product.name} image ${index + 1}`}
+                        fill
+                        sizes="25vw"
+                        className="object-cover"
+                      />
+                      {index === 0 && (
+                        <Badge className="absolute left-1 top-1 bg-[var(--coop-accent)] text-[10px] text-white">
+                          Main
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
-              <Badge
-                variant="secondary"
-                className="absolute right-4 top-4 gap-1"
-              >
-                <TypeIcon className="h-3 w-3" />
-                {productTypeLabels[product.productType]}
-              </Badge>
             </div>
 
             {/* Product Info */}
@@ -153,7 +197,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 <Store className="h-4 w-4" />
                 <span>{product.store.name}</span>
                 {product.store.rating && (
-                  <div className="flex items-center gap-1 text-amber-500">
+                  <div className="flex items-center gap-1 text-[var(--coop-accent)]">
                     <Star className="h-3 w-3 fill-current" />
                     <span>{product.store.rating}</span>
                   </div>
@@ -165,6 +209,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </h1>
 
               <p className="mt-4 text-muted-foreground">{product.description}</p>
+
+              {product.sourceUrl && (
+                <div className="mt-4 rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium text-foreground">Original product page</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Want to buy directly from the seller&apos;s site?
+                  </p>
+                  <Button asChild variant="outline" className="mt-3">
+                    <a href={product.sourceUrl} target="_blank" rel="noopener noreferrer">
+                      Buy from seller&apos;s site
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              )}
 
               {/* Price */}
               <div className="mt-6 flex items-baseline gap-3">
@@ -180,8 +239,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
               {/* Product Type Info */}
               <div className="mt-6 flex items-center gap-3 rounded-lg bg-muted/50 p-4">
-                <div className="rounded-full bg-orange-100 p-2">
-                  <TypeIcon className="h-5 w-5 text-orange-600" />
+                <div className="rounded-full bg-[var(--coop-accent)]/10 p-2">
+                  <TypeIcon className="h-5 w-5 text-[var(--coop-accent)]" />
                 </div>
                 <div>
                   <div className="font-medium">
@@ -199,7 +258,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   {product.quantity > 10 ? (
                     <span className="text-green-600">In Stock</span>
                   ) : product.quantity > 0 ? (
-                    <span className="text-amber-600">
+                    <span className="text-[var(--coop-accent)]">
                       Only {product.quantity} left in stock
                     </span>
                   ) : (

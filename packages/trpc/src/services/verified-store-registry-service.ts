@@ -1,16 +1,9 @@
-import { createWalletClient, createPublicClient, http, encodeFunctionData, type Address, keccak256, toBytes } from 'viem';
+import { createWalletClient, createPublicClient, http, type Address, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 
-// Environment configuration
-const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
+const DEFAULT_RPC_URL = 'https://sepolia.base.org';
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY;
-const VERIFIED_STORE_REGISTRY_ADDRESS = process.env.VERIFIED_STORE_REGISTRY_ADDRESS;
-
-// Validate configuration
-if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-  console.warn('⚠️  VERIFIED_STORE_REGISTRY_ADDRESS not set - on-chain verification disabled');
-}
 
 // VerifiedStoreRegistry ABI (only the functions we need)
 const VERIFIED_STORE_REGISTRY_ABI = [
@@ -78,30 +71,22 @@ const VERIFIED_STORE_REGISTRY_ABI = [
   },
 ] as const;
 
-/**
- * Get public client for reading from blockchain
- */
-function getPublicClient() {
+function getPublicClient(rpcUrl?: string | null) {
   return createPublicClient({
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl || DEFAULT_RPC_URL),
   });
 }
 
-/**
- * Get wallet client for writing to blockchain
- */
-function getWalletClient() {
+function getWalletClient(rpcUrl?: string | null) {
   if (!BACKEND_WALLET_PRIVATE_KEY) {
     throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
   }
-
   const account = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
-  
   return createWalletClient({
     account,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(rpcUrl || DEFAULT_RPC_URL),
   });
 }
 
@@ -113,40 +98,28 @@ export function stringToBytes32(str: string): `0x${string}` {
   return keccak256(toBytes(str));
 }
 
-/**
- * Verify a store on-chain
- * @param storeOwnerAddress - Wallet address of the store owner
- * @param category - Store category (e.g., "FOOD_BEVERAGE", "RETAIL")
- * @param storeId - Unique store ID from database
- * @returns Transaction hash
- */
+interface ContractConfig {
+  registryAddress: string;
+  rpcUrl?: string | null;
+}
+
 export async function verifyStoreOnChain(
   storeOwnerAddress: string,
   category: string,
-  storeId: string
+  storeId: string,
+  config: ContractConfig,
 ): Promise<string> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    throw new Error('VerifiedStoreRegistry contract address not configured');
-  }
+  console.log(`🔗 Verifying store on-chain: ${storeOwnerAddress} (${category})`);
 
-  console.log(`🔗 Verifying store on-chain...`);
-  console.log(`   Store Owner: ${storeOwnerAddress}`);
-  console.log(`   Category: ${category}`);
-  console.log(`   Store ID: ${storeId}`);
+  const walletClient = getWalletClient(config.rpcUrl);
+  const publicClient = getPublicClient(config.rpcUrl);
+  const registryAddress = config.registryAddress as Address;
 
-  const walletClient = getWalletClient();
-  const publicClient = getPublicClient();
-
-  // Convert category and storeId to bytes32
   const categoryKey = stringToBytes32(category);
   const storeKey = stringToBytes32(storeId);
 
-  console.log(`   Category Key: ${categoryKey}`);
-  console.log(`   Store Key: ${storeKey}`);
-
-  // Check if already verified
   const isVerified = await publicClient.readContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: registryAddress,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'isVerified',
     args: [storeOwnerAddress as Address],
@@ -156,17 +129,14 @@ export async function verifyStoreOnChain(
     throw new Error('Store is already verified on-chain');
   }
 
-  // Call verifyStore
   const txHash = await walletClient.writeContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: registryAddress,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'verifyStore',
     args: [storeOwnerAddress as Address, categoryKey, storeKey],
   });
 
   console.log(`📝 Transaction submitted: ${txHash}`);
-
-  // Wait for confirmation
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   if (receipt.status === 'reverted') {
@@ -174,29 +144,21 @@ export async function verifyStoreOnChain(
   }
 
   console.log(`✅ Store verified on-chain: ${txHash}`);
-
   return txHash;
 }
 
-/**
- * Unverify a store on-chain
- * @param storeOwnerAddress - Wallet address of the store owner
- * @returns Transaction hash
- */
-export async function unverifyStoreOnChain(storeOwnerAddress: string): Promise<string> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    throw new Error('VerifiedStoreRegistry contract address not configured');
-  }
+export async function unverifyStoreOnChain(
+  storeOwnerAddress: string,
+  config: ContractConfig,
+): Promise<string> {
+  console.log(`🔗 Unverifying store on-chain: ${storeOwnerAddress}`);
 
-  console.log(`🔗 Unverifying store on-chain...`);
-  console.log(`   Store Owner: ${storeOwnerAddress}`);
+  const walletClient = getWalletClient(config.rpcUrl);
+  const publicClient = getPublicClient(config.rpcUrl);
+  const registryAddress = config.registryAddress as Address;
 
-  const walletClient = getWalletClient();
-  const publicClient = getPublicClient();
-
-  // Check if verified
   const isVerified = await publicClient.readContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: registryAddress,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'isVerified',
     args: [storeOwnerAddress as Address],
@@ -206,17 +168,14 @@ export async function unverifyStoreOnChain(storeOwnerAddress: string): Promise<s
     throw new Error('Store is not verified on-chain');
   }
 
-  // Call unverifyStore
   const txHash = await walletClient.writeContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: registryAddress,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'unverifyStore',
     args: [storeOwnerAddress as Address],
   });
 
   console.log(`📝 Transaction submitted: ${txHash}`);
-
-  // Wait for confirmation
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   if (receipt.status === 'reverted') {
@@ -224,49 +183,31 @@ export async function unverifyStoreOnChain(storeOwnerAddress: string): Promise<s
   }
 
   console.log(`✅ Store unverified on-chain: ${txHash}`);
-
   return txHash;
 }
 
-/**
- * Verify multiple stores in a batch
- * @param stores - Array of store data { ownerAddress, category, storeId }
- * @returns Transaction hash
- */
 export async function verifyStoresBatchOnChain(
-  stores: Array<{ ownerAddress: string; category: string; storeId: string }>
+  stores: Array<{ ownerAddress: string; category: string; storeId: string }>,
+  config: ContractConfig,
 ): Promise<string> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    throw new Error('VerifiedStoreRegistry contract address not configured');
-  }
-
   console.log(`🔗 Batch verifying ${stores.length} stores on-chain...`);
 
-  const walletClient = getWalletClient();
-  const publicClient = getPublicClient();
+  const walletClient = getWalletClient(config.rpcUrl);
+  const publicClient = getPublicClient(config.rpcUrl);
+  const registryAddress = config.registryAddress as Address;
 
-  // Prepare arrays
-  const storeOwners: Address[] = [];
-  const categoryKeys: `0x${string}`[] = [];
-  const storeKeys: `0x${string}`[] = [];
+  const storeOwners: Address[] = stores.map(s => s.ownerAddress as Address);
+  const categoryKeys = stores.map(s => stringToBytes32(s.category));
+  const storeKeys = stores.map(s => stringToBytes32(s.storeId));
 
-  for (const store of stores) {
-    storeOwners.push(store.ownerAddress as Address);
-    categoryKeys.push(stringToBytes32(store.category));
-    storeKeys.push(stringToBytes32(store.storeId));
-  }
-
-  // Call verifyStoresBatch
   const txHash = await walletClient.writeContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: registryAddress,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'verifyStoresBatch',
     args: [storeOwners, categoryKeys, storeKeys],
   });
 
   console.log(`📝 Batch transaction submitted: ${txHash}`);
-
-  // Wait for confirmation
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   if (receipt.status === 'reverted') {
@@ -274,57 +215,39 @@ export async function verifyStoresBatchOnChain(
   }
 
   console.log(`✅ ${stores.length} stores verified on-chain: ${txHash}`);
-
   return txHash;
 }
 
-/**
- * Check if a store is verified on-chain
- * @param storeOwnerAddress - Wallet address of the store owner
- * @returns True if verified
- */
-export async function isStoreVerifiedOnChain(storeOwnerAddress: string): Promise<boolean> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    return false;
-  }
-
-  const publicClient = getPublicClient();
-
-  const isVerified = await publicClient.readContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+export async function isStoreVerifiedOnChain(
+  storeOwnerAddress: string,
+  config: ContractConfig,
+): Promise<boolean> {
+  const publicClient = getPublicClient(config.rpcUrl);
+  return publicClient.readContract({
+    address: config.registryAddress as Address,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'isVerified',
     args: [storeOwnerAddress as Address],
   });
-
-  return isVerified;
 }
 
-/**
- * Get store info from on-chain registry
- * @param storeOwnerAddress - Wallet address of the store owner
- * @returns Store info or null if not found
- */
-export async function getStoreInfoOnChain(storeOwnerAddress: string): Promise<{
+export async function getStoreInfoOnChain(
+  storeOwnerAddress: string,
+  config: ContractConfig,
+): Promise<{
   isVerified: boolean;
   categoryKey: string;
   storeKey: string;
   verifiedAt: bigint;
   updatedAt: bigint;
 } | null> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    return null;
-  }
-
-  const publicClient = getPublicClient();
-
+  const publicClient = getPublicClient(config.rpcUrl);
   const info = await publicClient.readContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: config.registryAddress as Address,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'getStoreInfo',
     args: [storeOwnerAddress as Address],
   });
-
   return {
     isVerified: info.isVerified,
     categoryKey: info.categoryKey,
@@ -334,22 +257,12 @@ export async function getStoreInfoOnChain(storeOwnerAddress: string): Promise<{
   };
 }
 
-/**
- * Get all verified store addresses from on-chain registry
- * @returns Array of verified store owner addresses
- */
-export async function getAllVerifiedStoresOnChain(): Promise<string[]> {
-  if (!VERIFIED_STORE_REGISTRY_ADDRESS) {
-    return [];
-  }
-
-  const publicClient = getPublicClient();
-
+export async function getAllVerifiedStoresOnChain(config: ContractConfig): Promise<string[]> {
+  const publicClient = getPublicClient(config.rpcUrl);
   const addresses = await publicClient.readContract({
-    address: VERIFIED_STORE_REGISTRY_ADDRESS as Address,
+    address: config.registryAddress as Address,
     abi: VERIFIED_STORE_REGISTRY_ABI,
     functionName: 'getVerifiedStores',
   });
-
   return [...addresses] as string[];
 }

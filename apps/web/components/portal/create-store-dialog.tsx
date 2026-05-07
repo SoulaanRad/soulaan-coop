@@ -21,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, ShieldCheck } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { BlobImageUpload } from "./blob-image-upload";
+import { Switch } from "@/components/ui/switch";
 
 interface CreateStoreDialogProps {
   coopId: string;
@@ -39,6 +40,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
   const [category, setCategory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [isScVerified, setIsScVerified] = useState(false);
 
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
     { walletAddress: address || "" },
@@ -70,6 +72,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
     setCategory("");
     setImageUrl("");
     setBannerUrl("");
+    setIsScVerified(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -81,6 +84,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
       category: category as any,
       imageUrl: imageUrl || undefined,
       bannerUrl: bannerUrl || undefined,
+      isScVerified,
     });
   };
 
@@ -186,6 +190,20 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
               description="Upload a wide banner image for the store"
               aspectRatio="aspect-video"
               onUploadComplete={(url) => setBannerUrl(url)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-amber-600/30 bg-amber-600/10 p-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-amber-500" />
+              <div>
+                <p className="text-sm font-medium text-white">SC Verified</p>
+                <p className="text-xs text-gray-400">Mark as Soulaan Coop verified (DB only, no blockchain)</p>
+              </div>
+            </div>
+            <Switch
+              checked={isScVerified}
+              onCheckedChange={setIsScVerified}
             />
           </div>
 

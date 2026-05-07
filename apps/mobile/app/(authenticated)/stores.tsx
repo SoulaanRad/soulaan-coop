@@ -7,7 +7,6 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,14 +16,11 @@ import {
   Search,
   BadgeCheck,
   ChevronRight,
-  ShoppingBag,
   Star,
   Plus,
   Minus,
   Package,
-  CheckCircle,
   ShoppingCart,
-  X,
   Sparkles,
   ArrowLeft,
 } from 'lucide-react-native';
@@ -33,6 +29,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useCoin } from '@/contexts/platform-config-context';
 import { useCart } from '@/contexts/cart-context';
 import { api } from '@/lib/api';
+import { coopConfig } from '@/lib/coop-config';
+import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
 
 
 interface StoreData {
@@ -72,11 +70,16 @@ interface ProductData {
   };
 }
 
-type ViewMode = 'popular' | 'stores';
+type ViewMode = 'stores' | 'products';
 
 export default function StoresScreen() {
   const { user } = useAuth();
   const coin = useCoin();
+  const config = coopConfig();
+  const primaryColor = resolveBrandColor(user?.coop?.primaryColor || config.primaryColor, '#B45309');
+  const accentColor = resolveBrandColor(user?.coop?.accentColor || config.accentColor, '#0F766E');
+  const coopShortName = user?.coop?.shortName || config.shortName;
+  const rewardLabel = `${coin.name} (${coin.symbol})`;
   const { items: cartItems, addItem, updateQuantity, removeItem, totalItems } = useCart();
 
   const getCartQuantity = (productId: string) => {
@@ -87,7 +90,7 @@ export default function StoresScreen() {
   const formatPrice = (price: number) => {
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
-  const [viewMode, setViewMode] = useState<ViewMode>('popular');
+  const [viewMode, setViewMode] = useState<ViewMode>('products');
   const [stores, setStores] = useState<StoreData[]>([]);
   const [featuredStores, setFeaturedStores] = useState<StoreData[]>([]);
   const [products, setProducts] = useState<ProductData[]>([]);
@@ -97,6 +100,7 @@ export default function StoresScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [myStore, setMyStore] = useState<any>(null);
   const [storeCategories, setStoreCategories] = useState<{ key: string; label: string }[]>([]);
+  const hasLoadedRef = React.useRef(false);
 
   const handleAddToCart = (product: ProductData) => {
     addItem(
@@ -116,17 +120,21 @@ export default function StoresScreen() {
 
   const loadStores = useCallback(async () => {
     try {
-      // Load featured stores
-      const featuredResult = await api.getStores({ featured: true, limit: 5 });
-      setFeaturedStores(featuredResult.stores);
-
-      // Load all stores with filters
+      // Load all stores once, then derive featured locally. This avoids
+      // showing an empty featured carousel when no store has been explicitly
+      // marked as featured yet.
       const allResult = await api.getStores({
         category: selectedCategory || undefined,
         search: searchQuery || undefined,
         limit: 50,
       });
-      setStores(allResult.stores);
+      const allStores: StoreData[] = allResult.stores || [];
+      setStores(allStores);
+
+      const featuredOnly = allStores.filter((s) => s.isFeatured);
+      setFeaturedStores(
+        (featuredOnly.length > 0 ? featuredOnly : allStores).slice(0, 5)
+      );
     } catch (error) {
       console.error('Failed to load stores:', error);
     }
@@ -134,13 +142,17 @@ export default function StoresScreen() {
 
   const loadProducts = useCallback(async () => {
     try {
+      // Fetch all products in this coop, then prefer featured ones for the
+      // popular tab. Falling back to recent products keeps the section from
+      // appearing empty when nothing is explicitly featured yet.
       const result = await api.getProducts({
-        featured: true,
         category: selectedCategory || undefined,
         search: searchQuery || undefined,
         limit: 50,
       });
-      setProducts(result.products || []);
+      const all: ProductData[] = result.products || [];
+      const featured = all.filter((p) => p.isFeatured);
+      setProducts(featured.length > 0 ? featured : all);
     } catch (error) {
       console.error('Failed to load products:', error);
     }
@@ -171,8 +183,11 @@ export default function StoresScreen() {
 
   useEffect(() => {
     const init = async () => {
-      setLoading(true);
+      if (!hasLoadedRef.current) {
+        setLoading(true);
+      }
       await Promise.all([loadStores(), loadProducts(), loadMyStore()]);
+      hasLoadedRef.current = true;
       setLoading(false);
     };
     init();
@@ -192,11 +207,15 @@ export default function StoresScreen() {
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
   };
 
+  const filteredProducts = products.filter(p => selectedCategory === null || p.category === selectedCategory);
+  const filteredStores = stores.filter(s => selectedCategory === null || s.category === selectedCategory);
+  const selectedCategoryLabel = selectedCategory ? getCategoryLabel(selectedCategory) : 'All';
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#B45309" />
+          <ActivityIndicator size="large" color={primaryColor} />
           <Text className="text-gray-500 mt-4">Loading marketplace...</Text>
         </View>
       </SafeAreaView>
@@ -208,20 +227,22 @@ export default function StoresScreen() {
       <ScrollView
         className="flex-1"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#B45309" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={primaryColor} />
         }
         showsVerticalScrollIndicator={false}
       >
-        <View className="p-5">
+        <View className="p-5 pb-28">
           {/* Header */}
           <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center">
+            <View className="flex-row items-center flex-1 mr-3">
               <TouchableOpacity onPress={() => router.back()} className="mr-3">
                 <ArrowLeft size={24} color="#374151" />
               </TouchableOpacity>
-              <View>
-                <Text className="text-xl font-bold text-gray-800">Co-op Store</Text>
-                <Text className="text-sm text-gray-500">Community-owned marketplace</Text>
+              <View className="flex-1">
+                <Text className="text-xl font-bold text-gray-900">Marketplace</Text>
+                <Text className="text-sm text-gray-500" numberOfLines={1}>
+                  {stores.length} stores • {products.length} goods
+                </Text>
               </View>
             </View>
             <View className="flex-row items-center">
@@ -239,153 +260,329 @@ export default function StoresScreen() {
                   </View>
                 )}
               </TouchableOpacity>
-            {myStore ? (
-              <TouchableOpacity
-                onPress={() => router.push('/my-stores')}
-                className="bg-amber-600 px-3 py-2 rounded-lg flex-row items-center"
-              >
-                <Store size={16} color="white" />
-                <Text className="text-white font-semibold text-sm ml-1">My Stores</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={() => router.push('/apply-store')}
-                className="bg-red-700 px-3 py-2 rounded-lg flex-row items-center"
-              >
-                <Plus size={16} color="white" />
-                <Text className="text-white font-semibold text-sm ml-1">Create Store</Text>
-              </TouchableOpacity>
-            )}
+              {myStore ? (
+                <TouchableOpacity
+                  onPress={() => router.push('/my-stores')}
+                  className="px-3 py-2 rounded-lg flex-row items-center"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Store size={16} color="white" />
+                  <Text className="text-white font-semibold text-sm ml-1">Mine</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => router.push('/apply-store')}
+                  className="px-3 py-2 rounded-lg flex-row items-center"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus size={16} color="white" />
+                  <Text className="text-white font-semibold text-sm ml-1">Apply</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
-          {/* Store Info Banner */}
+          {/* Marketplace Brief */}
           <View className="rounded-2xl overflow-hidden mb-4">
             <LinearGradient
-              colors={['#D97706', '#B45309']}
+              colors={['#111827', accentColor, primaryColor]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ padding: 16 }}
+              style={{ padding: 18 }}
             >
-              <View className="flex-row items-start">
-                <View className="w-10 h-10 bg-white/20 rounded-full items-center justify-center mr-3">
-                  <ShoppingBag size={20} color="white" />
+              <View className="flex-row items-start mb-4">
+                <View className="w-11 h-11 bg-white/20 rounded-full items-center justify-center mr-3">
+                  <Sparkles size={22} color="white" />
                 </View>
                 <View className="flex-1">
-                  <Text className="font-semibold text-white mb-1">Support Local, Build Wealth</Text>
-                  <Text className="text-xs text-amber-100 leading-5">
-                    Every purchase supports community members. {coin.symbol} Verified stores earn {coin.symbol} from every transaction.
+                  <Text className="font-bold text-white text-lg mb-1">Shop the network</Text>
+                  <Text className="text-xs text-white leading-5">
+                    Discover {coopShortName} stores, compare local goods, and support sellers eligible for {rewardLabel} rewards.
                   </Text>
+                </View>
+              </View>
+              <View className="flex-row">
+                <View className="flex-1 bg-white/15 rounded-xl p-3 mr-2 border border-white/10">
+                  <Text className="text-white text-lg font-bold">{stores.length}</Text>
+                  <Text className="text-gray-100 text-xs">Stores</Text>
+                </View>
+                <View className="flex-1 bg-white/15 rounded-xl p-3 border border-white/10">
+                  <Text className="text-white text-lg font-bold">{products.length}</Text>
+                  <Text className="text-gray-100 text-xs">Products</Text>
                 </View>
               </View>
             </LinearGradient>
           </View>
 
-          {/* SC Eligibility Info */}
-          <View className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
-            <View className="flex-row items-start">
-              <CheckCircle size={16} color="#16A34A" style={{ marginTop: 2 }} />
-              <View className="flex-1 ml-2">
-                <Text className="text-xs text-green-800 leading-5">
-                  <Text className="font-bold">Want to earn {coin.symbol} from sales?</Text> Create a store and submit a proposal. Only stores that pass community deliberation become {coin.symbol} Verified and earn {coin.symbol} from purchases.
-                </Text>
-              </View>
-            </View>
+          {/* Search */}
+          <View className="bg-white rounded-2xl px-4 py-3 mb-3 shadow-sm flex-row items-center border border-gray-100">
+            <Search size={20} color="#9CA3AF" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={viewMode === 'stores' ? 'Search stores, categories, cities' : 'Search products and stores'}
+              placeholderTextColor="#9CA3AF"
+              className="flex-1 ml-3 text-gray-900"
+              returnKeyType="search"
+            />
           </View>
 
-          {/* View Tabs */}
-          <View className="flex-row border-b border-gray-200 mb-4">
+          {/* View Switch */}
+          <View className="flex-row bg-gray-200 rounded-2xl p-1 mb-4">
             <TouchableOpacity
-              onPress={() => setViewMode('popular')}
-              className={`px-4 py-3 mr-2 rounded-t-lg ${
-                viewMode === 'popular' ? 'bg-amber-600' : 'bg-transparent'
+              onPress={() => setViewMode('products')}
+              className={`flex-1 py-3 rounded-xl items-center ${
+                viewMode === 'products' ? 'bg-white shadow-sm' : 'bg-transparent'
               }`}
             >
-              <Text className={`text-sm font-medium ${
-                viewMode === 'popular' ? 'text-white' : 'text-gray-600'
+              <Text className={`text-sm font-bold ${
+                viewMode === 'products' ? 'text-gray-900' : 'text-gray-500'
               }`}>
-                Popular Products
+                Products
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setViewMode('stores')}
-              className={`px-4 py-3 rounded-t-lg ${
-                viewMode === 'stores' ? 'bg-amber-600' : 'bg-transparent'
+              className={`flex-1 py-3 rounded-xl items-center ${
+                viewMode === 'stores' ? 'bg-white shadow-sm' : 'bg-transparent'
               }`}
             >
-              <Text className={`text-sm font-medium ${
-                viewMode === 'stores' ? 'text-white' : 'text-gray-600'
+              <Text className={`text-sm font-bold ${
+                viewMode === 'stores' ? 'text-gray-900' : 'text-gray-500'
               }`}>
-                Browse Stores
+                Stores
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Popular Products View */}
-          {viewMode === 'popular' && (
-            <>
-              {/* Category Filter */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Shop by Category</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
-                  <TouchableOpacity
-                    onPress={() => setSelectedCategory(null)}
-                    className={`mx-1 px-3 py-2 rounded-full border ${
-                      selectedCategory === null
-                        ? 'bg-amber-600 border-amber-600'
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <Text className={`text-xs font-medium ${
-                      selectedCategory === null ? 'text-white' : 'text-gray-600'
-                    }`}>
-                      All Items
-                    </Text>
-                  </TouchableOpacity>
-                  {storeCategories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.key}
-                      onPress={() => setSelectedCategory(cat.key)}
-                      className={`mx-1 px-3 py-2 rounded-full border ${
-                        selectedCategory === cat.key
-                          ? 'bg-amber-600 border-amber-600'
-                          : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <Text className={`text-xs font-medium ${
-                        selectedCategory === cat.key ? 'text-white' : 'text-gray-600'
-                      }`}>
-                        {cat.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+          {/* Category Filter */}
+          <View className="mb-4">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-semibold text-gray-700">Category</Text>
+              <Text className="text-xs text-gray-500">{selectedCategoryLabel}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
+              <TouchableOpacity
+                onPress={() => setSelectedCategory(null)}
+                className={`mx-1 px-3 py-2 rounded-full border ${
+                  selectedCategory === null
+                    ? 'border-transparent'
+                    : 'bg-white border-gray-200'
+                }`}
+                style={selectedCategory === null ? { backgroundColor: primaryColor, borderColor: primaryColor } : undefined}
+              >
+                <Text className={`text-xs font-medium ${
+                  selectedCategory === null ? 'text-white' : 'text-gray-600'
+                }`}>
+                  All
+                </Text>
+              </TouchableOpacity>
+              {storeCategories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.key}
+                  onPress={() => setSelectedCategory(cat.key)}
+                  className={`mx-1 px-3 py-2 rounded-full border ${
+                    selectedCategory === cat.key
+                      ? 'border-transparent'
+                      : 'bg-white border-gray-200'
+                  }`}
+                  style={selectedCategory === cat.key ? { backgroundColor: primaryColor, borderColor: primaryColor } : undefined}
+                >
+                  <Text className={`text-xs font-medium ${
+                    selectedCategory === cat.key ? 'text-white' : 'text-gray-600'
+                  }`}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-              {/* Product Grid */}
+          {/* Browse Stores View */}
+          {viewMode === 'stores' && (
+            <>
+              {/* Featured Stores */}
+              {featuredStores.length > 0 && (
+                <View className="mb-5">
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-base font-bold text-gray-900">Start here</Text>
+                    <Text className="text-xs text-gray-500">Featured picks</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-5 px-5">
+                    {featuredStores.map((store) => (
+                      <TouchableOpacity
+                        key={store.id}
+                        onPress={() => router.push(`/store-detail?id=${store.id}`)}
+                        className="bg-white rounded-2xl mr-3 shadow-sm overflow-hidden border border-gray-100"
+                        style={{ width: 224 }}
+                      >
+                        <View className="h-24 bg-gray-100">
+                          {store.imageUrl ? (
+                            <Image
+                              source={{ uri: store.imageUrl }}
+                              className="w-full h-full"
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <LinearGradient
+                              colors={[withAlpha(accentColor, '33'), primaryColor]}
+                              className="w-full h-full items-center justify-center"
+                            >
+                              <Store size={30} color="white" />
+                            </LinearGradient>
+                          )}
+                        </View>
+                        <View className="p-3">
+                          <View className="flex-row items-start justify-between">
+                            <View className="flex-1 mr-2">
+                              <Text className="font-bold text-gray-900" numberOfLines={1}>
+                                {store.name}
+                              </Text>
+                              <Text className="text-xs text-gray-500 mt-1" numberOfLines={1}>
+                                {getCategoryLabel(store.category)}
+                              </Text>
+                            </View>
+                            {store.isScVerified && (
+                              <View className="rounded-full p-1" style={{ backgroundColor: withAlpha(accentColor, '22') }}>
+                                <BadgeCheck size={14} color={accentColor} />
+                              </View>
+                            )}
+                          </View>
+                          <View className="flex-row items-center justify-between mt-3">
+                            <Text className="text-xs text-gray-500">{store.productCount} products</Text>
+                            <View className="flex-row items-center">
+                              <Text className="text-xs font-bold" style={{ color: primaryColor }}>Visit</Text>
+                              <ChevronRight size={12} color={primaryColor} />
+                            </View>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* All Stores List */}
               <View>
-                {products.length === 0 ? (
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-base font-bold text-gray-900">Community stores</Text>
+                  <Text className="text-xs text-gray-500">{filteredStores.length} shown</Text>
+                </View>
+                {filteredStores.length === 0 ? (
                   <View className="items-center py-12 bg-white rounded-2xl">
-                    <Package size={48} color="#D1D5DB" />
+                    <Store size={48} color="#D1D5DB" />
                     <Text className="text-gray-500 text-center mt-4">
-                      No products found{'\n'}Try adjusting your filters
+                      No stores found{'\n'}Try another search or category
                     </Text>
                   </View>
                 ) : (
-                  products.filter(p => selectedCategory === null || p.category === selectedCategory).map((product) => (
+                  filteredStores.map((store) => (
+                    <TouchableOpacity
+                      key={store.id}
+                      onPress={() => router.push(`/store-detail?id=${store.id}`)}
+                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden border border-gray-100"
+                    >
+                      <View className="p-4">
+                        <View className="flex-row">
+                          {/* Store Avatar */}
+                          <View className="w-16 h-16 rounded-2xl items-center justify-center mr-3 overflow-hidden" style={{ backgroundColor: primaryColor }}>
+                            {store.imageUrl ? (
+                              <Image
+                                source={{ uri: store.imageUrl }}
+                                className="w-full h-full"
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <Text className="text-white font-semibold text-lg">
+                                {getStoreInitials(store.name)}
+                              </Text>
+                            )}
+                          </View>
+
+                          {/* Store Info */}
+                          <View className="flex-1">
+                            <View className="flex-row items-start justify-between">
+                              <Text className="font-bold text-gray-900 flex-1 mr-2" numberOfLines={1}>
+                                {store.name}
+                              </Text>
+                              <View className="flex-row items-center">
+                                <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                                <Text className="text-xs font-medium text-gray-700 ml-1">
+                                  {store.rating?.toFixed(1) || 'New'}
+                                </Text>
+                              </View>
+                            </View>
+                            <View className="flex-row items-center flex-wrap mt-2 gap-1">
+                              <View className="bg-gray-100 px-2 py-0.5 rounded">
+                                <Text className="text-xs text-gray-600">
+                                  {getCategoryLabel(store.category)}
+                                </Text>
+                              </View>
+                              {store.isScVerified ? (
+                                <View className="px-2 py-0.5 rounded flex-row items-center" style={{ backgroundColor: withAlpha(accentColor, '22') }}>
+                                  <BadgeCheck size={11} color={accentColor} />
+                                  <Text className="text-xs ml-1" style={{ color: accentColor }}>{coin.symbol} rewards</Text>
+                                </View>
+                              ) : (
+                                <View className="bg-gray-100 px-2 py-0.5 rounded">
+                                  <Text className="text-gray-600 text-xs">Community listed</Text>
+                                </View>
+                              )}
+                            </View>
+                            {store.description && (
+                              <Text className="text-xs text-gray-500 mt-2" numberOfLines={2}>
+                                {store.description}
+                              </Text>
+                            )}
+                            <View className="flex-row items-center justify-between mt-3">
+                              <Text className="text-xs text-gray-500">
+                                {store.productCount} products{store.city ? ` • ${store.city}` : ''}
+                              </Text>
+                              <View className="flex-row items-center">
+                                <Text className="text-xs font-bold" style={{ color: primaryColor }}>Open</Text>
+                                <ChevronRight size={14} color={primaryColor} />
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
+            </>
+          )}
+
+          {/* Products View */}
+          {viewMode === 'products' && (
+            <>
+              <View>
+                <View className="flex-row items-center justify-between mb-3">
+                  <Text className="text-base font-bold text-gray-900">Popular products</Text>
+                  <Text className="text-xs text-gray-500">{filteredProducts.length} shown</Text>
+                </View>
+                {filteredProducts.length === 0 ? (
+                  <View className="items-center py-12 bg-white rounded-2xl">
+                    <Package size={48} color="#D1D5DB" />
+                    <Text className="text-gray-500 text-center mt-4">
+                      No products found{'\n'}Try another search or category
+                    </Text>
+                  </View>
+                ) : (
+                  filteredProducts.map((product) => (
                     <TouchableOpacity
                       key={product.id}
                       onPress={() => router.push(`/product-detail?id=${product.id}`)}
-                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden"
+                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden border border-gray-100"
                     >
                       <View className="p-4">
                         <View className="flex-row">
                           {/* Product Image */}
-                          <View className="w-20 h-20 bg-gray-100 rounded-lg items-center justify-center mr-3">
+                          <View className="w-20 h-20 bg-gray-100 rounded-xl items-center justify-center mr-3 overflow-hidden">
                             {product.imageUrl ? (
                               <Image
                                 source={{ uri: product.imageUrl }}
-                                className="w-full h-full rounded-lg"
+                                className="w-full h-full"
                                 resizeMode="cover"
                               />
                             ) : (
@@ -395,19 +592,20 @@ export default function StoresScreen() {
 
                           {/* Product Info */}
                           <View className="flex-1">
-                            <Text className="font-semibold text-sm text-gray-800" numberOfLines={1}>
+                            <Text className="font-bold text-sm text-gray-900" numberOfLines={2}>
                               {product.name}
                             </Text>
                             <View className="flex-row items-center mt-1">
-                              <View className="w-4 h-4 bg-amber-600 rounded-full items-center justify-center mr-1">
+                              <View className="w-4 h-4 rounded-full items-center justify-center mr-1" style={{ backgroundColor: primaryColor }}>
                                 <Text className="text-white text-xs font-bold">
                                   {product.store.name.charAt(0)}
                                 </Text>
                               </View>
                               <Text className="text-xs text-gray-500">{product.store.name}</Text>
                               {product.store.isScVerified && (
-                                <View className="bg-green-100 ml-2 px-1.5 py-0.5 rounded">
-                                  <Text className="text-green-700 text-xs">SC Verified</Text>
+                                <View className="ml-2 px-1.5 py-0.5 rounded flex-row items-center" style={{ backgroundColor: withAlpha(accentColor, '22') }}>
+                                  <BadgeCheck size={10} color={accentColor} />
+                                  <Text className="text-xs ml-1" style={{ color: accentColor }}>{coin.symbol}</Text>
                                 </View>
                               )}
                             </View>
@@ -421,7 +619,7 @@ export default function StoresScreen() {
 
                         {/* Price Section */}
                         <View className="flex-row items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <Text className="text-lg font-bold text-amber-700">
+                          <Text className="text-lg font-bold" style={{ color: primaryColor }}>
                             ${formatPrice(product.priceUSD)}
                           </Text>
                           {getCartQuantity(product.id) > 0 ? (
@@ -438,9 +636,9 @@ export default function StoresScreen() {
                                 className="p-2"
                                 activeOpacity={0.7}
                               >
-                                <Minus size={16} color="#B45309" />
+                                <Minus size={16} color={primaryColor} />
                               </TouchableOpacity>
-                              <Text className="text-amber-700 font-bold text-sm min-w-[24px] text-center">
+                              <Text className="font-bold text-sm min-w-[24px] text-center" style={{ color: primaryColor }}>
                                 {getCartQuantity(product.id)}
                               </Text>
                               <TouchableOpacity
@@ -451,13 +649,14 @@ export default function StoresScreen() {
                                 className="p-2"
                                 activeOpacity={0.7}
                               >
-                                <Plus size={16} color="#B45309" />
+                                <Plus size={16} color={primaryColor} />
                               </TouchableOpacity>
                             </View>
                           ) : (
                             <TouchableOpacity
                               onPress={() => handleAddToCart(product)}
-                              className="bg-red-700 px-4 py-2 rounded-lg flex-row items-center"
+                              className="px-4 py-2 rounded-lg flex-row items-center"
+                              style={{ backgroundColor: primaryColor }}
                               activeOpacity={0.7}
                             >
                               <ShoppingCart size={14} color="white" />
@@ -465,215 +664,6 @@ export default function StoresScreen() {
                             </TouchableOpacity>
                           )}
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </View>
-            </>
-          )}
-
-          {/* Browse Stores View */}
-          {viewMode === 'stores' && (
-            <>
-              {/* Featured Stores */}
-              {featuredStores.length > 0 && (
-                <View className="mb-6">
-                  <Text className="text-sm font-semibold text-gray-700 mb-3">Featured Stores</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-5 px-5">
-                    {featuredStores.map((store) => (
-                      <TouchableOpacity
-                        key={store.id}
-                        onPress={() => router.push(`/store-detail?id=${store.id}`)}
-                        className="bg-white rounded-2xl mr-3 shadow-sm overflow-hidden"
-                        style={{ width: 200 }}
-                      >
-                        <View className="p-3">
-                          <View className="flex-row items-center mb-2">
-                            <View className="w-12 h-12 bg-red-700 rounded-full items-center justify-center mr-3">
-                              {store.imageUrl ? (
-                                <Image
-                                  source={{ uri: store.imageUrl }}
-                                  className="w-full h-full rounded-full"
-                                  resizeMode="cover"
-                                />
-                              ) : (
-                                <Text className="text-white font-semibold">
-                                  {getStoreInitials(store.name)}
-                                </Text>
-                              )}
-                            </View>
-                            <View className="flex-1">
-                              <Text className="font-semibold text-sm text-gray-800" numberOfLines={1}>
-                                {store.name}
-                              </Text>
-                              <View className="flex-row items-center">
-                                <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                                <Text className="text-xs text-gray-600 ml-1">
-                                  {store.rating?.toFixed(1) || 'New'}
-                                </Text>
-                                {store.isScVerified ? (
-                                  <View className="bg-green-100 ml-2 px-1 py-0.5 rounded">
-                                    <Text className="text-green-700 text-xs">SC Verified</Text>
-                                  </View>
-                                ) : (
-                                  <View className="bg-gray-100 ml-2 px-1 py-0.5 rounded">
-                                    <Text className="text-gray-600 text-xs">Not SC Verified</Text>
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-                          </View>
-                          <Text className="text-xs text-gray-500 mb-2" numberOfLines={2}>
-                            {store.description || getCategoryLabel(store.category)}
-                          </Text>
-                          <View className="flex-row items-center justify-between">
-                            <Text className="text-xs text-gray-400">{store.productCount} products</Text>
-                            <TouchableOpacity 
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                router.push(`/store-detail?id=${store.id}`);
-                              }}
-                              className="flex-row items-center border border-amber-600 px-2 py-1 rounded"
-                            >
-                              <Text className="text-amber-700 text-xs font-medium">Visit</Text>
-                              <ChevronRight size={12} color="#B45309" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Category Filter */}
-              <View className="mb-4">
-                <Text className="text-sm font-semibold text-gray-700 mb-2">Filter by Category</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
-                  <TouchableOpacity
-                    onPress={() => setSelectedCategory(null)}
-                    className={`mx-1 px-3 py-2 rounded-full border ${
-                      selectedCategory === null
-                        ? 'bg-amber-600 border-amber-600'
-                        : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <Text className={`text-xs font-medium ${
-                      selectedCategory === null ? 'text-white' : 'text-gray-600'
-                    }`}>
-                      All Stores
-                    </Text>
-                  </TouchableOpacity>
-                  {storeCategories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.key}
-                      onPress={() => setSelectedCategory(cat.key)}
-                      className={`mx-1 px-3 py-2 rounded-full border ${
-                        selectedCategory === cat.key
-                          ? 'bg-amber-600 border-amber-600'
-                          : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <Text className={`text-xs font-medium ${
-                        selectedCategory === cat.key ? 'text-white' : 'text-gray-600'
-                      }`}>
-                        {cat.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* All Stores List */}
-              <View>
-                <Text className="text-sm font-semibold text-gray-700 mb-3">All Community Stores</Text>
-                {stores.length === 0 ? (
-                  <View className="items-center py-12 bg-white rounded-2xl">
-                    <Store size={48} color="#D1D5DB" />
-                    <Text className="text-gray-500 text-center mt-4">
-                      No stores found{'\n'}Try adjusting your filters
-                    </Text>
-                  </View>
-                ) : (
-                  stores.filter(s => selectedCategory === null || s.category === selectedCategory).map((store) => (
-                    <TouchableOpacity
-                      key={store.id}
-                      onPress={() => router.push(`/store-detail?id=${store.id}`)}
-                      className="bg-white rounded-2xl mb-3 shadow-sm overflow-hidden"
-                    >
-                      <View className="p-4">
-                        <View className="flex-row">
-                          {/* Store Avatar */}
-                          <View className="w-14 h-14 bg-red-700 rounded-full items-center justify-center mr-3">
-                            {store.imageUrl ? (
-                              <Image
-                                source={{ uri: store.imageUrl }}
-                                className="w-full h-full rounded-full"
-                                resizeMode="cover"
-                              />
-                            ) : (
-                              <Text className="text-white font-semibold text-lg">
-                                {getStoreInitials(store.name)}
-                              </Text>
-                            )}
-                          </View>
-
-                          {/* Store Info */}
-                          <View className="flex-1">
-                            <Text className="font-semibold text-gray-800">{store.name}</Text>
-                            <View className="flex-row items-center flex-wrap mt-1 gap-1">
-                              <View className="bg-gray-100 px-2 py-0.5 rounded">
-                                <Text className="text-xs text-gray-600">
-                                  {getCategoryLabel(store.category)}
-                                </Text>
-                              </View>
-                              {store.isScVerified ? (
-                                <View className="bg-green-100 px-2 py-0.5 rounded">
-                                  <Text className="text-green-700 text-xs">SC Verified</Text>
-                                </View>
-                              ) : (
-                                <View className="bg-gray-100 px-2 py-0.5 rounded">
-                                  <Text className="text-gray-600 text-xs">Not SC Verified</Text>
-                                </View>
-                              )}
-                            </View>
-                            {store.description && (
-                              <Text className="text-xs text-gray-500 mt-2" numberOfLines={2}>
-                                {store.description}
-                              </Text>
-                            )}
-                            <View className="flex-row items-center mt-2">
-                              <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                              <Text className="text-xs font-medium text-gray-700 ml-1">
-                                {store.rating?.toFixed(1) || 'New'}
-                              </Text>
-                              {store.reviewCount > 0 && (
-                                <Text className="text-xs text-gray-400 ml-1">({store.reviewCount})</Text>
-                              )}
-                              <Text className="text-xs text-gray-400 mx-2">•</Text>
-                              <Text className="text-xs text-gray-500">{store.productCount} products</Text>
-                              {store.city && (
-                                <>
-                                  <Text className="text-xs text-gray-400 mx-2">•</Text>
-                                  <Text className="text-xs text-gray-500">{store.city}</Text>
-                                </>
-                              )}
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Visit Button */}
-                        <TouchableOpacity 
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            router.push(`/store-detail?id=${store.id}`);
-                          }}
-                          className="bg-red-700 mt-3 py-3 rounded-xl flex-row items-center justify-center"
-                        >
-                          <Text className="text-white font-semibold">Visit Store</Text>
-                          <ChevronRight size={16} color="white" style={{ marginLeft: 4 }} />
-                        </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
                   ))

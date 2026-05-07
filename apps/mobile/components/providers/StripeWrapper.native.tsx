@@ -10,7 +10,7 @@ interface StripeWrapperProps {
 // Native version - wraps with StripeProvider
 export default function StripeWrapper({ children }: StripeWrapperProps) {
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} urlScheme="coop">
       {children}
     </StripeProvider>
   );

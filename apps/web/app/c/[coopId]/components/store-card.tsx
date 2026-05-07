@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
-import { MapPin, Package, Star, Verified } from "lucide-react";
+import { Package, Star, Verified } from "lucide-react";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ interface StoreCardProps {
     name: string;
     description: string;
     category: string;
-    imageUrl: string;
+    imageUrl?: string | null;
     rating: number;
     reviewCount: number;
     productCount: number;
@@ -43,16 +43,25 @@ const categoryLabels: Record<string, string> = {
 export function StoreCard({ store, coopSlug }: StoreCardProps) {
   return (
     <Link href={`/c/${coopSlug}/store/${store.id}`}>
-      <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-orange-200">
+      <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-[var(--coop-accent)]">
         {/* Store Image */}
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100 to-amber-50">
-            <span className="text-4xl font-bold text-orange-300">
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+            <span className="text-4xl font-bold text-[var(--coop-accent)]/40">
               {store.name.charAt(0)}
             </span>
           </div>
+          {store.imageUrl && (
+            <FallbackImage
+              src={store.imageUrl}
+              alt={store.name}
+              fill
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+              className="object-cover transition-transform group-hover:scale-105"
+            />
+          )}
           {store.isFeatured && (
-            <Badge className="absolute left-2 top-2 bg-orange-500 text-white">
+            <Badge className="absolute left-2 top-2 bg-[var(--coop-accent)] text-white">
               Featured
             </Badge>
           )}
@@ -65,7 +74,7 @@ export function StoreCard({ store, coopSlug }: StoreCardProps) {
 
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="line-clamp-1 text-lg group-hover:text-orange-600 transition-colors">
+            <CardTitle className="line-clamp-1 text-lg group-hover:text-[var(--coop-accent)] transition-colors">
               {store.name}
             </CardTitle>
           </div>
@@ -80,7 +89,7 @@ export function StoreCard({ store, coopSlug }: StoreCardProps) {
           </CardDescription>
 
           <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-1 text-amber-500">
+            <div className="flex items-center gap-1 text-[var(--coop-accent)]">
               <Star className="h-4 w-4 fill-current" />
               <span className="font-medium">{store.rating}</span>
               <span className="text-muted-foreground">

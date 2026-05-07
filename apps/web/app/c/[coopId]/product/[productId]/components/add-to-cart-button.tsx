@@ -85,7 +85,7 @@ export function AddToCartButton({ product, store, coopSlug, disabled }: AddToCar
       {/* Add to Cart Button */}
       <Button
         size="lg"
-        className="w-full bg-orange-500 hover:bg-orange-600"
+        className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
         onClick={handleAddToCart}
         disabled={disabled || isAdding}
       >
