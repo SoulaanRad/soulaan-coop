@@ -9,10 +9,10 @@ import { coopConfig } from './coop-config';
  * Prefer the authenticated user's coop (from coopConfig), then the
  * EXPO_PUBLIC_COOP_ID env override, and finally fall back to 'soulaan'.
  */
-function resolveCoopId(): string {
+export function resolveCoopId(): string {
   const fromConfig = coopConfig().id;
   if (fromConfig && fromConfig !== 'default') return fromConfig;
-  return process.env.EXPO_PUBLIC_COOP_ID || 'soulaan';
+  return 'error-no-coop-id';
 }
 
 // API configuration
@@ -1183,10 +1183,9 @@ export const api = {
     },
     walletAddress: string
   ) {
-    const response = await fetch(`${API_BASE_URL}/trpc/commerce.listTransactions`, {
-      method: 'POST',
+    const input = encodeURIComponent(JSON.stringify(data));
+    const response = await fetch(`${API_BASE_URL}/trpc/commerce.listTransactions?input=${input}`, {
       headers: createApiHeaders(walletAddress),
-      body: JSON.stringify(data),
     });
 
     const result = await response.json();
@@ -2306,5 +2305,4 @@ export const api = {
       };
     }
 };
-
 

@@ -17,22 +17,29 @@ import {
   ShoppingBag,
   Store,
   BadgeCheck,
+  ReceiptText,
 } from 'lucide-react-native';
 import { useCart, CartItem } from '@/contexts/cart-context';
+import { useAuth } from '@/contexts/auth-context';
+import { useCoin } from '@/contexts/platform-config-context';
+import { coopConfig } from '@/lib/coop-config';
+import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
 
 function CartItemCard({
   item,
   onUpdateQuantity,
   onRemove,
+  accentColor,
 }: {
   item: CartItem;
   onUpdateQuantity: (quantity: number) => void;
   onRemove: () => void;
+  accentColor: string;
 }) {
   const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
   return (
-    <View className="flex-row bg-white dark:bg-gray-800 rounded-xl p-4 mb-3">
+    <View className="flex-row bg-white rounded-2xl p-4 mb-3 border border-gray-100">
       {/* Product Image */}
       <View className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden">
         {item.imageUrl ? (
@@ -56,7 +63,7 @@ function CartItemCard({
         >
           {item.name}
         </Text>
-        <Text className="text-lg font-bold text-amber-600 mt-1">
+        <Text className="text-lg font-bold mt-1" style={{ color: accentColor }}>
           {formatPrice(item.priceUSD)}
         </Text>
 
@@ -67,7 +74,7 @@ function CartItemCard({
               onPress={() => onUpdateQuantity(item.quantity - 1)}
               className="p-2"
             >
-              <Minus size={16} color="#6B7280" />
+              <Minus size={16} color={accentColor} />
             </TouchableOpacity>
             <Text className="text-base font-semibold text-gray-900 dark:text-white mx-3">
               {item.quantity}
@@ -76,7 +83,7 @@ function CartItemCard({
               onPress={() => onUpdateQuantity(item.quantity + 1)}
               className="p-2"
             >
-              <Plus size={16} color="#6B7280" />
+              <Plus size={16} color={accentColor} />
             </TouchableOpacity>
           </View>
 
@@ -97,6 +104,8 @@ function StoreSection({
   onUpdateQuantity,
   onRemoveItem,
   onCheckout,
+  accentColor,
+  coinSymbol,
 }: {
   storeId: string;
   storeName: string;
@@ -105,6 +114,8 @@ function StoreSection({
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onCheckout: () => void;
+  accentColor: string;
+  coinSymbol: string;
 }) {
   const subtotal = items.reduce(
     (sum, item) => sum + item.priceUSD * item.quantity,
@@ -118,14 +129,14 @@ function StoreSection({
         onPress={() => router.push(`/store-detail?id=${storeId}`)}
         className="flex-row items-center mb-3"
       >
-        <Store size={18} color="#6B7280" />
+        <Store size={18} color={accentColor} />
         <Text className="text-base font-semibold text-gray-900 dark:text-white ml-2">
           {storeName}
         </Text>
         {isScVerified && (
-          <View className="flex-row items-center ml-2">
-            <BadgeCheck size={14} color="#B45309" />
-            <Text className="text-amber-600 text-xs ml-1">SC Verified</Text>
+          <View className="flex-row items-center ml-2 px-2 py-0.5 rounded-full" style={{ backgroundColor: withAlpha(accentColor, '1A') }}>
+            <BadgeCheck size={14} color={accentColor} />
+            <Text className="text-xs ml-1 font-medium" style={{ color: accentColor }}>{coinSymbol} rewards</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -137,11 +148,12 @@ function StoreSection({
           item={item}
           onUpdateQuantity={(qty) => onUpdateQuantity(item.productId, qty)}
           onRemove={() => onRemoveItem(item.productId)}
+          accentColor={accentColor}
         />
       ))}
 
       {/* Subtotal & Checkout */}
-      <View className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 mt-2">
+      <View className="bg-white rounded-2xl p-4 mt-2 border border-gray-100">
         <View className="flex-row justify-between items-center mb-3">
           <Text className="text-gray-600 dark:text-gray-400">Subtotal</Text>
           <Text className="text-lg font-bold text-gray-900 dark:text-white">
@@ -150,7 +162,8 @@ function StoreSection({
         </View>
         <TouchableOpacity
           onPress={onCheckout}
-          className="bg-amber-500 py-3 rounded-xl items-center"
+          className="py-3 rounded-xl items-center"
+          style={{ backgroundColor: accentColor }}
         >
           <Text className="text-white font-bold text-base">
             Checkout
@@ -162,6 +175,10 @@ function StoreSection({
 }
 
 export default function CartScreen() {
+  const { user } = useAuth();
+  const coin = useCoin();
+  const config = coopConfig();
+  const accentColor = resolveBrandColor(user?.coop?.accentColor || config.accentColor, '#16A34A');
   const {
     items,
     isLoading,
@@ -206,9 +223,9 @@ export default function CartScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <View className="flex-row items-center justify-between px-5 py-4 bg-white border-b border-gray-200">
         <View className="flex-row items-center">
           <TouchableOpacity onPress={() => router.back()}>
             <ArrowLeft size={24} color="#374151" />
@@ -217,16 +234,25 @@ export default function CartScreen() {
             Cart
           </Text>
           {totalItems > 0 && (
-            <View className="bg-amber-500 px-2 py-0.5 rounded-full ml-2">
+            <View className="px-2 py-0.5 rounded-full ml-2" style={{ backgroundColor: accentColor }}>
               <Text className="text-white text-xs font-bold">{totalItems}</Text>
             </View>
           )}
         </View>
-        {items.length > 0 && (
-          <TouchableOpacity onPress={handleClearCart}>
-            <Text className="text-red-500 font-medium">Clear All</Text>
+        <View className="flex-row items-center gap-4">
+          <TouchableOpacity
+            className="flex-row items-center"
+            onPress={() => router.push('/(authenticated)/orders' as any)}
+          >
+            <ReceiptText size={18} color={accentColor} />
+            <Text className="ml-1 font-medium" style={{ color: accentColor }}>Orders</Text>
           </TouchableOpacity>
-        )}
+          {items.length > 0 && (
+            <TouchableOpacity onPress={handleClearCart}>
+              <Text className="text-red-500 font-medium">Clear All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {items.length === 0 ? (
@@ -243,9 +269,16 @@ export default function CartScreen() {
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/stores')}
-            className="bg-amber-500 px-8 py-3 rounded-xl"
+            className="px-8 py-3 rounded-xl"
+            style={{ backgroundColor: accentColor }}
           >
             <Text className="text-white font-bold text-base">Browse Stores</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/(authenticated)/orders' as any)}
+            className="mt-3 px-8 py-3 rounded-xl border border-gray-200 bg-white"
+          >
+            <Text className="font-bold text-base" style={{ color: accentColor }}>View My Orders</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -263,6 +296,8 @@ export default function CartScreen() {
                 onUpdateQuantity={updateQuantity}
                 onRemoveItem={removeItem}
                 onCheckout={() => handleCheckout(storeId)}
+                accentColor={accentColor}
+                coinSymbol={coin.symbol}
               />
             );
           })}

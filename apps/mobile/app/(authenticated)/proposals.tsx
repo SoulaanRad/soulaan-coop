@@ -32,6 +32,8 @@ import { router } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
+import { coopConfig } from '@/lib/coop-config';
+import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
 
 // ── Colors ───────────────────────────────────────────────────────────────────
 
@@ -147,7 +149,7 @@ interface ProposalSummary {
 
 // ── Proposal card ────────────────────────────────────────────────────────────
 
-function ProposalCard({ proposal }: { proposal: ProposalSummary }) {
+function ProposalCard({ proposal, accentColor }: { proposal: ProposalSummary; accentColor: string }) {
   const sc = statusColor(proposal.status);
   const score = Math.round((proposal.evaluation?.computed_scores?.overall_score ?? 0) * 100);
   const db = decisionStyle(proposal.decision);
@@ -177,8 +179,8 @@ function ProposalCard({ proposal }: { proposal: ProposalSummary }) {
         {/* Footer: category + decision + score */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <View style={{ backgroundColor: C.gold100, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ color: C.gold700, fontSize: 11, fontWeight: '600' }}>{proposal.category}</Text>
+            <View style={{ backgroundColor: withAlpha(accentColor, '1A', C.gold100), borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: accentColor, fontSize: 11, fontWeight: '600' }}>{proposal.category}</Text>
             </View>
             {db && (
               <View style={{ backgroundColor: db.bg, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 }}>
@@ -187,7 +189,7 @@ function ProposalCard({ proposal }: { proposal: ProposalSummary }) {
             )}
           </View>
           {score > 0 && (
-            <Text style={{ color: C.gold700, fontSize: 14, fontWeight: '700' }}>{score}%</Text>
+            <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700' }}>{score}%</Text>
           )}
         </View>
 
@@ -223,14 +225,14 @@ function ProposalCard({ proposal }: { proposal: ProposalSummary }) {
 
 // ── Empty state ──────────────────────────────────────────────────────────────
 
-function EmptyState({ tab }: { tab: TabKey }) {
+function EmptyState({ tab, accentColor }: { tab: TabKey; accentColor: string }) {
   const icons: Record<TabKey, React.ReactNode> = {
-    submitted:  <Sparkles size={48} color={C.gold600} />,
-    votable:    <MessageCircle size={48} color={C.gold600} />,
+    submitted:  <Sparkles size={48} color={accentColor} />,
+    votable:    <MessageCircle size={48} color={accentColor} />,
     approved:   <CheckCircle size={48} color={C.green600} />,
     rejected:   <XCircle size={48} color={C.charcoal400} />,
     withdrawn:  <XCircle size={48} color={C.charcoal500} />,
-    mine:       <FileText size={48} color={C.gold600} />,
+    mine:       <FileText size={48} color={accentColor} />,
   };
   const msgs: Record<TabKey, { title: string; sub: string }> = {
     submitted:  { title: 'No proposals under AI review', sub: 'New proposals will appear here while being reviewed.' },
@@ -290,10 +292,12 @@ const EMPTY_FORM: FormData = {
   impact: '', budget: '', timeline: '', milestones: '', team: '', communityBenefit: '',
 };
 
-function SubmitModal({ visible, onClose, walletAddress }: {
+function SubmitModal({ visible, onClose, walletAddress, primaryColor, accentColor }: {
   visible: boolean;
   onClose: () => void;
   walletAddress: string;
+  primaryColor: string;
+  accentColor: string;
 }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
@@ -396,7 +400,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
         {!submitted && !submitting && (
           <View style={{ flexDirection: 'row', gap: 4, paddingHorizontal: 16, paddingTop: 12 }}>
             {Array.from({ length: TOTAL }).map((_, i) => (
-              <View key={i} style={{ flex: 1, height: 4, borderRadius: 99, backgroundColor: i + 1 <= step ? C.red700 : C.cream200 }} />
+              <View key={i} style={{ flex: 1, height: 4, borderRadius: 99, backgroundColor: i + 1 <= step ? accentColor : C.cream200 }} />
             ))}
           </View>
         )}
@@ -407,8 +411,8 @@ function SubmitModal({ visible, onClose, walletAddress }: {
             {/* ── Submitting ── */}
             {submitting && (
               <View style={{ alignItems: 'center', paddingVertical: 64 }}>
-                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.gold100, alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                  <ActivityIndicator size="large" color={C.gold600} />
+                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: withAlpha(accentColor, '1A', C.gold100), alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+                  <ActivityIndicator size="large" color={accentColor} />
                 </View>
                 <Text style={{ color: C.charcoal800, fontWeight: '700', fontSize: 17, marginBottom: 8 }}>AI is reviewing your proposal</Text>
                 <Text style={{ color: C.charcoal400, fontSize: 13, textAlign: 'center', maxWidth: 280 }}>
@@ -416,7 +420,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                 </Text>
                 {['Analyzing community alignment', 'Checking feasibility', 'Evaluating impact potential'].map((check, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                    {i === 0 ? <CheckCircle size={14} color={C.green600} /> : <Sparkles size={14} color={C.gold600} />}
+                    {i === 0 ? <CheckCircle size={14} color={C.green600} /> : <Sparkles size={14} color={accentColor} />}
                     <Text style={{ color: C.charcoal600, fontSize: 13 }}>{check}</Text>
                   </View>
                 ))}
@@ -470,7 +474,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                     { n: 4, label: 'Funding', desc: 'Approved proposals receive funding from the co-op treasury', active: false },
                   ].map(item => (
                     <View key={item.n} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-                      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.active ? C.gold600 : C.cream200 }}>
+                      <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: item.active ? accentColor : C.cream200 }}>
                         <Text style={{ color: item.active ? C.white : C.charcoal400, fontSize: 12, fontWeight: '700' }}>{item.n}</Text>
                       </View>
                       <View style={{ flex: 1 }}>
@@ -481,7 +485,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                   ))}
                 </View>
 
-                <TouchableOpacity onPress={handleClose} style={[styles.primaryBtn, { width: '100%', marginTop: 8 }]}>
+                <TouchableOpacity onPress={handleClose} style={[styles.primaryBtn, { width: '100%', marginTop: 8, backgroundColor: accentColor }]}>
                   <Text style={{ color: C.white, fontWeight: '600', fontSize: 15 }}>Back to Proposals</Text>
                 </TouchableOpacity>
               </View>
@@ -490,9 +494,9 @@ function SubmitModal({ visible, onClose, walletAddress }: {
             {/* ── Step 1: Title & Category ── */}
             {!submitting && !submitted && step === 1 && (
               <View style={{ gap: 20 }}>
-                <View style={styles.tipBanner}>
-                  <Lightbulb size={14} color={C.gold700} />
-                  <Text style={{ color: C.gold800, fontSize: 12, flex: 1, lineHeight: 18 }}>
+                <View style={[styles.tipBanner, { backgroundColor: withAlpha(accentColor, '12', C.gold50), borderColor: withAlpha(accentColor, '30', C.gold200) }]}>
+                  <Lightbulb size={14} color={accentColor} />
+                  <Text style={{ color: accentColor, fontSize: 12, flex: 1, lineHeight: 18 }}>
                     Great proposals solve a real community problem and clearly explain how they will benefit members.
                   </Text>
                 </View>
@@ -530,7 +534,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                         <TouchableOpacity
                           key={cat.id}
                           onPress={() => set('category', cat.id)}
-                          style={{ borderWidth: 2, borderColor: selected ? C.gold600 : C.cream200, backgroundColor: selected ? C.gold50 : C.white, borderRadius: 12, padding: 12, width: '47%' }}
+                          style={{ borderWidth: 2, borderColor: selected ? accentColor : C.cream200, backgroundColor: selected ? withAlpha(accentColor, '12', C.gold50) : C.white, borderRadius: 12, padding: 12, width: '47%' }}
                         >
                           <Text style={{ color: C.charcoal800, fontSize: 12, fontWeight: '600', marginTop: 4 }}>{cat.label}</Text>
                           {cat.description ? (
@@ -599,7 +603,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                         <TouchableOpacity
                           key={range.label}
                           onPress={() => set('budget', String(range.min))}
-                          style={{ borderWidth: 2, borderColor: selected ? C.gold600 : C.cream200, backgroundColor: selected ? C.gold50 : C.white, borderRadius: 10, padding: 10, width: '47%' }}
+                          style={{ borderWidth: 2, borderColor: selected ? accentColor : C.cream200, backgroundColor: selected ? withAlpha(accentColor, '12', C.gold50) : C.white, borderRadius: 10, padding: 10, width: '47%' }}
                         >
                           <Text style={{ color: C.charcoal800, fontSize: 12, fontWeight: '600' }}>{range.label}</Text>
                         </TouchableOpacity>
@@ -616,7 +620,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                       <TouchableOpacity
                         key={t}
                         onPress={() => set('timeline', t)}
-                        style={{ borderWidth: 2, borderColor: selected ? C.gold600 : C.cream200, backgroundColor: selected ? C.gold50 : C.white, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}
+                        style={{ borderWidth: 2, borderColor: selected ? accentColor : C.cream200, backgroundColor: selected ? withAlpha(accentColor, '12', C.gold50) : C.white, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 }}
                       >
                         <Text style={{ color: C.charcoal800, fontSize: 14, fontWeight: '500' }}>{t}</Text>
                       </TouchableOpacity>
@@ -679,8 +683,8 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                   <Text style={{ color: C.charcoal400, fontSize: 11 }}>Title</Text>
                   <Text style={{ color: C.charcoal800, fontSize: 13, fontWeight: '500' }}>{form.title}</Text>
                   <Text style={{ color: C.charcoal400, fontSize: 11, marginTop: 4 }}>Category</Text>
-                  <View style={{ backgroundColor: C.gold100, borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 2 }}>
-                    <Text style={{ color: C.gold700, fontSize: 11, fontWeight: '600' }}>
+                  <View style={{ backgroundColor: withAlpha(accentColor, '1A', C.gold100), borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginTop: 2 }}>
+                    <Text style={{ color: accentColor, fontSize: 11, fontWeight: '600' }}>
                       {categories.find(c => c.id === form.category)?.label ?? form.category}
                     </Text>
                   </View>
@@ -703,9 +707,9 @@ function SubmitModal({ visible, onClose, walletAddress }: {
                   </View>
                 )}
 
-                <View style={styles.tipBanner}>
-                  <AlertCircle size={14} color={C.gold700} />
-                  <Text style={{ color: C.gold800, fontSize: 12, flex: 1, lineHeight: 18 }}>
+                <View style={[styles.tipBanner, { backgroundColor: withAlpha(accentColor, '12', C.gold50), borderColor: withAlpha(accentColor, '30', C.gold200) }]}>
+                  <AlertCircle size={14} color={accentColor} />
+                  <Text style={{ color: accentColor, fontSize: 12, flex: 1, lineHeight: 18 }}>
                     By submitting, your proposal will undergo AI review for community alignment and feasibility. If approved, it enters community deliberation.
                   </Text>
                 </View>
@@ -727,7 +731,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
               <TouchableOpacity
                 onPress={() => setStep(s => s + 1)}
                 disabled={!canProceed()}
-                style={[styles.primaryBtn, { opacity: canProceed() ? 1 : 0.4 }]}
+                style={[styles.primaryBtn, { opacity: canProceed() ? 1 : 0.4, backgroundColor: accentColor }]}
               >
                 <Text style={{ color: C.white, fontWeight: '600', fontSize: 14 }}>Continue</Text>
                 <ArrowRight size={16} color={C.white} />
@@ -736,7 +740,7 @@ function SubmitModal({ visible, onClose, walletAddress }: {
               <TouchableOpacity
                 onPress={handleSubmit}
                 disabled={!canProceed()}
-                style={[styles.primaryBtn, { opacity: canProceed() ? 1 : 0.4 }]}
+                style={[styles.primaryBtn, { opacity: canProceed() ? 1 : 0.4, backgroundColor: accentColor }]}
               >
                 <Sparkles size={16} color={C.white} />
                 <Text style={{ color: C.white, fontWeight: '600', fontSize: 14 }}>Submit for AI Review</Text>
@@ -755,6 +759,9 @@ const PAGE_LIMIT = 20;
 
 export default function ProposalsScreen() {
   const { user } = useAuth();
+  const config = coopConfig();
+  const primaryColor = resolveBrandColor(user?.coop?.primaryColor || config.primaryColor, C.red700);
+  const accentColor = resolveBrandColor(user?.coop?.accentColor || config.accentColor, C.gold600);
   const [activeTab, setActiveTab] = useState<TabKey>('submitted');
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -822,7 +829,7 @@ export default function ProposalsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.cream100 }}>
       {/* Header */}
-      <LinearGradient colors={[C.red800, C.red700]} style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
+      <LinearGradient colors={['#111827', primaryColor, accentColor]} style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View>
             <Text style={{ color: C.white, fontWeight: '700', fontSize: 20 }}>Community Proposals</Text>
@@ -836,13 +843,13 @@ export default function ProposalsScreen() {
       </LinearGradient>
 
       {/* How it works banner */}
-      <View style={{ backgroundColor: C.gold50, borderBottomWidth: 1, borderBottomColor: C.gold200, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-        <Sparkles size={14} color={C.gold700} style={{ marginTop: 2 }} />
+      <View style={{ backgroundColor: withAlpha(accentColor, '12', C.gold50), borderBottomWidth: 1, borderBottomColor: withAlpha(accentColor, '30', C.gold200), paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+        <Sparkles size={14} color={accentColor} style={{ marginTop: 2 }} />
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={{ color: C.gold800, fontSize: 12, lineHeight: 18 }}>
+          <Text style={{ color: C.charcoal800, fontSize: 12, lineHeight: 18 }}>
             Submit → AI scores mission goals → Funding
           </Text>
-          <Text style={{ color: C.gold600, fontSize: 11, lineHeight: 16 }}>
+          <Text style={{ color: accentColor, fontSize: 11, lineHeight: 16 }}>
             Large budgets may also require expert review, community deliberation, and an admin decision before funding is released.
           </Text>
         </View>
@@ -859,7 +866,7 @@ export default function ProposalsScreen() {
           <TouchableOpacity
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
-            style={{ height: 32, borderRadius: 8, paddingHorizontal: 12, backgroundColor: activeTab === tab.key ? C.red700 : '#F9FAFB', borderWidth: activeTab === tab.key ? 0 : 1, borderColor: C.cream200, alignItems: 'center', justifyContent: 'center' }}
+            style={{ height: 32, borderRadius: 8, paddingHorizontal: 12, backgroundColor: activeTab === tab.key ? accentColor : '#F9FAFB', borderWidth: activeTab === tab.key ? 0 : 1, borderColor: C.cream200, alignItems: 'center', justifyContent: 'center' }}
           >
             <Text style={{ color: activeTab === tab.key ? C.white : C.charcoal600, fontWeight: '600', fontSize: 12 }}>
               {tab.label}
@@ -872,18 +879,18 @@ export default function ProposalsScreen() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.gold600} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accentColor} />}
       >
         {loading ? (
           <View style={{ paddingVertical: 64, alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={C.gold600} />
+            <ActivityIndicator size="large" color={accentColor} />
             <Text style={{ color: C.charcoal400, fontSize: 13, marginTop: 12 }}>Loading proposals...</Text>
           </View>
         ) : proposals.length === 0 ? (
-          <EmptyState tab={activeTab} />
+          <EmptyState tab={activeTab} accentColor={accentColor} />
         ) : (
           <>
-            {proposals.map(p => <ProposalCard key={p.id} proposal={p} />)}
+            {proposals.map(p => <ProposalCard key={p.id} proposal={p} accentColor={accentColor} />)}
 
             {hasMore && (
               <TouchableOpacity
@@ -892,7 +899,7 @@ export default function ProposalsScreen() {
                 style={{ marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.cream300, backgroundColor: C.white, alignItems: 'center', opacity: loadingMore ? 0.6 : 1 }}
               >
                 {loadingMore
-                  ? <ActivityIndicator size="small" color={C.gold600} />
+                  ? <ActivityIndicator size="small" color={accentColor} />
                   : <Text style={{ color: C.charcoal600, fontWeight: '600', fontSize: 14 }}>Load More</Text>
                 }
               </TouchableOpacity>
@@ -907,6 +914,8 @@ export default function ProposalsScreen() {
           visible={showSubmit}
           onClose={handleSubmitClose}
           walletAddress={user.walletAddress}
+          primaryColor={primaryColor}
+          accentColor={accentColor}
         />
       )}
     </SafeAreaView>
