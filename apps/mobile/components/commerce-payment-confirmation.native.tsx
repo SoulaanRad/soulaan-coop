@@ -65,7 +65,7 @@ export default function CommercePaymentConfirmation({
     return () => {
       cancelled = true;
     };
-  }, [clientSecret, initPaymentSheet, merchantName, onError]);
+  }, [cardholderName, clientSecret, initPaymentSheet, merchantName, onError]);
 
   const handlePay = async () => {
     if (!ready || paying) return;
