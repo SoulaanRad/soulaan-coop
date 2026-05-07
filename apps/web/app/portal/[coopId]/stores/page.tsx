@@ -130,6 +130,10 @@ function AllStoresTab() {
     },
   });
 
+  const setScVerifiedAdmin = api.store.setScVerifiedAdmin.useMutation({
+    onSuccess: () => refetch(),
+  });
+
   const batchVerify = api.store.batchVerifyStoresOnChain.useMutation({
     onSuccess: (data) => {
       if ("txHash" in data && data.txHash) {
@@ -403,29 +407,38 @@ function AllStoresTab() {
                           </>
                         )}
                       </Button>
+                      {/* DB-only SC verification toggle (instant, no blockchain) */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScVerifiedAdmin.mutate({ storeId: store.id, verified: !store.isScVerified })}
+                        disabled={setScVerifiedAdmin.isPending}
+                        className={store.isScVerified ? "border-red-600 text-red-400 hover:bg-red-600 hover:text-white" : "border-amber-600 text-amber-400 hover:bg-amber-600 hover:text-white"}
+                      >
+                        {setScVerifiedAdmin.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : store.isScVerified ? (
+                          <XCircle className="h-4 w-4 mr-1" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4 mr-1" />
+                        )}
+                        {store.isScVerified ? "Remove SC Verified" : "Mark SC Verified"}
+                      </Button>
+                      {/* On-chain verification (requires wallet + smart contract) */}
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => toggleScVerification.mutate({ storeId: store.id, verified: !store.isScVerified })}
                         disabled={toggleScVerification.isPending}
-                        className={store.isScVerified ? "" : "border-green-600 text-green-600 hover:bg-green-600 hover:text-white"}
+                        className="border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-white text-xs"
+                        title="Sync SC verification to the blockchain (requires owner wallet)"
                       >
                         {toggleScVerification.isPending ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                            Processing On-Chain...
-                          </>
-                        ) : store.isScVerified ? (
-                          <>
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Remove SC Verification
-                          </>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                         ) : (
-                          <>
-                            <ShieldCheck className="h-4 w-4 mr-1" />
-                            Grant SC Verification
-                          </>
+                          <ShieldCheck className="h-3 w-3 mr-1" />
                         )}
+                        On-Chain
                       </Button>
                       <StoreStatusActions storeId={store.id} currentStatus={store.status} onSuccess={() => refetch()} />
                     </div>

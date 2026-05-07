@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FallbackImage } from "@/components/ui/fallback-image";
 import {
   ArrowLeft,
   ExternalLink,
@@ -146,7 +147,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Store Header/Banner */}
-      <header className="relative bg-gradient-to-br from-orange-600 to-amber-500">
+      <header className="relative" style={{ background: 'linear-gradient(to bottom right, var(--coop-bg), var(--coop-accent))' }}>
         <div className="absolute inset-0 bg-black/20" />
         <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-4 flex items-center justify-between">
@@ -182,7 +183,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
                 </Badge>
                 {store.rating && (
                   <div className="flex items-center gap-1 text-white">
-                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    <Star className="h-4 w-4 fill-[var(--coop-accent)] text-[var(--coop-accent)]" />
                     <span className="font-medium">{store.rating}</span>
                     <span className="text-white/70">
                       ({store.reviewCount} reviews)
@@ -259,23 +260,32 @@ export default async function StoreDetailPage({ params }: PageProps) {
                     key={product.id}
                     href={`/c/${coopId}/product/${product.id}`}
                   >
-                    <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-orange-200">
+                    <Card className="group h-full overflow-hidden transition-all hover:shadow-lg hover:border-[var(--coop-accent)]">
                       {/* Product Image */}
                       <div className="relative aspect-square overflow-hidden bg-muted">
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
-                          <TypeIcon className="h-12 w-12 text-orange-200" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                          <TypeIcon className="h-12 w-12 text-muted-foreground/30" />
                         </div>
+                        {product.imageUrl && (
+                          <FallbackImage
+                            src={product.imageUrl}
+                            alt={product.name}
+                            fill
+                            sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                            className="object-cover transition-transform group-hover:scale-105"
+                          />
+                        )}
                         <Badge
                           variant="secondary"
                           className="absolute left-2 top-2 gap-1"
                         >
                           <TypeIcon className="h-3 w-3" />
-                          {productTypeLabels[product.productType]}
+                          {productTypeLabels[product.productType] || "Product"}
                         </Badge>
                       </div>
 
                       <CardHeader className="pb-2">
-                        <CardTitle className="line-clamp-1 text-base group-hover:text-orange-600 transition-colors">
+                        <CardTitle className="line-clamp-1 text-base group-hover:text-[var(--coop-accent)] transition-colors">
                           {product.name}
                         </CardTitle>
                         <p className="text-xs text-muted-foreground">
@@ -296,7 +306,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
                         <Button
                           size="sm"
                           variant="secondary"
-                          className="group-hover:bg-orange-500 group-hover:text-white transition-colors"
+                          className="group-hover:bg-[var(--coop-accent)] group-hover:text-white transition-colors"
                         >
                           View
                         </Button>

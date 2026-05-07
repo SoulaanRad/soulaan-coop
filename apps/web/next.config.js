@@ -33,12 +33,21 @@ const config = {
   /** We already do linting and typechecking as separate tasks in CI */
   typescript: { ignoreBuildErrors: true },
 
-  /** Allow uploaded images served from Vercel Blob public stores */
+  /**
+   * Allow uploaded images served from Vercel Blob public stores plus any
+   * other https-hosted product/store image URLs (e.g. external sellers we
+   * link to but haven't mirrored yet). Restrict to https only so we don't
+   * accidentally proxy http content.
+   */
   images: {
     remotePatterns: [
       {
         protocol: "https",
         hostname: "*.public.blob.vercel-storage.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**",
       },
     ],
   },

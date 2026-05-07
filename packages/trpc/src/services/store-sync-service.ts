@@ -5,33 +5,33 @@ import { privateKeyToAccount } from "viem/accounts";
 import { encodeFunctionData } from "viem";
 
 const BACKEND_WALLET_PRIVATE_KEY = process.env.BACKEND_WALLET_PRIVATE_KEY || '';
-const SOULAAN_COIN_ADDRESS = process.env.SOULAAN_COIN_ADDRESS || '';
-const RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org';
+const DEFAULT_RPC_URL = 'https://sepolia.base.org';
+
+interface SyncConfig {
+  scTokenAddress: string;
+  rpcUrl?: string | null;
+}
 
 /**
- * Sync store SC-verification status to SoulaaniCoin contract
- * This enables automatic treasury reserve transfers for SC-verified stores in UnityCoin
+ * Sync store SC-verification status to SoulaaniCoin contract.
+ * Addresses come from CoopConfig (not env vars).
  */
 export async function syncStoreVerificationToContract(
   storeWalletAddress: string,
-  isScVerified: boolean
+  isScVerified: boolean,
+  config: SyncConfig,
 ): Promise<string> {
   if (!BACKEND_WALLET_PRIVATE_KEY) {
     throw new Error('BACKEND_WALLET_PRIVATE_KEY environment variable is required');
-  }
-
-  if (!SOULAAN_COIN_ADDRESS) {
-    throw new Error('SOULAAN_COIN_ADDRESS environment variable is required');
   }
 
   const backendAccount = privateKeyToAccount(BACKEND_WALLET_PRIVATE_KEY as `0x${string}`);
   const walletClient = createWalletClient({
     account: backendAccount,
     chain: baseSepolia,
-    transport: http(RPC_URL),
+    transport: http(config.rpcUrl || DEFAULT_RPC_URL),
   });
 
-  // Call setStoreVerification on SoulaaniCoin contract
   const txData = encodeFunctionData({
     abi: [
       {
@@ -50,7 +50,7 @@ export async function syncStoreVerificationToContract(
   });
 
   const txHash = await walletClient.sendTransaction({
-    to: SOULAAN_COIN_ADDRESS as Address,
+    to: config.scTokenAddress as Address,
     data: txData,
   });
 
@@ -59,26 +59,32 @@ export async function syncStoreVerificationToContract(
 }
 
 /**
- * Sync all SC-verified stores to the SoulaaniCoin contract
- * Should be run on deployment or when stores are updated
+ * Sync all SC-verified stores to the SoulaaniCoin contract.
+ * Loads contract addresses from CoopConfig.
  */
-export async function syncAllStores(): Promise<{ synced: number; failed: number }> {
+export async function syncAllStores(coopId: string): Promise<{ synced: number; failed: number }> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { scTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.scTokenAddress) {
+    throw new Error(`scTokenAddress not configured in CoopConfig for ${coopId}`);
+  }
+
+  const syncConfig: SyncConfig = {
+    scTokenAddress: coopConfig.scTokenAddress,
+    rpcUrl: coopConfig.rpcUrl,
+  };
+
   const stores = await db.store.findMany({
-    where: {
-      isScVerified: true,
-      owner: {
-        walletAddress: { not: null },
-      },
-    },
+    where: { coopId, isScVerified: true, owner: { walletAddress: { not: null } } },
     select: {
       id: true,
       name: true,
       isScVerified: true,
-      owner: {
-        select: {
-          walletAddress: true,
-        },
-      },
+      owner: { select: { walletAddress: true } },
     },
   });
 
@@ -91,9 +97,8 @@ export async function syncAllStores(): Promise<{ synced: number; failed: number 
       failed++;
       continue;
     }
-
     try {
-      await syncStoreVerificationToContract(store.owner.walletAddress, store.isScVerified);
+      await syncStoreVerificationToContract(store.owner.walletAddress, store.isScVerified, syncConfig);
       synced++;
     } catch (error) {
       console.error(`❌ Failed to sync store ${store.name}:`, error);

@@ -200,17 +200,23 @@ export const trustlessAdminRouter = router({
 
       const store = await context.db.store.findUnique({
         where: { id: input.storeId },
-        include: {
-          owner: {
-            select: { walletAddress: true },
-          },
-        },
+        select: { id: true, name: true, coopId: true, owner: { select: { walletAddress: true } } },
       });
 
       if (!store || !store.owner.walletAddress) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Store not found or owner has no wallet" });
+      }
+
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId: store.coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: { verifiedStoreRegistryAddress: true },
+      });
+
+      if (!coopConfig?.verifiedStoreRegistryAddress) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Store not found or owner has no wallet",
+          code: "INTERNAL_SERVER_ERROR",
+          message: "verifiedStoreRegistryAddress not configured in CoopConfig",
         });
       }
 
@@ -225,7 +231,7 @@ export const trustlessAdminRouter = router({
       ]);
 
       return {
-        to: process.env.VERIFIED_STORE_REGISTRY_ADDRESS || "",
+        to: coopConfig.verifiedStoreRegistryAddress,
         data: calldata,
         description: `Verify store: ${store.name} (${store.owner.walletAddress})`,
         storeInfo: {
@@ -251,27 +257,31 @@ export const trustlessAdminRouter = router({
 
       const store = await context.db.store.findUnique({
         where: { id: input.storeId },
-        include: {
-          owner: {
-            select: { walletAddress: true },
-          },
-        },
+        select: { id: true, name: true, coopId: true, owner: { select: { walletAddress: true } } },
       });
 
       if (!store || !store.owner.walletAddress) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Store not found or owner has no wallet" });
+      }
+
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId: store.coopId, isActive: true },
+        orderBy: { version: 'desc' },
+        select: { verifiedStoreRegistryAddress: true },
+      });
+
+      if (!coopConfig?.verifiedStoreRegistryAddress) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Store not found or owner has no wallet",
+          code: "INTERNAL_SERVER_ERROR",
+          message: "verifiedStoreRegistryAddress not configured in CoopConfig",
         });
       }
 
       const iface = new ethers.Interface(VERIFIED_STORE_REGISTRY_ABI);
-      const calldata = iface.encodeFunctionData("unverifyStore", [
-        store.owner.walletAddress,
-      ]);
+      const calldata = iface.encodeFunctionData("unverifyStore", [store.owner.walletAddress]);
 
       return {
-        to: process.env.VERIFIED_STORE_REGISTRY_ADDRESS || "",
+        to: coopConfig.verifiedStoreRegistryAddress,
         data: calldata,
         description: `Unverify store: ${store.name} (${store.owner.walletAddress})`,
       };
@@ -288,7 +298,18 @@ export const trustlessAdminRouter = router({
       maxRewardPerTxSC: z.string().optional(),
       isActive: z.boolean(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId;
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: coopId ? { coopId, isActive: true } : { isActive: true },
+        orderBy: { version: 'desc' },
+        select: { rewardEngineAddress: true },
+      });
+      if (!coopConfig?.rewardEngineAddress) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "rewardEngineAddress not configured in CoopConfig" });
+      }
+
       const fixedAmount = ethers.parseEther(input.fixedAmountSC);
       const minPurchase = ethers.parseEther(input.minPurchaseUC);
       const maxReward = input.maxRewardPerTxSC ? ethers.parseEther(input.maxRewardPerTxSC) : 0n;
@@ -303,7 +324,7 @@ export const trustlessAdminRouter = router({
       ]);
 
       return {
-        to: process.env.SC_REWARD_ENGINE_ADDRESS || "",
+        to: coopConfig.rewardEngineAddress,
         data: calldata,
         description: `Update global reward policy: ${(input.percentageBps / 100).toFixed(2)}% + ${input.fixedAmountSC} SC`,
         policyDetails: {
@@ -341,7 +362,18 @@ export const trustlessAdminRouter = router({
       maxRewardPerTxSC: z.string().optional(),
       isActive: z.boolean(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as Context;
+      const coopId = (ctx as CoopScopedContext).coopId;
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: coopId ? { coopId, isActive: true } : { isActive: true },
+        orderBy: { version: 'desc' },
+        select: { rewardEngineAddress: true },
+      });
+      if (!coopConfig?.rewardEngineAddress) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "rewardEngineAddress not configured in CoopConfig" });
+      }
+
       const categoryKey = CATEGORY_KEYS[input.category];
       const fixedAmount = ethers.parseEther(input.fixedAmountSC);
       const minPurchase = ethers.parseEther(input.minPurchaseUC);
@@ -358,7 +390,7 @@ export const trustlessAdminRouter = router({
       ]);
 
       return {
-        to: process.env.SC_REWARD_ENGINE_ADDRESS || "",
+        to: coopConfig.rewardEngineAddress,
         data: calldata,
         description: `Set ${input.category} policy: ${(input.percentageBps / 100).toFixed(2)}% + ${input.fixedAmountSC} SC`,
         policyDetails: {

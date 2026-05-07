@@ -154,7 +154,7 @@ export default async function StoresPage({ params, searchParams }: PageProps) {
                   name: store.name,
                   description: store.description || '',
                   category: store.category,
-                  imageUrl: store.imageUrl || '/placeholder-store.jpg',
+                  imageUrl: store.imageUrl || null,
                   rating: store.rating || 0,
                   reviewCount: store.reviewCount || 0,
                   productCount: store.productCount || 0,

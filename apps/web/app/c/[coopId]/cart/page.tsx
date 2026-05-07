@@ -49,7 +49,7 @@ function CartItemCard({
         {/* Product Info */}
         <div className="flex flex-1 flex-col">
           <h3 className="font-medium line-clamp-2">{item.name}</h3>
-          <p className="mt-1 text-lg font-bold text-orange-600">
+          <p className="mt-1 text-lg font-bold text-[var(--coop-accent)]">
             ${item.priceUSD.toFixed(2)}
           </p>
 
@@ -127,8 +127,8 @@ function StoreSection({
         <span className="font-semibold">{storeName}</span>
         {isScVerified && (
           <div className="flex items-center gap-1">
-            <BadgeCheck className="h-4 w-4 text-amber-600" />
-            <span className="text-xs text-amber-600">SC Verified</span>
+            <BadgeCheck className="h-4 w-4 text-[var(--coop-accent)]" />
+            <span className="text-xs text-[var(--coop-accent)]">SC Verified</span>
           </div>
         )}
       </Link>
@@ -154,7 +154,7 @@ function StoreSection({
           </div>
           <Button
             onClick={onCheckout}
-            className="w-full bg-orange-500 hover:bg-orange-600"
+            className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
             size="lg"
           >
             Checkout
@@ -217,7 +217,7 @@ export default function CartPage() {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold">Cart</h1>
                 {totalItems > 0 && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--coop-accent)] text-xs font-bold text-white">
                     {totalItems}
                   </div>
                 )}
@@ -248,7 +248,7 @@ export default function CartPage() {
             <p className="mb-6 text-muted-foreground">
               Browse our stores and add some products to get started.
             </p>
-            <Button asChild className="bg-orange-500 hover:bg-orange-600">
+            <Button asChild className="bg-[var(--coop-accent)] hover:opacity-90 transition-opacity">
               <Link href={`/c/${coopId}/stores`}>Browse Stores</Link>
             </Button>
           </div>

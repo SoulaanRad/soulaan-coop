@@ -42,9 +42,11 @@ export const publicCoopInfoRouter = router({
    * Get preview data for public page (stores and proposals)
    */
   getPreviewData: publicProcedure
-    .input(z.object({ 
+    .input(z.object({
       coopId: z.string(),
       previewMode: z.enum(['live', 'curated', 'hybrid']),
+      storeLimit: z.number().min(1).max(50).optional().default(12),
+      proposalLimit: z.number().min(1).max(20).optional().default(3),
     }))
     .query(async ({ input, ctx }) => {
       if (input.previewMode === 'curated') {
@@ -53,20 +55,37 @@ export const publicCoopInfoRouter = router({
 
       const [stores, proposals] = await Promise.all([
         ctx.db.store.findMany({
-          where: { coopId: input.coopId, status: 'APPROVED' },
-          take: 3,
-          orderBy: { createdAt: 'desc' },
+          where: {
+            coopId: input.coopId,
+            status: 'APPROVED',
+            // Only surface stores whose Stripe Connect account is fully ready
+            // to accept charges; otherwise customers would hit an error at
+            // checkout. SC verification is purely a badge, not a filter.
+            business: {
+              stripeAccount: {
+                chargesEnabled: true,
+              },
+            },
+          },
+          take: input.storeLimit,
+          orderBy: [
+            { isFeatured: 'desc' },
+            { isScVerified: 'desc' },
+            { createdAt: 'desc' },
+          ],
           select: {
             id: true,
             name: true,
             description: true,
             category: true,
             imageUrl: true,
+            isScVerified: true,
+            isFeatured: true,
           },
         }),
         ctx.db.proposal.findMany({
           where: { coopId: input.coopId, status: { in: ['VOTABLE', 'APPROVED', 'FUNDED'] } },
-          take: 3,
+          take: input.proposalLimit,
           orderBy: { createdAt: 'desc' },
           select: {
             id: true,

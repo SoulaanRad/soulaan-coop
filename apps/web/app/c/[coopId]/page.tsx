@@ -101,7 +101,7 @@ async function getFeaturedProducts(coopId: string) {
     const apiUrl = env.NEXT_PUBLIC_API_URL;
     const input = JSON.stringify({ coopId, limit: 8 });
     const url = `${apiUrl}/store.getProducts?input=${encodeURIComponent(input)}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -115,10 +115,12 @@ async function getFeaturedProducts(coopId: string) {
     }
 
     const data = await response.json();
-    const products = data.result.data.products || [];
-    
-    // Filter to only featured products
-    return products.filter((p: any) => p.isFeatured);
+    const products: any[] = data.result.data.products || [];
+
+    // Prefer products explicitly marked as featured, but fall back to the
+    // most recent products so the section is never empty when products exist.
+    const featured = products.filter((p: any) => p.isFeatured);
+    return featured.length > 0 ? featured : products;
   } catch (error) {
     console.error('Error fetching featured products:', error);
     return [];
@@ -207,31 +209,33 @@ export default async function CoopPublicPage({ params }: PageProps) {
     },
   };
 
-  // Use preview data for stores, or fall back to mock data
-  const stores = previewData?.stores?.map((store: any) => ({
+  // Use preview data for stores. When no preview data is available (e.g.
+  // curated mode or fetch failure), render an empty list rather than crash.
+  const stores = (previewData?.stores ?? []).map((store: any) => ({
     id: store.id,
     name: store.name,
     description: store.description || '',
     category: store.category || 'OTHER',
-    imageUrl: store.imageUrl || '/placeholder-store.jpg',
+    imageUrl: store.imageUrl || null,
     rating: 0, // TODO: Get from reviews
     reviewCount: 0,
     productCount: 0, // TODO: Get from products
-    isScVerified: false, // TODO: Get from store data
-    isFeatured: false,
-  })) || mockStores;
+    isScVerified: Boolean(store.isScVerified),
+    isFeatured: Boolean(store.isFeatured),
+  }));
 
-  // Use real featured products, or fall back to mock data
-  const products = featuredProducts.length > 0 ? featuredProducts.map((product: any) => ({
+  // Map featured (or fallback recent) products for the homepage grid.
+  const products = featuredProducts.map((product: any) => ({
     id: product.id,
     name: product.name,
     description: product.description || '',
     priceUSD: product.priceUSD,
-    imageUrl: product.imageUrl || '/placeholder-product.jpg',
+    imageUrl: product.imageUrl || '',
+    images: product.images || [],
     storeName: product.store?.name || '',
     category: product.category || 'OTHER',
     productType: 'PHYSICAL', // Default to PHYSICAL since productType doesn't exist in schema
-  })) : [];
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,7 +246,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
       {publicInfo.showStatsBar && (
         <section className="border-b bg-card">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-foreground md:text-3xl">
                   {coop.memberCount.toLocaleString()}
@@ -261,12 +265,6 @@ export default async function CoopPublicPage({ params }: PageProps) {
                 </div>
                 <div className="text-sm text-muted-foreground">Products</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-foreground md:text-3xl">
-                  {coop.stats.treasurySize}
-                </div>
-                <div className="text-sm text-muted-foreground">Treasury</div>
-              </div>
             </div>
           </div>
         </section>
@@ -284,7 +282,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
                 Popular items from our community stores
               </p>
             </div>
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="hover:border-[var(--coop-accent)] hover:text-[var(--coop-accent)] transition-colors">
               <Link href={`/c/${coopId}/products`}>
                 View All
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -307,18 +305,28 @@ export default async function CoopPublicPage({ params }: PageProps) {
                 Shop from businesses in our cooperative network
               </p>
             </div>
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="hover:border-[var(--coop-accent)] hover:text-[var(--coop-accent)] transition-colors">
               <Link href={`/c/${coopId}/stores`}>
                 All Stores
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {stores.map((store: any) => (
-              <StoreCard key={store.id} store={store} coopSlug={coopId} />
-            ))}
-          </div>
+          {stores.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-12 text-center">
+              <Store className="h-10 w-10 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold text-foreground">No stores yet</h3>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">
+                Approved stores from this co-op will show up here. Check back soon.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {stores.map((store: any) => (
+                <StoreCard key={store.id} store={store} coopSlug={coopId} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
