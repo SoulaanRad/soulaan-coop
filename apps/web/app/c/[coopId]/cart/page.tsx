@@ -154,7 +154,7 @@ function StoreSection({
           </div>
           <Button
             onClick={onCheckout}
-            className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
+            className="w-full bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity"
             size="lg"
           >
             Checkout
@@ -248,7 +248,7 @@ export default function CartPage() {
             <p className="mb-6 text-muted-foreground">
               Browse our stores and add some products to get started.
             </p>
-            <Button asChild className="bg-[var(--coop-accent)] hover:opacity-90 transition-opacity">
+            <Button asChild className="bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity">
               <Link href={`/c/${coopId}/stores`}>Browse Stores</Link>
             </Button>
           </div>

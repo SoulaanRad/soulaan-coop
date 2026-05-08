@@ -16,7 +16,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { env } from "@/env";
 
-const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 function CheckoutForm({
   coopId,
@@ -68,7 +69,7 @@ function CheckoutForm({
       <Button
         type="submit"
         size="lg"
-        className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
+        className="w-full bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity"
         disabled={!stripe || isProcessing}
       >
         {isProcessing ? (
@@ -277,7 +278,7 @@ export default function CheckoutPage() {
               <Button variant="outline" asChild className="flex-1">
                 <Link href={`/c/${coopId}/stores`}>Continue Shopping</Link>
               </Button>
-              <Button asChild className="flex-1 bg-[var(--coop-accent)] hover:opacity-90 transition-opacity">
+              <Button asChild className="flex-1 bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity">
                 <Link href={`/c/${coopId}`}>Go to Home</Link>
               </Button>
             </div>
@@ -344,7 +345,7 @@ export default function CheckoutPage() {
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full bg-[var(--coop-accent)] hover:opacity-90 transition-opacity"
+                  className="w-full bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity"
                   disabled={loading}
                 >
                   {loading ? (

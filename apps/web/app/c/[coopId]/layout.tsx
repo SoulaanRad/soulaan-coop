@@ -21,6 +21,30 @@ async function getCoopTheme(coopId: string) {
   }
 }
 
+/**
+ * Returns true when a hex color is too light to use as a button background on
+ * a white page (relative luminance > 0.85).  Prevents white-on-white buttons.
+ */
+function isColorTooLight(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return true;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.85;
+}
+
+/**
+ * Returns white (#ffffff) or near-black (#1a1a1a) depending on which gives
+ * better contrast against the given hex background.
+ */
+function contrastColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return '#ffffff';
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#1a1a1a' : '#ffffff';
+}
+
 export default async function CoopPublicLayout({
   children,
   params,
@@ -28,11 +52,18 @@ export default async function CoopPublicLayout({
   const { coopId } = await params;
   const config = await getCoopTheme(coopId);
 
-  // Accept hex values; fall back to amber/orange if absent or stored as Tailwind class names
-  const accentColor =
-    config?.accentColor?.startsWith('#') ? config.accentColor : '#d97706';
-  const bgColor =
-    config?.bgColor?.startsWith('#') ? config.bgColor : '#ea580c';
+  const DEFAULT_ACCENT = '#d97706';
+  const DEFAULT_BG = '#ea580c';
+
+  // Accept hex values; fall back to amber/orange if absent, stored as a
+  // Tailwind class name, or resolves to a colour that would be invisible on a
+  // white background.
+  const rawAccent = config?.accentColor?.startsWith('#') ? config.accentColor : DEFAULT_ACCENT;
+  const accentColor = isColorTooLight(rawAccent) ? DEFAULT_ACCENT : rawAccent;
+  const accentForeground = contrastColor(accentColor);
+
+  const rawBg = config?.bgColor?.startsWith('#') ? config.bgColor : DEFAULT_BG;
+  const bgColor = isColorTooLight(rawBg) ? DEFAULT_BG : rawBg;
 
   return (
     <CartProvider coopId={coopId}>
@@ -40,6 +71,7 @@ export default async function CoopPublicLayout({
         style={
           {
             '--coop-accent': accentColor,
+            '--coop-accent-foreground': accentForeground,
             '--coop-bg': bgColor,
           } as React.CSSProperties
         }
