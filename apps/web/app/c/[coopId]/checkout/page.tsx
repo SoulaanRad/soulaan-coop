@@ -17,7 +17,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { env } from "@/env";
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 function CheckoutForm({
   coopId,
