@@ -10,6 +10,8 @@ import { mintUCToUser, awardStoreTransactionReward } from "../services/wallet-se
 import { sendToSoulaanUser } from "../services/p2p-service.js";
 import { convertUSDToUC } from "../utils/currency-converter.js";
 import { mirrorProductImages, parseDelimitedProductRows } from "../services/product-import-service.js";
+import { sendOrderEmails } from "../services/email-service.js";
+import { env } from "../env.js";
 
 // Category validation - now accepts any string since categories are dynamic
 const StoreCategoryEnum = z.string().min(1).max(100);
@@ -2470,7 +2472,7 @@ export const storeRouter = router({
         where: { id: input.storeId },
         include: {
           owner: {
-            select: { id: true, walletAddress: true },
+            select: { id: true, walletAddress: true, email: true, name: true },
           },
         },
       });
@@ -2481,6 +2483,12 @@ export const storeRouter = router({
           message: "Store not found",
         });
       }
+
+      const coopConfig = await context.db.coopConfig.findFirst({
+        where: { coopId: store.coopId, isActive: true },
+        select: { name: true },
+        orderBy: { version: "desc" },
+      });
 
       // Validate all products and calculate totals
       const productIds = input.items.map(i => i.productId);
@@ -2684,6 +2692,37 @@ export const storeRouter = router({
             data: { orderId: order.id, amount: totalUSD },
           },
         ],
+      });
+
+      sendOrderEmails({
+        customerEmail: buyer.email,
+        merchantEmail: store.email || store.owner.email,
+        order: {
+          orderId: order.id,
+          coopName: coopConfig?.name,
+          storeName: store.name,
+          customerName: buyer.name,
+          customerEmail: buyer.email,
+          subtotalUSD,
+          discountUSD: 0,
+          totalUSD,
+          totalUC,
+          paymentMethod: paymentType,
+          transactionHash,
+          shippingAddress: input.shippingAddress,
+          note: input.note,
+          createdAt: order.createdAt,
+          orderUrl: env.APP_URL ? `${env.APP_URL}/orders/${order.id}` : undefined,
+          manageOrderUrl: env.APP_URL ? `${env.APP_URL}/orders/${order.id}` : undefined,
+          items: order.items.map((item) => ({
+            productName: item.product.name,
+            quantity: item.quantity,
+            priceUSD: item.priceUSD,
+            totalUSD: item.totalUSD,
+          })),
+        },
+      }).catch((error) => {
+        console.error("Failed to send order emails (non-critical):", error);
       });
 
       console.log('🎉 Order created:', order.id);

@@ -21,6 +21,9 @@ export const env = createEnv({
     PAYPAL_CLIENT_SECRET: z.string().optional(),
     SQUARE_WEBHOOK_SIGNATURE_KEY: z.string().optional(),
     SLACK_WEBHOOK_URL: z.string().url().optional(),
+    RESEND_API_KEY: z.string().startsWith("re_").optional(),
+    EMAIL_TEST_TOKEN: z.string().min(16).optional(),
+    APP_URL: z.string().url().optional(),
     // Vercel Blob
     BLOB_READ_WRITE_TOKEN: z.string().min(1),
   },

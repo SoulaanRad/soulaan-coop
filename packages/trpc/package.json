@@ -97,6 +97,11 @@
       "import": "./dist/services/slack-notification-service.js",
       "require": "./dist/services/slack-notification-service.js",
       "types": "./dist/services/slack-notification-service.d.ts"
+    },
+    "./services/email-service": {
+      "import": "./dist/services/email-service.js",
+      "require": "./dist/services/email-service.js",
+      "types": "./dist/services/email-service.d.ts"
     }
   },
   "keywords": [],
@@ -104,14 +109,18 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
     "@repo/db": "workspace:*",
     "@repo/validators": "workspace:*",
+    "@t3-oss/env-core": "^0.9.2",
     "@trpc/server": "catalog:",
     "@vercel/blob": "^0.27.0",
     "bcryptjs": "^3.0.2",
     "iron-session": "catalog:",
     "next-auth": "^4.24.13",
-    "nodemailer": "^7.0.12",
+    "react": "catalog:react19",
+    "resend": "^6.12.3",
     "stripe": "^20.1.2",
     "superjson": "^2.2.2",
     "twilio": "^5.11.2",
@@ -123,7 +132,6 @@
     "@trpc/client": "catalog:",
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^3.0.0",
-    "@types/nodemailer": "^7.0.4",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

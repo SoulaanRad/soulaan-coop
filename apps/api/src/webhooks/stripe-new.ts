@@ -22,6 +22,8 @@ import {
 } from '@repo/trpc/services/payment-orchestration-service';
 import { recordFeeCollection } from '@repo/trpc/services/treasury-ledger-service';
 import { evaluateAndMintCommerceReward } from '@repo/trpc/services/reward-policy-service';
+import { sendOrderCompletedNotification } from '@repo/trpc/services/slack-notification-service';
+import { sendOrderEmails } from '@repo/trpc/services/email-service';
 import { db } from '@repo/db';
 
 /**
@@ -142,14 +144,13 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
       },
       business: {
         include: {
+          store: {
+            select: { email: true, isScVerified: true, name: true },
+          },
           owner: {
             include: {
               wallets: {
                 where: { isPrimary: true },
-                take: 1,
-              },
-              stores: {
-                select: { isScVerified: true },
                 take: 1,
               },
             },
@@ -164,9 +165,49 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
     return;
   }
 
+  // Send Slack notification for completed order
+  const transactionMeta = transaction.metadata as Record<string, unknown> | null;
+  sendOrderCompletedNotification({
+    transactionId: paymentResult.transactionId,
+    customerName: transaction.customer.name ?? undefined,
+    customerEmail: transaction.customer.email ?? undefined,
+    businessName: transaction.business.name ?? undefined,
+    amountUSD: paymentResult.amountUSD,
+    coopId: transaction.coopId ?? undefined,
+    isGuestCheckout: transactionMeta?.isGuestCheckout === true,
+  }).catch(err => console.error('❌ [Stripe Webhook] Failed to send Slack order notification:', err));
+
+  const store = transaction.business.store;
+  const orderItems = getOrderItemsFromMetadata(transactionMeta, paymentResult.amountUSD);
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId: transaction.coopId, isActive: true },
+    select: { name: true },
+    orderBy: { version: 'desc' },
+  });
+
+  sendOrderEmails({
+    customerEmail: transaction.customer.email,
+    merchantEmail: store?.email || transaction.business.owner.email,
+    order: {
+      orderId: transaction.id,
+      coopName: coopConfig?.name,
+      storeName: store?.name || transaction.business.name,
+      customerName: transaction.customer.name,
+      customerEmail: transaction.customer.email,
+      subtotalUSD: transaction.listedAmount,
+      totalUSD: transaction.chargedAmount,
+      paymentMethod: 'CARD',
+      transactionHash: transaction.stripeChargeId || paymentIntent.latest_charge?.toString() || transaction.stripePaymentIntentId,
+      shippingAddress: getStringFromMetadata(transactionMeta, 'shippingAddress'),
+      note: getStringFromMetadata(transactionMeta, 'note'),
+      createdAt: transaction.completedAt || transaction.updatedAt,
+      items: orderItems,
+    },
+  }).catch(err => console.error('❌ [Stripe Webhook] Failed to send order emails:', err));
+
   const customerWallet = transaction.customer.wallets[0];
   const businessOwnerWallet = transaction.business.owner.wallets[0];
-  const isScVerified = transaction.business.owner.stores?.[0]?.isScVerified || false;
+  const isScVerified = transaction.business.store?.isScVerified || false;
 
   // Fallback to legacy walletAddress if no Wallet records exist yet
   const customerWalletAddress = customerWallet?.address || transaction.customer.walletAddress;
@@ -189,6 +230,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
       businessOwnerWalletAddress,
       amountUSD: paymentResult.amountUSD,
       isScVerifiedBusiness: isScVerified,
+      coopId: transaction.coopId,
     });
 
     if (rewardResult.customerReward.eligible) {
@@ -220,6 +262,54 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
   }
 
   console.log(`🎉 [Stripe Webhook] Payment processing complete!`);
+}
+
+function getStringFromMetadata(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function getOrderItemsFromMetadata(
+  metadata: Record<string, unknown> | null,
+  fallbackAmountUSD: number,
+) {
+  const items = metadata?.items;
+
+  if (Array.isArray(items)) {
+    const mappedItems = items
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+
+        const record = item as Record<string, unknown>;
+        const productName = typeof record.name === 'string' ? record.name : 'Item';
+        const quantity = typeof record.quantity === 'number' && record.quantity > 0 ? record.quantity : 1;
+        const priceUSD = typeof record.priceUSD === 'number' && record.priceUSD >= 0 ? record.priceUSD : 0;
+
+        return {
+          productName,
+          quantity,
+          priceUSD,
+          totalUSD: priceUSD * quantity,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    if (mappedItems.length > 0) {
+      return mappedItems;
+    }
+  }
+
+  return [
+    {
+      productName: 'Order total',
+      quantity: 1,
+      priceUSD: fallbackAmountUSD,
+      totalUSD: fallbackAmountUSD,
+    },
+  ];
 }
 
 /**
