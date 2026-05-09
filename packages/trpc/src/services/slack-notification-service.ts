@@ -211,6 +211,62 @@ export async function sendApiStartupNotification(params: {
   });
 }
 
+export async function sendOrderCompletedNotification(params: {
+  transactionId: string;
+  customerName?: string;
+  customerEmail?: string;
+  businessName?: string;
+  amountUSD: number;
+  coopId?: string;
+  isGuestCheckout?: boolean;
+}) {
+  const { transactionId, customerName, customerEmail, businessName, amountUSD, coopId, isGuestCheckout } = params;
+
+  const customerDisplay = customerName || customerEmail || 'Unknown';
+  const formattedAmount = `$${amountUSD.toFixed(2)}`;
+
+  await sendSlackNotification({
+    text: `🛒 New Order Completed — ${formattedAmount}`,
+    attachments: [
+      {
+        color: "good",
+        fields: [
+          {
+            title: "Amount",
+            value: formattedAmount,
+            short: true,
+          },
+          {
+            title: "Business",
+            value: businessName || "Unknown",
+            short: true,
+          },
+          {
+            title: "Customer",
+            value: isGuestCheckout ? `${customerDisplay} (guest)` : customerDisplay,
+            short: true,
+          },
+          {
+            title: "Co-op",
+            value: coopId || "Unknown",
+            short: true,
+          },
+          {
+            title: "Transaction ID",
+            value: transactionId,
+            short: false,
+          },
+          {
+            title: "Time",
+            value: new Date().toLocaleString(),
+            short: false,
+          },
+        ],
+      },
+    ],
+  });
+}
+
 export async function sendApiErrorNotification(params: {
   service: "api" | "web";
   error: string;

@@ -129,6 +129,72 @@ app.get("/health", async (req, res) => {
   }
 });
 
+app.post("/api/test-email/order-confirmation", async (req: Request, res: Response) => {
+  const testToken = req.headers["x-email-test-token"];
+  const isProduction = env.NODE_ENV === "production";
+  const hasValidToken =
+    typeof testToken === "string" &&
+    !!env.EMAIL_TEST_TOKEN &&
+    testToken === env.EMAIL_TEST_TOKEN;
+
+  if (isProduction && !hasValidToken) {
+    return res.status(403).json({
+      success: false,
+      message: "Email test endpoint requires X-Email-Test-Token in production.",
+    });
+  }
+
+  try {
+    const { sendOrderConfirmationEmail } = await import("@repo/trpc/services/email-service");
+    const recipient = "deon.robinson.sf@gmail.com";
+    const now = new Date();
+
+    await sendOrderConfirmationEmail({
+      to: recipient,
+      order: {
+        orderId: `test-${now.getTime()}`,
+        coopName: "Fake Co-ops Test",
+        storeName: "Cahootz Demo Market",
+        customerName: "Deon Robinson",
+        customerEmail: recipient,
+        subtotalUSD: 64,
+        discountUSD: 0,
+        totalUSD: 64,
+        paymentMethod: "CARD",
+        transactionHash: `test_${now.getTime()}`,
+        shippingAddress: "123 Test Street, San Francisco, CA 94110",
+        note: "This is a test order confirmation email from the API.",
+        createdAt: now,
+        items: [
+          {
+            productName: "Community Coffee Blend",
+            quantity: 2,
+            priceUSD: 18,
+            totalUSD: 36,
+          },
+          {
+            productName: "Founders Market Tote",
+            quantity: 1,
+            priceUSD: 28,
+            totalUSD: 28,
+          },
+        ],
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `Test order confirmation email sent to ${recipient}.`,
+    });
+  } catch (error) {
+    console.error("❌ Test email failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to send test email.",
+    });
+  }
+});
+
 // Webhook endpoints (PayPal and Square use JSON body)
 app.post('/webhooks/paypal', handlePayPalWebhook);
 app.post('/webhooks/square', handleSquareWebhook);
