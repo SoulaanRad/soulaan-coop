@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useCart } from "@/contexts/cart-context";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
@@ -16,7 +17,6 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { env } from "@/env";
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 function CheckoutForm({
@@ -98,7 +98,9 @@ export default function CheckoutPage() {
   const { getStoreItems, clearStoreItems } = useCart();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [storeInfo, setStoreInfo] = useState<{
     name: string;
@@ -107,6 +109,7 @@ export default function CheckoutPage() {
   } | null>(null);
   const [guestEmail, setGuestEmail] = useState("");
   const [guestName, setGuestName] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [needsGuestInfo, setNeedsGuestInfo] = useState(false);
 
   const cartItems = storeId ? getStoreItems(storeId) : [];
@@ -161,45 +164,66 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Create checkout session for authenticated user
-    const createCheckout = async () => {
-      try {
-        const result = await createCheckoutMutation.mutateAsync({
-          userId: user.id,
-          coopId,
-          businessId: storeData.businessId!,
-          listedAmountCents: Math.round(subtotal * 100),
-          currency: "USD",
-          metadata: {
-            items: cartItems.map((item) => ({
-              productId: item.productId,
-              name: item.name,
-              quantity: item.quantity,
-              priceUSD: item.priceUSD,
-            })),
-          },
-        });
-
-        setClientSecret(result.clientSecret);
-      } catch (err: any) {
-        console.error("Checkout error:", err);
-        setError(err.message || "Failed to initialize checkout");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    createCheckout();
+    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId, user?.id, storeData, storeLoading]);
+
+  const orderItemsMetadata = cartItems.map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    quantity: item.quantity,
+    priceUSD: item.priceUSD,
+  }));
+
+  const handleAuthenticatedCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user?.id || !storeInfo?.businessId) return;
+
+    const trimmedShippingAddress = shippingAddress.trim();
+    if (!trimmedShippingAddress) {
+      setFormError("Enter the shipping address so the store owner knows where to send the order.");
+      return;
+    }
+
+    setIsCreatingCheckout(true);
+    setFormError(null);
+
+    try {
+      const result = await createCheckoutMutation.mutateAsync({
+        userId: user.id,
+        coopId,
+        businessId: storeInfo.businessId,
+        listedAmountCents: Math.round(subtotal * 100),
+        currency: "USD",
+        metadata: {
+          items: orderItemsMetadata,
+          shippingAddress: trimmedShippingAddress,
+        },
+      });
+
+      setClientSecret(result.clientSecret);
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      setFormError(err.message || "Failed to initialize checkout");
+    } finally {
+      setIsCreatingCheckout(false);
+    }
+  };
 
   const handleGuestCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!storeId || !guestEmail || !storeInfo?.businessId) return;
+
+    const trimmedShippingAddress = shippingAddress.trim();
+    if (!trimmedShippingAddress) {
+      setFormError("Enter the shipping address so the store owner knows where to send the order.");
+      return;
+    }
     
-    setLoading(true);
-    setError(null);
+    setIsCreatingCheckout(true);
+    setFormError(null);
 
     try {
       const result = await createCheckoutMutation.mutateAsync({
@@ -210,12 +234,8 @@ export default function CheckoutPage() {
         guestEmail,
         guestName: guestName || undefined,
         metadata: {
-          items: cartItems.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            quantity: item.quantity,
-            priceUSD: item.priceUSD,
-          })),
+          items: orderItemsMetadata,
+          shippingAddress: trimmedShippingAddress,
         },
       });
 
@@ -223,9 +243,9 @@ export default function CheckoutPage() {
       setNeedsGuestInfo(false);
     } catch (err: any) {
       console.error("Guest checkout error:", err);
-      setError(err.message || "Failed to initialize checkout");
+      setFormError(err.message || "Failed to initialize checkout");
     } finally {
-      setLoading(false);
+      setIsCreatingCheckout(false);
     }
   };
 
@@ -307,9 +327,9 @@ export default function CheckoutPage() {
         <main className="mx-auto max-w-md px-4 py-8 sm:px-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
+              <CardTitle>Contact and shipping</CardTitle>
               <CardDescription>
-                Enter your email to continue with checkout
+                Enter where the store should send your order
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -335,6 +355,17 @@ export default function CheckoutPage() {
                     required
                   />
                 </div>
+                <div>
+                  <Label htmlFor="guestShippingAddress">Shipping address *</Label>
+                  <Textarea
+                    id="guestShippingAddress"
+                    value={shippingAddress}
+                    onChange={(e) => setShippingAddress(e.target.value)}
+                    placeholder="Street address, apartment, city, state, ZIP"
+                    rows={4}
+                    required
+                  />
+                </div>
                 <div className="rounded-lg bg-muted p-4 text-sm">
                   <p className="font-medium mb-1">Order Total</p>
                   <p className="text-2xl font-bold">${subtotal.toFixed(2)}</p>
@@ -346,9 +377,9 @@ export default function CheckoutPage() {
                   type="submit"
                   size="lg"
                   className="w-full bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity"
-                  disabled={loading}
+                  disabled={isCreatingCheckout}
                 >
-                  {loading ? (
+                  {isCreatingCheckout ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Processing...
@@ -357,8 +388,8 @@ export default function CheckoutPage() {
                     "Continue to Payment"
                   )}
                 </Button>
-                {error && (
-                  <p className="text-sm text-red-500 text-center">{error}</p>
+                {formError && (
+                  <p className="text-sm text-red-500 text-center">{formError}</p>
                 )}
               </form>
             </CardContent>
@@ -466,6 +497,39 @@ export default function CheckoutPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {!clientSecret && (
+                  <form onSubmit={handleAuthenticatedCheckout} className="space-y-4">
+                    <div>
+                      <Label htmlFor="shippingAddress">Shipping address *</Label>
+                      <Textarea
+                        id="shippingAddress"
+                        value={shippingAddress}
+                        onChange={(e) => setShippingAddress(e.target.value)}
+                        placeholder="Street address, apartment, city, state, ZIP"
+                        rows={4}
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full bg-[var(--coop-accent)] text-[var(--coop-accent-foreground)] hover:opacity-90 transition-opacity"
+                      disabled={isCreatingCheckout}
+                    >
+                      {isCreatingCheckout ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Preparing payment...
+                        </>
+                      ) : (
+                        "Continue to Payment"
+                      )}
+                    </Button>
+                    {formError && (
+                      <p className="text-sm text-red-500">{formError}</p>
+                    )}
+                  </form>
+                )}
                 {clientSecret && (
                   <Elements
                     stripe={stripePromise}

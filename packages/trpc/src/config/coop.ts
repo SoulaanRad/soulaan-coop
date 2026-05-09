@@ -67,7 +67,7 @@ export function getCoopConfig(): CoopConfig {
     withdrawalFeeFlat: parseFloat(process.env.WITHDRAWAL_FEE_FLAT || '0'),
 
     // Support
-    supportEmail: process.env.SUPPORT_EMAIL || 'support@soulaan.coop',
+    supportEmail: process.env.RESEND_FROM_EMAIL || 'support@mail.cahootzcoops.com',
     supportPhone: process.env.SUPPORT_PHONE || '',
   };
 }

@@ -132,6 +132,12 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   const handleCheckout = async () => {
     if (!user?.id || !checkoutBusinessId || cartItems.length === 0) return;
 
+    const trimmedShippingAddress = shippingAddress.trim();
+    if (!trimmedShippingAddress) {
+      Alert.alert('Shipping Address Required', 'Enter the shipping address so the store owner knows where to send the order.');
+      return;
+    }
+
     setProcessing(true);
 
     try {
@@ -152,7 +158,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
               quantity: item.quantity,
               priceUSD: item.priceUSD,
             })),
-            shippingAddress: shippingAddress || undefined,
+            shippingAddress: trimmedShippingAddress,
             note: note || undefined,
           },
         }),
@@ -337,7 +343,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
 
         {/* Shipping Address */}
         <View className="px-6 py-4">
-          <Text className="text-gray-900 font-semibold mb-2">Shipping Address (Optional)</Text>
+          <Text className="text-gray-900 font-semibold mb-2">Shipping Address</Text>
           <TextInput
             className="bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
             placeholder="Enter shipping address..."

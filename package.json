@@ -23,6 +23,7 @@
     "update-contract-artifacts": "bash scripts/update-contract-artifacts.sh",
     "dev": "turbo watch dev --continue",
     "dev:api": "pnpm -F @soulaan-coop/api dev",
+    "dev:api:full": "pnpm -F @soulaan-coop/api dev:full",
     "dev:web": "pnpm -F @soulaan-coop/web dev",
     "dev:next": "turbo watch dev -F @repo/nextjs...",
     "deploy:web": "pnpm db:deploy-setup && pnpm -F @soulaan-coop/web build",

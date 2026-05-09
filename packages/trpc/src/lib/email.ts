@@ -124,6 +124,20 @@ const styles = {
     padding: "18px",
     margin: "20px 0",
   },
+  shipToBox: {
+    backgroundColor: colors.softAccent,
+    border: `1px solid ${colors.accent}`,
+    borderRadius: "12px",
+    padding: "18px",
+    margin: "18px 0 20px",
+  },
+  missingShipToBox: {
+    backgroundColor: colors.softBrand,
+    border: `1px solid ${colors.brand}`,
+    borderRadius: "12px",
+    padding: "18px",
+    margin: "18px 0 20px",
+  },
   row: {
     display: "flex",
     justifyContent: "space-between",
@@ -165,6 +179,14 @@ const styles = {
     fontWeight: 700,
     margin: "0",
     whiteSpace: "nowrap" as const,
+  },
+  address: {
+    color: colors.ink,
+    fontSize: "17px",
+    lineHeight: "25px",
+    fontWeight: 700,
+    margin: "6px 0 0",
+    whiteSpace: "pre-line" as const,
   },
   button: {
     backgroundColor: colors.brand,
@@ -375,7 +397,9 @@ function OrderConfirmationEmail({ order }: { order: OrderEmailData }) {
 }
 
 function NewOrderAlertEmail({ order }: { order: OrderEmailData }) {
-  const preview = `New ${formatUSD(order.totalUSD)} order from ${order.customerName || order.customerEmail || "a customer"}.`;
+  const preview = order.shippingAddress
+    ? `New ${formatUSD(order.totalUSD)} order. Ship to: ${order.shippingAddress}`
+    : `New ${formatUSD(order.totalUSD)} order from ${order.customerName || order.customerEmail || "a customer"}. Shipping address missing.`;
 
   return h(
     EmailShell,
@@ -387,6 +411,23 @@ function NewOrderAlertEmail({ order }: { order: OrderEmailData }) {
       { style: styles.text },
       `${order.customerName || order.customerEmail || "A customer"} placed an order with ${order.storeName}.`,
     ),
+    order.shippingAddress
+      ? h(
+          Section,
+          { style: styles.shipToBox },
+          h(Text, { style: styles.itemName }, "Ship this order to"),
+          h(Text, { style: styles.address }, order.shippingAddress),
+        )
+      : h(
+          Section,
+          { style: styles.missingShipToBox },
+          h(Text, { style: styles.itemName }, "Shipping address missing"),
+          h(
+            Text,
+            { style: styles.muted },
+            "Contact the customer before fulfilling this order.",
+          ),
+        ),
     h(OrderSummary, { order }),
     h(
       Section,
@@ -394,14 +435,6 @@ function NewOrderAlertEmail({ order }: { order: OrderEmailData }) {
       h(Text, { style: styles.itemName }, "Customer"),
       h(Text, { style: styles.muted }, order.customerEmail || "No customer email provided"),
     ),
-    order.shippingAddress
-      ? h(
-          Section,
-          { style: { marginTop: "16px" } },
-          h(Text, { style: styles.itemName }, "Shipping"),
-          h(Text, { style: styles.muted }, order.shippingAddress),
-        )
-      : null,
     order.note
       ? h(
           Section,
@@ -436,12 +469,12 @@ async function sendEmail({
   const html = await render(react);
   const resend = new Resend(env.RESEND_API_KEY);
   const result = await resend.emails.send({
-    from: env.SUPPORT_EMAIL,
+    from: env.RESEND_FROM_EMAIL,
     to,
     subject,
     html,
     text: toPlainText(html),
-    replyTo: env.SUPPORT_EMAIL,
+    replyTo: env.RESEND_FROM_EMAIL,
   });
 
   if (result.error) {
@@ -501,6 +534,9 @@ export async function sendOrderEmails({
   order: OrderEmailData;
 }): Promise<void> {
   if (!isEmailConfigured()) {
+    console.warn("Order emails skipped because RESEND_API_KEY is not configured.", {
+      orderId: order.orderId,
+    });
     return;
   }
 
