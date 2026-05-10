@@ -548,7 +548,7 @@ export async function sendOrderEmails({
 
   const merchantRecipients = [
     ...(Array.isArray(merchantEmail) ? merchantEmail : merchantEmail ? [merchantEmail] : []),
-    ...(env.ORDER_ALERT_EMAIL ? [env.ORDER_ALERT_EMAIL] : []),
+    ...(env.RESEND_FROM_EMAIL ? [env.RESEND_FROM_EMAIL] : []),
   ].filter((email, index, all) => all.indexOf(email) === index);
 
   if (merchantRecipients.length > 0) {
