@@ -2712,8 +2712,8 @@ export const storeRouter = router({
           shippingAddress: input.shippingAddress,
           note: input.note,
           createdAt: order.createdAt,
-          orderUrl: env.APP_URL ? `${env.APP_URL}/orders/${order.id}` : undefined,
-          manageOrderUrl: env.APP_URL ? `${env.APP_URL}/orders/${order.id}` : undefined,
+          orderUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
+          manageOrderUrl: env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
           items: order.items.map((item) => ({
             productName: item.product.name,
             quantity: item.quantity,
