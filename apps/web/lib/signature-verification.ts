@@ -322,7 +322,7 @@ export async function createUserSession(userId: string, coopId: string): Promise
   }
 
   const membership = user.memberships[0];
-  if (!membership || membership.status !== 'ACTIVE' || user.status !== 'ACTIVE') {
+  if (membership?.status !== 'ACTIVE' || user.status !== 'ACTIVE') {
     throw new Error('No active portal membership found');
   }
 
