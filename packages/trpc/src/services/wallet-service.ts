@@ -5,6 +5,7 @@ import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import { db, type Wallet, type WalletType } from '@repo/db';
 import { trackReserveFromTransaction } from './treasury-reserve-service.js';
 import { getTreasuryReserveFromTransaction } from './uc-event-parser.js';
+import { SC_REWARD_RATE, SC_MIN_REWARD_THRESHOLD } from '../constants/sc-rewards.js';
 
 // Environment configuration
 const RPC_URL = process.env.RPC_URL || 'https://sepolia.base.org';
@@ -699,9 +700,6 @@ export async function mintUCToUser(userId: string, amountUC: number, coopId: str
 }
 
 // SC Reward Reason Constants
-// 10 SC per $1 spent — with 100,000 SC seeded at deploy, 2% cap = ~2,000 SC per user.
-// Tier thresholds: full rate until 500 SC, slowing at 1,000 SC, capped at 2,000 SC.
-const SC_REWARD_RATE = 10; // 10 SC per USD
 
 // SC Reward Reason Constants
 export const SC_REWARD_REASONS = {
@@ -716,10 +714,10 @@ export const SC_REWARD_REASONS = {
 /**
  * Calculate SC reward for a transaction
  * @param amountUSD - Transaction amount in USD
- * @returns SC reward amount (10 SC per $1 spent)
+ * @returns SC reward amount
  */
 export function calculateSCReward(amountUSD: number): number {
-  return Math.round(amountUSD * SC_REWARD_RATE); // whole number SC
+  return Number((amountUSD * SC_REWARD_RATE).toFixed(6));
 }
 
 /**
@@ -979,7 +977,7 @@ export async function awardStoreTransactionReward(
   const scReward = calculateSCReward(amountUSD);
 
   // Minimum reward threshold (avoid minting dust)
-  if (scReward < 1) {
+  if (scReward < SC_MIN_REWARD_THRESHOLD) {
     console.log(`🪙 SC reward too small (${scReward}), skipping`);
     return result;
   }

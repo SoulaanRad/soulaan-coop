@@ -13,20 +13,17 @@
 import { db } from '@repo/db';
 import { TRPCError } from '@trpc/server';
 import { mintSC } from './sc-token-service.js';
-import { isActiveMember } from './blockchain.js';
-
-// Reward configuration
-const SC_REWARD_RATE = 10; // 10 SC per $1 spent
-const MIN_REWARD_THRESHOLD = 1; // Minimum 1 SC to mint (avoid dust)
+import { isActiveMember, getDiminishedSCAmount } from './blockchain.js';
+import { SC_REWARD_RATE, SC_MIN_REWARD_THRESHOLD as MIN_REWARD_THRESHOLD } from '../constants/sc-rewards.js';
 
 /**
  * Calculate SC reward for a transaction amount
  * 
  * @param amountUSD - Transaction amount in USD
- * @returns SC reward amount (whole number)
+ * @returns SC reward amount
  */
 export function calculateSCReward(amountUSD: number): number {
-  return Math.round(amountUSD * SC_REWARD_RATE);
+  return Number((amountUSD * SC_REWARD_RATE).toFixed(6));
 }
 
 /**
@@ -451,9 +448,10 @@ export async function validateRewardEligibility(params: {
     };
   }
 
-  // Get store verification status separately
+  // Get the verification status for the store attached to this checkout business.
+  // Owners can have multiple stores, so checking by ownerId can pick an unrelated store.
   const store = await db.store.findFirst({
-    where: { ownerId: business.ownerId },
+    where: { businessId },
     select: { isScVerified: true },
   });
 
@@ -491,12 +489,22 @@ export async function validateRewardEligibility(params: {
   // Check merchant eligibility
   const merchantEligibility = await checkUserEligibility(businessOwnerId, businessOwnerWalletAddress, coopId);
 
+  // Get accurate estimates by simulating diminishing returns on-chain (read-only, no gas)
+  const [customerActualReward, merchantActualReward] = await Promise.all([
+    customerEligibility.eligible
+      ? getDiminishedSCAmount(customerWalletAddress, scReward, coopId)
+      : Promise.resolve(0),
+    merchantEligibility.eligible
+      ? getDiminishedSCAmount(businessOwnerWalletAddress, scReward, coopId)
+      : Promise.resolve(0),
+  ]);
+
   return {
     customerEligible: customerEligibility.eligible,
-    customerEstimatedReward: customerEligibility.eligible ? scReward : 0,
+    customerEstimatedReward: customerActualReward,
     customerReason: customerEligibility.reason,
     merchantEligible: merchantEligibility.eligible,
-    merchantEstimatedReward: merchantEligibility.eligible ? scReward : 0,
+    merchantEstimatedReward: merchantActualReward,
     merchantReason: merchantEligibility.reason,
     businessScVerified: true,
   };

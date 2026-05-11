@@ -316,7 +316,7 @@ export default function ApplicationsPage() {
 
           {/* Review Notes */}
           <div className="pt-6 border-t border-slate-800">
-            <Label htmlFor="review-notes" className="text-base font-semibold">
+            <Label htmlFor="review-notes" className="text-base font-semibold text-slate-100">
               Review Notes
             </Label>
             <Textarea
@@ -334,7 +334,7 @@ export default function ApplicationsPage() {
               onClick={handleReject}
               disabled={updateStatus.isPending}
               variant="outline"
-              className="flex-1 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+              className="flex-1 border-red-500/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200"
               size="lg"
             >
               <XCircle className="h-5 w-5 mr-2" />

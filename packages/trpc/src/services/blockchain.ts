@@ -177,6 +177,17 @@ export const soulaaniCoinAbi = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  // Read-only: returns how much SC will actually be minted after diminishing returns
+  {
+    inputs: [
+      { name: 'recipient', type: 'address' },
+      { name: 'baseAmount', type: 'uint256' },
+    ],
+    name: 'calculateDiminishedAmount',
+    outputs: [{ name: 'actualAmount', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const;
 
 // MemberStatus enum matching the contract
@@ -292,6 +303,47 @@ export async function getSCBalance(address: string, coopId: string = '???'): Pro
     balance,
     formatted,
   };
+}
+
+/**
+ * Simulate how much SC will actually be minted for a recipient after diminishing returns.
+ * This is a read-only contract call — no gas cost.
+ * @param recipientAddress - The wallet address that would receive SC
+ * @param baseAmountSC - Requested SC amount before 18-decimal conversion
+ * @param coopId - Coop ID to load contract addresses from CoopConfig
+ * @returns Actual SC that would be minted after diminishing returns
+ */
+export async function getDiminishedSCAmount(
+  recipientAddress: string,
+  baseAmountSC: number,
+  coopId: string = '???'
+): Promise<number> {
+  const coopConfig = await db.coopConfig.findFirst({
+    where: { coopId, isActive: true },
+    orderBy: { version: 'desc' },
+    select: { scTokenAddress: true, rpcUrl: true },
+  });
+
+  if (!coopConfig?.scTokenAddress) {
+    // If contract not configured, fall back to base amount
+    return baseAmountSC;
+  }
+
+  const publicClient = createPublicClient({
+    chain: baseSepolia,
+    transport: http(coopConfig.rpcUrl || RPC_URL),
+  });
+
+  const baseAmountWei = parseUnits(baseAmountSC.toString(), 18);
+
+  const actualAmountWei = await publicClient.readContract({
+    address: coopConfig.scTokenAddress as Address,
+    abi: soulaaniCoinAbi,
+    functionName: 'calculateDiminishedAmount',
+    args: [recipientAddress as Address, baseAmountWei],
+  });
+
+  return Number(formatUnits(actualAmountWei, 18));
 }
 
 /**
@@ -829,4 +881,3 @@ export async function getGasPrice(): Promise<bigint> {
   const gasPrice = await publicClient.getGasPrice();
   return gasPrice;
 }
-

@@ -116,18 +116,22 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
 
   console.log(`✅ [Stripe Webhook] Payment processed: transaction ${paymentResult.transactionId}`);
 
-  // Step 2b: Record treasury ledger entry
-  await recordFeeCollection({
-    sourceTransactionId: paymentResult.transactionId,
-    amount: paymentResult.treasuryFeeUSD,
-    currency: 'USD',
-    metadata: {
-      stripePaymentIntentId: paymentIntent.id,
-      stripeChargeId: paymentIntent.latest_charge as string,
-    },
-  });
+  // Step 2b: Record treasury ledger entry only when this checkout actually has a treasury contribution.
+  if (paymentResult.treasuryFeeUSD > 0) {
+    await recordFeeCollection({
+      sourceTransactionId: paymentResult.transactionId,
+      amount: paymentResult.treasuryFeeUSD,
+      currency: 'USD',
+      metadata: {
+        stripePaymentIntentId: paymentIntent.id,
+        stripeChargeId: paymentIntent.latest_charge as string,
+      },
+    });
 
-  console.log(`✅ [Stripe Webhook] Treasury fee recorded: $${paymentResult.treasuryFeeUSD}`);
+    console.log(`✅ [Stripe Webhook] Treasury fee recorded: $${paymentResult.treasuryFeeUSD}`);
+  } else {
+    console.log(`ℹ️ [Stripe Webhook] No treasury fee for transaction ${paymentResult.transactionId}; skipping ledger entry`);
+  }
 
   // Step 2c: Evaluate and execute SC rewards
   // Get business and customer wallet addresses

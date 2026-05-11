@@ -81,6 +81,7 @@ export function calculatePriceBreakdown(
   listedAmount: number;
   chargedAmount: number;
   merchantSettlementAmount: number;
+  platformMarkupAmount: number;
   treasuryFeeAmount: number;
   platformFeeAmount: number;
 } {
@@ -108,6 +109,7 @@ export function calculatePriceBreakdown(
     listedAmount,
     chargedAmount,
     merchantSettlementAmount,
+    platformMarkupAmount: platformMarkup,
     treasuryFeeAmount: treasuryFee,
     platformFeeAmount,
   };
@@ -124,6 +126,7 @@ export async function createCommerceTransaction(params: {
   businessId: string;
   listedAmountCents: number;
   coopId: string;
+  applyTreasuryFee?: boolean;
   currency?: string;
   metadata?: Record<string, unknown>;
 }): Promise<{
@@ -141,7 +144,7 @@ export async function createCommerceTransaction(params: {
     currency: string;
   };
 }> {
-  const { customerId, businessId, listedAmountCents, currency = 'usd', metadata } = params;
+  const { customerId, businessId, listedAmountCents, applyTreasuryFee = true, currency = 'usd', metadata } = params;
 
   console.log(`💳 [Payment Orchestration] Creating commerce transaction: $${listedAmountCents / 100} for business ${businessId}`);
 
@@ -176,9 +179,15 @@ export async function createCommerceTransaction(params: {
 
   // Get active fee config
   const feeConfig = await getActiveFeeConfig();
+  const transactionFeeConfig = applyTreasuryFee
+    ? feeConfig
+    : {
+        ...feeConfig,
+        treasuryFeeBps: 0,
+      };
 
   // Calculate price breakdown
-  const breakdown = calculatePriceBreakdown(listedAmountCents, feeConfig);
+  const breakdown = calculatePriceBreakdown(listedAmountCents, transactionFeeConfig);
 
   console.log(`💰 [Payment Orchestration] Price breakdown:`, {
     listed: `$${breakdown.listedAmount / 100}`,
@@ -203,7 +212,7 @@ export async function createCommerceTransaction(params: {
       metadata: metadata as any,
       // Store fee snapshot for historical accuracy
       platformMarkupBps: feeConfig.platformMarkupBps,
-      treasuryFeeBps: feeConfig.treasuryFeeBps,
+      treasuryFeeBps: transactionFeeConfig.treasuryFeeBps,
     },
   });
 

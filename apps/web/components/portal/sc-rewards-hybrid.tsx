@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc/client";
+import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +27,13 @@ import {
 } from "lucide-react";
 
 export default function SCRewardsHybrid() {
+  const { address, isLoading: authLoading } = useWeb3Auth();
   const [statusFilter, setStatusFilter] = useState<'all' | 'COMPLETED' | 'PENDING' | 'FAILED'>('all');
+  const queriesEnabled = !authLoading && !!address;
 
   // Fetch SC mint stats
   const statsQuery = api.scMintEvents.getStats.useQuery(undefined, {
+    enabled: queriesEnabled,
     refetchInterval: 60000,
   });
 
@@ -37,6 +41,8 @@ export default function SCRewardsHybrid() {
   const eventsQuery = api.scMintEvents.getMintEvents.useQuery({
     status: statusFilter === 'all' ? undefined : statusFilter,
     limit: 50,
+  }, {
+    enabled: queriesEnabled,
   });
 
   const formatSC = (amount: number) => {
@@ -46,15 +52,15 @@ export default function SCRewardsHybrid() {
     }).format(amount);
   };
 
-  const isLoading = statsQuery.isLoading || eventsQuery.isLoading;
+  const isLoading = authLoading || statsQuery.isLoading || eventsQuery.isLoading;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">SC Rewards</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold text-zinc-50">SC Rewards</h1>
+          <p className="mt-1 text-zinc-400">
             On-chain governance token rewards from commerce activity
           </p>
         </div>
@@ -63,10 +69,10 @@ export default function SCRewardsHybrid() {
             value={statusFilter} 
             onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 border-zinc-800 bg-zinc-950 text-zinc-100">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="COMPLETED">Completed</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
@@ -81,6 +87,7 @@ export default function SCRewardsHybrid() {
               eventsQuery.refetch();
             }}
             disabled={isLoading}
+            className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900 hover:text-zinc-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
@@ -105,20 +112,20 @@ export default function SCRewardsHybrid() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Minted</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-zinc-200">Total Minted</CardTitle>
+            <Coins className="h-4 w-4 text-zinc-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
             ) : (
               <>
                 <div className="text-2xl font-bold">
                   {formatSC(statsQuery.data?.totalMintedDB || 0)} SC
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-zinc-500">
                   All-time total
                 </p>
               </>
@@ -126,20 +133,20 @@ export default function SCRewardsHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-zinc-200">This Week</CardTitle>
+            <TrendingUp className="h-4 w-4 text-zinc-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
             ) : (
               <>
                 <div className="text-2xl font-bold">
                   {formatSC(statsQuery.data?.weekMinted || 0)} SC
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-zinc-500">
                   Last 7 days
                 </p>
               </>
@@ -147,20 +154,20 @@ export default function SCRewardsHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-zinc-200">Success Rate</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-zinc-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
             ) : (
               <>
                 <div className="text-2xl font-bold">
                   {statsQuery.data?.successRate || 0}%
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-zinc-500">
                   {statsQuery.data?.completed || 0} / {statsQuery.data?.total || 0}
                 </p>
               </>
@@ -168,20 +175,20 @@ export default function SCRewardsHybrid() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Issues</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-zinc-200">Issues</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-zinc-500" />
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
             ) : (
               <>
                 <div className="text-2xl font-bold">
                   {(statsQuery.data?.failed || 0) + (statsQuery.data?.pending || 0)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-xs text-zinc-500">
                   {statsQuery.data?.failed || 0} failed, {statsQuery.data?.pending || 0} pending
                 </p>
               </>
@@ -208,7 +215,7 @@ export default function SCRewardsHybrid() {
                     {statsQuery.data.failed} rewards failed - payments completed but SC minting failed
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-red-500/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200">
                   Retry Failed
                 </Button>
               </div>
@@ -221,7 +228,7 @@ export default function SCRewardsHybrid() {
                     {statsQuery.data.pending} rewards still processing - may indicate blockchain congestion
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-amber-500/30 bg-transparent text-amber-300 hover:bg-amber-500/10 hover:text-amber-200">
                   Review
                 </Button>
               </div>
@@ -231,10 +238,10 @@ export default function SCRewardsHybrid() {
       )}
 
       {/* Mint Events Table */}
-      <Card>
+      <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
         <CardHeader>
-          <CardTitle>Mint History</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-zinc-100">Mint History</CardTitle>
+          <CardDescription className="text-zinc-500">
             Detailed SC reward minting events
           </CardDescription>
         </CardHeader>
@@ -253,7 +260,7 @@ export default function SCRewardsHybrid() {
               {eventsQuery.data?.events.map((event) => (
                 <div
                   key={event.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:bg-zinc-900"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <div className={`p-2 rounded-lg ${
@@ -273,7 +280,7 @@ export default function SCRewardsHybrid() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">
+                        <p className="font-medium text-zinc-100">
                           {event.user.name || event.user.email}
                         </p>
                         <Badge variant={
@@ -284,12 +291,12 @@ export default function SCRewardsHybrid() {
                           {event.status}
                         </Badge>
                         {event.sourceType && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="border-zinc-700 text-xs text-zinc-300">
                             {event.sourceType}
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                      <div className="mt-2 flex items-center gap-4 text-xs text-zinc-500">
                         <span>ID: {event.id.slice(0, 12)}...</span>
                         <span>Wallet: {event.walletAddress.slice(0, 6)}...{event.walletAddress.slice(-4)}</span>
                         {event.contractTxHash && (
@@ -307,10 +314,10 @@ export default function SCRewardsHybrid() {
                     </div>
                   </div>
                   <div className="text-right ml-4">
-                    <p className="text-lg font-bold">
+                    <p className="text-lg font-bold text-zinc-100">
                       {formatSC(event.actualAmount || event.requestedAmount)} SC
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-zinc-500">
                       {new Date(event.createdAt).toLocaleDateString()}
                     </p>
                   </div>

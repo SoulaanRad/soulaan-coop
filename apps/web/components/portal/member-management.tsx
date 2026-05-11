@@ -307,24 +307,24 @@ export default function MemberManagement() {
     <div className="space-y-4">
       {/* Stats Bar */}
       {stats && (
-        <div className="grid grid-cols-5 gap-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4">
             <div className="text-sm text-gray-400">Total</div>
             <div className="text-2xl font-bold">{stats.total}</div>
           </div>
-          <div className="bg-slate-800 border border-yellow-500/20 rounded-lg p-4">
+          <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4">
             <div className="text-sm text-yellow-400">Pending</div>
             <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
           </div>
-          <div className="bg-slate-800 border border-green-500/20 rounded-lg p-4">
+          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
             <div className="text-sm text-green-400">Active</div>
             <div className="text-2xl font-bold text-green-400">{stats.active}</div>
           </div>
-          <div className="bg-slate-800 border border-red-500/20 rounded-lg p-4">
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
             <div className="text-sm text-red-400">Rejected</div>
             <div className="text-2xl font-bold text-red-400">{stats.rejected}</div>
           </div>
-          <div className="bg-slate-800 border border-orange-500/20 rounded-lg p-4">
+          <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-4">
             <div className="text-sm text-orange-400">Suspended</div>
             <div className="text-2xl font-bold text-orange-400">{stats.suspended}</div>
           </div>
@@ -332,12 +332,12 @@ export default function MemberManagement() {
       )}
 
       {/* Filter */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         <Label htmlFor="status-filter" className="text-sm font-medium text-gray-200">
           Filter by status:
         </Label>
         <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-          <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
+          <SelectTrigger className="w-[200px] border-zinc-800 bg-zinc-950 text-white">
             <SelectValue placeholder="All users" />
           </SelectTrigger>
           <SelectContent className="bg-slate-800 border-slate-700">
@@ -351,31 +351,31 @@ export default function MemberManagement() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-slate-700 bg-slate-800">
-        <Table>
+      <div className="rounded-lg border border-zinc-800 bg-zinc-950/70">
+        <Table className="min-w-[820px]">
           <TableHeader>
-            <TableRow>
+            <TableRow className="border-zinc-800 hover:bg-transparent">
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead className="hidden xl:table-cell">Phone</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Wallet</TableHead>
-              <TableHead>Applied</TableHead>
+              <TableHead className="hidden xl:table-cell">Applied</TableHead>
               <TableHead>Application</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="min-w-[150px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {users && users.length > 0 ? (
               users.map((user: any) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className="border-zinc-800 hover:bg-zinc-900/70">
                   <TableCell className="font-medium">
                     {user.name || 'N/A'}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-400">
+                  <TableCell className="max-w-[220px] truncate text-sm text-gray-400">
                     {user.email}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-400">
+                  <TableCell className="hidden text-sm text-gray-400 xl:table-cell">
                     {user.phone || 'N/A'}
                   </TableCell>
                   <TableCell>
@@ -387,7 +387,7 @@ export default function MemberManagement() {
                     {user.walletAddress ? (
                       <div className="flex items-center gap-1">
                         <Wallet className="h-4 w-4 text-green-500" />
-                        <span className="text-xs text-gray-400 font-mono">
+                        <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
                           {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
                         </span>
                         <Button
@@ -423,7 +423,7 @@ export default function MemberManagement() {
                       </Button>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-400">
+                  <TableCell className="hidden text-sm text-gray-400 xl:table-cell">
                     {formatDate(user.createdAt)}
                   </TableCell>
                   <TableCell>
@@ -440,7 +440,7 @@ export default function MemberManagement() {
                       <span className="text-sm text-gray-500">No application</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="min-w-[150px] text-right">
                     <div className="flex items-center justify-end gap-2">
                       {user.walletAddress && (
                         <Button
