@@ -169,18 +169,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
     return;
   }
 
-  // Send Slack notification for completed order
   const transactionMeta = transaction.metadata as Record<string, unknown> | null;
-  sendOrderCompletedNotification({
-    transactionId: paymentResult.transactionId,
-    customerName: transaction.customer.name ?? undefined,
-    customerEmail: transaction.customer.email ?? undefined,
-    businessName: transaction.business.name ?? undefined,
-    amountUSD: paymentResult.amountUSD,
-    coopId: transaction.coopId ?? undefined,
-    isGuestCheckout: transactionMeta?.isGuestCheckout === true,
-  }).catch(err => console.error('❌ [Stripe Webhook] Failed to send Slack order notification:', err));
-
   const store = transaction.business.store;
   const orderItems = getOrderItemsFromMetadata(transactionMeta, paymentResult.amountUSD);
   const coopConfig = await db.coopConfig.findFirst({
@@ -188,26 +177,51 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
     select: { name: true },
     orderBy: { version: 'desc' },
   });
+  const customerEmail = getStringFromMetadata(transactionMeta, 'guestEmail') || transaction.customer.email;
+  const customerName = getStringFromMetadata(transactionMeta, 'guestName') || transaction.customer.name;
+  const merchantEmail = [
+    store?.email,
+    transaction.business.owner.email,
+  ].filter((email): email is string => typeof email === 'string' && email.trim().length > 0);
+  const orderEmailData = {
+    orderId: transaction.id,
+    coopName: coopConfig?.name,
+    storeName: store?.name || transaction.business.name,
+    customerName,
+    customerEmail,
+    subtotalUSD: transaction.listedAmount,
+    totalUSD: transaction.chargedAmount,
+    paymentMethod: 'CARD',
+    transactionHash: transaction.stripeChargeId || paymentIntent.latest_charge?.toString() || transaction.stripePaymentIntentId,
+    shippingAddress: getStringFromMetadata(transactionMeta, 'shippingAddress'),
+    note: getStringFromMetadata(transactionMeta, 'note'),
+    createdAt: transaction.completedAt || transaction.updatedAt,
+    items: orderItems,
+  };
 
-  sendOrderEmails({
-    customerEmail: transaction.customer.email,
-    merchantEmail: store?.email || transaction.business.owner.email,
-    order: {
-      orderId: transaction.id,
-      coopName: coopConfig?.name,
-      storeName: store?.name || transaction.business.name,
-      customerName: transaction.customer.name,
-      customerEmail: transaction.customer.email,
-      subtotalUSD: transaction.listedAmount,
-      totalUSD: transaction.chargedAmount,
-      paymentMethod: 'CARD',
-      transactionHash: transaction.stripeChargeId || paymentIntent.latest_charge?.toString() || transaction.stripePaymentIntentId,
-      shippingAddress: getStringFromMetadata(transactionMeta, 'shippingAddress'),
-      note: getStringFromMetadata(transactionMeta, 'note'),
-      createdAt: transaction.completedAt || transaction.updatedAt,
-      items: orderItems,
-    },
-  }).catch(err => console.error('❌ [Stripe Webhook] Failed to send order emails:', err));
+  const notificationResults = await Promise.allSettled([
+    sendOrderCompletedNotification({
+      transactionId: paymentResult.transactionId,
+      customerName: customerName ?? undefined,
+      customerEmail: customerEmail ?? undefined,
+      businessName: store?.name || transaction.business.name || undefined,
+      amountUSD: transaction.chargedAmount,
+      coopId: transaction.coopId ?? undefined,
+      isGuestCheckout: transactionMeta?.isGuestCheckout === true,
+    }),
+    sendOrderEmails({
+      customerEmail,
+      merchantEmail,
+      order: orderEmailData,
+    }),
+  ]);
+
+  notificationResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const target = index === 0 ? 'Slack order notification' : 'order emails';
+      console.error(`❌ [Stripe Webhook] Failed to send ${target}:`, result.reason);
+    }
+  });
 
   const customerWallet = transaction.customer.wallets[0];
   const businessOwnerWallet = transaction.business.owner.wallets[0];

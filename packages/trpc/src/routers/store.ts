@@ -11,6 +11,7 @@ import { sendToSoulaanUser } from "../services/p2p-service.js";
 import { convertUSDToUC } from "../utils/currency-converter.js";
 import { mirrorProductImages, parseDelimitedProductRows } from "../services/product-import-service.js";
 import { sendOrderEmails } from "../services/email-service.js";
+import { sendOrderCompletedNotification } from "../services/slack-notification-service.js";
 import { env } from "../env.js";
 
 // Category validation - now accepts any string since categories are dynamic
@@ -2694,35 +2695,55 @@ export const storeRouter = router({
         ],
       });
 
-      sendOrderEmails({
+      const orderEmailData = {
+        orderId: order.id,
+        coopName: coopConfig?.name,
+        storeName: store.name,
+        customerName: buyer.name,
         customerEmail: buyer.email,
-        merchantEmail: store.email || store.owner.email,
-        order: {
-          orderId: order.id,
-          coopName: coopConfig?.name,
-          storeName: store.name,
-          customerName: buyer.name,
+        subtotalUSD,
+        discountUSD: 0,
+        totalUSD,
+        totalUC,
+        paymentMethod: paymentType,
+        transactionHash,
+        shippingAddress: input.shippingAddress,
+        note: input.note,
+        createdAt: order.createdAt,
+        orderUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
+        manageOrderUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
+        items: order.items.map((item) => ({
+          productName: item.product.name,
+          quantity: item.quantity,
+          priceUSD: item.priceUSD,
+          totalUSD: item.totalUSD,
+        })),
+      };
+
+      const notificationResults = await Promise.allSettled([
+        sendOrderEmails({
           customerEmail: buyer.email,
-          subtotalUSD,
-          discountUSD: 0,
-          totalUSD,
-          totalUC,
-          paymentMethod: paymentType,
-          transactionHash,
-          shippingAddress: input.shippingAddress,
-          note: input.note,
-          createdAt: order.createdAt,
-          orderUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
-          manageOrderUrl: process.env.APP_URL ? `${process.env.APP_URL}/orders/${order.id}` : undefined,
-          items: order.items.map((item) => ({
-            productName: item.product.name,
-            quantity: item.quantity,
-            priceUSD: item.priceUSD,
-            totalUSD: item.totalUSD,
-          })),
-        },
-      }).catch((error) => {
-        console.error("Failed to send order emails (non-critical):", error);
+          merchantEmail: [store.email, store.owner.email].filter(
+            (email): email is string => typeof email === "string" && email.trim().length > 0,
+          ),
+          order: orderEmailData,
+        }),
+        sendOrderCompletedNotification({
+          transactionId: order.id,
+          customerName: buyer.name ?? undefined,
+          customerEmail: buyer.email ?? undefined,
+          businessName: store.name,
+          amountUSD: totalUSD,
+          coopId: store.coopId,
+          isGuestCheckout: false,
+        }),
+      ]);
+
+      notificationResults.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const target = index === 0 ? "order emails" : "Slack order notification";
+          console.error(`Failed to send ${target} (non-critical):`, result.reason);
+        }
       });
 
       console.log('🎉 Order created:', order.id);

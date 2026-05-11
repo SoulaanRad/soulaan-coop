@@ -367,12 +367,12 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1">
               <Text className="text-gray-900 text-base font-bold">
-                {isActiveCoopMember ? 'Coop member checkout' : 'Signed-in checkout'}
+                {isActiveCoopMember ? 'Coop member checkout' : 'Guest checkout'}
               </Text>
               <Text className="text-gray-500 text-sm mt-1">
                 {isActiveCoopMember
                   ? 'This purchase will use your coop membership for checkout.'
-                  : 'This purchase will use your signed-in account.'}
+                  : 'Guest checkout has no coop membership status.'}
               </Text>
             </View>
             <View
@@ -422,6 +422,17 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
               <Text className="text-gray-500">Expected {coin.symbol} reward</Text>
               <Text className="text-gray-900 font-semibold">{expectedScLabel}</Text>
             </View>
+            {!isActiveCoopMember ? (
+              <TouchableOpacity
+                className="mt-1 rounded-xl border px-4 py-3"
+                style={{ borderColor: withAlpha(accentColor, '35'), backgroundColor: withAlpha(accentColor, '08') }}
+                onPress={() => router.push(user ? '/(authenticated)/home' as any : '/' as any)}
+              >
+                <Text className="text-center font-semibold" style={{ color: accentColor }}>
+                  Apply on home
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 

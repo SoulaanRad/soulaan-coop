@@ -341,7 +341,10 @@ export default function CheckoutPage() {
           </>
         ) : (
           <div className="rounded-md border bg-muted/40 p-3 text-muted-foreground">
-            Guest checkout has no coop membership status and will not add a Wealth Fund treasury fee.
+            <p>Guest checkout has no coop membership status.</p>
+            <Link href="/" className="mt-2 inline-flex font-medium text-foreground underline underline-offset-4">
+              Apply on the home page
+            </Link>
           </div>
         )}
       </CardContent>
