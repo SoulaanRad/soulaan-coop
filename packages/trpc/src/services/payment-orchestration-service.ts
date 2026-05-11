@@ -16,6 +16,9 @@
 import { db } from '@repo/db';
 import type Stripe from 'stripe';
 import { TRPCError } from '@trpc/server';
+import { calculateCheckoutPricing } from './checkout-pricing-service.js';
+
+export { calculatePriceBreakdown } from './checkout-pricing-service.js';
 
 /**
  * Get active fee configuration
@@ -60,58 +63,6 @@ export async function getActiveFeeConfig(): Promise<{
     platformMarkupBps: config.platformMarkupBps,
     merchantFeeBps: config.merchantFeeBps,
     treasuryFeeBps: config.treasuryFeeBps,
-  };
-}
-
-/**
- * Calculate price breakdown for a transaction
- * 
- * @param listedAmount - Original item price in cents
- * @param feeConfig - Fee configuration
- * @returns Price breakdown
- */
-export function calculatePriceBreakdown(
-  listedAmount: number,
-  feeConfig: {
-    platformMarkupBps: number;
-    merchantFeeBps: number;
-    treasuryFeeBps: number;
-  }
-): {
-  listedAmount: number;
-  chargedAmount: number;
-  merchantSettlementAmount: number;
-  platformMarkupAmount: number;
-  treasuryFeeAmount: number;
-  platformFeeAmount: number;
-} {
-  // All amounts in cents
-
-  // Platform markup (added to customer charge)
-  const platformMarkup = Math.round((listedAmount * feeConfig.platformMarkupBps) / 10000);
-
-  // Total charged to customer
-  const chargedAmount = listedAmount + platformMarkup;
-
-  // Treasury fee (deducted from merchant settlement)
-  const treasuryFee = Math.round((listedAmount * feeConfig.treasuryFeeBps) / 10000);
-
-  // Merchant fee (future use, currently 0)
-  const merchantFee = Math.round((listedAmount * feeConfig.merchantFeeBps) / 10000);
-
-  // Merchant receives: listed amount - treasury fee - merchant fee
-  const merchantSettlementAmount = listedAmount - treasuryFee - merchantFee;
-
-  // Platform retains: platform markup + treasury fee + merchant fee
-  const platformFeeAmount = platformMarkup + treasuryFee + merchantFee;
-
-  return {
-    listedAmount,
-    chargedAmount,
-    merchantSettlementAmount,
-    platformMarkupAmount: platformMarkup,
-    treasuryFeeAmount: treasuryFee,
-    platformFeeAmount,
   };
 }
 
@@ -179,15 +130,12 @@ export async function createCommerceTransaction(params: {
 
   // Get active fee config
   const feeConfig = await getActiveFeeConfig();
-  const transactionFeeConfig = applyTreasuryFee
-    ? feeConfig
-    : {
-        ...feeConfig,
-        treasuryFeeBps: 0,
-      };
-
-  // Calculate price breakdown
-  const breakdown = calculatePriceBreakdown(listedAmountCents, transactionFeeConfig);
+  const pricing = calculateCheckoutPricing({
+    listedAmountCents,
+    feeConfig,
+    applyTreasuryFee,
+  });
+  const breakdown = pricing.breakdown;
 
   console.log(`💰 [Payment Orchestration] Price breakdown:`, {
     listed: `$${breakdown.listedAmount / 100}`,
@@ -211,8 +159,8 @@ export async function createCommerceTransaction(params: {
       status: 'PENDING',
       metadata: metadata as any,
       // Store fee snapshot for historical accuracy
-      platformMarkupBps: feeConfig.platformMarkupBps,
-      treasuryFeeBps: transactionFeeConfig.treasuryFeeBps,
+      platformMarkupBps: pricing.feeConfig.platformMarkupBps,
+      treasuryFeeBps: pricing.feeConfig.treasuryFeeBps,
     },
   });
 
@@ -227,6 +175,10 @@ export async function createCommerceTransaction(params: {
   const paymentIntent = await stripe.paymentIntents.create({
     amount: breakdown.chargedAmount, // Total charged to customer
     currency,
+    automatic_payment_methods: {
+      enabled: true,
+      allow_redirects: 'never',
+    },
     // Destination charge: route merchant share to connected account
     transfer_data: {
       destination: business.stripeAccount.stripeAccountId,

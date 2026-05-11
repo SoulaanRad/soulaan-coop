@@ -317,12 +317,6 @@ export default function CheckoutPage() {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-muted-foreground">Checkout mode</span>
-          <span className="font-medium">
-            {isCoopCheckout ? "Coop member purchase" : auth.isAuthenticated ? "Signed-in purchase" : "Guest purchase"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground">Expected treasury fee</span>
           <span className="font-medium">{expectedTreasuryLabel}</span>
         </div>

@@ -15,6 +15,7 @@ import { TRPCError } from '@trpc/server';
 import { mintSC } from './sc-token-service.js';
 import { isActiveMember, getDiminishedSCAmount } from './blockchain.js';
 import { SC_REWARD_RATE, SC_MIN_REWARD_THRESHOLD as MIN_REWARD_THRESHOLD } from '../constants/sc-rewards.js';
+import { calculateCheckoutScRewardFromUsd } from './checkout-pricing-service.js';
 
 /**
  * Calculate SC reward for a transaction amount
@@ -23,7 +24,7 @@ import { SC_REWARD_RATE, SC_MIN_REWARD_THRESHOLD as MIN_REWARD_THRESHOLD } from 
  * @returns SC reward amount
  */
 export function calculateSCReward(amountUSD: number): number {
-  return Number((amountUSD * SC_REWARD_RATE).toFixed(6));
+  return calculateCheckoutScRewardFromUsd(amountUSD);
 }
 
 /**

@@ -22,7 +22,7 @@ export default function CommercePaymentConfirmation({
   onSuccess,
   onError,
 }: CommercePaymentConfirmationProps) {
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { initPaymentSheet, presentPaymentSheet, retrievePaymentIntent } = useStripe();
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -35,6 +35,30 @@ export default function CommercePaymentConfirmation({
       setLoading(true);
       setReady(false);
       setLocalError('');
+
+      const { paymentIntent, error: retrieveError } = await retrievePaymentIntent(clientSecret);
+
+      if (cancelled) return;
+
+      if (paymentIntent?.status === 'Succeeded') {
+        setLoading(false);
+        onSuccess();
+        return;
+      }
+
+      if (paymentIntent?.status === 'Processing') {
+        setLocalError('Your payment is still processing. Wait a moment and check your order status before trying again.');
+        setLoading(false);
+        return;
+      }
+
+      if (retrieveError) {
+        const message = retrieveError.message || 'Could not check payment status.';
+        setLocalError(message);
+        onError(message);
+        setLoading(false);
+        return;
+      }
 
       const { error } = await initPaymentSheet({
         merchantDisplayName: merchantName || 'Soulaan Co-op',
@@ -65,13 +89,37 @@ export default function CommercePaymentConfirmation({
     return () => {
       cancelled = true;
     };
-  }, [cardholderName, clientSecret, initPaymentSheet, merchantName, onError]);
+  }, [cardholderName, clientSecret, initPaymentSheet, merchantName, onError, onSuccess, retrievePaymentIntent]);
 
   const handlePay = async () => {
     if (!ready || paying) return;
 
     setPaying(true);
     setLocalError('');
+
+    const { paymentIntent, error: retrieveError } = await retrievePaymentIntent(clientSecret);
+
+    if (paymentIntent?.status === 'Succeeded') {
+      setPaying(false);
+      onSuccess();
+      return;
+    }
+
+    if (paymentIntent?.status === 'Processing') {
+      const message = 'Your payment is still processing. Wait a moment and check your order status before trying again.';
+      setLocalError(message);
+      onError(message);
+      setPaying(false);
+      return;
+    }
+
+    if (retrieveError) {
+      const message = retrieveError.message || 'Could not check payment status. Please try again.';
+      setLocalError(message);
+      onError(message);
+      setPaying(false);
+      return;
+    }
 
     const { error } = await presentPaymentSheet();
 

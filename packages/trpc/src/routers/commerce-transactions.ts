@@ -4,10 +4,10 @@ import { authenticatedProcedure, privateProcedure } from '../procedures/index.js
 import { db } from '@repo/db';
 import { 
   getActiveFeeConfig, 
-  calculatePriceBreakdown, 
   createCommerceTransaction,
   getTransactionByPaymentIntent 
 } from '../services/payment-orchestration-service.js';
+import { calculateCheckoutPricing } from '../services/checkout-pricing-service.js';
 import { validateRewardEligibility } from '../services/reward-policy-service.js';
 import { getUserWalletInfo } from '../services/wallet-service.js';
 import { AuthenticatedContext, CoopScopedContext } from '../context.js';
@@ -104,16 +104,12 @@ export const commerceTransactionsRouter = router({
       // Get active fee config
       const feeConfig = await getActiveFeeConfig();
       const membershipStatus = await getCoopMembershipStatus(userId, coopId);
-      const applyTreasuryFee = membershipStatus === 'ACTIVE';
-      const checkoutFeeConfig = applyTreasuryFee
-        ? feeConfig
-        : {
-            ...feeConfig,
-            treasuryFeeBps: 0,
-          };
-      
-      // Calculate price breakdown
-      const breakdown = calculatePriceBreakdown(listedAmountCents, checkoutFeeConfig);
+      const pricing = calculateCheckoutPricing({
+        listedAmountCents,
+        feeConfig,
+        applyTreasuryFee: membershipStatus === 'ACTIVE',
+      });
+      const breakdown = pricing.breakdown;
 
       // Check SC reward eligibility
       const customerWallet = authenticatedUser.walletInfo.hasWallet
@@ -145,11 +141,11 @@ export const commerceTransactionsRouter = router({
         totalChargedCents: breakdown.chargedAmount,
         merchantSettlementCents: breakdown.merchantSettlementAmount,
         currency,
-        appliesTreasuryFee: applyTreasuryFee,
+        appliesTreasuryFee: pricing.appliesTreasuryFee,
         membershipStatus,
         feeConfig: {
-          platformMarkupBps: feeConfig.platformMarkupBps,
-          treasuryFeeBps: checkoutFeeConfig.treasuryFeeBps,
+          platformMarkupBps: pricing.feeConfig.platformMarkupBps,
+          treasuryFeeBps: pricing.feeConfig.treasuryFeeBps,
         },
         customerReward: {
           eligible: eligibility.customerEligible,

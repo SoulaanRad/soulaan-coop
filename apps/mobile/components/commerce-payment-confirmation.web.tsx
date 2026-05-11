@@ -18,11 +18,12 @@ interface CommercePaymentConfirmationProps {
 }
 
 function CommercePaymentForm({
+  clientSecret,
   amountLabel,
   accentColor,
   onSuccess,
   onError,
-}: Omit<CommercePaymentConfirmationProps, 'clientSecret' | 'merchantName'>) {
+}: Omit<CommercePaymentConfirmationProps, 'merchantName'>) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -36,6 +37,30 @@ function CommercePaymentForm({
     setProcessing(true);
     setLocalError('');
 
+    const { paymentIntent, error: retrieveError } = await stripe.retrievePaymentIntent(clientSecret);
+
+    if (paymentIntent?.status === 'succeeded') {
+      setProcessing(false);
+      onSuccess();
+      return;
+    }
+
+    if (paymentIntent?.status === 'processing') {
+      const message = 'Your payment is still processing. Wait a moment and check your order status before trying again.';
+      setLocalError(message);
+      onError(message);
+      setProcessing(false);
+      return;
+    }
+
+    if (retrieveError) {
+      const message = retrieveError.message || 'Could not check payment status. Please try again.';
+      setLocalError(message);
+      onError(message);
+      setProcessing(false);
+      return;
+    }
+
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -45,6 +70,12 @@ function CommercePaymentForm({
     });
 
     if (error) {
+      if (error.payment_intent?.status === 'succeeded') {
+        setProcessing(false);
+        onSuccess();
+        return;
+      }
+
       const message = error.message || 'Payment failed. Please try again.';
       setLocalError(message);
       onError(message);
@@ -125,6 +156,7 @@ export default function CommercePaymentConfirmation({
       {publishableKey ? (
         <Elements stripe={stripePromise} options={options}>
           <CommercePaymentForm
+            clientSecret={clientSecret}
             amountLabel={amountLabel}
             accentColor={accentColor}
             onSuccess={onSuccess}
