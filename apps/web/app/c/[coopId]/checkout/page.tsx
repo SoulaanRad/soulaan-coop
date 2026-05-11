@@ -19,14 +19,14 @@ import { env } from "@/env";
 
 const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-type ShippingAddressFields = {
+interface ShippingAddressFields {
   line1: string;
   line2: string;
   city: string;
   state: string;
   postalCode: string;
   country: string;
-};
+}
 
 const emptyShippingAddress: ShippingAddressFields = {
   line1: "",
