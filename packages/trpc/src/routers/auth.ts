@@ -183,6 +183,7 @@ export const authRouter = router({
   requestLoginCode: publicProcedure
     .input(z.object({
       email: z.string().email("Invalid email address"),
+      coopId: z.string().min(1).optional(),
     }))
     .output(z.object({
       success: z.boolean(),
@@ -194,8 +195,22 @@ export const authRouter = router({
       try {
         // Find user by email
         const user = await context.db.user.findUnique({
-          where: { email: input.email },
-          select: { id: true, status: true },
+          where: { email: input.email.toLowerCase() },
+          select: {
+            id: true,
+            status: true,
+            walletAddress: true,
+            wallets: {
+              where: { isPrimary: true },
+              select: { address: true },
+              take: 1,
+            },
+            memberships: {
+              ...(input.coopId ? { where: { coopId: input.coopId } } : {}),
+              select: { status: true },
+              take: 1,
+            },
+          },
         });
 
         if (!user) {
@@ -227,6 +242,26 @@ export const authRouter = router({
           });
         }
 
+        if (input.coopId) {
+          const membership = user.memberships[0];
+          const hasWallet = !!(user.walletAddress || user.wallets[0]?.address);
+
+          if (!membership || membership.status !== "ACTIVE" || !hasWallet) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "No active portal account was found for that email.",
+            });
+          }
+        }
+
+        const coopConfig = input.coopId
+          ? await context.db.coopConfig.findFirst({
+              where: { coopId: input.coopId, isActive: true },
+              orderBy: { version: "desc" },
+              select: { name: true },
+            })
+          : null;
+
         // Generate 6-digit code
         const code = generateLoginCode();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -234,7 +269,7 @@ export const authRouter = router({
         // Store code in database
         await context.db.loginCode.create({
           data: {
-            email: input.email,
+            email: input.email.toLowerCase(),
             code,
             expiresAt,
           },
@@ -242,7 +277,7 @@ export const authRouter = router({
 
         // Send email with code (only if email is configured)
         if (isEmailConfigured()) {
-          await sendLoginCode(input.email, code);
+          await sendLoginCode(input.email.toLowerCase(), code, coopConfig?.name);
         } else {
           // In development, log the code to console
           console.log(`[DEV] Login code for ${input.email}: ${code}`);
