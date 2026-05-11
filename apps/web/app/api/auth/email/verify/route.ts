@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     });
 
     const membership = user?.memberships[0];
-    if (!user || user.status !== 'ACTIVE' || !membership || membership.status !== 'ACTIVE') {
+    if (!user || user.status !== 'ACTIVE' || membership?.status !== 'ACTIVE') {
       return NextResponse.json(
         { error: 'No active portal account was found for that email.' },
         { status: 404 }
