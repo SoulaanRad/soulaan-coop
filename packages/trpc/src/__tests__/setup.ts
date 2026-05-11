@@ -17,8 +17,15 @@ vi.mock('@repo/db', () => ({
     },
     wallet: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+    },
+    walletChallenge: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
     },
     transaction: {
@@ -47,6 +54,10 @@ vi.mock('@repo/db', () => ({
       update: vi.fn(),
     },
     $transaction: vi.fn((callback) => {
+      if (Array.isArray(callback)) {
+        return Promise.all(callback);
+      }
+
       // Mock transaction by calling the callback with a mock tx object
       const mockTx = {
         user: {
@@ -69,6 +80,16 @@ vi.mock('@repo/db', () => ({
           create: vi.fn(),
           update: vi.fn(),
           deleteMany: vi.fn(),
+        },
+        wallet: {
+          findFirst: vi.fn(),
+          upsert: vi.fn(),
+          update: vi.fn(),
+        },
+        walletChallenge: {
+          create: vi.fn(),
+          findUnique: vi.fn(),
+          update: vi.fn(),
         },
       };
       return callback(mockTx);

@@ -53,7 +53,7 @@ export default function AddProductScreen() {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGalleryUpload, setShowGalleryUpload] = useState(false);
 
-  const updateField = (field: string, value: string | boolean) => {
+  const updateField = (field: string, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 

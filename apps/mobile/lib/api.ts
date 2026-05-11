@@ -66,6 +66,16 @@ export interface LoginData {
   password: string;
 }
 
+export interface WalletInfo {
+  walletId: string | null;
+  address: string;
+  walletType: 'EXTERNAL' | 'MANAGED' | null;
+  isPrimary: boolean;
+  verifiedAt?: string;
+  walletCreatedAt?: string;
+  hasWallet: boolean;
+}
+
 export interface WaitlistSignupData {
   email: string;
   name?: string;
@@ -281,7 +291,7 @@ export const api = {
   /**
    * Get wallet info for a user
    */
-  async getWalletInfo(userId: string, walletAddress?: string | null) {
+  async getWalletInfo(userId: string, walletAddress?: string | null): Promise<WalletInfo> {
     const input = encodeURIComponent(JSON.stringify({ userId }));
     const response = await fetch(`${API_BASE_URL}/trpc/user.getWalletInfo?input=${input}`, {
       method: 'GET',
@@ -297,6 +307,78 @@ export const api = {
     }
 
     return result.result?.data;
+  },
+
+  async exportWallet(userId: string, password: string, walletAddress?: string | null) {
+    const response = await fetch(`${API_BASE_URL}/trpc/user.exportWallet`, {
+      method: 'POST',
+      headers: createApiHeaders(walletAddress),
+      body: JSON.stringify({ userId, password })
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to export wallet');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data as { address: string; privateKey: string; warning: string };
+  },
+
+  async requestWalletChallenge(data: {
+    userId: string;
+    walletAddress: string;
+    coopId?: string;
+    purpose: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/trpc/walletAuth.requestChallenge`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to request wallet challenge');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data as { challengeId: string; message: string; expiresAt: string };
+  },
+
+  async verifyWalletSignature(data: {
+    challengeId: string;
+    walletAddress: string;
+    signature: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/trpc/walletAuth.verifySignature`, {
+      method: 'POST',
+      headers: {
+        ...networkConfig.defaultHeaders,
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await response.json();
+    if (result.error) {
+      throw new Error(result.error.message || 'Failed to verify wallet signature');
+    }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return result.result?.data as {
+      success: boolean;
+      userId: string;
+      walletAddress: string;
+      verifiedAt: string;
+    };
   },
 
   /**
@@ -1208,11 +1290,11 @@ export const api = {
     category: string;
     imageUrl?: string;
     bannerUrl?: string;
-    businessName: string;
-    businessAddress: string;
-    businessCity: string;
-    businessState: string;
-    businessZip: string;
+    businessName?: string;
+    businessAddress?: string;
+    businessCity?: string;
+    businessState?: string;
+    businessZip?: string;
     ownerName: string;
     ownerEmail: string;
     ownerPhone: string;
@@ -2305,4 +2387,3 @@ export const api = {
       };
     }
 };
-

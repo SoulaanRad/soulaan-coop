@@ -11,6 +11,7 @@ import { useCoin } from '@/contexts/platform-config-context';
 import { api } from '@/lib/api';
 import { coopConfig } from '@/lib/coop-config';
 import { resolveBrandColor, withAlpha } from '@/lib/brand-colors';
+import { hasLocalWalletPrivateKey } from '@/lib/mobile-wallet';
 
 /**
  * Format SC balance as whole integers with comma separators.
@@ -42,6 +43,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [walletAddress, setWalletAddress] = useState<string | null>(user?.walletAddress || null);
+  const [walletType, setWalletType] = useState<'EXTERNAL' | 'MANAGED' | null>(null);
+  const [localSigningEnabled, setLocalSigningEnabled] = useState(false);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -72,7 +75,14 @@ export default function HomeScreen() {
       // If user has a wallet but our session doesn't have it, update the address
       if (walletResult?.hasWallet && walletResult?.address) {
         setWalletAddress(walletResult.address);
+        setWalletType(walletResult.walletType);
         currentWalletAddress = walletResult.address;
+
+        const hasLocalKey = await hasLocalWalletPrivateKey(user.id, walletResult.address);
+        setLocalSigningEnabled(hasLocalKey);
+      } else {
+        setWalletType(null);
+        setLocalSigningEnabled(false);
       }
 
       // Fetch history, orders, and SC rewards
@@ -155,6 +165,8 @@ export default function HomeScreen() {
       const result = await api.createWallet(user.id);
       if (result?.address) {
         setWalletAddress(result.address);
+        setWalletType('MANAGED');
+        setLocalSigningEnabled(false);
       }
     } catch (error) {
       console.error('Failed to create wallet:', error);
@@ -225,6 +237,26 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {walletAddress && walletType === 'MANAGED' && !localSigningEnabled && (
+            <View className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1 pr-4">
+                  <Text className="text-sm font-semibold text-amber-900">Enable wallet signing</Text>
+                  <Text className="mt-1 text-xs leading-5 text-amber-800">
+                    Store your wallet key securely on this device so the app can sign verification messages.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push('/export-wallet')}
+                  className="rounded-full px-3 py-2"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <Text className="text-xs font-semibold text-white">Enable</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Balance Card - SC */}
           <View className="mb-4 rounded-2xl overflow-hidden" style={{ shadowColor: accentColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 }}>

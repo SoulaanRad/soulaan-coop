@@ -7,6 +7,7 @@ import {
   generateAuthChallenge,
   getAllAdmins
 } from "../services/admin-verification.js";
+import { linkExternalWalletToUser } from "../services/wallet-service.js";
 import { randomBytes } from 'crypto';
 
 // Store nonces temporarily (in production, use Redis)
@@ -111,27 +112,30 @@ export const adminAuthRouter = router({
         throw new Error('This wallet address does not have admin privileges on the contract');
       }
 
+      if (!verification.address) {
+        throw new Error('Verified signature did not return a wallet address');
+      }
+
       // Clear used nonce
       nonceStore.delete(address);
 
       console.log(`✅ Admin verified: ${verification.address}`);
 
-      // Update or create user in database
       const context = ctx as Context;
-      const user = await context.db.user.upsert({
-        where: { walletAddress: verification.address },
-        update: {
-          roles: ['admin'],
-          status: 'ACTIVE',
-        },
-        create: {
-          email: `${verification.address}@wallet.soulaan.coop`,
-          walletAddress: verification.address,
-          name: 'Admin',
-          roles: ['admin'],
-          status: 'ACTIVE',
-        },
+      const linked = await linkExternalWalletToUser({
+        walletAddress: verification.address,
+        coopId,
+        name: 'Admin',
+        roles: ['member', 'admin'],
+      }, context.db);
+
+      const user = await context.db.user.findUnique({
+        where: { id: linked.userId },
       });
+
+      if (!user) {
+        throw new Error('Failed to load linked admin user');
+      }
 
       console.log(`✅ User record updated: ${user.id}`);
 

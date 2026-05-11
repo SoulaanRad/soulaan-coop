@@ -1,7 +1,9 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { API_BASE_URL } from '~/lib/api';
+import { api } from '~/lib/api';
+import { useAuth } from '@/contexts/auth-context';
+import { storeLocalWalletPrivateKey } from '@/lib/mobile-wallet';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 
@@ -13,9 +15,7 @@ export default function ExportWalletScreen() {
   const [walletAddress, setWalletAddress] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [understood, setUnderstood] = useState(false);
-
-  // TODO: Get from auth context
-  const userId = 'PLACEHOLDER_USER_ID';
+  const { user } = useAuth();
 
   const handleExport = async () => {
     if (!password.trim()) {
@@ -23,29 +23,17 @@ export default function ExportWalletScreen() {
       return;
     }
 
+    if (!user?.id || !user.walletAddress) {
+      Alert.alert('Error', 'Wallet not found. Please sign in again.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Call backend to export wallet (requires password re-authentication)
-      const response = await fetch(`${API_BASE_URL}/trpc/user.exportWallet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          json: { userId, password }
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.error) {
-        Alert.alert('Error', result.error.message || 'Failed to export wallet');
-        return;
-      }
-
-      const walletData = result.result?.data?.json || result.result?.data;
+      const walletData = await api.exportWallet(user.id, password, user.walletAddress);
 
       if (walletData) {
+        await storeLocalWalletPrivateKey(user.id, walletData.address, walletData.privateKey);
         setPrivateKey(walletData.privateKey);
         setWalletAddress(walletData.address);
         setStep('display');
@@ -161,7 +149,7 @@ export default function ExportWalletScreen() {
             Verify Your Identity
           </Text>
           <Text className="text-gray-600 mb-6">
-            Enter your password to export your private key
+            Enter your password to enable wallet signing on this device. Your key will be stored in secure device storage.
           </Text>
 
           <View className="bg-white rounded-xl p-4 mb-6">
@@ -207,10 +195,10 @@ export default function ExportWalletScreen() {
     <ScrollView className="flex-1 bg-gray-50">
       <View className="p-6">
         <Text className="text-2xl font-bold text-gray-900 mb-2">
-          Your Private Key
+          Wallet Signing Enabled
         </Text>
         <Text className="text-gray-600 mb-6">
-          Save this information securely. You will need it to import your wallet.
+          This device can now sign Soulaan wallet verification messages. Save this information securely if you also want an external backup.
         </Text>
 
         {/* Wallet Address */}

@@ -29,6 +29,7 @@ import { stripeConnectRouter } from "./stripe-connect.js";
 import { scVerificationRouter } from "./sc-verification.js";
 import { platformConfigRouter } from "./platform-config.js";
 import { publicCoopInfoRouter } from "./public-coop-info.js";
+import { walletAuthRouter } from "./wallet-auth.js";
 
 export const appRouter = router({
   user: userRouter,
@@ -60,6 +61,7 @@ export const appRouter = router({
   scVerification: scVerificationRouter,
   platformConfig: platformConfigRouter,
   publicCoopInfo: publicCoopInfoRouter,
+  walletAuth: walletAuthRouter,
 });
 
 export type AppRouter = typeof appRouter;

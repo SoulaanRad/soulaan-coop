@@ -6,6 +6,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import { api } from './client';
 import { env } from '@/env';
+import { useWeb3Auth } from '@/hooks/use-web3-auth';
 
 export function TRPCProvider({ 
   children, 
@@ -15,12 +16,15 @@ export function TRPCProvider({
   coopId?: string;
 }) {
   const { address } = useAccount();
+  const { address: sessionAddress } = useWeb3Auth();
 
   // Store address and coopId in refs so headers() can access the latest values
   const addressRef = useRef(address);
+  const sessionAddressRef = useRef(sessionAddress);
   const coopIdRef = useRef(coopId);
   
   addressRef.current = address;
+  sessionAddressRef.current = sessionAddress;
   coopIdRef.current = coopId;
 
   const [queryClient] = useState(() => new QueryClient({
@@ -39,7 +43,7 @@ export function TRPCProvider({
           // Add wallet address and coop ID to headers for admin verification
           headers() {
             const headers: Record<string, string> = {
-              'x-wallet-address': addressRef.current || '',
+              'x-wallet-address': addressRef.current || sessionAddressRef.current || '',
             };
             
             if (coopIdRef.current) {

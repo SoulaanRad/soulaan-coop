@@ -21,6 +21,9 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({
       isLoggedIn: true,
       address: session.address,
+      userId: session.userId || null,
+      email: session.email || null,
+      loginMethod: session.loginMethod || 'wallet',
       hasProfile: session.hasProfile,
       activeCoopId: session.activeCoopId || null,
       isAdmin: session.isAdmin || false,

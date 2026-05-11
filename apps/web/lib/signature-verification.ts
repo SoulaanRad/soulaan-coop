@@ -14,7 +14,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const db =
+export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
@@ -25,6 +25,9 @@ if (env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
 // Session type definition
 export interface AuthSession {
   address: string;
+  userId?: string;
+  email?: string;
+  loginMethod?: 'wallet' | 'email';
   isLoggedIn: boolean;
   hasProfile: boolean;
   activeCoopId?: string;
@@ -35,6 +38,10 @@ export interface AuthSession {
   save: () => Promise<void>;
   destroy: () => void;
 };
+
+function getAdminRoleFromRoles(roles: string[]): string | undefined {
+  return roles.find((role) => ['owner', 'admin', 'governor'].includes(role));
+}
 
 // Iron session configuration (server-side only)
 function getSessionOptions() {
@@ -250,6 +257,9 @@ export async function createSession(address: string, coopId?: string): Promise<A
 
   // Update the session
   session.address = address;
+  session.userId = undefined;
+  session.email = undefined;
+  session.loginMethod = 'wallet';
   session.isLoggedIn = true;
   session.hasProfile = hasProfile;
   session.activeCoopId = coopId;
@@ -280,6 +290,92 @@ export async function createSession(address: string, coopId?: string): Promise<A
   await session.save();
 
   console.log(`✅ Session created for ${address}, hasProfile: ${hasProfile}, isAdmin: ${isAdmin}, role: ${adminRole || 'N/A'}`);
+
+  return session;
+}
+
+/**
+ * Create a portal session for an existing user without requiring a browser wallet.
+ * The session still carries the user's linked wallet address so existing portal
+ * authorization paths continue to work.
+ */
+export async function createUserSession(userId: string, coopId: string): Promise<AuthSession> {
+  const cookieStore = await cookies();
+  const session = await getIronSession<AuthSession>(cookieStore, getSessionOptions());
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: {
+      wallets: {
+        where: { isPrimary: true },
+        take: 1,
+      },
+      memberships: {
+        where: { coopId },
+        take: 1,
+      },
+    },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const membership = user.memberships[0];
+  if (membership?.status !== 'ACTIVE' || user.status !== 'ACTIVE') {
+    throw new Error('No active portal membership found');
+  }
+
+  const walletAddress = user.walletAddress || user.wallets[0]?.address;
+  if (!walletAddress) {
+    throw new Error('No wallet is linked to this account');
+  }
+
+  if (!user.walletAddress) {
+    await db.user.update({
+      where: { id: user.id },
+      data: { walletAddress },
+    });
+  }
+
+  const membershipAdminRole = getAdminRoleFromRoles(membership.roles);
+  let isAdmin = !!membershipAdminRole;
+  let adminRole = membershipAdminRole;
+
+  try {
+    const accessCheck = await checkPortalAccess(walletAddress as `0x${string}`, coopId);
+    isAdmin = accessCheck.isAdmin || isAdmin;
+    adminRole = accessCheck.role || adminRole;
+  } catch (error) {
+    console.error('❌ Error checking portal access for email session:', error);
+  }
+
+  session.address = walletAddress;
+  session.userId = user.id;
+  session.email = user.email;
+  session.loginMethod = 'email';
+  session.isLoggedIn = true;
+  session.hasProfile = !!user.name;
+  session.activeCoopId = coopId;
+  session.isAdmin = isAdmin;
+  session.adminRole = adminRole;
+
+  await db.userCoopMembership.update({
+    where: {
+      userId_coopId: {
+        userId: user.id,
+        coopId,
+      },
+    },
+    data: {
+      lastLogin: new Date(),
+      lastActiveAt: new Date(),
+    },
+  });
+
+  await session.save();
+
+  console.log(`✅ Email session created for ${user.email} (${walletAddress}), isAdmin: ${isAdmin}, role: ${adminRole || 'N/A'}`);
 
   return session;
 }

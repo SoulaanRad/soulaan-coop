@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { CreditCard, ShieldCheck } from 'lucide-react-native';
-import { useStripe } from '@stripe/stripe-react-native';
+import { CollectionMode, useStripe } from '@stripe/stripe-react-native';
 
 interface CommercePaymentConfirmationProps {
   clientSecret: string;
@@ -43,7 +43,7 @@ export default function CommercePaymentConfirmation({
         returnURL: 'coop://stripe-redirect',
         defaultBillingDetails: cardholderName ? { name: cardholderName } : undefined,
         billingDetailsCollectionConfiguration: {
-          name: 'always',
+          name: CollectionMode.ALWAYS,
         },
       });
 
