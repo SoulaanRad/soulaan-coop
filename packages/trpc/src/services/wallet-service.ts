@@ -2,7 +2,7 @@ import { createWalletClient, http, parseUnits, formatUnits, parseEther, formatEt
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
-import { db } from '@repo/db';
+import { db, type Wallet, type WalletType } from '@repo/db';
 import { trackReserveFromTransaction } from './treasury-reserve-service.js';
 import { getTreasuryReserveFromTransaction } from './uc-event-parser.js';
 
@@ -16,6 +16,220 @@ const MIN_GAS_BALANCE = parseEther('0.0001');
 // Amount to fund when wallet is low on gas (~$1 USD worth of ETH)
 const GAS_FUNDING_AMOUNT = parseEther('0.0003');
 
+type DbClient = typeof db;
+
+export interface UserWalletInfo {
+  walletId: string | null;
+  address: string;
+  walletType: WalletType | null;
+  isPrimary: boolean;
+  verifiedAt: Date | null;
+  walletCreatedAt: Date | null;
+  hasWallet: boolean;
+}
+
+function normalizeAddress(address: string): string {
+  return address.toLowerCase();
+}
+
+function syntheticWalletEmail(address: string): string {
+  return `${normalizeAddress(address)}@wallet.soulaan.coop`;
+}
+
+function uniqueRoles(...roleSets: Array<string[] | undefined>): string[] {
+  return Array.from(new Set(roleSets.flatMap((roles) => roles ?? [])));
+}
+
+async function getPrimaryWalletRecord(userId: string, client: DbClient | any = db): Promise<Wallet | null> {
+  const primaryWallet = await client.wallet.findFirst?.({
+    where: { userId, isPrimary: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (primaryWallet) return primaryWallet;
+
+  return client.wallet.findFirst?.({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+  }) ?? null;
+}
+
+export async function getUserWalletInfo(userId: string, client: DbClient | any = db): Promise<UserWalletInfo> {
+  const user = await client.user.findUnique({
+    where: { id: userId },
+    select: {
+      walletAddress: true,
+      encryptedPrivateKey: true,
+      walletCreatedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const walletRecord = await getPrimaryWalletRecord(userId, client);
+  if (walletRecord) {
+    return {
+      walletId: walletRecord.id,
+      address: walletRecord.address,
+      walletType: walletRecord.walletType,
+      isPrimary: walletRecord.isPrimary,
+      verifiedAt: walletRecord.verifiedAt,
+      walletCreatedAt: walletRecord.createdAt,
+      hasWallet: true,
+    };
+  }
+
+  if (!user.walletAddress) {
+    return {
+      walletId: null,
+      address: '',
+      walletType: null,
+      isPrimary: false,
+      verifiedAt: null,
+      walletCreatedAt: user.walletCreatedAt,
+      hasWallet: false,
+    };
+  }
+
+  const backfilledWallet = await client.wallet.upsert({
+    where: { address: user.walletAddress },
+    update: {
+      userId,
+      isPrimary: true,
+      encryptedPrivateKey: user.encryptedPrivateKey,
+      custodyProvider: user.encryptedPrivateKey ? 'backend' : undefined,
+      walletType: user.encryptedPrivateKey ? 'MANAGED' : 'EXTERNAL',
+      verifiedAt: user.walletCreatedAt ?? new Date(),
+    },
+    create: {
+      userId,
+      address: user.walletAddress,
+      chain: 'base-sepolia',
+      walletType: user.encryptedPrivateKey ? 'MANAGED' : 'EXTERNAL',
+      isPrimary: true,
+      encryptedPrivateKey: user.encryptedPrivateKey,
+      custodyProvider: user.encryptedPrivateKey ? 'backend' : undefined,
+      verifiedAt: user.walletCreatedAt ?? new Date(),
+    },
+  });
+
+  return {
+    walletId: backfilledWallet.id,
+    address: backfilledWallet.address,
+    walletType: backfilledWallet.walletType,
+    isPrimary: backfilledWallet.isPrimary,
+    verifiedAt: backfilledWallet.verifiedAt,
+    walletCreatedAt: backfilledWallet.createdAt,
+    hasWallet: true,
+  };
+}
+
+export async function linkExternalWalletToUser({
+  walletAddress,
+  coopId,
+  name = 'Admin',
+  roles = ['member', 'admin'],
+}: {
+  walletAddress: string;
+  coopId: string;
+  name?: string;
+  roles?: string[];
+}, client: DbClient | any = db): Promise<{ userId: string; walletAddress: string }> {
+  const normalizedWalletAddress = normalizeAddress(walletAddress);
+  const email = syntheticWalletEmail(normalizedWalletAddress);
+
+  let user = await client.user.findFirst({
+    where: {
+      OR: [
+        { walletAddress: { equals: normalizedWalletAddress, mode: 'insensitive' } },
+        { email },
+      ],
+    },
+  });
+
+  if (user) {
+    const mergedRoles = uniqueRoles(user.roles, roles);
+    user = await client.user.update({
+      where: { id: user.id },
+      data: {
+        walletAddress: user.walletAddress ?? normalizedWalletAddress,
+        roles: mergedRoles,
+        status: 'ACTIVE',
+        name: user.name ?? name,
+      },
+    });
+  } else {
+    user = await client.user.create({
+      data: {
+        email,
+        walletAddress: normalizedWalletAddress,
+        name,
+        roles,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  await client.wallet.upsert({
+    where: { address: normalizedWalletAddress },
+    update: {
+      userId: user.id,
+      walletType: 'EXTERNAL',
+      isPrimary: true,
+      encryptedPrivateKey: null,
+      custodyProvider: null,
+      verifiedAt: new Date(),
+      lastSeenAt: new Date(),
+    },
+    create: {
+      userId: user.id,
+      address: normalizedWalletAddress,
+      chain: 'base-sepolia',
+      walletType: 'EXTERNAL',
+      isPrimary: true,
+      verifiedAt: new Date(),
+      lastSeenAt: new Date(),
+    },
+  });
+
+  const existingMembership = await client.userCoopMembership.findUnique?.({
+    where: {
+      userId_coopId: {
+        userId: user.id,
+        coopId,
+      },
+    },
+  });
+
+  await client.userCoopMembership.upsert({
+    where: {
+      userId_coopId: {
+        userId: user.id,
+        coopId,
+      },
+    },
+    create: {
+      userId: user.id,
+      coopId,
+      status: 'ACTIVE',
+      roles,
+      approvedBy: normalizedWalletAddress,
+      approvedAt: new Date(),
+      joinedAt: new Date(),
+    },
+    update: {
+      status: 'ACTIVE',
+      roles: uniqueRoles(existingMembership?.roles, roles),
+      approvedBy: existingMembership?.approvedBy ?? normalizedWalletAddress,
+      approvedAt: existingMembership?.approvedAt ?? new Date(),
+      joinedAt: existingMembership?.joinedAt ?? new Date(),
+    },
+  });
+
+  return { userId: user.id, walletAddress: normalizedWalletAddress };
+}
 
 
 /**
@@ -100,15 +314,20 @@ export function decryptPrivateKey(encryptedData: string): string {
  * @param userId - The user ID to create wallet for
  * @returns The wallet address
  */
-export async function createWalletForUser(userId: string): Promise<string> {
+export async function createWalletForUser(userId: string, client: DbClient | any = db): Promise<string> {
   // Check if user already has a wallet
-  const existingUser = await db.user.findUnique({
+  const existingUser = await client.user.findUnique({
     where: { id: userId },
-    select: { walletAddress: true },
+    select: {
+      walletAddress: true,
+      encryptedPrivateKey: true,
+      walletCreatedAt: true,
+    },
   });
 
   if (existingUser?.walletAddress) {
-    throw new Error('User already has a wallet');
+    await getUserWalletInfo(userId, client);
+    return existingUser.walletAddress;
   }
 
   // Generate new wallet
@@ -118,12 +337,36 @@ export async function createWalletForUser(userId: string): Promise<string> {
   const encryptedKey = encryptPrivateKey(wallet.privateKey);
 
   // Update user with wallet info
-  await db.user.update({
+  await client.user.update({
     where: { id: userId },
     data: {
       walletAddress: wallet.address,
       encryptedPrivateKey: encryptedKey,
       walletCreatedAt: new Date(),
+    },
+  });
+
+  await client.wallet.upsert({
+    where: { address: wallet.address },
+    update: {
+      userId,
+      walletType: 'MANAGED',
+      isPrimary: true,
+      encryptedPrivateKey: encryptedKey,
+      custodyProvider: 'backend',
+      verifiedAt: new Date(),
+      lastSeenAt: new Date(),
+    },
+    create: {
+      userId,
+      address: wallet.address,
+      chain: 'base-sepolia',
+      walletType: 'MANAGED',
+      isPrimary: true,
+      encryptedPrivateKey: encryptedKey,
+      custodyProvider: 'backend',
+      verifiedAt: new Date(),
+      lastSeenAt: new Date(),
     },
   });
 
@@ -145,6 +388,18 @@ function isValidPrivateKey(key: string): boolean {
  * @returns Wallet address and decrypted private key
  */
 export async function getUserWallet(userId: string): Promise<{ address: string; privateKey: string }> {
+  const walletRecord = await getPrimaryWalletRecord(userId);
+  if (walletRecord?.address && walletRecord.encryptedPrivateKey) {
+    const privateKey = decryptPrivateKey(walletRecord.encryptedPrivateKey);
+
+    if (isValidPrivateKey(privateKey)) {
+      return {
+        address: walletRecord.address,
+        privateKey,
+      };
+    }
+  }
+
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { walletAddress: true, encryptedPrivateKey: true },
@@ -172,6 +427,28 @@ export async function getUserWallet(userId: string): Promise<{ address: string; 
         walletAddress: newWallet.address,
         encryptedPrivateKey: encryptedKey,
         walletCreatedAt: new Date(),
+      },
+    });
+
+    await db.wallet.upsert({
+      where: { address: newWallet.address },
+      update: {
+        userId,
+        walletType: 'MANAGED',
+        isPrimary: true,
+        encryptedPrivateKey: encryptedKey,
+        custodyProvider: 'backend',
+        verifiedAt: new Date(),
+      },
+      create: {
+        userId,
+        address: newWallet.address,
+        chain: 'base-sepolia',
+        walletType: 'MANAGED',
+        isPrimary: true,
+        encryptedPrivateKey: encryptedKey,
+        custodyProvider: 'backend',
+        verifiedAt: new Date(),
       },
     });
 

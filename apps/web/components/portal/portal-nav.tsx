@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown, Vote, Wallet } from "lucide-react";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { useState } from "react";
-import BackendWalletStatus from "./backend-wallet-status";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
 import {
@@ -218,9 +217,6 @@ export function PortalNav({ coopId }: { coopId?: string }) {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
-            {/* Gas Wallet Status */}
-            {isAdmin && <BackendWalletStatus />}
-
             <div className="text-right">
               <div className="flex items-center gap-2 justify-end">
                 <p className="text-sm font-medium text-white">{currentUser?.name || 'User'}</p>

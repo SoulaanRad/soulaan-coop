@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { createWallet, encryptPrivateKey, decryptPrivateKey } from '../services/wallet-service.js';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import {
+  createWallet,
+  encryptPrivateKey,
+  decryptPrivateKey,
+  createWalletForUser,
+  linkExternalWalletToUser,
+} from '../services/wallet-service.js';
 import { isAddress, isHex } from 'viem';
 
 describe('Wallet Service', () => {
@@ -119,6 +125,117 @@ describe('Wallet Service', () => {
       }
 
       expect(current).toBe(wallet.privateKey);
+    });
+  });
+
+  describe('managed wallet persistence', () => {
+    it('writes legacy user fields and canonical Wallet row', async () => {
+      const mockClient = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            walletAddress: null,
+            encryptedPrivateKey: null,
+            walletCreatedAt: null,
+          }),
+          update: vi.fn().mockResolvedValue({}),
+        },
+        wallet: {
+          upsert: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      const address = await createWalletForUser('user_123', mockClient as any);
+
+      expect(isAddress(address)).toBe(true);
+      expect(mockClient.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: expect.objectContaining({
+          walletAddress: address,
+          encryptedPrivateKey: expect.any(String),
+          walletCreatedAt: expect.any(Date),
+        }),
+      });
+      expect(mockClient.wallet.upsert).toHaveBeenCalledWith({
+        where: { address },
+        update: expect.objectContaining({
+          userId: 'user_123',
+          walletType: 'MANAGED',
+          isPrimary: true,
+          custodyProvider: 'backend',
+        }),
+        create: expect.objectContaining({
+          userId: 'user_123',
+          address,
+          walletType: 'MANAGED',
+          isPrimary: true,
+          custodyProvider: 'backend',
+        }),
+      });
+    });
+  });
+
+  describe('external wallet linking', () => {
+    it('creates a wallet-backed admin user and coop membership', async () => {
+      const walletAddress = '0x1234567890123456789012345678901234567890';
+      const mockClient = {
+        user: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({
+            id: 'admin_user',
+            email: `${walletAddress}@wallet.soulaan.coop`,
+            walletAddress,
+            roles: ['member', 'admin'],
+            status: 'ACTIVE',
+          }),
+        },
+        wallet: {
+          upsert: vi.fn().mockResolvedValue({}),
+        },
+        userCoopMembership: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          upsert: vi.fn().mockResolvedValue({}),
+        },
+      };
+
+      const linked = await linkExternalWalletToUser({
+        walletAddress,
+        coopId: 'soulaan',
+      }, mockClient as any);
+
+      expect(linked).toEqual({ userId: 'admin_user', walletAddress });
+      expect(mockClient.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: `${walletAddress}@wallet.soulaan.coop`,
+          walletAddress,
+          roles: ['member', 'admin'],
+          status: 'ACTIVE',
+        }),
+      });
+      expect(mockClient.wallet.upsert).toHaveBeenCalledWith({
+        where: { address: walletAddress },
+        update: expect.objectContaining({
+          walletType: 'EXTERNAL',
+          isPrimary: true,
+          encryptedPrivateKey: null,
+        }),
+        create: expect.objectContaining({
+          userId: 'admin_user',
+          address: walletAddress,
+          walletType: 'EXTERNAL',
+          isPrimary: true,
+        }),
+      });
+      expect(mockClient.userCoopMembership.upsert).toHaveBeenCalledWith({
+        where: { userId_coopId: { userId: 'admin_user', coopId: 'soulaan' } },
+        create: expect.objectContaining({
+          status: 'ACTIVE',
+          roles: ['member', 'admin'],
+        }),
+        update: expect.objectContaining({
+          status: 'ACTIVE',
+          roles: ['member', 'admin'],
+        }),
+      });
     });
   });
 });

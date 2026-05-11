@@ -4,6 +4,7 @@ import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { CoopConfigInputZ, CoopConfigOutputZ, type CoopConfigOutput } from "@repo/validators";
 import type { CoopConfig, Prisma } from "@repo/db";
 import type { AuthenticatedContext } from "../context.js";
+import { linkExternalWalletToUser } from "../services/wallet-service.js";
 
 function mapDbToConfigOutput(record: CoopConfig): CoopConfigOutput {
   return {
@@ -354,78 +355,89 @@ export const coopConfigRouter = router({
         { key: "export_expansion",  label: "Export Expansion",  priorityWeight: 0.20 },
       ];
 
-      const newConfig = await ctx.db.coopConfig.create({
-        data: {
+      const newConfig = await ctx.db.$transaction(async (tx) => {
+        const config = await tx.coopConfig.create({
+          data: {
+            coopId,
+            version: 1,
+            isActive: true,
+            // Display fields for mobile app
+            name: fields.name,
+            slug: fields.slug ?? coopId,
+            tagline: fields.tagline,
+            description: fields.description,
+            displayMission: fields.displayMission,
+            displayFeatures: fields.displayFeatures as Prisma.InputJsonValue,
+            eligibility: fields.eligibility,
+            bgColor: fields.bgColor ?? "bg-blue-700",
+            accentColor: fields.accentColor ?? "bg-amber-600",
+            displayOrder: fields.displayOrder ?? 999,
+            applicationQuestions: fields.applicationQuestions as Prisma.InputJsonValue,
+            // Governance fields
+            charterText: fields.charterText ?? `${coopId} Co-op Charter`,
+            missionGoals: fields.missionGoals ?? defaultMissionGoals,
+            structuralWeights: fields.structuralWeights ?? { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
+            scoreMix: fields.scoreMix ?? { missionWeight: 0.60, structuralWeight: 0.40 },
+            screeningPassThreshold: fields.screeningPassThreshold ?? 0.6,
+            quorumPercent: fields.quorumPercent ?? 15,
+            approvalThresholdPercent: fields.approvalThresholdPercent ?? 51,
+            votingWindowDays: fields.votingWindowDays ?? 7,
+            scVotingCapPercent: fields.scVotingCapPercent ?? 2,
+            proposalCategories: fields.proposalCategories ?? [
+              { key: "business_funding", label: "Business Funding", isActive: true, description: "Capital requests to start, expand, or stabilise a member-owned business. Includes equipment, working capital, licensing, and growth investment." },
+              { key: "procurement",      label: "Procurement",      isActive: true, description: "Proposals to establish or formalise collective purchasing agreements, supplier contracts, or bulk-buying arrangements that reduce costs for members." },
+              { key: "infrastructure",   label: "Infrastructure",   isActive: true, description: "Investment in shared physical or digital infrastructure — facilities, tools, platforms, or systems that multiple members or the coop as a whole relies on." },
+              { key: "governance",       label: "Governance",       isActive: true, description: "Changes to coop rules, policies, bylaws, voting structures, or operational procedures. Requires heightened scrutiny and broad member input." },
+              { key: "other",            label: "Other",            isActive: true, description: "Proposals that don't fit an existing category. AI will apply general screening; the council may re-categorise before voting." },
+            ],
+            sectorExclusions: fields.sectorExclusions ?? [
+              { value: "fashion",           description: "Clothing, apparel, or personal style businesses — excluded due to low community multiplier and high individual-brand risk." },
+              { value: "restaurant",        description: "Dine-in food service establishments — excluded due to high failure rate and limited scalability within the coop model." },
+              { value: "cafe",              description: "Coffee shops and casual eateries — excluded for the same reasons as restaurants." },
+              { value: "food truck",        description: "Mobile food vending — excluded due to logistical complexity and thin margins that rarely generate shared returns." },
+              { value: "personality brand", description: "Businesses built around a single individual's public profile — excluded because they cannot be collectively owned or scaled cooperatively." },
+              { value: "lifestyle brand",   description: "Consumer identity or aspirational brands — excluded as they prioritise aesthetics over productive economic impact." },
+            ],
+            scorerAgents: fields.scorerAgents ?? [
+              { agentKey: "finance",   label: "Finance & Treasury",       enabled: true },
+              { agentKey: "market",    label: "Market & Revenue",         enabled: true },
+              { agentKey: "community", label: "Community Economy",        enabled: true },
+              { agentKey: "ops",       label: "Operations & Execution",   enabled: true },
+              { agentKey: "general",   label: "General (Fallback)",       enabled: true },
+            ],
+            minScBalanceToSubmit: fields.minScBalanceToSubmit ?? 0,
+            aiAutoApproveThresholdUSD: fields.aiAutoApproveThresholdUSD ?? 500,
+            councilVoteThresholdUSD: fields.councilVoteThresholdUSD ?? 5000,
+            strongGoalThreshold: fields.strongGoalThreshold ?? 0.70,
+            missionMinThreshold: fields.missionMinThreshold ?? 0.50,
+            structuralGate: fields.structuralGate ?? 0.65,
+            // Chain configuration fields
+            chainId: fields.chainId,
+            chainName: fields.chainName,
+            rpcUrl: fields.rpcUrl,
+            scTokenAddress: fields.scTokenAddress,
+            allyTokenAddress: fields.allyTokenAddress,
+            ucTokenAddress: fields.ucTokenAddress,
+            redemptionVaultAddress: fields.redemptionVaultAddress,
+            treasurySafeAddress: fields.treasurySafeAddress,
+            verifiedStoreRegistryAddress: fields.verifiedStoreRegistryAddress,
+            storePaymentRouterAddress: fields.storePaymentRouterAddress,
+            rewardEngineAddress: fields.rewardEngineAddress,
+            backendWalletAddress: fields.backendWalletAddress,
+            scTokenSymbol: fields.scTokenSymbol ?? 'SC',
+            scTokenName: fields.scTokenName ?? 'SoulaaniCoin',
+            createdBy: walletAddress,
+          },
+        });
+
+        await linkExternalWalletToUser({
+          walletAddress,
           coopId,
-          version: 1,
-          isActive: true,
-          // Display fields for mobile app
-          name: fields.name,
-          slug: fields.slug ?? coopId,
-          tagline: fields.tagline,
-          description: fields.description,
-          displayMission: fields.displayMission,
-          displayFeatures: fields.displayFeatures as Prisma.InputJsonValue,
-          eligibility: fields.eligibility,
-          bgColor: fields.bgColor ?? "bg-blue-700",
-          accentColor: fields.accentColor ?? "bg-amber-600",
-          displayOrder: fields.displayOrder ?? 999,
-          applicationQuestions: fields.applicationQuestions as Prisma.InputJsonValue,
-          // Governance fields
-          charterText: fields.charterText ?? `${coopId} Co-op Charter`,
-          missionGoals: fields.missionGoals ?? defaultMissionGoals,
-          structuralWeights: fields.structuralWeights ?? { feasibility: 0.40, risk: 0.35, accountability: 0.25 },
-          scoreMix: fields.scoreMix ?? { missionWeight: 0.60, structuralWeight: 0.40 },
-          screeningPassThreshold: fields.screeningPassThreshold ?? 0.6,
-          quorumPercent: fields.quorumPercent ?? 15,
-          approvalThresholdPercent: fields.approvalThresholdPercent ?? 51,
-          votingWindowDays: fields.votingWindowDays ?? 7,
-          scVotingCapPercent: fields.scVotingCapPercent ?? 2,
-          proposalCategories: fields.proposalCategories ?? [
-            { key: "business_funding", label: "Business Funding", isActive: true, description: "Capital requests to start, expand, or stabilise a member-owned business. Includes equipment, working capital, licensing, and growth investment." },
-            { key: "procurement",      label: "Procurement",      isActive: true, description: "Proposals to establish or formalise collective purchasing agreements, supplier contracts, or bulk-buying arrangements that reduce costs for members." },
-            { key: "infrastructure",   label: "Infrastructure",   isActive: true, description: "Investment in shared physical or digital infrastructure — facilities, tools, platforms, or systems that multiple members or the coop as a whole relies on." },
-            { key: "governance",       label: "Governance",       isActive: true, description: "Changes to coop rules, policies, bylaws, voting structures, or operational procedures. Requires heightened scrutiny and broad member input." },
-            { key: "other",            label: "Other",            isActive: true, description: "Proposals that don't fit an existing category. AI will apply general screening; the council may re-categorise before voting." },
-          ],
-          sectorExclusions: fields.sectorExclusions ?? [
-            { value: "fashion",           description: "Clothing, apparel, or personal style businesses — excluded due to low community multiplier and high individual-brand risk." },
-            { value: "restaurant",        description: "Dine-in food service establishments — excluded due to high failure rate and limited scalability within the coop model." },
-            { value: "cafe",              description: "Coffee shops and casual eateries — excluded for the same reasons as restaurants." },
-            { value: "food truck",        description: "Mobile food vending — excluded due to logistical complexity and thin margins that rarely generate shared returns." },
-            { value: "personality brand", description: "Businesses built around a single individual's public profile — excluded because they cannot be collectively owned or scaled cooperatively." },
-            { value: "lifestyle brand",   description: "Consumer identity or aspirational brands — excluded as they prioritise aesthetics over productive economic impact." },
-          ],
-          scorerAgents: fields.scorerAgents ?? [
-            { agentKey: "finance",   label: "Finance & Treasury",       enabled: true },
-            { agentKey: "market",    label: "Market & Revenue",         enabled: true },
-            { agentKey: "community", label: "Community Economy",        enabled: true },
-            { agentKey: "ops",       label: "Operations & Execution",   enabled: true },
-            { agentKey: "general",   label: "General (Fallback)",       enabled: true },
-          ],
-          minScBalanceToSubmit: fields.minScBalanceToSubmit ?? 0,
-          aiAutoApproveThresholdUSD: fields.aiAutoApproveThresholdUSD ?? 500,
-          councilVoteThresholdUSD: fields.councilVoteThresholdUSD ?? 5000,
-          strongGoalThreshold: fields.strongGoalThreshold ?? 0.70,
-          missionMinThreshold: fields.missionMinThreshold ?? 0.50,
-          structuralGate: fields.structuralGate ?? 0.65,
-          // Chain configuration fields
-          chainId: fields.chainId,
-          chainName: fields.chainName,
-          rpcUrl: fields.rpcUrl,
-          scTokenAddress: fields.scTokenAddress,
-          allyTokenAddress: fields.allyTokenAddress,
-          ucTokenAddress: fields.ucTokenAddress,
-          redemptionVaultAddress: fields.redemptionVaultAddress,
-          treasurySafeAddress: fields.treasurySafeAddress,
-          verifiedStoreRegistryAddress: fields.verifiedStoreRegistryAddress,
-          storePaymentRouterAddress: fields.storePaymentRouterAddress,
-          rewardEngineAddress: fields.rewardEngineAddress,
-          backendWalletAddress: fields.backendWalletAddress,
-          scTokenSymbol: fields.scTokenSymbol ?? 'SC',
-          scTokenName: fields.scTokenName ?? 'SoulaaniCoin',
-          createdBy: walletAddress,
-        },
+          name: `${fields.name ?? coopId} Admin`,
+          roles: ['member', 'admin'],
+        }, tx);
+
+        return config;
       });
 
       return mapDbToConfigOutput(newConfig);

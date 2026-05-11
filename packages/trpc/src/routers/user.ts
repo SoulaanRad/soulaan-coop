@@ -5,9 +5,10 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { baseSepolia } from "viem/chains";
 
 import { Context } from "../context.js";
-import { privateProcedure, publicProcedure, authenticatedProcedure } from "../procedures/index.js";
+import { publicProcedure, authenticatedProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
-import { getUserWallet, createWalletForUser } from "../services/wallet-service.js";
+import { getUserWallet, createWalletForUser, getUserWalletInfo } from "../services/wallet-service.js";
+import type { AuthenticatedContext } from "../context.js";
 
 // Blockchain client for fetching balances
 const publicClient = createPublicClient({
@@ -219,7 +220,7 @@ export const userRouter = router({
    * Export wallet private key (requires password re-authentication)
    * SECURITY: Only call this when user explicitly requests to export their wallet
    */
-  exportWallet: privateProcedure
+  exportWallet: authenticatedProcedure
     .input(z.object({
       userId: z.string(),
       password: z.string(),
@@ -231,6 +232,7 @@ export const userRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const context = ctx as Context;
+      const { walletAddress: authenticatedWalletAddress } = ctx as AuthenticatedContext;
 
       console.log('\n🔷 exportWallet - START');
       console.log('👤 User ID:', input.userId);
@@ -255,10 +257,19 @@ export const userRouter = router({
           });
         }
 
-        if (!user.walletAddress || !user.encryptedPrivateKey) {
+        const walletInfo = await getUserWalletInfo(input.userId, context.db);
+
+        if (!walletInfo.hasWallet || !user.encryptedPrivateKey) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "User does not have a wallet",
+          });
+        }
+
+        if (walletInfo.address.toLowerCase() !== authenticatedWalletAddress.toLowerCase()) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You can only export your own wallet",
           });
         }
 
@@ -327,31 +338,41 @@ export const userRouter = router({
     .output(z.object({
       address: z.string(),
       hasWallet: z.boolean(),
+      walletId: z.string().nullable(),
+      walletType: z.enum(['EXTERNAL', 'MANAGED']).nullable(),
+      isPrimary: z.boolean(),
+      verifiedAt: z.string().optional(),
       walletCreatedAt: z.string().optional(),
     }))
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
 
-      const user = await context.db.user.findUnique({
-        where: { id: input.userId },
-        select: {
-          walletAddress: true,
-          walletCreatedAt: true,
-        },
-      });
+      try {
+        const walletInfo = await getUserWalletInfo(input.userId, context.db);
 
-      if (!user) {
+        return {
+          address: walletInfo.address,
+          hasWallet: walletInfo.hasWallet,
+          walletId: walletInfo.walletId,
+          walletType: walletInfo.walletType,
+          isPrimary: walletInfo.isPrimary,
+          verifiedAt: walletInfo.verifiedAt?.toISOString(),
+          walletCreatedAt: walletInfo.walletCreatedAt?.toISOString(),
+        };
+      } catch (error) {
+        if (error instanceof Error && error.message === 'User not found') {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "User not found",
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get wallet info",
+          cause: error,
         });
       }
-
-      return {
-        address: user.walletAddress || "",
-        hasWallet: !!user.walletAddress,
-        walletCreatedAt: user.walletCreatedAt?.toISOString(),
-      };
     }),
 
   /**

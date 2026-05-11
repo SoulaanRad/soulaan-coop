@@ -397,9 +397,10 @@ export const applicationRouter = router({
 
           if (!walletAddress) {
             console.log('🔐 Creating wallet for user...');
-            walletAddress = await createWalletForUser(input.userId);
+            walletAddress = await createWalletForUser(input.userId, tx);
             console.log('✅ Wallet created:', walletAddress);
           } else {
+            walletAddress = await createWalletForUser(input.userId, tx);
             console.log('ℹ️ User already has wallet:', walletAddress);
           }
 
@@ -417,13 +418,13 @@ export const applicationRouter = router({
               coopId: input.coopId,
               status: "ACTIVE",
               roles: ["member"],
-              approvedBy: walletAddress,
+              approvedBy: reviewerWallet,
               approvedAt: new Date(),
               joinedAt: new Date(),
             },
             update: {
               status: "ACTIVE",
-              approvedBy: walletAddress,
+              approvedBy: reviewerWallet,
               approvedAt: new Date(),
               joinedAt: new Date(),
             },

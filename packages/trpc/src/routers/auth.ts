@@ -6,7 +6,6 @@ import { Context } from "../context.js";
 import { publicProcedure, privateProcedure } from "../procedures/index.js";
 import { router } from "../trpc.js";
 import { sendLoginCode, generateLoginCode, isEmailConfigured } from "../lib/email.js";
-import { createWalletForUser } from "../services/wallet-service.js";
 
 export const authRouter = router({
   /**
