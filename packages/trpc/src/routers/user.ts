@@ -134,6 +134,9 @@ export const userRouter = router({
       walletAddress: z.string().nullable(),
       phone: z.string().nullable(),
       createdAt: z.date(),
+      membershipStatus: z.string().nullable(),
+      membershipRoles: z.array(z.string()),
+      applicationStatus: z.string().nullable(),
     }).nullable())
     .query(async ({ input, ctx }) => {
       const context = ctx as Context;
@@ -141,11 +144,25 @@ export const userRouter = router({
       console.log(`🔍 getUserByWallet: Looking for wallet ${input.walletAddress} in coop ${input.coopId || 'none'}`);
 
       const user = await context.db.user.findFirst({
-        where: { 
-          walletAddress: {
-            equals: input.walletAddress,
-            mode: 'insensitive',
-          },
+        where: {
+          OR: [
+            {
+              walletAddress: {
+                equals: input.walletAddress,
+                mode: 'insensitive',
+              },
+            },
+            {
+              wallets: {
+                some: {
+                  address: {
+                    equals: input.walletAddress,
+                    mode: 'insensitive',
+                  },
+                },
+              },
+            },
+          ],
         },
         select: {
           id: true,
@@ -156,6 +173,21 @@ export const userRouter = router({
           walletAddress: true,
           phone: true,
           createdAt: true,
+          memberships: input.coopId ? {
+            where: { coopId: input.coopId },
+            select: {
+              status: true,
+              roles: true,
+            },
+            take: 1,
+          } : false,
+          applications: input.coopId ? {
+            where: { coopId: input.coopId },
+            select: {
+              status: true,
+            },
+            take: 1,
+          } : false,
         },
       });
 
@@ -165,10 +197,25 @@ export const userRouter = router({
       }
 
       console.log(`✅ Found User: ${user.id}, wallet: ${user.walletAddress}, name: ${user.name}`);
+      const walletInfo = await getUserWalletInfo(user.id, context.db);
 
       // Profile data (name, email, phone) comes from User table
-      // No need to check UserCoopMembership for profile data
-      return user;
+      const membership = input.coopId ? user.memberships?.[0] : null;
+      const application = input.coopId ? user.applications?.[0] : null;
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roles: user.roles,
+        status: user.status,
+        walletAddress: user.walletAddress ?? (walletInfo.hasWallet ? walletInfo.address : null),
+        phone: user.phone,
+        createdAt: user.createdAt,
+        membershipStatus: membership?.status ?? null,
+        membershipRoles: membership?.roles ?? [],
+        applicationStatus: application?.status ?? null,
+      };
     }),
 
   /**

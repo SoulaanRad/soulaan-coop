@@ -2,102 +2,124 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Users, FileText, BarChart3, Settings, LogOut, Landmark, Store, Coins, ChevronDown, Vote, Wallet } from "lucide-react";
-import { useWeb3Auth } from "@/hooks/use-web3-auth";
-import { useState } from "react";
-import { api } from "@/lib/trpc/client";
-import { useCoin } from "@/hooks/use-platform-config";
+import { useEffect, useState } from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  BarChart3,
+  ClipboardList,
+  Coins,
+  FileText,
+  Landmark,
+  LogOut,
+  Menu,
+  Settings,
+  Store,
+  Users,
+  Vote,
+  Wallet,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/trpc/client";
+import { cn } from "@/lib/utils";
+import { useCoin } from "@/hooks/use-platform-config";
+import { useWeb3Auth } from "@/hooks/use-web3-auth";
 
 interface NavItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
 }
 
-interface NavGroup {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  href?: string;
-  items?: NavItem[];
-  adminOnly?: boolean;
-}
-
-const navGroups: NavGroup[] = [
+const memberLinks: NavItem[] = [
   {
     title: "Dashboard",
-    icon: BarChart3,
     href: "/portal",
+    icon: BarChart3,
   },
   {
-    title: "People",
+    title: "Members",
+    href: "/portal/members",
     icon: Users,
-    items: [
-      { title: "Members", href: "/portal/members", icon: Users },
-      { title: "Applications", href: "/portal/applications", icon: FileText },
-    ],
   },
   {
-    title: "Governance",
+    title: "Proposals",
+    href: "/portal/proposals",
     icon: Vote,
-    items: [
-      { title: "Proposals", href: "/portal/proposals", icon: FileText },
-      { title: "Config", href: "/portal/proposals/config", icon: Settings, adminOnly: true },
-    ],
-  },
-  {
-    title: "Commerce",
-    icon: Store,
-    adminOnly: true,
-    items: [
-      { title: "Stores", href: "/portal/stores", icon: Store },
-      { title: "SC Rewards", href: "/portal/sc-rewards", icon: Coins },
-    ],
-  },
-  {
-    title: "Finance",
-    icon: Landmark,
-    adminOnly: true,
-    items: [
-      { title: "Treasury", href: "/portal/treasury", icon: Landmark },
-      { title: "Wealth Fund", href: "/portal/wealth-fund", icon: Wallet },
-    ],
   },
   {
     title: "Settings",
-    icon: Settings,
     href: "/portal/settings",
+    icon: Settings,
+  },
+];
+
+const adminReviewLinks: NavItem[] = [
+  {
+    title: "Applications",
+    href: "/portal/applications",
+    icon: ClipboardList,
+  },
+  {
+    title: "Rules",
+    href: "/portal/proposals/config",
+    icon: FileText,
+  },
+];
+
+const commerceLinks: NavItem[] = [
+  {
+    title: "Stores",
+    href: "/portal/stores",
+    icon: Store,
+  },
+  {
+    title: "Treasury",
+    href: "/portal/treasury",
+    icon: Landmark,
+  },
+  {
+    title: "Wealth Fund",
+    href: "/portal/wealth-fund",
+    icon: Wallet,
+  },
+  {
+    title: "Rewards",
+    href: "/portal/sc-rewards",
+    icon: Coins,
   },
 ];
 
 export function PortalNav({ coopId }: { coopId?: string }) {
   const pathname = usePathname();
-  const { logout, isLoading, isAdmin, adminRole, address } = useWeb3Auth();
+  const { logout, isAdmin, adminRole, address } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const coin = useCoin();
-  
-  // Get current user info
+
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
-    { walletAddress: address || '', coopId },
+    { walletAddress: address || "", coopId },
     { enabled: !!address }
   );
 
-  console.log("currentUser: ", currentUser);
-  
-  // Prefix all nav links with coopId if provided
   const prefixHref = (href: string) => {
-    if (coopId) {
-      return `/portal/${coopId}${href.replace('/portal', '')}`;
-    }
-    return href;
+    if (!coopId) return href;
+    return `/portal/${coopId}${href.replace("/portal", "")}`;
   };
+
+  const isActive = (href: string) => {
+    const path = prefixHref(href);
+    if (href === "/portal") {
+      return pathname === path;
+    }
+    if (href === "/portal/proposals" && pathname.startsWith(`${path}/config`)) {
+      return false;
+    }
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -106,144 +128,184 @@ export function PortalNav({ coopId }: { coopId?: string }) {
     try {
       await logout();
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error("Error logging out:", error);
     } finally {
       setIsLoggingOut(false);
     }
   };
 
-  const isGroupActive = (group: NavGroup) => {
-    const checkHref = prefixHref(group.href || '');
-    if (group.href) {
-      return pathname === checkHref;
-    }
-    if (group.items) {
-      return group.items.some(item => pathname === prefixHref(item.href));
-    }
-    return false;
+  const renderLink = (item: NavItem, tone: "member" | "admin") => {
+    const Icon = item.icon;
+    const active = isActive(item.href);
+
+    return (
+      <Link
+        key={item.href}
+        href={prefixHref(item.href)}
+        className={cn(
+          "group flex min-w-fit items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors",
+          active
+            ? tone === "admin"
+              ? "border-amber-400/40 bg-amber-400/10 text-amber-100"
+              : "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+            : "border-transparent text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-100"
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4",
+            active
+              ? tone === "admin"
+                ? "text-amber-300"
+                : "text-emerald-300"
+              : "text-zinc-500 group-hover:text-zinc-300"
+          )}
+        />
+        <span className="font-medium">{item.title}</span>
+      </Link>
+    );
   };
 
+  const renderGroup = (
+    label: string,
+    items: NavItem[],
+    tone: "member" | "admin"
+  ) => (
+    <div className="min-w-0 space-y-1">
+      <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-1.5">
+        {items.map((item) => renderLink(item, tone))}
+      </div>
+    </div>
+  );
+
+  const navGroups: Array<{
+    label: string;
+    items: NavItem[];
+    tone: "member" | "admin";
+  }> = [
+    { label: "Workspace", items: memberLinks, tone: "member" },
+    ...(isAdmin
+      ? [
+          { label: "Admin", items: adminReviewLinks, tone: "admin" as const },
+          { label: "Money & commerce", items: commerceLinks, tone: "admin" as const },
+        ]
+      : []),
+  ];
+
+  const activeNavItem =
+    navGroups.flatMap((group) => group.items).find((item) => isActive(item.href)) ??
+    memberLinks[0];
+  const ActiveIcon = activeNavItem.icon;
+
   return (
-    <div className="border-b border-slate-700 bg-slate-900">
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center gap-8">
-            <Link href={prefixHref("/portal")} className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{coin.symbol}</span>
+    <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#0b0d10]/95 text-white backdrop-blur">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="flex min-h-16 flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-4">
+            <Link href={prefixHref("/portal")} className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-amber-500 text-sm font-bold text-zinc-950">
+                {coin.symbol}
               </div>
-              <span className="font-semibold text-lg text-white">Portal</span>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold leading-5">Co-op Portal</p>
+                <p className="truncate text-xs text-zinc-500">{coopId || "workspace"}</p>
+              </div>
             </Link>
 
-            {/* Navigation */}
-            <nav className="flex items-center gap-1">
-              {navGroups.map((group) => {
-                if (group.adminOnly && !isAdmin) {
-                  return null;
-                }
-
-                const Icon = group.icon;
-                const isActive = isGroupActive(group);
-
-                // Single item - render as link
-                if (group.href) {
-                  return (
-                    <Link
-                      key={group.href}
-                      href={prefixHref(group.href)}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-slate-800 text-white"
-                          : "text-gray-400 hover:text-white hover:bg-slate-800/50"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {group.title}
-                    </Link>
-                  );
-                }
-
-                // Group with items - render as dropdown
-                return (
-                  <DropdownMenu key={group.title}>
-                    <DropdownMenuTrigger
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors outline-none",
-                        isActive
-                          ? "bg-slate-800 text-white"
-                          : "text-gray-400 hover:text-white hover:bg-slate-800/50"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {group.title}
-                      <ChevronDown className="h-3 w-3 opacity-50" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="start"
-                      className="bg-slate-900 border-slate-700"
-                    >
-                      {group.items?.map((item) => {
-                        const ItemIcon = item.icon;
-                        const itemHref = prefixHref(item.href);
-                        const isItemActive = pathname === itemHref;
-
-                        return (
-                          <DropdownMenuItem
-                            key={item.href}
-                            asChild
-                            className={cn(
-                              "cursor-pointer text-gray-300 hover:text-white hover:bg-slate-800 focus:bg-slate-800 focus:text-white",
-                              isItemActive && "bg-slate-800 text-white"
-                            )}
-                          >
-                            <Link
-                              href={itemHref}
-                              className="flex items-center gap-2 px-2 py-2"
-                            >
-                              <ItemIcon className="h-4 w-4" />
-                              {item.title}
-                            </Link>
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              })}
-            </nav>
+            <div className="flex shrink-0 items-center gap-3 lg:hidden">
+              {isAdmin && (
+                <Badge className="border-amber-400/30 bg-amber-400/10 text-amber-100">
+                  Admin
+                </Badge>
+              )}
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="rounded-md border border-zinc-800 p-2 text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white disabled:opacity-50"
+                title="Logout"
+              >
+                <LogOut className={cn("h-4 w-4", isLoggingOut && "animate-pulse")} />
+              </button>
+            </div>
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center gap-4">
+          <div className="hidden items-center gap-3 lg:flex">
             <div className="text-right">
-              <div className="flex items-center gap-2 justify-end">
-                <p className="text-sm font-medium text-white">{currentUser?.name || 'User'}</p>
-                {isAdmin && (
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-md">
-                    ADMIN
-                  </span>
-                )}
+              <div className="flex items-center justify-end gap-2">
+                <p className="max-w-48 truncate text-sm font-medium text-zinc-100">
+                  {currentUser?.name || "User"}
+                </p>
+                <Badge
+                  className={cn(
+                    "border",
+                    isAdmin
+                      ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+                      : "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
+                  )}
+                >
+                  {isAdmin ? "Admin" : "Member"}
+                </Badge>
               </div>
-              <p className="text-xs text-gray-400">
-                {currentUser?.email || 'No email set'}
-                {isAdmin && adminRole && (
-                  <span className="ml-2 text-amber-400">• {coin.name} Admin</span>
-                )}
+              <p className="max-w-80 truncate text-xs text-zinc-500">
+                {currentUser?.email || "No email set"}
+                {isAdmin && adminRole ? ` • ${adminRole}` : ""}
               </p>
             </div>
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="p-2 text-gray-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-md border border-zinc-800 p-2 text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white disabled:opacity-50"
               title="Logout"
             >
-              <LogOut className={cn("h-5 w-5", isLoggingOut && "animate-pulse")} />
+              <LogOut className={cn("h-4 w-4", isLoggingOut && "animate-pulse")} />
             </button>
           </div>
         </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-900 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-800 bg-zinc-950 text-zinc-400">
+              <ActiveIcon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-600">
+                Current page
+              </p>
+              <p className="truncate text-sm font-semibold text-zinc-100">
+                {activeNavItem.title}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            aria-expanded={navOpen}
+            aria-controls="portal-navigation-menu"
+            onClick={() => setNavOpen((open) => !open)}
+            className="flex shrink-0 items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-900 hover:text-white"
+          >
+            {navOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {navOpen ? "Hide navigation" : "Navigation"}
+          </button>
+        </div>
+
+        {navOpen && (
+          <nav
+            id="portal-navigation-menu"
+            className={cn(
+              "grid gap-3 pb-3",
+              isAdmin
+                ? "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.75fr)_minmax(0,1.3fr)]"
+                : "lg:grid-cols-1"
+            )}
+          >
+            {navGroups.map((group) => renderGroup(group.label, group.items, group.tone))}
+          </nav>
+        )}
       </div>
-    </div>
+    </header>
   );
 }
