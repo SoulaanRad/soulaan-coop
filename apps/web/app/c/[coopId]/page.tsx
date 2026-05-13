@@ -15,6 +15,8 @@ import { FeaturedProducts } from "./components/featured-products";
 import { JoinWaitlistForm } from "./components/join-waitlist-form";
 import { env } from "@/env";
 
+const TEMP_PUBLIC_MEMBER_COUNT_FALLBACK = 320;
+
 async function getPublicCoopInfo(coopId: string) {
   if(!coopId) {
     return null;
@@ -176,6 +178,9 @@ export default async function CoopPublicPage({ params }: PageProps) {
   
   // Fetch featured products for this coop
   const featuredProducts = await getFeaturedProducts(coopId);
+  const liveStats = previewData?.stats ?? {};
+  const liveMemberCount = Number(liveStats.memberCount ?? 0);
+  const liveProductCount = Number(liveStats.productCount ?? 0);
   
   // Colors are stored as hex values like "#16a34a"
   // Create gradient from primary and accent colors
@@ -198,10 +203,12 @@ export default async function CoopPublicPage({ params }: PageProps) {
     bgColor: primaryColorHex,
     accentColor: accentColorHex,
     gradientStyle, // Inline style object for gradient backgrounds
-    features: publicInfo.features as any[] || [],
-    memberCount: 0, // TODO: Get from stats
-    storeCount: previewData?.stores?.length || 0,
-    totalProducts: 0, // TODO: Calculate from stores
+    features: (publicInfo.features as any[] | null) ?? [],
+    // Temporary public display floor while early member data is still being
+    // backfilled. Remove once live membership numbers are ready to show.
+    memberCount: Math.max(liveMemberCount, TEMP_PUBLIC_MEMBER_COUNT_FALLBACK),
+    storeCount: Number(liveStats.storeCount ?? previewData?.stores?.length ?? 0),
+    totalProducts: liveProductCount || featuredProducts.length,
     stats: {
       treasurySize: '$0', // TODO: Get from treasury
       proposalsFunded: 0, // TODO: Get from proposals
@@ -219,7 +226,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
     imageUrl: store.imageUrl || null,
     rating: 0, // TODO: Get from reviews
     reviewCount: 0,
-    productCount: 0, // TODO: Get from products
+    productCount: Number(store.productCount ?? 0),
     isScVerified: Boolean(store.isScVerified),
     isFeatured: Boolean(store.isFeatured),
   }));

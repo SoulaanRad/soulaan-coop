@@ -53,20 +53,27 @@ export const publicCoopInfoRouter = router({
         return null;
       }
 
-      const [stores, proposals] = await Promise.all([
-        ctx.db.store.findMany({
-          where: {
-            coopId: input.coopId,
-            status: 'APPROVED',
-            // Only surface stores whose Stripe Connect account is fully ready
-            // to accept charges; otherwise customers would hit an error at
-            // checkout. SC verification is purely a badge, not a filter.
-            business: {
-              stripeAccount: {
-                chargesEnabled: true,
-              },
-            },
+      const storeWhere = {
+        coopId: input.coopId,
+        status: 'APPROVED' as const,
+        // Only surface stores whose Stripe Connect account is fully ready
+        // to accept charges; otherwise customers would hit an error at
+        // checkout. SC verification is purely a badge, not a filter.
+        business: {
+          stripeAccount: {
+            chargesEnabled: true,
           },
+        },
+      };
+
+      const productWhere = {
+        isActive: true,
+        store: storeWhere,
+      };
+
+      const [stores, proposals, memberCount, storeCount, productCount] = await Promise.all([
+        ctx.db.store.findMany({
+          where: storeWhere,
           take: input.storeLimit,
           orderBy: [
             { isFeatured: 'desc' },
@@ -81,6 +88,15 @@ export const publicCoopInfoRouter = router({
             imageUrl: true,
             isScVerified: true,
             isFeatured: true,
+            _count: {
+              select: {
+                products: {
+                  where: {
+                    isActive: true,
+                  },
+                },
+              },
+            },
           },
         }),
         ctx.db.proposal.findMany({
@@ -96,9 +112,32 @@ export const publicCoopInfoRouter = router({
             budgetCurrency: true,
           },
         }),
+        ctx.db.userCoopMembership.count({
+          where: {
+            coopId: input.coopId,
+            status: 'ACTIVE',
+          },
+        }),
+        ctx.db.store.count({
+          where: storeWhere,
+        }),
+        ctx.db.product.count({
+          where: productWhere,
+        }),
       ]);
 
-      return { stores, proposals };
+      return {
+        stores: stores.map(({ _count, ...store }) => ({
+          ...store,
+          productCount: _count.products,
+        })),
+        proposals,
+        stats: {
+          memberCount,
+          storeCount,
+          productCount,
+        },
+      };
     }),
 
   /**
