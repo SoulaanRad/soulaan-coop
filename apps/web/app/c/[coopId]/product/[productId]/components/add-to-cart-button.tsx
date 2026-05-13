@@ -50,7 +50,7 @@ export function AddToCartButton({ product, store, coopSlug, disabled }: AddToCar
         quantity
       );
       
-      posthog?.capture("product_added_to_cart", {
+      posthog.capture("product_added_to_cart", {
         product_id: product.id,
         product_name: product.name,
         product_type: product.productType,

@@ -10,9 +10,8 @@ export function PostHogPageView() {
   const posthog = usePostHog();
 
   useEffect(() => {
-    if (pathname && posthog) {
-      const url = window.location.href;
-      posthog.capture("$pageview", { $current_url: url });
+    if (pathname) {
+      posthog.capture("$pageview", { $current_url: window.location.href });
     }
   }, [pathname, searchParams, posthog]);
 

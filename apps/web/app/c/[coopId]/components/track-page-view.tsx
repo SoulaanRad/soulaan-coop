@@ -16,9 +16,7 @@ export function TrackPageView({ event, properties }: TrackPageViewProps) {
   const posthog = usePostHog();
 
   useEffect(() => {
-    if (posthog) {
-      posthog.capture(event, properties);
-    }
+    posthog.capture(event, properties);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

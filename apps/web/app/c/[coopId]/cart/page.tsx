@@ -186,7 +186,7 @@ export default function CartPage() {
   } = useCart();
 
   useEffect(() => {
-    if (!isLoading && posthog) {
+    if (!isLoading) {
       posthog.capture("cart_viewed", {
         coop_id: coopId,
         total_items: totalItems,
