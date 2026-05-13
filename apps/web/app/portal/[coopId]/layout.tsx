@@ -166,9 +166,9 @@ function PortalLayoutContent({ children, coopId }: { children: React.ReactNode; 
   return (
     <CoopProvider coopId={coopId}>
       <TRPCProvider coopId={coopId}>
-        <div className="min-h-screen bg-slate-950 text-white">
+        <div className="min-h-screen bg-[#080a0d] text-white">
           <PortalNav coopId={coopId} />
-          <main className="container mx-auto px-6 py-8">
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
             <ProtectedRoute coopId={coopId}>
               {children}
             </ProtectedRoute>

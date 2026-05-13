@@ -17,11 +17,8 @@ import {
   DollarSign,
   ArrowDownLeft,
   ArrowUpRight,
-  TrendingUp,
-  AlertTriangle,
   Loader2,
   ExternalLink,
-  Info,
 } from "lucide-react";
 
 export default function WealthFundHybridPage() {
@@ -49,15 +46,26 @@ export default function WealthFundHybridPage() {
   };
 
   const isLoading = balanceQuery.isLoading || entriesQuery.isLoading;
+  const visibleEntries = (entriesQuery.data?.entries ?? []).filter(
+    (entry) => !(entry.entryType === 'FEE_COLLECTION' && Math.abs(entry.amount) < 0.005)
+  );
+  const visibleCredits = visibleEntries.reduce(
+    (sum, entry) => sum + (entry.direction === 'CREDIT' ? entry.amount : 0),
+    0
+  );
+  const visibleDebits = visibleEntries.reduce(
+    (sum, entry) => sum + (entry.direction === 'DEBIT' ? entry.amount : 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Wealth Fund</h1>
-          <p className="text-muted-foreground mt-1">
-            Cooperative treasury funded by platform fees
+          <h1 className="text-3xl font-semibold tracking-normal text-zinc-50">Wealth Fund</h1>
+          <p className="mt-1 text-zinc-400">
+            Cooperative treasury funded by store purchase contributions
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -65,10 +73,10 @@ export default function WealthFundHybridPage() {
             value={accountType} 
             onValueChange={(v) => setAccountType(v as 'TREASURY_FEES' | 'PLATFORM_FEES')}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 border-zinc-800 bg-zinc-950 text-zinc-100">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
               <SelectItem value="TREASURY_FEES">Treasury Fees</SelectItem>
               <SelectItem value="PLATFORM_FEES">Platform Fees</SelectItem>
             </SelectContent>
@@ -81,82 +89,67 @@ export default function WealthFundHybridPage() {
               entriesQuery.refetch();
             }}
             disabled={isLoading}
+            className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* Info Banner */}
-      <Card className="border-blue-500/50 bg-blue-500/5">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-500 mt-0.5" />
-            <div>
-              <p className="font-medium text-blue-400">Hybrid Architecture Active</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                The Wealth Fund is now powered by fiat treasury fees collected from Stripe payments.
-                All entries are linked to their originating commerce transactions.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Balance Card */}
-      <Card>
+      <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
         <CardHeader>
-          <CardTitle>Current Balance</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-zinc-100">Current Balance</CardTitle>
+          <CardDescription className="text-zinc-500">
             {accountType === 'TREASURY_FEES' 
-              ? 'Fees collected for cooperative treasury' 
-              : 'Fees collected for platform operations'}
+              ? 'Community contributions collected from completed store purchases'
+              : 'Platform operations fees retained from commerce activity'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-6 bg-gradient-to-br from-green-500/10 to-blue-500/10 rounded-lg border border-green-500/20">
+              <div className="flex items-center justify-between rounded-lg border border-green-500/20 bg-gradient-to-br from-green-500/10 to-blue-500/10 p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-green-500/20 rounded-lg">
                     <DollarSign className="h-8 w-8 text-green-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Balance</p>
-                    <p className="text-4xl font-bold mt-1">
-                      {formatAmount((balanceQuery.data?.balance || 0) / 100)}
+                    <p className="text-sm text-zinc-400">Total Balance</p>
+                    <p className="mt-1 text-4xl font-bold text-zinc-50">
+                      {formatAmount(balanceQuery.data?.balance || 0)}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Total Entries</p>
-                  <p className="text-2xl font-bold mt-1">
-                    {balanceQuery.data?.entryCount || 0}
+                  <p className="text-sm text-zinc-400">Total Entries</p>
+                  <p className="mt-1 text-2xl font-bold text-zinc-50">
+                    {visibleEntries.length}
                   </p>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <ArrowDownLeft className="h-4 w-4 text-green-500" />
-                    <p className="text-sm font-medium">Total Credits</p>
+                    <p className="text-sm font-medium text-zinc-200">Total Credits</p>
                   </div>
                   <p className="text-xl font-bold text-green-400">
-                    {formatAmount((balanceQuery.data?.totalCredits || 0) / 100)}
+                    {formatAmount(visibleCredits)}
                   </p>
                 </div>
-                <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <ArrowUpRight className="h-4 w-4 text-red-500" />
-                    <p className="text-sm font-medium">Total Debits</p>
+                    <p className="text-sm font-medium text-zinc-200">Total Debits</p>
                   </div>
                   <p className="text-xl font-bold text-red-400">
-                    {formatAmount((balanceQuery.data?.totalDebits || 0) / 100)}
+                    {formatAmount(visibleDebits)}
                   </p>
                 </div>
               </div>
@@ -166,13 +159,13 @@ export default function WealthFundHybridPage() {
       </Card>
 
       {/* Ledger Entries */}
-      <Card>
+      <Card className="border-zinc-800 bg-zinc-950/70 text-zinc-50 shadow-none">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Ledger History</CardTitle>
-              <CardDescription>
-                All {accountType === 'TREASURY_FEES' ? 'treasury' : 'platform'} fee transactions
+              <CardTitle className="text-zinc-100">Ledger History</CardTitle>
+              <CardDescription className="text-zinc-500">
+                All {accountType === 'TREASURY_FEES' ? 'store contribution' : 'platform operations fee'} transactions
               </CardDescription>
             </div>
           </div>
@@ -180,19 +173,19 @@ export default function WealthFundHybridPage() {
         <CardContent>
           {entriesQuery.isLoading ? (
             <div className="flex items-center justify-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
             </div>
-          ) : entriesQuery.data?.entries.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+          ) : visibleEntries.length === 0 ? (
+            <div className="py-12 text-center text-zinc-500">
               <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No ledger entries yet</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {entriesQuery.data?.entries.map((entry) => (
+              {visibleEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 transition-colors hover:bg-zinc-900"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <div className={`p-2 rounded-lg ${
@@ -208,23 +201,34 @@ export default function WealthFundHybridPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">
+                        <p className="font-medium text-zinc-100">
                           {entry.entryType.replace(/_/g, ' ')}
                         </p>
                         {entry.linkedPayment && (
-                          <Badge variant="secondary" className="text-xs">
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            Payment #{entry.linkedPayment.id.slice(0, 8)}
-                          </Badge>
+                          entry.linkedPayment.stripePaymentIntentId ? (
+                            <a
+                              href={`https://dashboard.stripe.com/test/payments/${entry.linkedPayment.stripePaymentIntentId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center rounded-full border border-zinc-700 bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-amber-100"
+                            >
+                              <ExternalLink className="mr-1 h-3 w-3" />
+                              Payment #{entry.linkedPayment.id.slice(0, 8)}
+                            </a>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              Payment #{entry.linkedPayment.id.slice(0, 8)}
+                            </Badge>
+                          )
                         )}
                       </div>
                       {entry.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="mt-1 text-sm text-zinc-400">
                           {entry.description}
                         </p>
                       )}
                       {entry.linkedPayment && (
-                        <div className="mt-2 text-xs text-muted-foreground">
+                        <div className="mt-2 text-xs text-zinc-500">
                           <p>
                             Customer: {entry.linkedPayment.customer.name} • 
                             Business: {entry.linkedPayment.business.name} • 
@@ -233,7 +237,7 @@ export default function WealthFundHybridPage() {
                         </div>
                       )}
                       {entry.sourceTransactionId && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="mt-1 text-xs text-zinc-500">
                           Ref: {entry.sourceTransactionId.slice(0, 12)}...
                         </p>
                       )}
@@ -244,9 +248,9 @@ export default function WealthFundHybridPage() {
                       entry.direction === 'CREDIT' ? 'text-green-500' : 'text-red-500'
                     }`}>
                       {entry.direction === 'CREDIT' ? '+' : '-'}
-                      {formatAmount(entry.amount / 100)}
+                      {formatAmount(entry.amount)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-zinc-500">
                       {new Date(entry.occurredAt).toLocaleDateString()} at{' '}
                       {new Date(entry.occurredAt).toLocaleTimeString()}
                     </p>

@@ -19,7 +19,7 @@ import {
   BadgeCheck,
   Info,
 } from 'lucide-react-native';
-import { api, API_BASE_URL, resolveCoopId } from '@/lib/api';
+import { api, API_BASE_URL, createApiHeaders, resolveCoopId } from '@/lib/api';
 import { useAuth } from '@/contexts/auth-context';
 import { useCoin } from '@/contexts/platform-config-context';
 import { useCart } from '@/contexts/cart-context';
@@ -37,6 +37,78 @@ interface PaymentSession {
   totalCents: number;
 }
 
+interface ShippingAddressFields {
+  line1: string;
+  line2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+interface CheckoutUserInfo {
+  id: string;
+  email: string | null;
+  name: string | null;
+  status: string;
+  walletAddress: string | null;
+  membershipStatus: string | null;
+  membershipRoles: string[];
+  applicationStatus: string | null;
+}
+
+const emptyShippingAddress: ShippingAddressFields = {
+  line1: '',
+  line2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'US',
+};
+
+function normalizeShippingAddress(address: ShippingAddressFields): ShippingAddressFields {
+  return {
+    line1: address.line1.trim(),
+    line2: address.line2.trim(),
+    city: address.city.trim(),
+    state: address.state.trim(),
+    postalCode: address.postalCode.trim(),
+    country: address.country.trim() || 'US',
+  };
+}
+
+function formatShippingAddress(address: ShippingAddressFields): string {
+  const street = [address.line1, address.line2].filter(Boolean).join(', ');
+  const region = [address.state, address.postalCode].filter(Boolean).join(' ');
+  const locality = [address.city, region].filter(Boolean).join(', ');
+  return [street, locality, address.country].filter(Boolean).join('\n');
+}
+
+function formatScAmount(amount?: number | null): string {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  }).format(amount ?? 0);
+}
+
+function formatCurrencyFromCents(amountCents?: number | null): string {
+  return `$${((amountCents ?? 0) / 100).toFixed(2)}`;
+}
+
+function formatStatus(status?: string | null): string {
+  if (!status) return 'No coop membership';
+  return status
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function shortenAddress(address?: string | null): string {
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   const { user } = useAuth();
   const coin = useCoin();
@@ -51,8 +123,9 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   const [store, setStore] = useState<any>(null);
   const [preview, setPreview] = useState<any>(null);
   const [businessReadiness, setBusinessReadiness] = useState<any>(null);
+  const [checkoutUser, setCheckoutUser] = useState<CheckoutUserInfo | null>(null);
   const [cardholderName, setCardholderName] = useState('');
-  const [shippingAddress, setShippingAddress] = useState('');
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddressFields>(emptyShippingAddress);
   const [note, setNote] = useState('');
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
 
@@ -60,6 +133,26 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   const subtotal = cartItems.reduce((sum, item) => sum + item.priceUSD * item.quantity, 0);
   const totalCents = preview?.totalChargedCents ?? Math.round(subtotal * 100);
   const checkoutBusinessId = store?.businessId || storeId;
+  const appliesTreasuryFee = preview?.appliesTreasuryFee === true;
+  const displayedTreasuryFeeCents = appliesTreasuryFee ? preview?.treasuryFeeCents ?? 0 : 0;
+  const displayTotalCents = Math.round(subtotal * 100) + displayedTreasuryFeeCents;
+  const coopStatus = preview?.membershipStatus ?? checkoutUser?.membershipStatus ?? checkoutUser?.applicationStatus ?? null;
+  const isActiveCoopMember = coopStatus === 'ACTIVE';
+  const displayName = checkoutUser?.name || user?.name || checkoutUser?.email || user?.email || shortenAddress(user?.walletAddress);
+  const coopName = user?.coop?.name || config.name;
+  const roleLabel = checkoutUser?.membershipRoles?.length
+    ? checkoutUser.membershipRoles.map(formatStatus).join(', ')
+    : null;
+  const expectedScLabel = preview
+    ? `${formatScAmount(preview.customerReward?.estimatedAmount)} ${coin.symbol}`
+    : 'Calculating...';
+
+  const updateShippingAddress = (field: keyof ShippingAddressFields, value: string) => {
+    setShippingAddress((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
 
   const loadData = useCallback(async () => {
     if (!user?.id || !storeId) return;
@@ -74,6 +167,22 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
       setStore(storeResult);
       setBusinessReadiness(readinessResult?.result?.data);
 
+      if (user.walletAddress) {
+        const checkoutUserResult = await fetch(
+          `${API_BASE_URL}/trpc/user.getUserByWallet?input=${encodeURIComponent(JSON.stringify({
+            walletAddress: user.walletAddress,
+            coopId,
+          }))}`,
+          {
+            headers: createApiHeaders(user.walletAddress),
+          }
+        )
+          .then(res => res.json())
+          .catch(() => null);
+
+        setCheckoutUser(checkoutUserResult?.result?.data ?? null);
+      }
+
       // Get checkout preview
       if (subtotal > 0) {
         const previewResult = await fetch(
@@ -83,7 +192,10 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
             businessId,
             listedAmountCents: Math.round(subtotal * 100),
             currency: 'USD',
-          }))}`
+          }))}`,
+          {
+            headers: createApiHeaders(user.walletAddress),
+          }
         ).then(res => res.json());
 
         setPreview(previewResult?.result?.data);
@@ -112,7 +224,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
     let successMsg = `Your card payment for $${(paymentSession.totalCents / 100).toFixed(2)} was confirmed.`;
 
     if (preview?.customerReward?.eligible) {
-      successMsg += `\n\nYou'll earn ${preview.customerReward.estimatedAmount} ${coin.symbol} when payment completes!`;
+      successMsg += `\n\nYou'll earn ${formatScAmount(preview.customerReward.estimatedAmount)} ${coin.symbol} when payment completes!`;
     } else if (businessReadiness?.scRewardEligible === false) {
       successMsg += `\n\nThis merchant is not yet eligible for ${coin.name} rewards, so no rewards for this purchase.`;
     }
@@ -132,21 +244,34 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
   const handleCheckout = async () => {
     if (!user?.id || !checkoutBusinessId || cartItems.length === 0) return;
 
-    const trimmedShippingAddress = shippingAddress.trim();
-    if (!trimmedShippingAddress) {
-      Alert.alert('Shipping Address Required', 'Enter the shipping address so the store owner knows where to send the order.');
+    if (!user.walletAddress) {
+      Alert.alert('Wallet Required', 'Your account needs a wallet before checkout can continue.');
       return;
     }
+
+    const normalizedShippingAddress = normalizeShippingAddress(shippingAddress);
+    if (
+      !normalizedShippingAddress.line1 ||
+      !normalizedShippingAddress.city ||
+      !normalizedShippingAddress.state ||
+      !normalizedShippingAddress.postalCode
+    ) {
+      Alert.alert('Shipping Address Required', 'Enter the street address, city, state, and ZIP code so the store owner knows where to send the order.');
+      return;
+    }
+    const formattedShippingAddress = formatShippingAddress(normalizedShippingAddress);
 
     setProcessing(true);
 
     try {
       // Create commerce transaction
-      const checkoutResult = await fetch(`${API_BASE_URL}/trpc/commerce.createCheckout`, {
+      const checkoutResult = await fetch(`${API_BASE_URL}/trpc/commerce.createMemberCheckout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Coop-Id': coopId },
+        headers: {
+          ...createApiHeaders(user.walletAddress),
+          'X-Coop-Id': coopId,
+        },
         body: JSON.stringify({
-          userId: user.id,
           coopId,
           businessId: checkoutBusinessId,
           listedAmountCents: Math.round(subtotal * 100),
@@ -158,7 +283,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
               quantity: item.quantity,
               priceUSD: item.priceUSD,
             })),
-            shippingAddress: trimmedShippingAddress,
+            shippingAddress: formattedShippingAddress,
             note: note || undefined,
           },
         }),
@@ -234,8 +359,81 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
             style={{ padding: 18 }}
           >
             <Text className="text-lg font-bold text-white">{store.name}</Text>
-            <Text className="text-white/80 text-sm mt-1">{store.category}</Text>
           </LinearGradient>
+        </View>
+
+        {/* Coop Member Info */}
+        <View className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+          <View className="flex-row items-start justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-gray-900 text-base font-bold">
+                {isActiveCoopMember ? 'Coop member checkout' : 'Guest checkout'}
+              </Text>
+              <Text className="text-gray-500 text-sm mt-1">
+                {isActiveCoopMember
+                  ? 'This purchase will use your coop membership for checkout.'
+                  : 'Guest checkout has no coop membership status.'}
+              </Text>
+            </View>
+            <View
+              className="rounded-full border px-3 py-1"
+              style={{
+                backgroundColor: isActiveCoopMember ? withAlpha(accentColor, '12') : '#F9FAFB',
+                borderColor: isActiveCoopMember ? withAlpha(accentColor, '35') : '#E5E7EB',
+              }}
+            >
+              <Text
+                className="text-xs font-semibold"
+                style={{ color: isActiveCoopMember ? accentColor : '#4B5563' }}
+              >
+                {formatStatus(coopStatus)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-4 gap-3">
+            <View className="flex-row justify-between gap-4">
+              <Text className="text-gray-500">Account</Text>
+              <Text className="text-gray-900 font-semibold text-right flex-1" numberOfLines={1}>
+                {displayName || 'Signed-in user'}
+              </Text>
+            </View>
+            <View className="flex-row justify-between gap-4">
+              <Text className="text-gray-500">Coop</Text>
+              <Text className="text-gray-900 font-semibold text-right flex-1" numberOfLines={1}>
+                {coopName}
+              </Text>
+            </View>
+            {roleLabel ? (
+              <View className="flex-row justify-between gap-4">
+                <Text className="text-gray-500">Roles</Text>
+                <Text className="text-gray-900 font-semibold text-right flex-1" numberOfLines={1}>
+                  {roleLabel}
+                </Text>
+              </View>
+            ) : null}
+            <View className="flex-row justify-between gap-4">
+              <Text className="text-gray-500">Expected treasury fee</Text>
+              <Text className="text-gray-900 font-semibold">
+                {formatCurrencyFromCents(displayedTreasuryFeeCents)}
+              </Text>
+            </View>
+            <View className="flex-row justify-between gap-4">
+              <Text className="text-gray-500">Expected {coin.symbol} reward</Text>
+              <Text className="text-gray-900 font-semibold">{expectedScLabel}</Text>
+            </View>
+            {!isActiveCoopMember ? (
+              <TouchableOpacity
+                className="mt-1 rounded-xl border px-4 py-3"
+                style={{ borderColor: withAlpha(accentColor, '35'), backgroundColor: withAlpha(accentColor, '08') }}
+                onPress={() => router.push(user ? '/(authenticated)/home' as any : '/' as any)}
+              >
+                <Text className="text-center font-semibold" style={{ color: accentColor }}>
+                  Apply on home
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
 
         {/* Non-eligible merchant notice */}
@@ -276,33 +474,23 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
             
             <View className="space-y-2">
               <View className="flex-row justify-between py-2">
-                <Text className="text-gray-500">Subtotal</Text>
+                <Text className="text-gray-500">Items</Text>
                 <Text className="text-gray-900">${(preview.listedAmountCents / 100).toFixed(2)}</Text>
               </View>
               
-              <View className="flex-row justify-between py-2">
-                <Text className="text-gray-500">Platform Fee</Text>
-                <Text className="text-gray-500">${(preview.platformMarkupCents / 100).toFixed(2)}</Text>
-              </View>
-              
-              <View className="flex-row justify-between py-2">
-                <Text className="text-gray-500">Wealth Fund Contribution</Text>
-                <Text className="text-gray-500">${(preview.treasuryFeeCents / 100).toFixed(2)}</Text>
-              </View>
+              {appliesTreasuryFee && (
+                <View className="flex-row justify-between py-2">
+                  <Text className="text-gray-500">Treasury fee</Text>
+                  <Text className="text-gray-500">${(displayedTreasuryFeeCents / 100).toFixed(2)}</Text>
+                </View>
+              )}
               
               <View className="h-px bg-gray-100 my-2" />
               
               <View className="flex-row justify-between py-2">
-                <Text className="text-gray-900 font-bold">Total</Text>
+                <Text className="text-gray-900 font-bold">Total due</Text>
                 <Text className="font-bold text-lg" style={{ color: accentColor }}>
-                  ${(preview.totalChargedCents / 100).toFixed(2)}
-                </Text>
-              </View>
-
-              <View className="flex-row justify-between py-2">
-                <Text className="text-gray-500">Merchant Receives</Text>
-                <Text className="font-semibold" style={{ color: accentColor }}>
-                  ${(preview.merchantSettlementCents / 100).toFixed(2)}
+                  ${(displayTotalCents / 100).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -317,7 +505,7 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
               <Text className="font-semibold" style={{ color: accentColor }}>{coin.symbol} Reward</Text>
             </View>
             <Text className="text-gray-900 text-lg font-bold">
-              +{preview.customerReward.estimatedAmount} {coin.symbol}
+              +{formatScAmount(preview.customerReward.estimatedAmount)} {coin.symbol}
             </Text>
             <Text className="text-gray-500 text-sm mt-1">
               {coin.name} earned from this purchase
@@ -342,18 +530,74 @@ export default function CheckoutHybrid({ storeId }: CheckoutHybridProps) {
         </View>
 
         {/* Shipping Address */}
-        <View className="px-6 py-4">
-          <Text className="text-gray-900 font-semibold mb-2">Shipping Address</Text>
+        <View className="px-6 py-4 gap-3">
+          <Text className="text-gray-900 font-semibold">Shipping Address</Text>
           <TextInput
             className="bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
-            placeholder="Enter shipping address..."
+            placeholder="Street address..."
             placeholderTextColor="#9CA3AF"
-            value={shippingAddress}
-            onChangeText={setShippingAddress}
-            multiline
+            value={shippingAddress.line1}
+            onChangeText={(value) => updateShippingAddress('line1', value)}
+            autoComplete="street-address"
             editable={!paymentSession}
             style={{ opacity: paymentSession ? 0.6 : 1 }}
           />
+          <TextInput
+            className="bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
+            placeholder="Apartment, suite, etc. (optional)"
+            placeholderTextColor="#9CA3AF"
+            value={shippingAddress.line2}
+            onChangeText={(value) => updateShippingAddress('line2', value)}
+            editable={!paymentSession}
+            style={{ opacity: paymentSession ? 0.6 : 1 }}
+          />
+          <View className="flex-row gap-3">
+            <TextInput
+              className="flex-1 bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
+              placeholder="City..."
+              placeholderTextColor="#9CA3AF"
+              value={shippingAddress.city}
+              onChangeText={(value) => updateShippingAddress('city', value)}
+              autoComplete="off"
+              editable={!paymentSession}
+              style={{ opacity: paymentSession ? 0.6 : 1 }}
+            />
+            <TextInput
+              className="w-24 bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
+              placeholder="State"
+              placeholderTextColor="#9CA3AF"
+              value={shippingAddress.state}
+              onChangeText={(value) => updateShippingAddress('state', value)}
+              autoComplete="off"
+              autoCapitalize="characters"
+              editable={!paymentSession}
+              style={{ opacity: paymentSession ? 0.6 : 1 }}
+            />
+          </View>
+          <View className="flex-row gap-3">
+            <TextInput
+              className="flex-1 bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
+              placeholder="ZIP code..."
+              placeholderTextColor="#9CA3AF"
+              value={shippingAddress.postalCode}
+              onChangeText={(value) => updateShippingAddress('postalCode', value)}
+              autoComplete="postal-code"
+              keyboardType="number-pad"
+              editable={!paymentSession}
+              style={{ opacity: paymentSession ? 0.6 : 1 }}
+            />
+            <TextInput
+              className="w-24 bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200"
+              placeholder="US"
+              placeholderTextColor="#9CA3AF"
+              value={shippingAddress.country}
+              onChangeText={(value) => updateShippingAddress('country', value)}
+              autoComplete="country"
+              autoCapitalize="characters"
+              editable={!paymentSession}
+              style={{ opacity: paymentSession ? 0.6 : 1 }}
+            />
+          </View>
         </View>
 
         {/* Note */}

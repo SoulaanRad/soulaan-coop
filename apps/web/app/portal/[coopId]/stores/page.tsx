@@ -221,7 +221,7 @@ function AllStoresTab() {
           onClick={() => batchVerify.mutate({ limit: 50 })}
           disabled={batchVerify.isPending}
           variant="outline"
-          className="border-amber-600 text-amber-600 hover:bg-amber-600 hover:text-white"
+          className="border-amber-500/40 bg-transparent text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
         >
           {batchVerify.isPending ? (
             <>

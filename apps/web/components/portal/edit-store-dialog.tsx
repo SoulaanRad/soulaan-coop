@@ -80,9 +80,13 @@ export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogPro
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-slate-700">
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
+        >
           <Pencil className="h-4 w-4 mr-2" />
           Edit Store
         </Button>
@@ -177,7 +181,7 @@ export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogPro
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              className="border-slate-700"
+              className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
             >
               Cancel
             </Button>

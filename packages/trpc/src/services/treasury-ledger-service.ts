@@ -276,6 +276,9 @@ export async function getAccountBalance(
 ): Promise<{
   accountType: string;
   balance: number;
+  entryCount: number;
+  totalCredits: number;
+  totalDebits: number;
   currency: string;
   lastUpdated: Date | null;
 }> {
@@ -294,11 +297,15 @@ export async function getAccountBalance(
 
   // Calculate balance from entries
   let balance = 0;
+  let totalCredits = 0;
+  let totalDebits = 0;
   for (const entry of entries) {
     if (entry.direction === 'CREDIT') {
       balance += entry.amount;
+      totalCredits += entry.amount;
     } else {
       balance -= entry.amount;
+      totalDebits += entry.amount;
     }
   }
 
@@ -309,6 +316,9 @@ export async function getAccountBalance(
   return {
     accountType,
     balance,
+    entryCount: entries.length,
+    totalCredits,
+    totalDebits,
     currency: currency.toUpperCase(),
     lastUpdated,
   };
