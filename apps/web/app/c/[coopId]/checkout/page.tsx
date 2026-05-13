@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Store, BadgeCheck } from "lucide-react";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCart } from "@/contexts/cart-context";
 import { api } from "@/lib/trpc/client";
 import { useWeb3Auth } from "@/hooks/use-web3-auth";
+import { usePostHog } from "posthog-js/react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { env } from "@/env";
@@ -93,6 +94,8 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const coopId = params.coopId as string;
   const storeId = searchParams.get("storeId");
+  const posthog = usePostHog();
+  const checkoutStartedFired = useRef(false);
 
   const { user } = useWeb3Auth();
   const { getStoreItems, clearStoreItems } = useCart();
@@ -203,6 +206,18 @@ export default function CheckoutPage() {
       });
 
       setClientSecret(result.clientSecret);
+      if (!checkoutStartedFired.current) {
+        posthog.capture("checkout_started", {
+          coop_id: coopId,
+          store_id: storeId,
+          store_name: storeInfo.name,
+          is_sc_verified: storeInfo.isScVerified,
+          subtotal_usd: subtotal,
+          item_count: cartItems.length,
+          checkout_type: "authenticated",
+        });
+        checkoutStartedFired.current = true;
+      }
     } catch (err: any) {
       console.error("Checkout error:", err);
       setFormError(err.message || "Failed to initialize checkout");
@@ -241,6 +256,18 @@ export default function CheckoutPage() {
 
       setClientSecret(result.clientSecret);
       setNeedsGuestInfo(false);
+      if (!checkoutStartedFired.current) {
+        posthog.capture("checkout_started", {
+          coop_id: coopId,
+          store_id: storeId,
+          store_name: storeInfo.name,
+          is_sc_verified: storeInfo.isScVerified,
+          subtotal_usd: subtotal,
+          item_count: cartItems.length,
+          checkout_type: "guest",
+        });
+        checkoutStartedFired.current = true;
+      }
     } catch (err: any) {
       console.error("Guest checkout error:", err);
       setFormError(err.message || "Failed to initialize checkout");
@@ -253,6 +280,14 @@ export default function CheckoutPage() {
     if (storeId) {
       clearStoreItems(storeId);
     }
+    posthog.capture("checkout_completed", {
+      coop_id: coopId,
+      store_id: storeId,
+      store_name: storeInfo?.name,
+      is_sc_verified: storeInfo?.isScVerified,
+      subtotal_usd: subtotal,
+      item_count: cartItems.length,
+    });
     setPaymentSuccess(true);
   };
 

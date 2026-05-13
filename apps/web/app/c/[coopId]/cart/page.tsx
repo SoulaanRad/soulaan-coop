@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { CartItem } from "@/contexts/cart-context";
 import { useCart } from "@/contexts/cart-context";
+import { usePostHog } from "posthog-js/react";
 
 function CartItemCard({
   item,
@@ -169,6 +171,7 @@ export default function CartPage() {
   const params = useParams();
   const router = useRouter();
   const coopId = params.coopId as string;
+  const posthog = usePostHog();
   
   const {
     items,
@@ -181,6 +184,18 @@ export default function CartPage() {
     totalItems,
     totalUSD,
   } = useCart();
+
+  useEffect(() => {
+    if (!isLoading && posthog) {
+      posthog.capture("cart_viewed", {
+        coop_id: coopId,
+        total_items: totalItems,
+        total_usd: totalUSD,
+        store_count: getStoreIds().length,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   const handleCheckout = (storeId: string) => {
     router.push(`/c/${coopId}/checkout?storeId=${storeId}`);
