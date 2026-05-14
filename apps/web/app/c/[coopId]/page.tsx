@@ -13,7 +13,29 @@ import { CoopHero } from "./components/coop-hero";
 import { StoreCard } from "./components/store-card";
 import { FeaturedProducts } from "./components/featured-products";
 import { JoinWaitlistForm } from "./components/join-waitlist-form";
+import { TrackPageView } from "./components/track-page-view";
 import { env } from "@/env";
+
+const TEMP_PUBLIC_MEMBER_COUNT_FALLBACK = 320;
+const DEFAULT_PUBLIC_HERO_TITLE = "Build Generative Wealth Together";
+const DEFAULT_PUBLIC_HERO_SUBTITLE =
+  "A member-owned marketplace for turning local spending into shared economic power.";
+const DEFAULT_PUBLIC_HERO_DESCRIPTION =
+  "Shop from coop businesses, apply for membership, and help grow a community wealth fund that supports members, stores, and the tools this economy needs.";
+
+function isLegacyPublicHeroCopy(value?: string | null) {
+  return Boolean(value?.toLowerCase().includes("cooperative for economic empowerment"));
+}
+
+function getPublicHeroSubtitle(value?: string | null) {
+  return isLegacyPublicHeroCopy(value) ? DEFAULT_PUBLIC_HERO_SUBTITLE : value || DEFAULT_PUBLIC_HERO_SUBTITLE;
+}
+
+function getPublicHeroDescription(value?: string | null) {
+  return isLegacyPublicHeroCopy(value)
+    ? DEFAULT_PUBLIC_HERO_DESCRIPTION
+    : value || DEFAULT_PUBLIC_HERO_DESCRIPTION;
+}
 
 async function getPublicCoopInfo(coopId: string) {
   if(!coopId) {
@@ -146,13 +168,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const name = publicInfo.name || coopId;
-  const description = publicInfo.aboutBody || publicInfo.tagline || `Join ${name}`;
+  const title = publicInfo.heroTitle || publicInfo.tagline || DEFAULT_PUBLIC_HERO_TITLE;
+  const description = getPublicHeroSubtitle(publicInfo.heroSubtitle);
 
   return {
-    title: `${name} | Shop & Join`,
+    title: `${name} | ${title}`,
     description,
     openGraph: {
-      title: `${name} | Shop & Join`,
+      title: `${name} | ${title}`,
       description,
       type: "website",
     },
@@ -176,6 +199,9 @@ export default async function CoopPublicPage({ params }: PageProps) {
   
   // Fetch featured products for this coop
   const featuredProducts = await getFeaturedProducts(coopId);
+  const liveStats = previewData?.stats ?? {};
+  const liveMemberCount = Number(liveStats.memberCount ?? 0);
+  const liveProductCount = Number(liveStats.productCount ?? 0);
   
   // Colors are stored as hex values like "#16a34a"
   // Create gradient from primary and accent colors
@@ -192,16 +218,19 @@ export default async function CoopPublicPage({ params }: PageProps) {
     id: coopId,
     slug: coopId,
     name: publicInfo.name || coopId,
-    tagline: publicInfo.tagline || 'Building community wealth together',
-    description: publicInfo.aboutBody || publicInfo.heroSubtitle || '',
+    title: publicInfo.heroTitle || publicInfo.tagline || DEFAULT_PUBLIC_HERO_TITLE,
+    tagline: getPublicHeroSubtitle(publicInfo.heroSubtitle),
+    description: getPublicHeroDescription(publicInfo.aboutBody),
     mission: publicInfo.missionBody || '',
     bgColor: primaryColorHex,
     accentColor: accentColorHex,
     gradientStyle, // Inline style object for gradient backgrounds
-    features: publicInfo.features as any[] || [],
-    memberCount: 0, // TODO: Get from stats
-    storeCount: previewData?.stores?.length || 0,
-    totalProducts: 0, // TODO: Calculate from stores
+    features: (publicInfo.features as any[] | null) ?? [],
+    // Temporary public display floor while early member data is still being
+    // backfilled. Remove once live membership numbers are ready to show.
+    memberCount: Math.max(liveMemberCount, TEMP_PUBLIC_MEMBER_COUNT_FALLBACK),
+    storeCount: Number(liveStats.storeCount ?? previewData?.stores?.length ?? 0),
+    totalProducts: liveProductCount || featuredProducts.length,
     stats: {
       treasurySize: '$0', // TODO: Get from treasury
       proposalsFunded: 0, // TODO: Get from proposals
@@ -219,7 +248,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
     imageUrl: store.imageUrl || null,
     rating: 0, // TODO: Get from reviews
     reviewCount: 0,
-    productCount: 0, // TODO: Get from products
+    productCount: Number(store.productCount ?? 0),
     isScVerified: Boolean(store.isScVerified),
     isFeatured: Boolean(store.isFeatured),
   }));
@@ -239,6 +268,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      <TrackPageView event="coop_landing_viewed" properties={{ coop_id: coopId, coop_name: coop.name }} />
       {/* Hero Section */}
       <CoopHero coop={coop} />
 
@@ -276,10 +306,10 @@ export default async function CoopPublicPage({ params }: PageProps) {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-                Featured Products
+                Shop Soulaan Businesses
               </h2>
               <p className="mt-1 text-muted-foreground">
-                Popular items from our community stores
+                Products from stores participating in the cooperative marketplace
               </p>
             </div>
             <Button variant="outline" asChild className="hover:border-[var(--coop-accent)] hover:text-[var(--coop-accent)] transition-colors">
@@ -299,10 +329,10 @@ export default async function CoopPublicPage({ params }: PageProps) {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-                Community Stores
+                Member Marketplace
               </h2>
               <p className="mt-1 text-muted-foreground">
-                Shop from businesses in our cooperative network
+                Businesses selling through Soulaan Coop and helping circulate value locally
               </p>
             </div>
             <Button variant="outline" asChild className="hover:border-[var(--coop-accent)] hover:text-[var(--coop-accent)] transition-colors">
@@ -337,12 +367,12 @@ export default async function CoopPublicPage({ params }: PageProps) {
             <div className="grid items-center gap-8 p-8 md:grid-cols-2 md:p-12">
               <div className="text-white">
                 <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                  Join Our Community
+                  Become a Soulaan Coop Member
                 </h2>
                 <p className="mt-4 text-lg text-white/90">
-                  Become a member of {coop.name} and help build economic
-                  independence together. Get access to exclusive discounts,
-                  voting rights, and community benefits.
+                  Apply to join {coop.name} and participate in a marketplace
+                  built around ownership, rewards, local businesses, and shared
+                  decision-making.
                 </p>
                 {coop.features.length > 0 ? (
                   <ul className="mt-6 space-y-3">
@@ -361,19 +391,19 @@ export default async function CoopPublicPage({ params }: PageProps) {
                       <div className="rounded-full bg-white/20 p-1">
                         <Sparkles className="h-4 w-4" />
                       </div>
-                      <span>Exclusive member discounts</span>
+                      <span>Earn rewards when you shop with coop businesses</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-white/20 p-1">
                         <Users className="h-4 w-4" />
                       </div>
-                      <span>Vote on community proposals</span>
+                      <span>Vote on proposals that shape the coop</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <div className="rounded-full bg-white/20 p-1">
                         <Store className="h-4 w-4" />
                       </div>
-                      <span>Support Black-owned businesses</span>
+                      <span>Support businesses building community wealth</span>
                     </li>
                   </ul>
                 )}

@@ -9,6 +9,7 @@ interface CoopHeroProps {
     id: string;
     slug: string;
     name: string;
+    title: string;
     tagline: string;
     description: string;
     bgColor: string;
@@ -45,14 +46,13 @@ export function CoopHero({ coop }: CoopHeroProps) {
 
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
         <div className="text-center">
-          {/* Logo/Name */}
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
             <Users className="h-4 w-4" />
-            Community Cooperative
+            {coop.name}
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-            {coop.name}
+            {coop.title}
           </h1>
 
           <p className="mx-auto mt-4 max-w-2xl text-xl text-white/90">
@@ -73,7 +73,7 @@ export function CoopHero({ coop }: CoopHeroProps) {
             >
               <Link href={`/c/${coop.slug}/products`}>
                 <ShoppingBag className="mr-2 h-5 w-5" />
-                Shop Products
+                Shop the Coop
               </Link>
             </Button>
             <Button
@@ -84,7 +84,7 @@ export function CoopHero({ coop }: CoopHeroProps) {
             >
               <Link href="#join">
                 <Users className="mr-2 h-5 w-5" />
-                Join as Member
+                Apply to Join
               </Link>
             </Button>
           </div>
