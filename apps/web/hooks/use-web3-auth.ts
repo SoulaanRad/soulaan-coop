@@ -79,6 +79,16 @@ export function useWeb3Auth() {
   
   // Login with wallet
   const login = useCallback(async (coopId?: string) => {
+    const targetCoopId = coopId?.trim();
+
+    if (!targetCoopId) {
+      setAuthState((prev) => ({
+        ...prev,
+        error: 'Coop ID is required',
+      }));
+      return false;
+    }
+
     if (!isConnected || !address) {
       setAuthState((prev) => ({
         ...prev,
@@ -110,7 +120,7 @@ export function useWeb3Auth() {
       const verifyResponse = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, signature, message, coopId }),
+        body: JSON.stringify({ address, signature, message, coopId: targetCoopId }),
       });
       
       if (!verifyResponse.ok) {
@@ -132,11 +142,11 @@ export function useWeb3Auth() {
       });
       
       // Redirect based on profile status
-      const targetCoopId = activeCoopId || coopId || 'soulaan';
+      const redirectCoopId = activeCoopId || targetCoopId;
       if (!hasProfile) {
-        router.push(`/portal/${targetCoopId}/create-profile`);
+        router.push(`/portal/${redirectCoopId}/create-profile`);
       } else {
-        router.push(`/portal/${targetCoopId}`);
+        router.push(`/portal/${redirectCoopId}`);
       }
       
       return true;
@@ -156,9 +166,10 @@ export function useWeb3Auth() {
   }, [address, isConnected, router, signMessageAsync]);
   
   // Logout
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (coopId?: string) => {
     try {
       setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
+      const loginCoopId = coopId || authState.activeCoopId;
 
       // Call logout API
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -177,7 +188,7 @@ export function useWeb3Auth() {
         address: null,
       });
 
-      router.push('/login');
+      router.push(loginCoopId ? `/login?coopId=${loginCoopId}` : '/login');
 
       return true;
     } catch (_error) {
@@ -189,7 +200,7 @@ export function useWeb3Auth() {
       }));
       return false;
     }
-  }, [disconnect, router]);
+  }, [authState.activeCoopId, disconnect, router]);
   
   // Check authentication status on mount
   useEffect(() => {
