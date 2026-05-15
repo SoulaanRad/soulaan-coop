@@ -14,21 +14,50 @@ const DEFAULT_COIN: CoinConfig = {
 
 /**
  * Returns coin config (symbol, name, description) from PlatformConfig table.
- * Falls back to SC / Soulaan Coin defaults if the query hasn't resolved yet.
+ * When a coopId is provided, coop-level token metadata takes precedence.
+ * Falls back to SC / Soulaan Coin defaults if the queries haven't resolved yet.
  */
-export function useCoin(): CoinConfig {
-  const { data } = api.platformConfig.getConfig.useQuery(undefined, {
+export function useCoin(coopId?: string): CoinConfig {
+  const { data: platformConfig } = api.platformConfig.getConfig.useQuery(undefined, {
     staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });
-  return data?.coin ?? DEFAULT_COIN;
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery(
+    { coopId: coopId ?? "" },
+    {
+      enabled: !!coopId,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  const fallbackCoin = platformConfig?.coin ?? DEFAULT_COIN;
+
+  return {
+    symbol: coopConfig?.scTokenSymbol ?? fallbackCoin.symbol,
+    name: coopConfig?.scTokenName ?? fallbackCoin.name,
+    description: coopConfig?.description ?? fallbackCoin.description,
+  };
 }
 
-export function usePlatformConfig() {
-  const { data } = api.platformConfig.getConfig.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000,
+export function usePlatformConfig(coopId?: string) {
+  const { data: platformConfig } = api.platformConfig.getConfig.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000, // cache for 5 minutes
   });
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery(
+    { coopId: coopId ?? "" },
+    {
+      enabled: !!coopId,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  const fallbackCoin = platformConfig?.coin ?? DEFAULT_COIN;
+
   return {
-    coin: data?.coin ?? DEFAULT_COIN,
-    platformName: data?.platformName ?? "Cahootz",
+    coin: {
+      symbol: coopConfig?.scTokenSymbol ?? fallbackCoin.symbol,
+      name: coopConfig?.scTokenName ?? fallbackCoin.name,
+      description: coopConfig?.description ?? fallbackCoin.description,
+    },
+    platformName: platformConfig?.platformName ?? "Cahootz",
   };
 }

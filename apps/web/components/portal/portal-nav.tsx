@@ -93,14 +93,20 @@ export function PortalNav({ coopId }: { coopId?: string }) {
   const pathname = usePathname();
   const { logout, isAdmin, adminRole, address } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-  const coin = useCoin();
-
+  const coin = useCoin(coopId);
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery(
+    { coopId: coopId ?? "" },
+    { enabled: !!coopId }
+  );
+  const coopName = coopConfig?.name || "Portal";
+  
+  // Get current user info
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
     { walletAddress: address || "", coopId },
     { enabled: !!address }
   );
 
+  // Prefix all nav links with coopId if provided
   const prefixHref = (href: string) => {
     if (!coopId) return href;
     return `/portal/${coopId}${href.replace("/portal", "")}`;
@@ -213,6 +219,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
                 <p className="truncate text-base font-semibold leading-5">Co-op Portal</p>
                 <p className="truncate text-xs text-zinc-500">{coopId || "workspace"}</p>
               </div>
+              <span className="font-semibold text-lg text-white">{coopName}</span>
             </Link>
 
             <div className="flex shrink-0 items-center gap-3 lg:hidden">
