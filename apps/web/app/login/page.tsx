@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi';
 import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { AlertCircle, CheckCircle, Loader2, Mail, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { open } = useWeb3Modal();
   const { address, isConnected } = useAccount();
+  const { connectAsync, connectors } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const { disconnect } = useDisconnect();
 
@@ -127,7 +128,19 @@ export default function LoginPage() {
       setError(null);
       await open();
     } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
+      try {
+        const injectedConnector =
+          connectors.find((connector) => connector.id === 'injected') ||
+          connectors.find((connector) => connector.name.toLowerCase().includes('metamask'));
+
+        if (!injectedConnector) {
+          throw err;
+        }
+
+        await connectAsync({ connector: injectedConnector });
+      } catch (fallbackError: any) {
+        setError(fallbackError.message || err.message || 'Failed to connect wallet');
+      }
     }
   };
 

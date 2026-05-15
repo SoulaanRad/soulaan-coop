@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const { address } = result.data;
     
     // Generate a challenge for the address
-    const message = await generateChallenge(address);
+    const message = await generateChallenge(address, request.nextUrl.origin);
     
     // Return the challenge message
     return NextResponse.json({ message });
