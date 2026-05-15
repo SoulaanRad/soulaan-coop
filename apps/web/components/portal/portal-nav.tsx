@@ -30,12 +30,14 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+const dashboardLink: NavItem = {
+  title: "Dashboard",
+  href: "/portal",
+  icon: BarChart3,
+};
+
 const memberLinks: NavItem[] = [
-  {
-    title: "Dashboard",
-    href: "/portal",
-    icon: BarChart3,
-  },
+  dashboardLink,
   {
     title: "Members",
     href: "/portal/members",
@@ -133,7 +135,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
 
     setIsLoggingOut(true);
     try {
-      await logout();
+      await logout(coopId);
     } catch (error) {
       console.error("Error logging out:", error);
     } finally {
@@ -188,11 +190,11 @@ export function PortalNav({ coopId }: { coopId?: string }) {
     </div>
   );
 
-  const navGroups: Array<{
+  const navGroups: {
     label: string;
     items: NavItem[];
     tone: "member" | "admin";
-  }> = [
+  }[] = [
     { label: "Workspace", items: memberLinks, tone: "member" },
     ...(isAdmin
       ? [
@@ -204,8 +206,8 @@ export function PortalNav({ coopId }: { coopId?: string }) {
 
   const activeNavItem =
     navGroups.flatMap((group) => group.items).find((item) => isActive(item.href)) ??
-    memberLinks[0];
-  const ActiveIcon = activeNavItem?.icon;
+    dashboardLink;
+  const ActiveIcon = activeNavItem.icon;
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#0b0d10]/95 text-white backdrop-blur">
@@ -283,7 +285,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
                 Current page
               </p>
               <p className="truncate text-sm font-semibold text-zinc-100">
-                {activeNavItem?.title}
+                {activeNavItem.title}
               </p>
             </div>
           </div>

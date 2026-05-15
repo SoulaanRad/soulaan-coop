@@ -17,7 +17,7 @@ const requestSchema = z.object({
   address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
   signature: z.string(),
   message: z.string(),
-  coopId: z.string().optional(),
+  coopId: z.string().trim().min(1, 'Coop ID is required'),
 });
 
 /**
@@ -54,9 +54,8 @@ export async function POST(request: NextRequest) {
     
     if (!hasSoulaaniCoin) {
       // Get the coin name from coopConfig for a better error message
-      const targetCoopId = coopId || 'soulaan';
       const coopConfig = await db.coopConfig.findFirst({
-        where: { coopId: targetCoopId, isActive: true },
+        where: { coopId, isActive: true },
         orderBy: { version: 'desc' },
         select: { scTokenName: true },
       });

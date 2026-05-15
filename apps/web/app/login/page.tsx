@@ -15,6 +15,9 @@ type LoginMode = 'email' | 'wallet';
 type EmailStep = 'email' | 'code';
 type OnboardingStep = 'connect' | 'verify' | 'profile' | 'complete';
 
+const MISSING_COOP_ID_MESSAGE =
+  'This login link is missing a co-op ID. Please open the login link from your co-op portal.';
+
 export default function LoginPage() {
   const router = useRouter();
   const { open } = useWeb3Modal();
@@ -33,18 +36,22 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [_hasGovernanceToken, setHasGovernanceToken] = useState(false);
   const [coopId, setCoopId] = useState<string | null>(null);
+  const [isCheckingCoopId, setIsCheckingCoopId] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const coopIdParam = params.get('coopId');
+    const coopIdParam = params.get('coopId')?.trim();
     if (coopIdParam) {
       setCoopId(coopIdParam);
+    } else {
+      setError(MISSING_COOP_ID_MESSAGE);
     }
+    setIsCheckingCoopId(false);
   }, []);
 
   const { data: coopConfig } = api.coopConfig.getActive.useQuery(
-    { coopId: coopId || 'soulaan' },
-    { enabled: true }
+    { coopId: coopId ?? '' },
+    { enabled: !!coopId }
   );
 
   const [profileData, setProfileData] = useState({
@@ -60,8 +67,16 @@ export default function LoginPage() {
     }
   }, [isConnected, address, currentStep]);
 
-  const targetCoopId = coopId || 'soulaan';
   const coopName = coopConfig?.name || 'Co-op';
+
+  const requireCoopId = () => {
+    if (coopId) {
+      return coopId;
+    }
+
+    setError(MISSING_COOP_ID_MESSAGE);
+    return null;
+  };
 
   const switchMode = (mode: LoginMode) => {
     setLoginMode(mode);
@@ -71,6 +86,9 @@ export default function LoginPage() {
 
   const handleRequestEmailCode = async (event: React.FormEvent) => {
     event.preventDefault();
+    const targetCoopId = requireCoopId();
+    if (!targetCoopId) return;
+
     setIsLoading(true);
     setError(null);
     setDevLoginCode(null);
@@ -100,6 +118,9 @@ export default function LoginPage() {
 
   const handleVerifyEmailCode = async (event: React.FormEvent) => {
     event.preventDefault();
+    const targetCoopId = requireCoopId();
+    if (!targetCoopId) return;
+
     setIsLoading(true);
     setError(null);
 
@@ -145,6 +166,9 @@ export default function LoginPage() {
   };
 
   const handleVerifyGovernanceToken = async () => {
+    const targetCoopId = requireCoopId();
+    if (!targetCoopId) return;
+
     if (!address) {
       setError('No wallet connected');
       return;
@@ -201,6 +225,8 @@ export default function LoginPage() {
 
   const handleCreateProfile = async (event: React.FormEvent) => {
     event.preventDefault();
+    const targetCoopId = requireCoopId();
+    if (!targetCoopId) return;
 
     if (!address) {
       setError('No wallet connected');
@@ -239,8 +265,45 @@ export default function LoginPage() {
   };
 
   const handleComplete = () => {
+    const targetCoopId = requireCoopId();
+    if (!targetCoopId) return;
+
     router.push(`/portal/${targetCoopId}`);
   };
+
+  if (isCheckingCoopId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center gap-3 p-6 text-sm text-gray-600">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading login page...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!coopId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Missing Co-op ID</CardTitle>
+            <CardDescription>
+              We need to know which co-op you are signing in to before showing the login form.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-800">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p>{MISSING_COOP_ID_MESSAGE}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">

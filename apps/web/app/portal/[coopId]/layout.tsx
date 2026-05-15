@@ -44,7 +44,7 @@ function WalletAuth({ coopId }: { coopId: string }) {
           variant="destructive" 
           size="sm" 
           onClick={async () => {
-            await logout();
+            await logout(coopId);
             router.push(`/login?coopId=${coopId}`);
           }}
         >
