@@ -192,7 +192,7 @@ export default function CoopConfigPage() {
                   <li>Score mix: Mission 60% / Structural 40%</li>
                   <li>Screening threshold: 60%</li>
                   <li>Quorum: 15% · Approval: 51% · Voting window: 7 days</li>
-                  <li>Approval tiers: AI auto-approve &lt; $500 UC · Council vote $500–$5,000 UC · Full coop vote ≥ $5,000 UC</li>
+                  <li>Approval tiers: AI auto-approve &lt; $500 · Council vote $500–$5,000 · Full coop vote ≥ $5,000</li>
                 </ul>
               </div>
 
@@ -887,7 +887,7 @@ export default function CoopConfigPage() {
       {/* Approval Tiers */}
       <ConfigSectionEditor
         title="Approval Tiers"
-        description="UC (USD-equivalent) thresholds that determine who approves a proposal after it passes AI screening."
+        description="Dollar thresholds that determine who approves a proposal after it passes AI screening."
         isDirty={!!(editAutoApproveThreshold || editCouncilThreshold)}
         onSave={async (reason) => {
           const changes = {
@@ -912,7 +912,7 @@ export default function CoopConfigPage() {
               color: "border-emerald-700/40 bg-emerald-900/10",
               label: "AI Auto-Approve",
               labelColor: "text-emerald-400",
-              range: `< $${(editAutoApproveThreshold ? parseFloat(editAutoApproveThreshold) : config.aiAutoApproveThresholdUSD ?? 500).toLocaleString()} UC`,
+              range: `< $${(editAutoApproveThreshold ? parseFloat(editAutoApproveThreshold) : config.aiAutoApproveThresholdUSD ?? 500).toLocaleString()}`,
               desc: "Passes screening + below auto-approve threshold → immediately approved, no human vote needed.",
             },
             {
@@ -920,7 +920,7 @@ export default function CoopConfigPage() {
               color: "border-amber-700/40 bg-amber-900/10",
               label: "Council Vote",
               labelColor: "text-amber-400",
-              range: `$${(editAutoApproveThreshold ? parseFloat(editAutoApproveThreshold) : config.aiAutoApproveThresholdUSD ?? 500).toLocaleString()} – $${(editCouncilThreshold ? parseFloat(editCouncilThreshold) : config.councilVoteThresholdUSD ?? 5000).toLocaleString()} UC`,
+              range: `$${(editAutoApproveThreshold ? parseFloat(editAutoApproveThreshold) : config.aiAutoApproveThresholdUSD ?? 500).toLocaleString()} – $${(editCouncilThreshold ? parseFloat(editCouncilThreshold) : config.councilVoteThresholdUSD ?? 5000).toLocaleString()}`,
               desc: "Passes screening + between the two thresholds → council members vote to approve or reject.",
             },
             {
@@ -928,7 +928,7 @@ export default function CoopConfigPage() {
               color: "border-blue-700/40 bg-blue-900/10",
               label: "Full Coop Vote",
               labelColor: "text-blue-400",
-              range: `≥ $${(editCouncilThreshold ? parseFloat(editCouncilThreshold) : config.councilVoteThresholdUSD ?? 5000).toLocaleString()} UC`,
+              range: `≥ $${(editCouncilThreshold ? parseFloat(editCouncilThreshold) : config.councilVoteThresholdUSD ?? 5000).toLocaleString()}`,
               desc: "Passes screening + above council threshold → all coop members vote using governance rules.",
             },
           ].map((tier) => (
@@ -950,7 +950,7 @@ export default function CoopConfigPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <Bot className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-gray-400 font-medium">AI Auto-Approve Limit (UC)</span>
+              <span className="text-gray-400 font-medium">AI Auto-Approve Limit (USD)</span>
             </div>
             <p className="text-xs text-gray-600">Proposals under this amount are auto-approved by AI.</p>
             <Input
@@ -963,7 +963,7 @@ export default function CoopConfigPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-blue-400" />
-              <span className="text-gray-400 font-medium">Full Coop Vote Limit (UC)</span>
+              <span className="text-gray-400 font-medium">Full Coop Vote Limit (USD)</span>
             </div>
             <p className="text-xs text-gray-600">Proposals at or above this amount require a full coop vote.</p>
             <Input
@@ -976,10 +976,10 @@ export default function CoopConfigPage() {
         </div>
       </ConfigSectionEditor>
 
-      {/* Display Features (Onboarding) */}
+      {/* Features */}
       <ConfigSectionEditor
-        title="Onboarding Features"
-        description="Feature cards shown to new members during mobile app onboarding. Highlight the key benefits of joining."
+        title="Features"
+        description="Feature cards shown to members. Highlight the key benefits of joining."
         isDirty={editFeatures !== null}
         onSave={propose("displayFeatures", { displayFeatures: editFeatures ?? config.displayFeatures ?? [] }, { displayFeatures: config.displayFeatures ?? [] })}
         isSaving={proposeChange.isPending}
