@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Minus, Plus, ShoppingCart, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
+import { usePostHog } from "posthog-js/react";
 
 interface AddToCartButtonProps {
   product: {
@@ -29,6 +30,7 @@ export function AddToCartButton({ product, store, coopSlug, disabled }: AddToCar
   const [justAdded, setJustAdded] = useState(false);
   const { addItem } = useCart();
   const router = useRouter();
+  const posthog = usePostHog();
 
   const handleAddToCart = () => {
     setIsAdding(true);
@@ -48,6 +50,18 @@ export function AddToCartButton({ product, store, coopSlug, disabled }: AddToCar
         quantity
       );
       
+      posthog.capture("product_added_to_cart", {
+        product_id: product.id,
+        product_name: product.name,
+        product_type: product.productType,
+        price_usd: product.priceUSD,
+        quantity,
+        total_usd: product.priceUSD * quantity,
+        store_id: store.id,
+        store_name: store.name,
+        is_sc_verified: store.isScVerified,
+        coop_slug: coopSlug,
+      });
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 2000);
     } catch (error) {

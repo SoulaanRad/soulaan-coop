@@ -26,6 +26,7 @@ export default function SettingsPage() {
   // Get current user info
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
     { walletAddress, coopId },
+
     { enabled: !!walletAddress }
   );
 
@@ -63,8 +64,8 @@ export default function SettingsPage() {
   };
 
   const copyAddress = () => {
-    if (address) {
-      navigator.clipboard.writeText(address);
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -118,7 +119,7 @@ export default function SettingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={copyAddress}
-                disabled={!address}
+                disabled={!walletAddress}
                 className="flex items-center gap-2"
               >
                 {copied ? (
@@ -140,7 +141,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2 mt-1">
               <div className={`h-2 w-2 rounded-full ${address ? "bg-green-500" : "bg-gray-500"}`} />
               <span className="text-sm text-gray-300">
-                {address ? "Connected" : "Disconnected"}
+                {address ? "Connected" : sessionAddress ? "Session wallet" : "Disconnected"}
               </span>
             </div>
           </div>

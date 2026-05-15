@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CartButton } from "../../components/cart-button";
+import { TrackPageView } from "../../components/track-page-view";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -146,6 +147,15 @@ export default async function StoreDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      <TrackPageView
+        event="store_viewed"
+        properties={{
+          coop_id: coopId,
+          store_id: storeId,
+          store_name: store.name,
+          is_sc_verified: store.isScVerified,
+        }}
+      />
       {/* Store Header/Banner */}
       <header className="relative" style={{ background: 'linear-gradient(to bottom right, var(--coop-bg), var(--coop-accent))' }}>
         <div className="absolute inset-0 bg-black/20" />

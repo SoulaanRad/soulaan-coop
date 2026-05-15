@@ -1,18 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { api } from "@/lib/trpc/client";
 import { useCoin } from "@/hooks/use-platform-config";
+import { useWeb3Auth } from "@/hooks/use-web3-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   RefreshCw,
   DollarSign,
@@ -25,34 +18,36 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-type ChartPeriod = '7d' | '30d' | '90d';
-
 export default function TreasuryDashboardHybrid() {
   const coin = useCoin();
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d');
+  const { address, isLoading: authLoading } = useWeb3Auth();
+  const queriesEnabled = !authLoading && !!address;
 
   // Fetch treasury summary (Wealth Fund)
   const treasurySummaryQuery = api.treasuryLedger.getSummary.useQuery({
     currency: 'USD',
   }, {
+    enabled: queriesEnabled,
     refetchInterval: 60000,
   });
 
   // Fetch payment stats
-  const paymentStatsQuery = api.commerce.getPaymentStats.useQuery({
-    startDate: getStartDateForPeriod(chartPeriod),
-  }, {
+  const paymentStatsQuery = api.commerce.getPaymentStats.useQuery({}, {
+    enabled: queriesEnabled,
     refetchInterval: 60000,
   });
 
   // Fetch SC mint stats
   const scStatsQuery = api.scMintEvents.getStats.useQuery(undefined, {
+    enabled: queriesEnabled,
     refetchInterval: 60000,
   });
 
   // Fetch recent ledger entries
   const ledgerEntriesQuery = api.treasuryLedger.getLedgerEntries.useQuery({
     limit: 10,
+  }, {
+    enabled: queriesEnabled,
   });
 
   const formatAmount = (amount: number) => {
@@ -69,7 +64,14 @@ export default function TreasuryDashboardHybrid() {
     }).format(amount);
   };
 
-  const isLoading = treasurySummaryQuery.isLoading || paymentStatsQuery.isLoading || scStatsQuery.isLoading;
+  const accountBalances = Object.fromEntries(
+    (treasurySummaryQuery.data?.accountBalances ?? []).map((account) => [
+      account.accountType,
+      account.balance,
+    ])
+  ) as Record<string, number>;
+
+  const isLoading = authLoading || treasurySummaryQuery.isLoading || paymentStatsQuery.isLoading || scStatsQuery.isLoading;
   const hasError = treasurySummaryQuery.error || paymentStatsQuery.error || scStatsQuery.error;
 
   if (hasError) {
@@ -89,24 +91,17 @@ export default function TreasuryDashboardHybrid() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Treasury Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-bold text-zinc-50">Treasury Dashboard</h1>
+          <p className="mt-1 text-zinc-400">
             Monitor Wealth Fund, payments, and {coin.symbol} rewards
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={chartPeriod} onValueChange={(v) => setChartPeriod(v as ChartPeriod)}>
-            <SelectTrigger className="w-32 bg-background text-foreground border-input">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-background text-foreground border-input">
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm font-medium text-zinc-200">
+            All time
+          </div>
           <Button
             variant="outline"
             size="icon"
@@ -116,6 +111,7 @@ export default function TreasuryDashboardHybrid() {
               scStatsQuery.refetch();
             }}
             disabled={isLoading}
+            className="border-zinc-800 bg-zinc-950 text-zinc-100 hover:bg-zinc-900 hover:text-zinc-50"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
@@ -135,10 +131,10 @@ export default function TreasuryDashboardHybrid() {
             ) : (
               <>
                 <div className="text-2xl font-bold text-slate-100">
-                  {formatAmount((treasurySummaryQuery.data?.totalBalance || 0) / 100)}
+                  {formatAmount(treasurySummaryQuery.data?.totalBalance || 0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  From {treasurySummaryQuery.data?.totalEntries || 0} transactions
+                  From {ledgerEntriesQuery.data?.total || treasurySummaryQuery.data?.recentActivity?.length || 0} transactions
                 </p>
               </>
             )}
@@ -227,7 +223,7 @@ export default function TreasuryDashboardHybrid() {
                     {scStatsQuery.data.failed} rewards failed to mint
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-red-500/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200">
                   Review
                 </Button>
               </div>
@@ -240,7 +236,7 @@ export default function TreasuryDashboardHybrid() {
                     {scStatsQuery.data.pending} rewards still processing
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-amber-500/30 bg-transparent text-amber-300 hover:bg-amber-500/10 hover:text-amber-200">
                   Review
                 </Button>
               </div>
@@ -276,7 +272,7 @@ export default function TreasuryDashboardHybrid() {
                     </div>
                   </div>
                   <p className="text-lg font-bold text-slate-100">
-                    {formatAmount((treasurySummaryQuery.data?.accountBalances.TREASURY_FEES || 0) / 100)}
+                    {formatAmount(accountBalances.TREASURY_FEES || 0)}
                   </p>
                 </div>
 
@@ -291,7 +287,7 @@ export default function TreasuryDashboardHybrid() {
                     </div>
                   </div>
                   <p className="text-lg font-bold text-slate-100">
-                    {formatAmount((treasurySummaryQuery.data?.accountBalances.PLATFORM_FEES || 0) / 100)}
+                    {formatAmount(accountBalances.PLATFORM_FEES || 0)}
                   </p>
                 </div>
               </div>
@@ -310,7 +306,7 @@ export default function TreasuryDashboardHybrid() {
                 Latest treasury ledger entries
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm" className="text-slate-300 hover:text-slate-200">
+            <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100">
               View All
             </Button>
           </div>
@@ -374,7 +370,7 @@ export default function TreasuryDashboardHybrid() {
                       entry.direction === 'CREDIT' ? 'text-green-500' : 'text-red-500'
                     }`}>
                       {entry.direction === 'CREDIT' ? '+' : '-'}
-                      {formatAmount(entry.amount / 100)}
+                      {formatAmount(entry.amount)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(entry.occurredAt).toLocaleDateString()}
@@ -390,7 +386,7 @@ export default function TreasuryDashboardHybrid() {
       {/* Payment Stats */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>
-          <CardTitle className="text-slate-200">Payment Activity ({chartPeriod})</CardTitle>
+          <CardTitle className="text-slate-200">Payment Activity</CardTitle>
           <CardDescription>
             Commerce transaction breakdown
           </CardDescription>
@@ -495,18 +491,4 @@ export default function TreasuryDashboardHybrid() {
       </Card>
     </div>
   );
-}
-
-function getStartDateForPeriod(period: ChartPeriod): Date {
-  const now = new Date();
-  switch (period) {
-    case '7d':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    case '30d':
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    case '90d':
-      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    default:
-      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  }
 }

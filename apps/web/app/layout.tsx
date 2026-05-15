@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import type React from "react";
+import { Suspense } from "react";
 import { Inter } from "next/font/google";
 
 import "./globals.css";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { PostHogPageView } from "@/components/posthog-pageview";
 import { TRPCProvider } from "@/lib/trpc/provider";
 import { Web3Provider } from "@/lib/web3-provider";
 
@@ -166,6 +168,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <PostHogProvider>
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
           <Web3Provider>
             <TRPCProvider>
               {children}

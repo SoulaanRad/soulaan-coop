@@ -4,17 +4,18 @@ import { db } from '@repo/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { flag: string } }
+  { params }: { params: Promise<{ flag: string }> }
 ) {
   try {
-    const flagKey = params.flag.toUpperCase().replace(/-/g, '_');
+    const { flag } = await params;
+    const flagKey = flag.toUpperCase().replace(/-/g, '_');
     
     const featureFlag = await db.featureFlag.findUnique({
       where: { key: flagKey },
     });
 
     return NextResponse.json({
-      enabled: featureFlag?.enabled || false,
+      enabled: featureFlag?.enabled ?? flagKey === 'HYBRID_ARCHITECTURE',
       key: flagKey,
     });
   } catch (error) {

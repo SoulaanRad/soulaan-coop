@@ -4,12 +4,68 @@ import { authenticatedProcedure, privateProcedure } from '../procedures/index.js
 import { db } from '@repo/db';
 import { 
   getActiveFeeConfig, 
-  calculatePriceBreakdown, 
   createCommerceTransaction,
   getTransactionByPaymentIntent 
 } from '../services/payment-orchestration-service.js';
+import { calculateCheckoutPricing } from '../services/checkout-pricing-service.js';
 import { validateRewardEligibility } from '../services/reward-policy-service.js';
-import { CoopScopedContext } from '../context.js';
+import { getUserWalletInfo } from '../services/wallet-service.js';
+import { AuthenticatedContext, CoopScopedContext } from '../context.js';
+
+async function getUserForWallet(walletAddress: string) {
+  const user = await db.user.findFirst({
+    where: {
+      OR: [
+        {
+          walletAddress: {
+            equals: walletAddress,
+            mode: 'insensitive',
+          },
+        },
+        {
+          wallets: {
+            some: {
+              address: {
+                equals: walletAddress,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ],
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
+  });
+
+  if (!user) return null;
+
+  const walletInfo = await getUserWalletInfo(user.id, db);
+
+  return {
+    ...user,
+    walletInfo,
+  };
+}
+
+async function getCoopMembershipStatus(userId: string, coopId: string) {
+  const membership = await db.userCoopMembership.findUnique({
+    where: {
+      userId_coopId: {
+        userId,
+        coopId,
+      },
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  return membership?.status ?? null;
+}
 
 export const commerceTransactionsRouter = router({
   /**
@@ -23,8 +79,14 @@ export const commerceTransactionsRouter = router({
       currency: z.string().default('USD'),
       coopId: z.string().default('???'),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const context = ctx as AuthenticatedContext;
       const { userId, businessId, listedAmountCents, currency, coopId } = input;
+      const authenticatedUser = await getUserForWallet(context.walletAddress);
+
+      if (!authenticatedUser || authenticatedUser.id !== userId) {
+        throw new Error('Authenticated wallet does not match checkout user');
+      }
 
       // Get business and check eligibility
       const business = await db.business.findUnique({
@@ -35,38 +97,30 @@ export const commerceTransactionsRouter = router({
         },
       });
       
-      // Get owner's wallets separately
-      const ownerWallets = business?.ownerId ? await db.wallet.findMany({
-        where: {
-          userId: business.ownerId,
-          walletType: 'MANAGED',
-        },
-        take: 1,
-      }) : [];
-
       if (!business) {
         throw new Error('Business not found');
       }
 
       // Get active fee config
       const feeConfig = await getActiveFeeConfig();
-      
-      // Calculate price breakdown
-      const breakdown = calculatePriceBreakdown(listedAmountCents, feeConfig);
+      const membershipStatus = await getCoopMembershipStatus(userId, coopId);
+      const pricing = calculateCheckoutPricing({
+        listedAmountCents,
+        feeConfig,
+        applyTreasuryFee: membershipStatus === 'ACTIVE',
+      });
+      const breakdown = pricing.breakdown;
 
       // Check SC reward eligibility
-      const customerWallets = await db.wallet.findMany({
-        where: {
-          userId,
-          walletType: 'MANAGED',
-        },
-        orderBy: {
-          isPrimary: 'desc',
-        },
-        take: 1,
-      });
-      const customerWallet = customerWallets[0];
-      const merchantWallet = ownerWallets[0];
+      const customerWallet = authenticatedUser.walletInfo.hasWallet
+        ? authenticatedUser.walletInfo
+        : null;
+      const merchantWalletInfo = business.ownerId
+        ? await getUserWalletInfo(business.ownerId, db)
+        : null;
+      const merchantWallet = merchantWalletInfo?.hasWallet
+        ? merchantWalletInfo
+        : null;
 
       const eligibility = (customerWallet && merchantWallet)
         ? await validateRewardEligibility({
@@ -82,14 +136,16 @@ export const commerceTransactionsRouter = router({
 
       return {
         listedAmountCents,
-        platformMarkupCents: breakdown.platformFeeAmount,
+        platformMarkupCents: breakdown.platformMarkupAmount,
         treasuryFeeCents: breakdown.treasuryFeeAmount,
         totalChargedCents: breakdown.chargedAmount,
         merchantSettlementCents: breakdown.merchantSettlementAmount,
         currency,
+        appliesTreasuryFee: pricing.appliesTreasuryFee,
+        membershipStatus,
         feeConfig: {
-          platformMarkupBps: feeConfig.platformMarkupBps,
-          treasuryFeeBps: feeConfig.treasuryFeeBps,
+          platformMarkupBps: pricing.feeConfig.platformMarkupBps,
+          treasuryFeeBps: pricing.feeConfig.treasuryFeeBps,
         },
         customerReward: {
           eligible: eligibility.customerEligible,
@@ -122,6 +178,11 @@ export const commerceTransactionsRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { userId, guestEmail, guestName, coopId, businessId, listedAmountCents, currency, metadata } = input;
+      if (userId) {
+        throw new Error('Public checkout does not support logged-in purchases yet');
+      }
+
+      const isLoggedInCheckout = false;
 
       let customerId = userId;
 
@@ -153,25 +214,68 @@ export const commerceTransactionsRouter = router({
         businessId,
         listedAmountCents,
         coopId,
+        applyTreasuryFee: isLoggedInCheckout,
         currency,
         metadata: {
           ...metadata,
-          isGuestCheckout: !userId,
+          isGuestCheckout: !isLoggedInCheckout,
           guestEmail,
           guestName,
         },
       });
-
-      // Calculate breakdown for response
-      const feeConfig = await getActiveFeeConfig();
-      const breakdown = calculatePriceBreakdown(listedAmountCents, feeConfig);
 
       return {
         transactionId: result.transaction.id,
         clientSecret: result.paymentIntent.clientSecret,
         totalChargedCents: Math.round(result.transaction.chargedAmount * 100),
         merchantSettlementCents: Math.round(result.transaction.merchantSettlementAmount * 100),
-        platformFeeCents: breakdown.platformFeeAmount,
+        platformFeeCents: Math.round((result.transaction.chargedAmount - result.transaction.merchantSettlementAmount) * 100),
+        treasuryFeeCents: Math.round(result.transaction.treasuryFeeAmount * 100),
+      };
+    }),
+
+  /**
+   * Create commerce transaction and Stripe payment intent for a signed-in coop checkout.
+   */
+  createMemberCheckout: authenticatedProcedure
+    .input(z.object({
+      coopId: z.string(),
+      businessId: z.string(),
+      listedAmountCents: z.number().int().positive(),
+      currency: z.string().default('USD'),
+      metadata: z.record(z.unknown()).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const context = ctx as AuthenticatedContext;
+      const { coopId, businessId, listedAmountCents, currency, metadata } = input;
+
+      const user = await getUserForWallet(context.walletAddress);
+      if (!user) {
+        throw new Error('Signed-in checkout user not found');
+      }
+      const membershipStatus = await getCoopMembershipStatus(user.id, coopId);
+      const applyTreasuryFee = membershipStatus === 'ACTIVE';
+
+      const result = await createCommerceTransaction({
+        customerId: user.id,
+        businessId,
+        listedAmountCents,
+        coopId,
+        applyTreasuryFee,
+        currency,
+        metadata: {
+          ...metadata,
+          isGuestCheckout: false,
+          checkoutMode: applyTreasuryFee ? 'COOP_MEMBER' : 'SIGNED_IN_NON_MEMBER',
+        },
+      });
+
+      return {
+        transactionId: result.transaction.id,
+        clientSecret: result.paymentIntent.clientSecret,
+        totalChargedCents: Math.round(result.transaction.chargedAmount * 100),
+        merchantSettlementCents: Math.round(result.transaction.merchantSettlementAmount * 100),
+        platformFeeCents: Math.round((result.transaction.chargedAmount - result.transaction.merchantSettlementAmount) * 100),
         treasuryFeeCents: Math.round(result.transaction.treasuryFeeAmount * 100),
       };
     }),
@@ -322,8 +426,8 @@ export const commerceTransactionsRouter = router({
    */
   getPaymentStats: privateProcedure
     .input(z.object({
-      startDate: z.date().optional(),
-      endDate: z.date().optional(),
+      startDate: z.coerce.date().optional(),
+      endDate: z.coerce.date().optional(),
     }))
     .query(async ({ input }) => {
       const { startDate, endDate } = input;

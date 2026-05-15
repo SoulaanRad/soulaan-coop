@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AddToCartButton } from "./components/add-to-cart-button";
 import { CartButton } from "../../components/cart-button";
+import { TrackPageView } from "../../components/track-page-view";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -111,6 +112,19 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      <TrackPageView
+        event="product_viewed"
+        properties={{
+          coop_id: coopId,
+          product_id: productId,
+          product_name: product.name,
+          product_type: product.productType,
+          price_usd: product.priceUSD,
+          store_id: product.store.id,
+          store_name: product.store.name,
+          is_sc_verified: product.store.isScVerified,
+        }}
+      />
       {/* Header */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
