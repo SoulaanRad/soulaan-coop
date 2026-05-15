@@ -19,12 +19,14 @@ export default function SettingsPage() {
   const { isAdmin, adminRole, address: sessionAddress } = useWeb3Auth();
   const { address } = useAccount();
   const [copied, setCopied] = useState(false);
-  const coin = useCoin();
+  const coin = useCoin(coopId);
+  const walletAddress = address || sessionAddress || "";
+  const { data: coopConfig, refetch: refetchCoopConfig } = api.coopConfig.getActive.useQuery({ coopId });
 
   // Get current user info
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
-    { walletAddress: address || '' },
-    { enabled: !!address }
+    { walletAddress, coopId },
+    { enabled: !!walletAddress }
   );
 
   // Coin config editing state
@@ -33,23 +35,30 @@ export default function SettingsPage() {
   const [editDescription, setEditDescription] = useState("");
   const [configSaved, setConfigSaved] = useState(false);
 
-  const updateConfig = api.platformConfig.updateConfig.useMutation({
+  const updateConfig = api.coopConfig.update.useMutation({
     onSuccess: () => {
       setConfigSaved(true);
       setEditSymbol("");
       setEditName("");
       setEditDescription("");
+      void refetchCoopConfig();
       setTimeout(() => setConfigSaved(false), 3000);
     },
   });
 
   const handleSaveCoinConfig = () => {
-    const updates: { key: "coin.symbol" | "coin.name" | "coin.description" | "platform.name"; value: string }[] = [];
-    if (editSymbol.trim()) updates.push({ key: "coin.symbol", value: editSymbol.trim() });
-    if (editName.trim()) updates.push({ key: "coin.name", value: editName.trim() });
-    if (editDescription.trim()) updates.push({ key: "coin.description", value: editDescription.trim() });
-    if (updates.length > 0) {
-      updateConfig.mutate({ updates, updatedBy: sessionAddress ?? undefined });
+    const updates = {
+      ...(editSymbol.trim() ? { scTokenSymbol: editSymbol.trim() } : {}),
+      ...(editName.trim() ? { scTokenName: editName.trim() } : {}),
+      ...(editDescription.trim() ? { description: editDescription.trim() } : {}),
+    };
+
+    if (Object.keys(updates).length > 0) {
+      updateConfig.mutate({
+        coopId,
+        reason: "Updated coin and platform display config",
+        ...updates,
+      });
     }
   };
 
@@ -223,17 +232,31 @@ export default function SettingsPage() {
               Coin & Platform Config
             </CardTitle>
             <CardDescription>
-              Change the reward token name and symbol used throughout the app.
+              Change the reward token metadata used throughout this coop.
               Current: <span className="text-amber-400 font-semibold">{coin.name} ({coin.symbol})</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4 md:grid-cols-3">
+              <div>
+                <Label className="text-gray-400">Current Symbol</Label>
+                <p className="mt-1 text-white font-medium">{coin.symbol}</p>
+              </div>
+              <div>
+                <Label className="text-gray-400">Current Name</Label>
+                <p className="mt-1 text-white font-medium">{coin.name}</p>
+              </div>
+              <div>
+                <Label className="text-gray-400">Current Description</Label>
+                <p className="mt-1 text-sm text-gray-300">{coin.description || "Not set"}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-gray-400">Symbol (e.g. SC)</Label>
                 <Input
                   className="mt-1 bg-slate-800 border-slate-700 text-white"
-                  placeholder={coin.symbol}
+                  placeholder={coopConfig?.scTokenSymbol || coin.symbol}
                   value={editSymbol}
                   onChange={(e) => setEditSymbol(e.target.value)}
                   maxLength={10}
@@ -243,7 +266,7 @@ export default function SettingsPage() {
                 <Label className="text-gray-400">Full Name (e.g. Soulaan Coin)</Label>
                 <Input
                   className="mt-1 bg-slate-800 border-slate-700 text-white"
-                  placeholder={coin.name}
+                  placeholder={coopConfig?.scTokenName || coin.name}
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   maxLength={80}
@@ -251,10 +274,10 @@ export default function SettingsPage() {
               </div>
             </div>
             <div>
-              <Label className="text-gray-400">Description (shown on coin detail screens)</Label>
+              <Label className="text-gray-400">Description</Label>
               <Input
                 className="mt-1 bg-slate-800 border-slate-700 text-white"
-                placeholder={coin.description || "Short description of the coin"}
+                placeholder={coopConfig?.description || coin.description || "Short description of the coop coin"}
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 maxLength={300}
@@ -270,7 +293,7 @@ export default function SettingsPage() {
               </Button>
               {configSaved && (
                 <span className="text-green-400 text-sm flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4" /> Saved — restart app to see changes everywhere
+                  <CheckCircle className="h-4 w-4" /> Saved
                 </span>
               )}
             </div>

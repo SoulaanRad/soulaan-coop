@@ -486,6 +486,8 @@ export const coopConfigRouter = router({
       if (updates.displayMission !== undefined) newFields.displayMission = updates.displayMission;
       if (updates.displayFeatures !== undefined) newFields.displayFeatures = updates.displayFeatures;
       if (updates.eligibility !== undefined) newFields.eligibility = updates.eligibility;
+      if (updates.scTokenSymbol !== undefined) newFields.scTokenSymbol = updates.scTokenSymbol;
+      if (updates.scTokenName !== undefined) newFields.scTokenName = updates.scTokenName;
 
       const diff = computeDiff(current, newFields);
 
@@ -542,8 +544,8 @@ export const coopConfigRouter = router({
             storePaymentRouterAddress: current.storePaymentRouterAddress,
             rewardEngineAddress: current.rewardEngineAddress,
             backendWalletAddress: current.backendWalletAddress,
-            scTokenSymbol: current.scTokenSymbol,
-            scTokenName: current.scTokenName,
+            scTokenSymbol: newFields.scTokenSymbol ?? current.scTokenSymbol,
+            scTokenName: newFields.scTokenName ?? current.scTokenName,
             createdBy: walletAddress,
           },
         }),

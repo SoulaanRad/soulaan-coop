@@ -79,9 +79,14 @@ const navGroups: NavGroup[] = [
 
 export function PortalNav({ coopId }: { coopId?: string }) {
   const pathname = usePathname();
-  const { logout, isLoading, isAdmin, adminRole, address } = useWeb3Auth();
+  const { logout, isAdmin, adminRole, address } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const coin = useCoin();
+  const coin = useCoin(coopId);
+  const { data: coopConfig } = api.coopConfig.getActive.useQuery(
+    { coopId: coopId ?? "" },
+    { enabled: !!coopId }
+  );
+  const coopName = coopConfig?.name || "Portal";
   
   // Get current user info
   const { data: currentUser } = api.user.getUserByWallet.useQuery(
@@ -89,8 +94,6 @@ export function PortalNav({ coopId }: { coopId?: string }) {
     { enabled: !!address }
   );
 
-  console.log("currentUser: ", currentUser);
-  
   // Prefix all nav links with coopId if provided
   const prefixHref = (href: string) => {
     if (coopId) {
@@ -133,7 +136,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
               <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">{coin.symbol}</span>
               </div>
-              <span className="font-semibold text-lg text-white">Portal</span>
+              <span className="font-semibold text-lg text-white">{coopName}</span>
             </Link>
 
             {/* Navigation */}
