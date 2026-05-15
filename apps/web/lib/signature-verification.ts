@@ -43,6 +43,53 @@ function getAdminRoleFromRoles(roles: string[]): string | undefined {
   return roles.find((role) => ['owner', 'admin', 'governor'].includes(role));
 }
 
+async function findUserByWalletAddress(address: string, coopId?: string) {
+  return db.user.findFirst({
+    where: {
+      OR: [
+        { walletAddress: { equals: address, mode: 'insensitive' } },
+        {
+          wallets: {
+            some: {
+              address: { equals: address, mode: 'insensitive' },
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      wallets: {
+        where: { isPrimary: true },
+        take: 1,
+      },
+      memberships: coopId
+        ? {
+            where: { coopId },
+            take: 1,
+          }
+        : true,
+    },
+  });
+}
+
+async function checkDatabasePortalAccess(address: string, coopId?: string) {
+  if (!coopId) {
+    return { hasAccess: false, isAdmin: false, role: undefined as string | undefined, user: null };
+  }
+
+  const user = await findUserByWalletAddress(address, coopId);
+  const membership = user?.memberships[0];
+  const role = membership ? getAdminRoleFromRoles(membership.roles) : undefined;
+  const hasAccess = user?.status === 'ACTIVE' && membership?.status === 'ACTIVE';
+
+  return {
+    hasAccess,
+    isAdmin: Boolean(hasAccess && role),
+    role,
+    user,
+  };
+}
+
 // Iron session configuration (server-side only)
 function getSessionOptions() {
   const serverConfig = getServerConfig();
@@ -66,7 +113,7 @@ function getSessionOptions() {
  * @param address - The wallet address requesting the challenge
  * @returns The challenge message
  */
-export async function generateChallenge(address: string): Promise<string> {
+export async function generateChallenge(address: string, requestOrigin?: string): Promise<string> {
   // Generate a random nonce
   const nonce = generateNonce();
   
@@ -74,12 +121,15 @@ export async function generateChallenge(address: string): Promise<string> {
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + 10);
   
+  const uri = requestOrigin || config.app.uri;
+  const domain = requestOrigin ? new URL(requestOrigin).host : config.app.domain;
+
   // Create a SIWE message
   const message = new SiweMessage({
-    domain: config.app.domain,
+    domain,
     address,
     statement: 'Sign in to Soulaan Co-op Admin Panel',
-    uri: config.app.uri,
+    uri,
     version: '1',
     chainId: 84532, // Base Sepolia
     nonce,
@@ -176,10 +226,24 @@ export async function checkSoulaaniCoinBalance(address: string, coopId?: string)
     // Call the API server function (server-side only, secure!)
     const result = await checkPortalAccess(address as `0x${string}`, coopId);
     console.log(`🔒 Portal access result: hasAccess=${result.hasAccess}, isAdmin=${result.isAdmin}`);
-    return result.hasAccess;
+    if (result.hasAccess) {
+      return true;
+    }
+
+    const databaseAccess = await checkDatabasePortalAccess(address, coopId);
+    console.log(
+      `🔒 Database portal access result: hasAccess=${databaseAccess.hasAccess}, isAdmin=${databaseAccess.isAdmin}`
+    );
+    return databaseAccess.hasAccess;
   } catch (error) {
     console.error('❌ Error checking portal access:', error);
-    return false;
+    try {
+      const databaseAccess = await checkDatabasePortalAccess(address, coopId);
+      return databaseAccess.hasAccess;
+    } catch (databaseError) {
+      console.error('❌ Error checking database portal access:', databaseError);
+      return false;
+    }
   }
 }
 
@@ -215,18 +279,20 @@ export async function createSession(address: string, coopId?: string): Promise<A
 
   // Check if the user has a membership and profile data for this coop
   let hasProfile = false;
+  let user = null;
+  let membershipAdminRole: string | undefined = undefined;
   if (coopId) {
-    const user = await db.user.findUnique({
-      where: { walletAddress: address },
-      include: {
-        memberships: {
-          where: { coopId: coopId },
-          select: { id: true },
-        },
-      },
-    });
+    user = await findUserByWalletAddress(address, coopId);
+    const membership = user?.memberships[0];
+    membershipAdminRole = membership ? getAdminRoleFromRoles(membership.roles) : undefined;
+    if (user && !user.walletAddress) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { walletAddress: address },
+      });
+    }
     // User has profile if they have a User record with name and a membership for this coop
-    hasProfile = !!user && !!user.name && user.memberships.length > 0;
+    hasProfile = !!user && !!user.name && membership?.status === 'ACTIVE';
     console.log('🔒 Has profile:', hasProfile, 'User name:', user?.name, 'Memberships:', user?.memberships.length);
   }
 
@@ -241,8 +307,8 @@ export async function createSession(address: string, coopId?: string): Promise<A
     // This checks BOTH admin status AND coin balance
     const accessCheck = await checkPortalAccess(address as `0x${string}`, coopId);
 
-    isAdmin = accessCheck.isAdmin;
-    adminRole = accessCheck.role;
+    isAdmin = accessCheck.isAdmin || Boolean(membershipAdminRole);
+    adminRole = accessCheck.role || membershipAdminRole;
 
     if (isAdmin) {
       console.log(`✅ Admin status confirmed: ${address} is ${adminRole}`);
@@ -257,8 +323,8 @@ export async function createSession(address: string, coopId?: string): Promise<A
 
   // Update the session
   session.address = address;
-  session.userId = undefined;
-  session.email = undefined;
+  session.userId = user?.id;
+  session.email = user?.email;
   session.loginMethod = 'wallet';
   session.isLoggedIn = true;
   session.hasProfile = hasProfile;
@@ -267,23 +333,17 @@ export async function createSession(address: string, coopId?: string): Promise<A
   session.adminRole = adminRole;
 
   // Update last login time if profile exists
-  if (hasProfile && coopId) {
-    const user = await db.user.findUnique({
-      where: { walletAddress: address },
+  if (hasProfile && coopId && user) {
+    await db.userCoopMembership.updateMany({
+      where: {
+        userId: user.id,
+        coopId: coopId,
+      },
+      data: {
+        lastLogin: new Date(),
+        lastActiveAt: new Date(),
+      },
     });
-    
-    if (user) {
-      await db.userCoopMembership.updateMany({
-        where: { 
-          userId: user.id,
-          coopId: coopId,
-        },
-        data: { 
-          lastLogin: new Date(),
-          lastActiveAt: new Date(),
-        },
-      });
-    }
   }
 
   // Save the session
