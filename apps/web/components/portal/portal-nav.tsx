@@ -94,6 +94,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
   const { logout, isAdmin, adminRole, address } = useWeb3Auth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const coin = useCoin(coopId);
+  const [navOpen, setNavOpen] = useState(false);
   const { data: coopConfig } = api.coopConfig.getActive.useQuery(
     { coopId: coopId ?? "" },
     { enabled: !!coopId }
@@ -204,7 +205,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
   const activeNavItem =
     navGroups.flatMap((group) => group.items).find((item) => isActive(item.href)) ??
     memberLinks[0];
-  const ActiveIcon = activeNavItem.icon;
+  const ActiveIcon = activeNavItem?.icon;
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-800/80 bg-[#0b0d10]/95 text-white backdrop-blur">
@@ -282,7 +283,7 @@ export function PortalNav({ coopId }: { coopId?: string }) {
                 Current page
               </p>
               <p className="truncate text-sm font-semibold text-zinc-100">
-                {activeNavItem.title}
+                {activeNavItem?.title}
               </p>
             </div>
           </div>
