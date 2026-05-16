@@ -364,7 +364,7 @@ export const CoopConfigOutputZ = z.object({
   tagline: z.string().optional(),
   description: z.string().optional(),
   displayMission: z.string().optional(),
-  displayFeatures: z.array(z.object({ title: z.string(), description: z.string() })).optional(),
+  displayFeatures: z.array(z.object({ title: z.string(), description: z.string() })).nullable().optional(),
   eligibility: z.string().optional(),
   bgColor: z.string().optional(),
   accentColor: z.string().optional(),
