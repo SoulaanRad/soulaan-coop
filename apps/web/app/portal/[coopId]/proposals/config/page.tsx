@@ -19,7 +19,8 @@ export default function CoopConfigPage() {
   const params = useParams();
   const coopId = params.coopId as string;
   const coin = useCoin();
-  const { isAdmin } = useWeb3Auth();
+  const { address, isAdmin, isLoading: isAuthLoading } = useWeb3Auth();
+  const canLoadAdminConfig = !isAuthLoading && isAdmin && !!address;
   const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId });
   const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId });
 
@@ -30,6 +31,7 @@ export default function CoopConfigPage() {
   // Generic config amendment flow
   const { data: pendingAmendments = [], refetch: refetchAmendments } = api.coopConfig.getPendingConfigAmendments.useQuery(
     { coopId },
+    { enabled: canLoadAdminConfig },
   );
   const pendingBySection = Object.fromEntries(pendingAmendments.map(a => [a.section, a]));
 
@@ -39,6 +41,7 @@ export default function CoopConfigPage() {
   // Charter amendment flow (specialized — keeps text diff UI)
   const { data: pendingCharterData, refetch: refetchCharter } = api.coopConfig.getPendingCharterAmendment.useQuery(
     { coopId },
+    { enabled: canLoadAdminConfig },
   );
   const pendingCharter = pendingCharterData?.amendment ?? null;
 
@@ -103,7 +106,15 @@ export default function CoopConfigPage() {
   // Eligibility editing
   const [editEligibility, setEditEligibility] = useState<string | null>(null);
 
-  if (!isAdmin) {
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
+
+  if (!address || !isAdmin) {
     return (
       <div className="max-w-4xl mx-auto py-12 text-center space-y-4">
         <ShieldAlert className="h-12 w-12 text-red-400 mx-auto" />
@@ -204,6 +215,7 @@ export default function CoopConfigPage() {
                 onClick={() =>
                   createConfig.mutate({
                     coopId: createCoopId.trim() || coopId,
+                    walletAddress: address,
                     reason: createReason.trim() || "Initial configuration",
                     ...(createCharterText.trim() ? { charterText: createCharterText.trim() } : {}),
                   })

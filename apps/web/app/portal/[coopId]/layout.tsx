@@ -45,7 +45,6 @@ function WalletAuth({ coopId }: { coopId: string }) {
           size="sm" 
           onClick={async () => {
             await logout(coopId);
-            router.push(`/login?coopId=${coopId}`);
           }}
         >
           Log Out

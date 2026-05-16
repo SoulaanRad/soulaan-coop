@@ -220,9 +220,8 @@ export function PortalNav({ coopId }: { coopId?: string }) {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-base font-semibold leading-5">Co-op Portal</p>
-                <p className="truncate text-xs text-zinc-500">{coopId || "workspace"}</p>
+                <p className="truncate text-xs text-zinc-500">{coopName}</p>
               </div>
-              <span className="font-semibold text-lg text-white">{coopName}</span>
             </Link>
 
             <div className="flex shrink-0 items-center gap-3 lg:hidden">

@@ -320,11 +320,13 @@ function AmendmentCard({
 export default function AmendmentsPage() {
   const params = useParams();
   const coopId = params.coopId as string;
-  const { isAdmin } = useWeb3Auth();
+  const { address, isAdmin, isLoading: isAuthLoading } = useWeb3Auth();
+  const canLoadAdminConfig = !isAuthLoading && isAdmin && !!address;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const { data, isLoading, refetch } = api.coopConfig.getAllAmendments.useQuery(
     { coopId },
+    { enabled: canLoadAdminConfig },
   );
 
   const { data: configData, refetch: refetchConfig } =
@@ -383,6 +385,14 @@ export default function AmendmentsPage() {
     { value: "REJECTED", label: "Rejected" },
     { value: "SUPERSEDED", label: "Superseded" },
   ];
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
