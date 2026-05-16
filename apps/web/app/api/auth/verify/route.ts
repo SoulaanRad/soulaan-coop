@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         select: { scTokenName: true },
       });
       
-      const coinName = coopConfig?.scTokenName || 'SoulaaniCoin';
+      const coinName = coopConfig?.scTokenName ?? 'the required token';
       
       return NextResponse.json(
         { error: `Wallet does not have ${coinName} or is not an active member` },
