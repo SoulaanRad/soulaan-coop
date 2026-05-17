@@ -369,7 +369,7 @@ export const CoopConfigOutputZ = z.object({
   bgColor: z.string().optional(),
   accentColor: z.string().optional(),
   displayOrder: z.number().optional(),
-  applicationQuestions: z.array(z.any()).optional(),
+  applicationQuestions: z.array(z.any()).nullable().optional(),
   chainId: z.number().int().optional(),
   chainName: z.string().optional(),
   rpcUrl: z.string().optional(),
