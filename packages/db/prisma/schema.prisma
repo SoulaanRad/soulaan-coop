@@ -262,8 +262,8 @@ model CoopConfig {
   storePaymentRouterAddress    String?
   rewardEngineAddress          String?
   backendWalletAddress         String? // Initializer/admin signer address; private key must never be stored server-side
-  scTokenSymbol                String? @default("SC") // e.g., "SC", "SFNC"
-  scTokenName                  String? @default("SoulaaniCoin") // e.g., "SoulaaniCoin", "SF Nightlife Coin"
+  scTokenSymbol                String? @default("FAK") // e.g., "SC", "SFNC"
+  scTokenName                  String? @default("FakeCoin") // e.g., "SoulaaniCoin", "SF Nightlife Coin"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
