@@ -84,6 +84,10 @@ async function nextSequence(db: any, coopConfigId: string): Promise<number> {
   return (last?.sequence ?? 0) + 1;
 }
 
+function toJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
+}
+
 export const coopConfigRouter = router({
   /**
    * List active coops for public display (landing page)
@@ -582,8 +586,8 @@ export const coopConfigRouter = router({
         data: {
           coopConfigId: current.id,
           section: "charterText",
-          proposedChanges: { charterText: input.proposedText } as Prisma.InputJsonValue,
-          diff: [{ field: "charterText", before: current.charterText, after: input.proposedText }] as Prisma.InputJsonValue,
+          proposedChanges: toJsonValue({ charterText: input.proposedText }),
+          diff: toJsonValue([{ field: "charterText", before: current.charterText, after: input.proposedText }]),
           reason: input.reason,
           status: "PENDING",
           changedBy: walletAddress,
@@ -777,8 +781,8 @@ export const coopConfigRouter = router({
         data: {
           coopConfigId: current.id,
           section: input.section,
-          proposedChanges: input.proposedChanges as Prisma.InputJsonValue,
-          diff: diff as Prisma.InputJsonValue,
+          proposedChanges: toJsonValue(input.proposedChanges),
+          diff: toJsonValue(diff),
           reason: input.reason,
           status: "PENDING",
           changedBy: walletAddress,
@@ -929,7 +933,7 @@ export const coopConfigRouter = router({
     }),
 
   /**
-   * Return all ConfigAmendments + CharterAmendments for a coopId, newest first.
+   * Return all audit-backed amendments for a coopId, newest first.
    * Used for the dedicated amendments review page.
    */
   getAllAmendments: privateProcedure
@@ -962,44 +966,58 @@ export const coopConfigRouter = router({
       })),
     }))
     .query(async ({ input, ctx }) => {
-      const [configAmendments, charterAmendments] = await Promise.all([
-        ctx.db.configAmendment.findMany({
-          where: { coopId: input.coopId },
-          orderBy: { proposedAt: "desc" },
-        }),
-        ctx.db.charterAmendment.findMany({
-          where: { coopId: input.coopId },
-          orderBy: { proposedAt: "desc" },
-        }),
-      ]);
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
 
-      return {
-        config: configAmendments.map(a => ({
-          id: a.id,
-          type: "config" as const,
-          section: a.section,
-          reason: a.reason,
-          status: a.status,
-          proposedBy: a.proposedBy,
-          proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
-          reviewedBy: a.reviewedBy ?? null,
-          reviewedAt: a.reviewedAt instanceof Date ? a.reviewedAt.toISOString() : (a.reviewedAt ?? null),
-          proposedChanges: a.proposedChanges as Record<string, unknown>,
-          currentSnapshot: a.currentSnapshot as Record<string, unknown>,
-        })),
-        charter: charterAmendments.map(a => ({
-          id: a.id,
-          type: "charter" as const,
-          reason: a.reason,
-          status: a.status,
-          proposedBy: a.proposedBy,
-          proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
-          reviewedBy: a.reviewedBy ?? null,
-          reviewedAt: a.reviewedAt instanceof Date ? a.reviewedAt.toISOString() : (a.reviewedAt ?? null),
-          proposedText: a.proposedText,
-          currentText: a.currentText,
-        })),
-      };
+      if (!current) return { config: [], charter: [] };
+
+      const audits = await ctx.db.coopConfigAudit.findMany({
+        where: { coopConfigId: current.id },
+        orderBy: { changedAt: "desc" },
+      });
+
+      const config = [];
+      const charter = [];
+
+      for (const audit of audits) {
+        const proposedChanges = audit.proposedChanges as Record<string, unknown> | null ?? {};
+        const diff = audit.diff as Array<{ field: string; before: unknown; after: unknown }> | null ?? [];
+        const currentSnapshot: Record<string, unknown> = {};
+        for (const d of diff) {
+          currentSnapshot[d.field] = d.before;
+        }
+
+        const base = {
+          id: audit.id,
+          reason: audit.reason,
+          status: audit.status,
+          proposedBy: audit.changedBy,
+          proposedAt: audit.changedAt instanceof Date ? audit.changedAt.toISOString() : audit.changedAt,
+          reviewedBy: audit.reviewedBy ?? null,
+          reviewedAt: audit.reviewedAt instanceof Date ? audit.reviewedAt.toISOString() : (audit.reviewedAt ?? null),
+        };
+
+        if (audit.section === "charterText") {
+          charter.push({
+            ...base,
+            type: "charter" as const,
+            proposedText: (proposedChanges.charterText as string) ?? "",
+            currentText: (currentSnapshot.charterText as string) ?? "",
+          });
+        } else {
+          config.push({
+            ...base,
+            type: "config" as const,
+            section: audit.section ?? "config",
+            proposedChanges,
+            currentSnapshot,
+          });
+        }
+      }
+
+      return { config, charter };
     }),
 
   /**

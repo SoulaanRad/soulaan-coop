@@ -21,7 +21,7 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type StatusFilter = "ALL" | "PENDING" | "ACKNOWLEDGED" | "REJECTED" | "SUPERSEDED";
+type StatusFilter = "ALL" | "PENDING" | "APPLIED" | "REJECTED" | "SUPERSEDED";
 
 interface ConfigAmendment {
   id: string;
@@ -74,10 +74,10 @@ function statusBadge(status: string) {
           <Clock className="h-3 w-3" /> Pending
         </span>
       );
-    case "ACKNOWLEDGED":
+    case "APPLIED":
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-green-900/30 border border-green-600/40 px-2 py-0.5 text-xs text-green-300 font-medium">
-          <CheckCircle2 className="h-3 w-3" /> Accepted
+          <CheckCircle2 className="h-3 w-3" /> Applied
         </span>
       );
     case "REJECTED":
@@ -322,6 +322,7 @@ export default function AmendmentsPage() {
   const coopId = params.coopId as string;
   const { address, isAdmin, isLoading: isAuthLoading } = useWeb3Auth();
   const canLoadAdminConfig = !isAuthLoading && isAdmin && !!address;
+  const utils = api.useUtils();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const { data, isLoading, refetch } = api.coopConfig.getAllAmendments.useQuery(
@@ -332,17 +333,27 @@ export default function AmendmentsPage() {
   const { data: configData, refetch: refetchConfig } =
     api.coopConfig.getActive.useQuery({ coopId });
 
+  const refreshConfigQueries = () => {
+    void refetch();
+    void refetchConfig();
+    void utils.coopConfig.getAllAmendments.invalidate({ coopId });
+    void utils.coopConfig.getActive.invalidate({ coopId });
+    void utils.coopConfig.getPendingConfigAmendments.invalidate({ coopId });
+    void utils.coopConfig.getPendingCharterAmendment.invalidate({ coopId });
+    void utils.coopConfig.listVersions.invalidate({ coopId });
+  };
+
   const acknowledgeConfig = api.coopConfig.acknowledgeConfigAmendment.useMutation({
-    onSuccess: () => { void refetch(); void refetchConfig(); },
+    onSuccess: refreshConfigQueries,
   });
   const rejectConfig = api.coopConfig.rejectConfigAmendment.useMutation({
-    onSuccess: () => void refetch(),
+    onSuccess: refreshConfigQueries,
   });
   const acknowledgeCharter = api.coopConfig.acknowledgeCharterAmendment.useMutation({
-    onSuccess: () => { void refetch(); void refetchConfig(); },
+    onSuccess: refreshConfigQueries,
   });
   const rejectCharter = api.coopConfig.rejectCharterAmendment.useMutation({
-    onSuccess: () => void refetch(),
+    onSuccess: refreshConfigQueries,
   });
 
   const isMutating =
@@ -381,7 +392,7 @@ export default function AmendmentsPage() {
   const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
     { value: "ALL", label: "All" },
     { value: "PENDING", label: "Pending" },
-    { value: "ACKNOWLEDGED", label: "Accepted" },
+    { value: "APPLIED", label: "Applied" },
     { value: "REJECTED", label: "Rejected" },
     { value: "SUPERSEDED", label: "Superseded" },
   ];
