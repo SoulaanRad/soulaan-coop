@@ -133,7 +133,7 @@ export default function ApplicationFormEditor() {
         <h2 className="text-xl font-bold">Admin Access Required</h2>
         <p className="text-muted-foreground">Only admins can manage application forms.</p>
         <Button asChild variant="outline">
-          <Link href={`/portal/${coopId}`}>Back to Dashboard</Link>
+          <Link href={`/portal/${coopId}/proposals/config`}>Back to Coop Config</Link>
         </Button>
       </div>
     );
@@ -152,7 +152,7 @@ export default function ApplicationFormEditor() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={`/portal/${coopId}/settings`}>
+            <Link href={`/portal/${coopId}/proposals/config`}>
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
