@@ -21,11 +21,16 @@ export default function CoopConfigPage() {
   const coin = useCoin();
   const { address, isAdmin, isLoading: isAuthLoading } = useWeb3Auth();
   const canLoadAdminConfig = !isAuthLoading && isAdmin && !!address;
+  const utils = api.useUtils();
   const { data: config, refetch, isLoading } = api.coopConfig.getActive.useQuery({ coopId });
   const { data: versions } = api.coopConfig.listVersions.useQuery({ coopId });
 
   const createConfig = api.coopConfig.create.useMutation({
-    onSuccess: () => refetch(),
+    onSuccess: () => {
+      void refetch();
+      void utils.coopConfig.getActive.invalidate({ coopId });
+      void utils.coopConfig.listVersions.invalidate({ coopId });
+    },
   });
 
   // Generic config amendment flow
@@ -36,7 +41,12 @@ export default function CoopConfigPage() {
   const pendingBySection = Object.fromEntries(pendingAmendments.map(a => [a.section, a]));
 
   const proposeChange = api.coopConfig.proposeConfigChange.useMutation({
-    onSuccess: () => refetchAmendments(),
+    onSuccess: () => {
+      void refetchAmendments();
+      void utils.coopConfig.getPendingConfigAmendments.invalidate({ coopId });
+      void utils.coopConfig.getAllAmendments.invalidate({ coopId });
+      void utils.coopConfig.listVersions.invalidate({ coopId });
+    },
   });
   // Charter amendment flow (specialized — keeps text diff UI)
   const { data: pendingCharterData, refetch: refetchCharter } = api.coopConfig.getPendingCharterAmendment.useQuery(
@@ -44,9 +54,15 @@ export default function CoopConfigPage() {
     { enabled: canLoadAdminConfig },
   );
   const pendingCharter = pendingCharterData?.amendment ?? null;
+  const pendingChangeCount = pendingAmendments.length + (pendingCharter ? 1 : 0);
 
   const proposeCharter = api.coopConfig.proposeCharterChange.useMutation({
-    onSuccess: () => refetchCharter(),
+    onSuccess: () => {
+      void refetchCharter();
+      void utils.coopConfig.getPendingCharterAmendment.invalidate({ coopId });
+      void utils.coopConfig.getAllAmendments.invalidate({ coopId });
+      void utils.coopConfig.listVersions.invalidate({ coopId });
+    },
   });
   const [charterProposedText, setCharterProposedText] = useState("");
 
@@ -256,9 +272,9 @@ export default function CoopConfigPage() {
           href={`/portal/${coopId}/proposals/config/amendments`}
           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-600 text-sm text-gray-400 hover:text-white hover:bg-slate-700 transition-colors"
         >
-          {pendingAmendments.length > 0 && (
+          {pendingChangeCount > 0 && (
             <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-black leading-none">
-              {pendingAmendments.length}
+              {pendingChangeCount}
             </span>
           )}
           Proposed Changes
@@ -1118,26 +1134,38 @@ export default function CoopConfigPage() {
         </CardContent>
       </Card>
 
-      {/* Version History */}
+      {/* Change History */}
       <Card className="bg-slate-800/50 border-slate-700">
-        <CardHeader><CardTitle className="text-white">Version History</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-white">Change History</CardTitle></CardHeader>
         <CardContent>
           {versions && versions.length > 0 ? (
             <div className="space-y-2">
               {versions.map((v) => (
                 <div key={v.id} className="flex items-center justify-between text-sm p-2 bg-slate-900 rounded">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-mono">v{v.version}</span>
-                    {v.isActive && <Badge className="bg-green-500/20 text-green-400 text-xs">Active</Badge>}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-mono">
+                        {v.sequence ? `#${v.sequence}` : "Pending"}
+                      </span>
+                      <Badge className="bg-slate-700/60 text-slate-300 text-xs">
+                        {v.status}
+                      </Badge>
+                      {v.section && (
+                        <span className="text-xs text-gray-500 truncate">
+                          {v.section}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-400 text-xs truncate">{v.reason}</p>
                   </div>
-                  <div className="text-gray-500 text-xs">
-                    {new Date(v.createdAt).toLocaleDateString()} | {v.createdBy}
+                  <div className="text-gray-500 text-xs shrink-0">
+                    {new Date(v.changedAt).toLocaleDateString()} | {v.changedBy}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">No version history available.</p>
+            <p className="text-gray-500 text-sm">No change history available.</p>
           )}
         </CardContent>
       </Card>
