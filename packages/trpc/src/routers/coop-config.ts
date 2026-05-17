@@ -75,6 +75,15 @@ function computeDiff(oldConfig: CoopConfig, newFields: Record<string, unknown>):
   return diff;
 }
 
+async function nextSequence(db: any, coopConfigId: string): Promise<number> {
+  const last = await db.coopConfigAudit.findFirst({
+    where: { coopConfigId, status: "APPLIED" },
+    orderBy: { sequence: "desc" },
+    select: { sequence: true },
+  });
+  return (last?.sequence ?? 0) + 1;
+}
+
 export const coopConfigRouter = router({
   /**
    * List active coops for public display (landing page)
@@ -308,23 +317,44 @@ export const coopConfigRouter = router({
     .input(z.object({ coopId: z.string() }))
     .output(z.array(z.object({
       id: z.string(),
-      version: z.number(),
-      isActive: z.boolean(),
-      createdAt: z.string(),
-      createdBy: z.string(),
+      sequence: z.number().nullable(),
+      section: z.string().nullable(),
+      reason: z.string(),
+      diff: z.array(z.object({
+        field: z.string(),
+        before: z.unknown(),
+        after: z.unknown(),
+      })),
+      status: z.string(),
+      changedBy: z.string(),
+      changedAt: z.string(),
+      reviewedBy: z.string().nullable(),
+      reviewedAt: z.string().nullable(),
     })))
     .query(async ({ input, ctx }) => {
-      const versions = await ctx.db.coopConfig.findMany({
-        where: { coopId: input.coopId },
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
         orderBy: { version: "desc" },
-        select: { id: true, version: true, isActive: true, createdAt: true, createdBy: true },
       });
-      return versions.map((v: any) => ({
-        id: v.id,
-        version: v.version,
-        isActive: v.isActive,
-        createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
-        createdBy: v.createdBy,
+
+      if (!current) return [];
+
+      const audits = await ctx.db.coopConfigAudit.findMany({
+        where: { coopConfigId: current.id },
+        orderBy: [{ sequence: "desc" }, { changedAt: "desc" }],
+      });
+
+      return audits.map(a => ({
+        id: a.id,
+        sequence: a.sequence,
+        section: a.section,
+        reason: a.reason,
+        diff: a.diff as Array<{ field: string; before: unknown; after: unknown }>,
+        status: a.status,
+        changedBy: a.changedBy,
+        changedAt: a.changedAt instanceof Date ? a.changedAt.toISOString() : a.changedAt,
+        reviewedBy: a.reviewedBy,
+        reviewedAt: a.reviewedAt instanceof Date ? a.reviewedAt.toISOString() : a.reviewedAt,
       }));
     }),
 
@@ -490,77 +520,29 @@ export const coopConfigRouter = router({
       if (updates.scTokenName !== undefined) newFields.scTokenName = updates.scTokenName;
 
       const diff = computeDiff(current, newFields);
+      const sequence = await nextSequence(ctx.db, current.id);
 
-      const [, newConfig] = await ctx.db.$transaction([
+      const [updatedConfig] = await ctx.db.$transaction([
         ctx.db.coopConfig.update({
           where: { id: current.id },
-          data: { isActive: false },
-        }),
-        ctx.db.coopConfig.create({
           data: {
-            coopId,
             version: current.version + 1,
-            isActive: true,
-            charterText: newFields.charterText ?? current.charterText,
-            missionGoals: newFields.missionGoals ?? current.missionGoals,
-            structuralWeights: newFields.structuralWeights ?? current.structuralWeights,
-            scoreMix: newFields.scoreMix ?? current.scoreMix,
-            screeningPassThreshold: newFields.screeningPassThreshold ?? current.screeningPassThreshold,
-            quorumPercent: newFields.quorumPercent ?? current.quorumPercent,
-            approvalThresholdPercent: newFields.approvalThresholdPercent ?? current.approvalThresholdPercent,
-            votingWindowDays: newFields.votingWindowDays ?? current.votingWindowDays,
-            scVotingCapPercent: newFields.scVotingCapPercent ?? current.scVotingCapPercent,
-            proposalCategories: newFields.proposalCategories ?? current.proposalCategories,
-            sectorExclusions: newFields.sectorExclusions ?? current.sectorExclusions,
-            scorerAgents: newFields.scorerAgents ?? (current as any).scorerAgents ?? [],
-            minScBalanceToSubmit: newFields.minScBalanceToSubmit ?? current.minScBalanceToSubmit,
-            aiAutoApproveThresholdUSD: newFields.aiAutoApproveThresholdUSD ?? current.aiAutoApproveThresholdUSD ?? 500,
-            councilVoteThresholdUSD: newFields.councilVoteThresholdUSD ?? current.councilVoteThresholdUSD ?? 5000,
-            strongGoalThreshold: (newFields as any).strongGoalThreshold ?? (current as any).strongGoalThreshold ?? 0.70,
-            missionMinThreshold: (newFields as any).missionMinThreshold ?? (current as any).missionMinThreshold ?? 0.50,
-            structuralGate: (newFields as any).structuralGate ?? (current as any).structuralGate ?? 0.65,
-            // Carry forward display/onboarding fields
-            name: newFields.name ?? current.name,
-            slug: newFields.slug ?? current.slug,
-            tagline: newFields.tagline ?? current.tagline,
-            description: newFields.description ?? current.description,
-            displayMission: newFields.displayMission ?? current.displayMission,
-            displayFeatures: newFields.displayFeatures ?? current.displayFeatures,
-            eligibility: newFields.eligibility ?? current.eligibility,
-            bgColor: newFields.bgColor ?? current.bgColor,
-            accentColor: newFields.accentColor ?? current.accentColor,
-            displayOrder: newFields.displayOrder ?? current.displayOrder,
-            applicationQuestions: current.applicationQuestions as Prisma.InputJsonValue,
-            // Carry forward chain config fields
-            chainId: current.chainId,
-            chainName: current.chainName,
-            rpcUrl: current.rpcUrl,
-            scTokenAddress: current.scTokenAddress,
-            allyTokenAddress: current.allyTokenAddress,
-            ucTokenAddress: current.ucTokenAddress,
-            redemptionVaultAddress: current.redemptionVaultAddress,
-            treasurySafeAddress: current.treasurySafeAddress,
-            verifiedStoreRegistryAddress: current.verifiedStoreRegistryAddress,
-            storePaymentRouterAddress: current.storePaymentRouterAddress,
-            rewardEngineAddress: current.rewardEngineAddress,
-            backendWalletAddress: current.backendWalletAddress,
-            scTokenSymbol: newFields.scTokenSymbol ?? current.scTokenSymbol,
-            scTokenName: newFields.scTokenName ?? current.scTokenName,
-            createdBy: walletAddress,
+            ...newFields,
+          },
+        }),
+        ctx.db.coopConfigAudit.create({
+          data: {
+            coopConfigId: current.id,
+            changedBy: walletAddress,
+            reason,
+            diff: diff as Prisma.InputJsonValue,
+            sequence,
+            status: "APPLIED",
           },
         }),
       ]);
 
-      await ctx.db.coopConfigAudit.create({
-        data: {
-          coopConfigId: newConfig.id,
-          changedBy: walletAddress,
-          reason,
-          diff: diff as Prisma.InputJsonValue,
-        },
-      });
-
-      return mapDbToConfigOutput(newConfig);
+      return mapDbToConfigOutput(updatedConfig);
     }),
 
   /**
@@ -581,32 +563,37 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      // Cancel any existing pending amendment first (only one can be pending)
-      await ctx.db.charterAmendment.updateMany({
-        where: { coopId: input.coopId, status: "PENDING" },
-        data: { status: "SUPERSEDED", reviewedBy: walletAddress, reviewedAt: new Date() },
-      });
-
       const current = await ctx.db.coopConfig.findFirst({
         where: { coopId: input.coopId, isActive: true },
         orderBy: { version: "desc" },
       });
 
-      const amendment = await ctx.db.charterAmendment.create({
+      if (!current) {
+        throw new Error(`No active config found for coopId: ${input.coopId}`);
+      }
+
+      // Supersede any existing pending charter amendments
+      await ctx.db.coopConfigAudit.updateMany({
+        where: { coopConfigId: current.id, section: "charterText", status: "PENDING" },
+        data: { status: "SUPERSEDED", reviewedBy: walletAddress, reviewedAt: new Date() },
+      });
+
+      const audit = await ctx.db.coopConfigAudit.create({
         data: {
-          coopId: input.coopId,
-          proposedText: input.proposedText,
-          currentText: current?.charterText ?? "",
+          coopConfigId: current.id,
+          section: "charterText",
+          proposedChanges: { charterText: input.proposedText } as Prisma.InputJsonValue,
+          diff: [{ field: "charterText", before: current.charterText, after: input.proposedText }] as Prisma.InputJsonValue,
           reason: input.reason,
           status: "PENDING",
-          proposedBy: walletAddress,
+          changedBy: walletAddress,
         },
       });
 
       return {
-        id: amendment.id,
-        status: amendment.status,
-        proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+        id: audit.id,
+        status: audit.status,
+        proposedAt: audit.changedAt instanceof Date ? audit.changedAt.toISOString() : audit.changedAt,
       };
     }),
 
@@ -627,22 +614,32 @@ export const coopConfigRouter = router({
       }).nullable(),
     }))
     .query(async ({ input, ctx }) => {
-      const amendment = await ctx.db.charterAmendment.findFirst({
-        where: { coopId: input.coopId, status: "PENDING" },
-        orderBy: { proposedAt: "desc" },
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
       });
 
-      if (!amendment) return { amendment: null };
+      if (!current) return { amendment: null };
 
+      const audit = await ctx.db.coopConfigAudit.findFirst({
+        where: { coopConfigId: current.id, section: "charterText", status: "PENDING" },
+        orderBy: { changedAt: "desc" },
+      });
+
+      if (!audit) return { amendment: null };
+
+      const proposedChanges = audit.proposedChanges as Record<string, unknown> | null;
+      const diff = audit.diff as Array<{ field: string; before: unknown; after: unknown }> | null;
+      
       return {
         amendment: {
-          id: amendment.id,
-          proposedText: amendment.proposedText,
-          currentText: amendment.currentText,
-          reason: amendment.reason,
-          status: amendment.status,
-          proposedBy: amendment.proposedBy,
-          proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+          id: audit.id,
+          proposedText: (proposedChanges?.charterText as string) ?? "",
+          currentText: (diff?.find(d => d.field === "charterText")?.before as string) ?? "",
+          reason: audit.reason,
+          status: audit.status,
+          proposedBy: audit.changedBy,
+          proposedAt: audit.changedAt instanceof Date ? audit.changedAt.toISOString() : audit.changedAt,
         },
       };
     }),
@@ -659,11 +656,11 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      const amendment = await ctx.db.charterAmendment.findUnique({
+      const audit = await ctx.db.coopConfigAudit.findUnique({
         where: { id: input.amendmentId },
       });
 
-      if (!amendment || amendment.status !== "PENDING") {
+      if (!audit || audit.status !== "PENDING") {
         throw new Error("Amendment not found or is no longer pending.");
       }
 
@@ -676,85 +673,29 @@ export const coopConfigRouter = router({
         throw new Error(`No active config found for coopId: ${input.coopId}`);
       }
 
-      const [, newConfig] = await ctx.db.$transaction([
-        // Mark old config inactive
+      const proposedChanges = audit.proposedChanges as Record<string, unknown> | null;
+      const sequence = await nextSequence(ctx.db, current.id);
+
+      const [updatedConfig] = await ctx.db.$transaction([
         ctx.db.coopConfig.update({
           where: { id: current.id },
-          data: { isActive: false },
-        }),
-        // Create new config version with the acknowledged charter text
-        ctx.db.coopConfig.create({
           data: {
-            coopId: input.coopId,
             version: current.version + 1,
-            isActive: true,
-            charterText: amendment.proposedText,
-            missionGoals: current.missionGoals as Prisma.InputJsonValue,
-            structuralWeights: current.structuralWeights as Prisma.InputJsonValue,
-            scoreMix: current.scoreMix as Prisma.InputJsonValue,
-            screeningPassThreshold: current.screeningPassThreshold,
-            quorumPercent: current.quorumPercent,
-            approvalThresholdPercent: current.approvalThresholdPercent,
-            votingWindowDays: current.votingWindowDays,
-            scVotingCapPercent: current.scVotingCapPercent,
-            proposalCategories: current.proposalCategories as Prisma.InputJsonValue,
-            sectorExclusions: current.sectorExclusions as Prisma.InputJsonValue,
-            scorerAgents: ((current as any).scorerAgents ?? []) as Prisma.InputJsonValue,
-            minScBalanceToSubmit: current.minScBalanceToSubmit,
-            aiAutoApproveThresholdUSD: current.aiAutoApproveThresholdUSD,
-            councilVoteThresholdUSD: current.councilVoteThresholdUSD,
-            strongGoalThreshold: (current as any).strongGoalThreshold ?? 0.70,
-            missionMinThreshold: (current as any).missionMinThreshold ?? 0.50,
-            structuralGate: (current as any).structuralGate ?? 0.65,
-            // Carry forward display/onboarding fields
-            name: current.name,
-            slug: current.slug,
-            tagline: current.tagline,
-            description: current.description,
-            displayMission: current.displayMission,
-            displayFeatures: current.displayFeatures as Prisma.InputJsonValue,
-            eligibility: current.eligibility,
-            bgColor: current.bgColor,
-            accentColor: current.accentColor,
-            displayOrder: current.displayOrder,
-            applicationQuestions: current.applicationQuestions as Prisma.InputJsonValue,
-            // Carry forward chain config fields
-            chainId: current.chainId,
-            chainName: current.chainName,
-            rpcUrl: current.rpcUrl,
-            scTokenAddress: current.scTokenAddress,
-            allyTokenAddress: current.allyTokenAddress,
-            ucTokenAddress: current.ucTokenAddress,
-            redemptionVaultAddress: current.redemptionVaultAddress,
-            treasurySafeAddress: current.treasurySafeAddress,
-            verifiedStoreRegistryAddress: current.verifiedStoreRegistryAddress,
-            storePaymentRouterAddress: current.storePaymentRouterAddress,
-            rewardEngineAddress: current.rewardEngineAddress,
-            backendWalletAddress: current.backendWalletAddress,
-            scTokenSymbol: current.scTokenSymbol,
-            scTokenName: current.scTokenName,
-            createdBy: walletAddress,
+            charterText: (proposedChanges?.charterText as string) ?? current.charterText,
+          },
+        }),
+        ctx.db.coopConfigAudit.update({
+          where: { id: audit.id },
+          data: { 
+            status: "APPLIED", 
+            sequence,
+            reviewedBy: walletAddress, 
+            reviewedAt: new Date() 
           },
         }),
       ]);
 
-      // Mark amendment as acknowledged and record audit
-      await Promise.all([
-        ctx.db.charterAmendment.update({
-          where: { id: amendment.id },
-          data: { status: "ACKNOWLEDGED", reviewedBy: walletAddress, reviewedAt: new Date() },
-        }),
-        ctx.db.coopConfigAudit.create({
-          data: {
-            coopConfigId: newConfig.id,
-            changedBy: walletAddress,
-            reason: `Charter amendment acknowledged: ${amendment.reason}`,
-            diff: [{ field: "charterText", before: amendment.currentText.substring(0, 200), after: amendment.proposedText.substring(0, 200) }] as Prisma.InputJsonValue,
-          },
-        }),
-      ]);
-
-      return mapDbToConfigOutput(newConfig);
+      return mapDbToConfigOutput(updatedConfig);
     }),
 
   /**
@@ -769,15 +710,15 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      const amendment = await ctx.db.charterAmendment.findUnique({
+      const audit = await ctx.db.coopConfigAudit.findUnique({
         where: { id: input.amendmentId },
       });
 
-      if (!amendment || amendment.status !== "PENDING") {
+      if (!audit || audit.status !== "PENDING") {
         throw new Error("Amendment not found or is no longer pending.");
       }
 
-      await ctx.db.charterAmendment.update({
+      await ctx.db.coopConfigAudit.update({
         where: { id: input.amendmentId },
         data: { status: "REJECTED", reviewedBy: walletAddress, reviewedAt: new Date() },
       });
@@ -808,28 +749,47 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      await ctx.db.configAmendment.updateMany({
-        where: { coopId: input.coopId, section: input.section, status: "PENDING" },
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
+      });
+
+      if (!current) {
+        throw new Error(`No active config found for coopId: ${input.coopId}`);
+      }
+
+      // Supersede any existing pending amendments for this section
+      await ctx.db.coopConfigAudit.updateMany({
+        where: { coopConfigId: current.id, section: input.section, status: "PENDING" },
         data: { status: "SUPERSEDED", reviewedBy: walletAddress, reviewedAt: new Date() },
       });
 
-      const amendment = await ctx.db.configAmendment.create({
+      // Compute diff from current snapshot and proposed changes
+      const diff: { field: string; before: unknown; after: unknown }[] = [];
+      for (const [field, after] of Object.entries(input.proposedChanges)) {
+        const before = input.currentSnapshot[field];
+        if (JSON.stringify(before) !== JSON.stringify(after)) {
+          diff.push({ field, before, after });
+        }
+      }
+
+      const audit = await ctx.db.coopConfigAudit.create({
         data: {
-          coopId: input.coopId,
+          coopConfigId: current.id,
           section: input.section,
           proposedChanges: input.proposedChanges as Prisma.InputJsonValue,
-          currentSnapshot: input.currentSnapshot as Prisma.InputJsonValue,
+          diff: diff as Prisma.InputJsonValue,
           reason: input.reason,
           status: "PENDING",
-          proposedBy: walletAddress,
+          changedBy: walletAddress,
         },
       });
 
       return {
-        id: amendment.id,
-        section: amendment.section,
-        status: amendment.status,
-        proposedAt: amendment.proposedAt instanceof Date ? amendment.proposedAt.toISOString() : amendment.proposedAt,
+        id: audit.id,
+        section: audit.section!,
+        status: audit.status,
+        proposedAt: audit.changedAt instanceof Date ? audit.changedAt.toISOString() : audit.changedAt,
       };
     }),
 
@@ -849,21 +809,43 @@ export const coopConfigRouter = router({
       proposedAt: z.string(),
     })))
     .query(async ({ input, ctx }) => {
-      const amendments = await ctx.db.configAmendment.findMany({
-        where: { coopId: input.coopId, status: "PENDING" },
-        orderBy: { proposedAt: "asc" },
+      const current = await ctx.db.coopConfig.findFirst({
+        where: { coopId: input.coopId, isActive: true },
+        orderBy: { version: "desc" },
       });
 
-      return amendments.map(a => ({
-        id: a.id,
-        section: a.section,
-        proposedChanges: a.proposedChanges as Record<string, unknown>,
-        currentSnapshot: a.currentSnapshot as Record<string, unknown>,
-        reason: a.reason,
-        status: a.status,
-        proposedBy: a.proposedBy,
-        proposedAt: a.proposedAt instanceof Date ? a.proposedAt.toISOString() : a.proposedAt,
-      }));
+      if (!current) return [];
+
+      const audits = await ctx.db.coopConfigAudit.findMany({
+        where: { 
+          coopConfigId: current.id, 
+          status: "PENDING",
+          section: { not: "charterText" }, // Exclude charter amendments
+        },
+        orderBy: { changedAt: "asc" },
+      });
+
+      return audits.map(a => {
+        const proposedChanges = a.proposedChanges as Record<string, unknown> | null ?? {};
+        const diff = a.diff as Array<{ field: string; before: unknown; after: unknown }> | null ?? [];
+        
+        // Reconstruct currentSnapshot from diff
+        const currentSnapshot: Record<string, unknown> = {};
+        for (const d of diff) {
+          currentSnapshot[d.field] = d.before;
+        }
+
+        return {
+          id: a.id,
+          section: a.section!,
+          proposedChanges,
+          currentSnapshot,
+          reason: a.reason,
+          status: a.status,
+          proposedBy: a.changedBy,
+          proposedAt: a.changedAt instanceof Date ? a.changedAt.toISOString() : a.changedAt,
+        };
+      });
     }),
 
   /**
@@ -878,11 +860,11 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      const amendment = await ctx.db.configAmendment.findUnique({
+      const audit = await ctx.db.coopConfigAudit.findUnique({
         where: { id: input.amendmentId },
       });
 
-      if (!amendment || amendment.status !== "PENDING") {
+      if (!audit || audit.status !== "PENDING") {
         throw new Error("Amendment not found or is no longer pending.");
       }
 
@@ -893,88 +875,29 @@ export const coopConfigRouter = router({
 
       if (!current) throw new Error(`No active config found for coopId: ${input.coopId}`);
 
-      const changes = amendment.proposedChanges as Record<string, unknown>;
+      const changes = audit.proposedChanges as Record<string, unknown> | null ?? {};
+      const sequence = await nextSequence(ctx.db, current.id);
 
-      const [, newConfig] = await ctx.db.$transaction([
+      const [updatedConfig] = await ctx.db.$transaction([
         ctx.db.coopConfig.update({
           where: { id: current.id },
-          data: { isActive: false },
-        }),
-        ctx.db.coopConfig.create({
           data: {
-            coopId: input.coopId,
             version: current.version + 1,
-            isActive: true,
-            charterText:               (changes.charterText               as string   | undefined) ?? current.charterText,
-            missionGoals:              (changes.missionGoals              ?? current.missionGoals)              as Prisma.InputJsonValue,
-            structuralWeights:         (changes.structuralWeights         ?? current.structuralWeights)         as Prisma.InputJsonValue,
-            scoreMix:                  (changes.scoreMix                  ?? current.scoreMix)                  as Prisma.InputJsonValue,
-            screeningPassThreshold:    (changes.screeningPassThreshold    as number  | undefined) ?? current.screeningPassThreshold,
-            quorumPercent:             (changes.quorumPercent             as number  | undefined) ?? current.quorumPercent,
-            approvalThresholdPercent:  (changes.approvalThresholdPercent  as number  | undefined) ?? current.approvalThresholdPercent,
-            votingWindowDays:          (changes.votingWindowDays          as number  | undefined) ?? current.votingWindowDays,
-            scVotingCapPercent:        (changes.scVotingCapPercent        as number  | undefined) ?? current.scVotingCapPercent,
-            proposalCategories:        (changes.proposalCategories        ?? current.proposalCategories)        as Prisma.InputJsonValue,
-            sectorExclusions:          (changes.sectorExclusions          ?? current.sectorExclusions)          as Prisma.InputJsonValue,
-            scorerAgents:              ((changes.scorerAgents              ?? (current as any).scorerAgents ?? []))  as Prisma.InputJsonValue,
-            minScBalanceToSubmit:      (changes.minScBalanceToSubmit      as number  | undefined) ?? current.minScBalanceToSubmit,
-            aiAutoApproveThresholdUSD: (changes.aiAutoApproveThresholdUSD as number  | undefined) ?? (current.aiAutoApproveThresholdUSD ?? 500),
-            councilVoteThresholdUSD:   (changes.councilVoteThresholdUSD   as number  | undefined) ?? (current.councilVoteThresholdUSD   ?? 5000),
-            strongGoalThreshold: (changes.strongGoalThreshold as number | undefined) ?? ((current as any).strongGoalThreshold ?? 0.70),
-            missionMinThreshold: (changes.missionMinThreshold as number | undefined) ?? ((current as any).missionMinThreshold ?? 0.50),
-            structuralGate:      (changes.structuralGate      as number | undefined) ?? ((current as any).structuralGate      ?? 0.65),
-            // Carry forward display/onboarding fields (can be amended via changes)
-            name: (changes.name as string | undefined) ?? current.name,
-            slug: (changes.slug as string | undefined) ?? current.slug,
-            tagline: (changes.tagline as string | undefined) ?? current.tagline,
-            description: (changes.description as string | undefined) ?? current.description,
-            displayMission: (changes.displayMission as string | undefined) ?? current.displayMission,
-            displayFeatures: (changes.displayFeatures ?? current.displayFeatures) as Prisma.InputJsonValue,
-            eligibility: (changes.eligibility as string | undefined) ?? current.eligibility,
-            bgColor: (changes.bgColor as string | undefined) ?? current.bgColor,
-            accentColor: (changes.accentColor as string | undefined) ?? current.accentColor,
-            displayOrder: (changes.displayOrder as number | undefined) ?? current.displayOrder,
-            applicationQuestions: current.applicationQuestions as Prisma.InputJsonValue,
-            // Carry forward chain config fields
-            chainId: current.chainId,
-            chainName: current.chainName,
-            rpcUrl: current.rpcUrl,
-            scTokenAddress: current.scTokenAddress,
-            allyTokenAddress: current.allyTokenAddress,
-            ucTokenAddress: current.ucTokenAddress,
-            redemptionVaultAddress: current.redemptionVaultAddress,
-            treasurySafeAddress: current.treasurySafeAddress,
-            verifiedStoreRegistryAddress: current.verifiedStoreRegistryAddress,
-            storePaymentRouterAddress: current.storePaymentRouterAddress,
-            rewardEngineAddress: current.rewardEngineAddress,
-            backendWalletAddress: current.backendWalletAddress,
-            scTokenSymbol: current.scTokenSymbol,
-            scTokenName: current.scTokenName,
-            createdBy: walletAddress,
+            ...changes,
+          },
+        }),
+        ctx.db.coopConfigAudit.update({
+          where: { id: audit.id },
+          data: { 
+            status: "APPLIED", 
+            sequence,
+            reviewedBy: walletAddress, 
+            reviewedAt: new Date() 
           },
         }),
       ]);
 
-      await Promise.all([
-        ctx.db.configAmendment.update({
-          where: { id: amendment.id },
-          data: { status: "ACKNOWLEDGED", reviewedBy: walletAddress, reviewedAt: new Date() },
-        }),
-        ctx.db.coopConfigAudit.create({
-          data: {
-            coopConfigId: newConfig.id,
-            changedBy: walletAddress,
-            reason: `[${amendment.section}] ${amendment.reason}`,
-            diff: Object.keys(changes).map(field => ({
-              field,
-              before: (amendment.currentSnapshot as Record<string, unknown>)[field],
-              after: changes[field],
-            })) as Prisma.InputJsonValue,
-          },
-        }),
-      ]);
-
-      return mapDbToConfigOutput(newConfig);
+      return mapDbToConfigOutput(updatedConfig);
     }),
 
   /**
@@ -989,15 +912,15 @@ export const coopConfigRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { walletAddress } = ctx as AuthenticatedContext;
 
-      const amendment = await ctx.db.configAmendment.findUnique({
+      const audit = await ctx.db.coopConfigAudit.findUnique({
         where: { id: input.amendmentId },
       });
 
-      if (!amendment || amendment.status !== "PENDING") {
+      if (!audit || audit.status !== "PENDING") {
         throw new Error("Amendment not found or is no longer pending.");
       }
 
-      await ctx.db.configAmendment.update({
+      await ctx.db.coopConfigAudit.update({
         where: { id: input.amendmentId },
         data: { status: "REJECTED", reviewedBy: walletAddress, reviewedAt: new Date() },
       });

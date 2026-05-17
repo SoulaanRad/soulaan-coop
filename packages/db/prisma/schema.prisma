@@ -314,15 +314,22 @@ model CharterAmendment {
 }
 
 model CoopConfigAudit {
-  id           String     @id @default(cuid())
-  coopConfigId String
-  coopConfig   CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
-  changedBy    String // wallet address
-  changedAt    DateTime   @default(now())
-  reason       String
-  diff         Json // [{ field, before, after }]
+  id              String     @id @default(cuid())
+  coopConfigId    String
+  coopConfig      CoopConfig @relation(fields: [coopConfigId], references: [id], onDelete: Cascade)
+  changedBy       String // wallet address
+  changedAt       DateTime   @default(now())
+  reason          String
+  diff            Json // [{ field, before, after }]
+  sequence        Int? // monotonically increasing per coop, set on APPLIED
+  status          String     @default("APPLIED") // PENDING | APPLIED | REJECTED
+  section         String? // e.g. "charterText", "votingRules", "missionGoals"
+  proposedChanges Json? // { fieldName: newValue } — the intent before application
+  reviewedBy      String? // wallet address
+  reviewedAt      DateTime?
 
   @@index([coopConfigId])
+  @@index([coopConfigId, status])
   @@schema("public")
 }
 
