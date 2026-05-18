@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Cahootz Coop",
+    "slug": "cahootz-coop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -21,9 +21,13 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "your.bundle.identifier"
+      "bundleIdentifier": "com.cahootzcoop.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.cahootzcoop.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#052C2B"
