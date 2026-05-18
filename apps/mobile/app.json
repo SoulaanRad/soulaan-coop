@@ -35,7 +35,10 @@
       "favicon": "./assets/images/favicon.png"
     },
     "extra": {
-      "eas": {}
+      "eas": {
+        "projectId": "d6eac9aa-edde-46f3-b75e-6fcad6e89359"
+      },
+      "router": {}
     },
     "experiments": {
       "tsconfigPaths": true,
@@ -43,6 +46,7 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "owner": "cahootz-coop"
   }
 }
