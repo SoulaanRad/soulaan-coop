@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { CartButton } from "../../components/cart-button";
 import { TrackPageView } from "../../components/track-page-view";
+import { getPublicCoopDisplayName } from "../../public-coop-data";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -120,8 +121,11 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { storeId } = await params;
-  const store = await getStore(storeId);
+  const { coopId, storeId } = await params;
+  const [store, coopName] = await Promise.all([
+    getStore(storeId),
+    getPublicCoopDisplayName(coopId),
+  ]);
 
   if (!store) {
     return {
@@ -130,7 +134,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${store.name} | Shop`,
+    title: `${store.name} | ${coopName}`,
     description: store.description,
   };
 }

@@ -306,7 +306,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-                Shop Soulaan Businesses
+                Shop {coop.name} Businesses
               </h2>
               <p className="mt-1 text-muted-foreground">
                 Products from stores participating in the cooperative marketplace
@@ -332,7 +332,7 @@ export default async function CoopPublicPage({ params }: PageProps) {
                 Member Marketplace
               </h2>
               <p className="mt-1 text-muted-foreground">
-                Businesses selling through Soulaan Coop and helping circulate value locally
+                Businesses selling through {coop.name} and helping circulate value locally
               </p>
             </div>
             <Button variant="outline" asChild className="hover:border-[var(--coop-accent)] hover:text-[var(--coop-accent)] transition-colors">
@@ -419,8 +419,8 @@ export default async function CoopPublicPage({ params }: PageProps) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} {coop.name}. Part of the Cahootz
-              Cooperative Network.
+              &copy; {new Date().getFullYear()} {coop.name}. Part of the{" "}
+              {coop.name} network.
             </div>
             <div className="flex gap-6">
               <Link

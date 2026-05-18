@@ -4,6 +4,8 @@ import type React from "react";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { api } from "@/lib/trpc/client";
+
 interface WaitlistFormProps {
   source: "hero" | "contact";
   variant?: "hero" | "card";
@@ -16,6 +18,7 @@ function WaitlistFormContent({
   className = "",
 }: WaitlistFormProps) {
   const searchParams = useSearchParams();
+  const { data: coops = [] } = api.coopConfig.listActiveCoops.useQuery();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedCoop, setSuggestedCoop] = useState("");
   const [customCoopSuggestion, setCustomCoopSuggestion] = useState("");
@@ -43,7 +46,7 @@ function WaitlistFormContent({
     const customSuggestion = formData.get("customCoopSuggestion") as string;
 
     // Use custom suggestion if provided, otherwise use selected coop
-    const finalCoopChoice = customSuggestion?.trim() || coop;
+    const finalCoopChoice = customSuggestion.trim() || coop;
 
     try {
       const response = await fetch("/api/waitlist", {
@@ -65,8 +68,7 @@ function WaitlistFormContent({
 
       if (data.success) {
         // Reset form on success
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        e?.currentTarget?.reset();
+        e.currentTarget.reset();
         setSuggestedCoop(searchParams.get("coop") ?? "");
         setCustomCoopSuggestion("");
       }
@@ -121,9 +123,9 @@ function WaitlistFormContent({
                   data-ph-capture-attribute-suggestedcoop="true"
                 />
                 <datalist id={`coop-options-${variant}`}>
-                  <option value="Soulaan Black Wealth Coop" />
-                  <option value="The SF Nightlife Coop" />
-                  <option value="I don't know yet" />
+                  {coops.map((coop) => (
+                    <option key={coop.coopId} value={coop.name} />
+                  ))}
                 </datalist>
               </div>
               <button
@@ -197,7 +199,7 @@ function WaitlistFormContent({
           )}
 
           <p className="text-center text-xs text-slate-500">
-            * Required: Choose an active coop, select "I don't know yet", or suggest a new coop below.
+            * Required: Choose an active coop or suggest a new coop below.
           </p>
         </form>
       </div>
@@ -238,9 +240,9 @@ function WaitlistFormContent({
             data-ph-capture-attribute-suggestedcoop="true"
           />
           <datalist id={`coop-options-${variant}`}>
-            <option value="Soulaan Black Wealth Coop" />
-            <option value="The SF Nightlife Coop" />
-            <option value="I don't know yet" />
+            {coops.map((coop) => (
+              <option key={coop.coopId} value={coop.name} />
+            ))}
           </datalist>
           
           {/* Custom Coop Suggestion */}
@@ -333,7 +335,7 @@ function WaitlistFormContent({
         )}
 
         <p className="text-xs leading-6 text-slate-500">
-          * Required: Pick an active coop, select "I don't know yet", or suggest a new coop above.
+          * Required: Pick an active coop or suggest a new coop above.
         </p>
       </form>
     </div>

@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { AddToCartButton } from "./components/add-to-cart-button";
 import { CartButton } from "../../components/cart-button";
 import { TrackPageView } from "../../components/track-page-view";
+import { getPublicCoopDisplayName } from "../../public-coop-data";
 import { env } from "@/env";
 
 const productTypeIcons: Record<string, typeof Package> = {
@@ -70,8 +71,11 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { productId } = await params;
-  const product = await getProduct(productId);
+  const { coopId, productId } = await params;
+  const [product, coopName] = await Promise.all([
+    getProduct(productId),
+    getPublicCoopDisplayName(coopId),
+  ]);
 
   if (!product) {
     return {
@@ -80,7 +84,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${product.name} | Shop`,
+    title: `${product.name} | ${coopName}`,
     description: product.description,
     openGraph: {
       title: product.name,
