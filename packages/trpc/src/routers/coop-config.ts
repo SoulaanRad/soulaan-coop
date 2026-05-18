@@ -99,6 +99,7 @@ export const coopConfigRouter = router({
       tagline: z.string().nullable(),
       description: z.string().nullable(),
       isLive: z.boolean(),
+      hasPublishedPublicPage: z.boolean(),
     })))
     .query(async ({ ctx }) => {
       const coops = await ctx.db.coopConfig.findMany({
@@ -113,12 +114,22 @@ export const coopConfigRouter = router({
         },
       });
 
+      const publishedPublicPages = await ctx.db.publicCoopInfo.findMany({
+        where: {
+          coopId: { in: coops.map((coop) => coop.coopId) },
+          isPublished: true,
+        },
+        select: { coopId: true },
+      });
+      const publishedCoopIds = new Set(publishedPublicPages.map((page) => page.coopId));
+
       return coops.map((c) => ({
         coopId: c.coopId,
         name: c.name ?? c.coopId,
         tagline: c.tagline,
         description: c.description,
         isLive: !!c.scTokenAddress,
+        hasPublishedPublicPage: publishedCoopIds.has(c.coopId),
       }));
     }),
 

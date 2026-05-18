@@ -366,8 +366,8 @@ export default async function CoopPublicPage({ params }: PageProps) {
           <div className="overflow-hidden rounded-2xl" style={coop.gradientStyle}>
             <div className="grid items-center gap-8 p-8 md:grid-cols-2 md:p-12">
               <div className="text-white">
-                <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                  Become a Soulaan Coop Member
+              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+                  Become a {coop.name} Member
                 </h2>
                 <p className="mt-4 text-lg text-white/90">
                   Apply to join {coop.name} and participate in a marketplace

@@ -82,7 +82,7 @@ export function CoopHero({ coop }: CoopHeroProps) {
               className="border-white/30 bg-white/10 text-white hover:bg-white/20"
               asChild
             >
-              <Link href="#join">
+              <Link href={`/${coop.slug}/application`}>
                 <Users className="mr-2 h-5 w-5" />
                 Apply to Join
               </Link>
