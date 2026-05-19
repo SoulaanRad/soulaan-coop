@@ -32,10 +32,10 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.videos,
+        mediaTypes: 'videos',
         allowsEditing: true,
-        quality: 0.8, // Compress to reduce file size
-        videoMaxDuration: 10, // 10 seconds max
+        quality: 0.8,
+        videoMaxDuration: 10,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -74,7 +74,7 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
 
       // Launch camera
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.videos,
+        mediaTypes: 'videos',
         allowsEditing: true,
         quality: 0.8,
         videoMaxDuration: 10,
