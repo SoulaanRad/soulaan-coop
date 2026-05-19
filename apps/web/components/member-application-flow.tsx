@@ -37,6 +37,13 @@ interface CoopOption {
   accentColor: string;
 }
 
+interface MemberApplicationFlowProps {
+  lockedCoop?: CoopOption;
+  lockedCoopId?: string;
+  successRedirectHref?: string;
+  successRedirectDelayMs?: number;
+}
+
 interface ApplicationQuestion {
   id: string;
   type: string;
@@ -74,7 +81,17 @@ const initialFormData: FormData = {
   dynamicAnswers: {},
 };
 
-const stepLabels = ["Choose", "Profile", "Questions", "Submit"];
+const allStepKeys = ["choose", "profile", "questions", "submit"] as const;
+const lockedStepKeys = ["profile", "questions", "submit"] as const;
+
+type StepKey = (typeof allStepKeys)[number];
+
+const stepLabelByKey: Record<StepKey, string> = {
+  choose: "Choose",
+  profile: "Profile",
+  questions: "Questions",
+  submit: "Submit",
+};
 
 function isBlank(value: unknown) {
   if (Array.isArray(value)) return value.length === 0;
@@ -95,24 +112,74 @@ function extractErrorMessage(error: unknown) {
   return "Could not submit your application. Please try again.";
 }
 
-export function MemberApplicationFlow() {
+function mapConfigToCoopOption(config: {
+  coopId: string;
+  name?: string | null;
+  tagline?: string | null;
+  description?: string | null;
+  displayMission?: string | null;
+  displayFeatures?: unknown;
+  eligibility?: string | null;
+  bgColor?: string | null;
+  accentColor?: string | null;
+}): CoopOption {
+  return {
+    id: config.coopId,
+    name: config.name || config.coopId,
+    tagline: config.tagline || "A member-owned cooperative powered by Cahootz.",
+    description:
+      config.description ||
+      "Apply to join this cooperative and participate in a member-owned local economy.",
+    mission: config.displayMission || config.description || "",
+    features: Array.isArray(config.displayFeatures)
+      ? (config.displayFeatures as CoopOption["features"])
+      : [],
+    eligibility:
+      config.eligibility ||
+      "Open to applicants who align with the cooperative mission and community standards.",
+    bgColor: config.bgColor || "#111111",
+    accentColor: config.accentColor || "#f59e0b",
+  };
+}
+
+export function MemberApplicationFlow({
+  lockedCoop,
+  lockedCoopId,
+  successRedirectHref,
+  successRedirectDelayMs = 12000,
+}: MemberApplicationFlowProps = {}) {
   const router = useRouter();
+  const stepKeys = lockedCoopId ? lockedStepKeys : allStepKeys;
   const [step, setStep] = useState(0);
-  const [selectedCoopId, setSelectedCoopId] = useState("");
+  const [selectedCoopId, setSelectedCoopId] = useState(lockedCoopId ?? "");
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errorMessage, setErrorMessage] = useState("");
   const [applicationReference, setApplicationReference] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const coopsQuery = api.coopConfig.listAvailableCoops.useQuery();
+  const coopsQuery = api.coopConfig.listAvailableCoops.useQuery(undefined, {
+    enabled: !lockedCoopId,
+  });
+  const lockedCoopQuery = api.coopConfig.getActive.useQuery(
+    { coopId: lockedCoopId || "__none__" },
+    { enabled: Boolean(lockedCoopId) },
+  );
   const questionsQuery = api.coopConfig.getApplicationQuestions.useQuery(
     { coopId: selectedCoopId || "__none__" },
     { enabled: Boolean(selectedCoopId) },
   );
   const submitApplication = api.application.submitApplication.useMutation();
 
-  const coops = useMemo(() => (coopsQuery.data ?? []) as CoopOption[], [coopsQuery.data]);
+  const lockedCoopOption = useMemo(() => {
+    if (lockedCoopQuery.data) return mapConfigToCoopOption(lockedCoopQuery.data);
+    return lockedCoop;
+  }, [lockedCoop, lockedCoopQuery.data]);
+
+  const coops = useMemo(() => {
+    if (lockedCoopId) return lockedCoopOption ? [lockedCoopOption] : [];
+    return (coopsQuery.data ?? []) as CoopOption[];
+  }, [coopsQuery.data, lockedCoopId, lockedCoopOption]);
   const questions = useMemo(
     () => (questionsQuery.data?.questions ?? []) as ApplicationQuestion[],
     [questionsQuery.data?.questions],
@@ -124,24 +191,31 @@ export function MemberApplicationFlow() {
 
   const resetFlow = useCallback(() => {
     setStep(0);
-    setSelectedCoopId("");
+    setSelectedCoopId(lockedCoopId ?? "");
     setFormData(initialFormData);
     setErrorMessage("");
     setApplicationReference("");
     setShowPassword(false);
     setShowConfirmPassword(false);
-  }, []);
+  }, [lockedCoopId]);
+
+  useEffect(() => {
+    if (!lockedCoopId) return;
+    setSelectedCoopId(lockedCoopId);
+  }, [lockedCoopId]);
 
   useEffect(() => {
     if (!applicationReference) return;
 
     const timeout = window.setTimeout(() => {
       resetFlow();
-      router.push("/");
-    }, 12000);
+      if (successRedirectHref) {
+        router.push(successRedirectHref);
+      }
+    }, successRedirectDelayMs);
 
     return () => window.clearTimeout(timeout);
-  }, [applicationReference, resetFlow, router]);
+  }, [applicationReference, resetFlow, router, successRedirectDelayMs, successRedirectHref]);
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -209,16 +283,18 @@ export function MemberApplicationFlow() {
   };
 
   const goNext = () => {
-    if (step === 0 && !selectedCoopId) {
+    const currentStep = stepKeys[step];
+
+    if (currentStep === "choose" && !selectedCoopId) {
       setErrorMessage("Choose the co-op you want to apply to.");
       return;
     }
 
-    if (step === 1 && !validatePersonalInfo()) return;
-    if (step === 2 && !validateQuestions()) return;
+    if (currentStep === "profile" && !validatePersonalInfo()) return;
+    if (currentStep === "questions" && !validateQuestions()) return;
 
     setErrorMessage("");
-    setStep((current) => Math.min(current + 1, stepLabels.length - 1));
+    setStep((current) => Math.min(current + 1, stepKeys.length - 1));
   };
 
   const goBack = () => {
@@ -234,12 +310,12 @@ export function MemberApplicationFlow() {
     }
 
     if (!validatePersonalInfo()) {
-      setStep(1);
+      setStep(lockedCoopId ? 0 : 1);
       return;
     }
 
     if (!validateQuestions()) {
-      setStep(2);
+      setStep(lockedCoopId ? 1 : 2);
       return;
     }
 
@@ -291,7 +367,7 @@ export function MemberApplicationFlow() {
             </p>
             <p className="mt-2 break-all text-xl font-black">#{applicationReference}</p>
             <p className="mt-2 text-sm leading-6 text-[#111111]/65">
-              Keep this reference for your records. You will be sent back to the landing page shortly.
+              Keep this reference for your records. This page will be ready for another application shortly.
             </p>
           </div>
 
@@ -320,9 +396,13 @@ export function MemberApplicationFlow() {
             <p className="text-sm font-black uppercase tracking-widest text-[#facc15]">
               Member application
             </p>
-            <h3 className="mt-2 text-2xl font-black">Apply to a live co-op</h3>
+            <h3 className="mt-2 text-2xl font-black">
+              {lockedCoopId ? `Apply to ${selectedCoop?.name ?? "this co-op"}` : "Apply to a live co-op"}
+            </h3>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Pick your community, answer its member questions, and submit for review from the website.
+              {lockedCoopId
+                ? "Answer the member questions and submit directly to the review queue."
+                : "Pick your community, answer its member questions, and submit for review from the website."}
             </p>
           </div>
           <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[#f59e0b] text-[#111111] sm:flex">
@@ -330,9 +410,9 @@ export function MemberApplicationFlow() {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-4 gap-2">
-          {stepLabels.map((label, index) => (
-            <div key={label} className="min-w-0">
+        <div className={cn("mt-6 grid gap-2", lockedCoopId ? "grid-cols-3" : "grid-cols-4")}>
+          {stepKeys.map((stepKey, index) => (
+            <div key={stepKey} className="min-w-0">
               <div
                 className={cn(
                   "h-1.5 rounded-full",
@@ -340,7 +420,7 @@ export function MemberApplicationFlow() {
                 )}
               />
               <p className="mt-2 truncate text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                {label}
+                {stepLabelByKey[stepKey]}
               </p>
             </div>
           ))}
@@ -355,7 +435,7 @@ export function MemberApplicationFlow() {
           </div>
         )}
 
-        {step === 0 && (
+        {stepKeys[step] === "choose" && (
           <CoopSelectionStep
             coops={coops}
             isLoading={coopsQuery.isLoading}
@@ -368,7 +448,7 @@ export function MemberApplicationFlow() {
           />
         )}
 
-        {step === 1 && (
+        {stepKeys[step] === "profile" && (
           <PersonalInfoStep
             formData={formData}
             showPassword={showPassword}
@@ -379,7 +459,7 @@ export function MemberApplicationFlow() {
           />
         )}
 
-        {step === 2 && (
+        {stepKeys[step] === "questions" && (
           <QuestionsStep
             coopName={selectedCoop?.name}
             questions={questions}
@@ -389,7 +469,7 @@ export function MemberApplicationFlow() {
           />
         )}
 
-        {step === 3 && (
+        {stepKeys[step] === "submit" && (
           <ReviewStep
             selectedCoop={selectedCoop}
             formData={formData}
@@ -410,7 +490,7 @@ export function MemberApplicationFlow() {
             Back
           </Button>
 
-          {step < stepLabels.length - 1 ? (
+          {step < stepKeys.length - 1 ? (
             <Button
               type="button"
               onClick={goNext}

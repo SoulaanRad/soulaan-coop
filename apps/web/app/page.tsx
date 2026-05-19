@@ -31,6 +31,7 @@ interface CoopOption {
   tagline: string | null;
   description: string | null;
   isLive: boolean;
+  hasPublishedPublicPage: boolean;
 }
 
 async function getActiveCoops(): Promise<CoopOption[]> {
@@ -528,31 +529,44 @@ export default async function HomePage() {
                   <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Visit a live co-op.</h2>
                 </div>
                 <p className="max-w-xl text-slate-400">
-                  Public pages turn a co-op from an idea into something people can inspect,
-                  shop, and join.
+                  Apply to join any active co-op. When a co-op has published its public page,
+                  you can also visit its marketplace.
                 </p>
               </div>
 
               <div className="mt-10 grid gap-4 md:grid-cols-3">
                 {coops.map((coop, i) => (
-                  <Link
+                  <article
                     key={coop.coopId}
-                    href={`/c/${coop.coopId}`}
                     className="group overflow-hidden rounded-lg border border-white/10 bg-[#111111] transition hover:-translate-y-0.5 hover:border-[#f59e0b]/50"
                   >
-                    <div className={`relative h-36 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`}>
-                      <span className="absolute right-3 top-3 rounded-lg bg-[#111111]/80 px-3 py-1 text-xs font-bold text-white">
-                        {coop.isLive ? "LIVE" : "SOON"}
-                      </span>
-                    </div>
+                    <div className={`h-36 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`} />
                     <div className="p-5">
                       <h3 className="text-lg font-bold group-hover:text-[#facc15]">{coop.name}</h3>
                       {coop.tagline && <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>}
                       {coop.description && (
                         <p className="mt-3 line-clamp-4 text-xs leading-6 text-slate-500">{coop.description}</p>
                       )}
+                      <div className="mt-5 flex flex-col gap-2 sm:flex-row md:flex-col xl:flex-row">
+                        <Link
+                          href={`/${coop.coopId}/application`}
+                          className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#f59e0b] px-4 py-2 text-sm font-bold text-[#111111] transition hover:bg-[#facc15]"
+                        >
+                          Apply
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                        {coop.hasPublishedPublicPage && (
+                          <Link
+                            href={`/c/${coop.coopId}`}
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white transition hover:border-[#f59e0b]/60 hover:bg-white/10"
+                          >
+                            Marketplace
+                            <Store className="h-4 w-4" />
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  </Link>
+                  </article>
                 ))}
               </div>
             </div>

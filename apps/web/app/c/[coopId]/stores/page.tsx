@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StoreCard } from "../components/store-card";
+import { getPublicCoopDisplayName } from "../public-coop-data";
 import { env } from "@/env";
 
 const categories = [
@@ -63,9 +64,11 @@ async function getStores(coopId: string, category?: string, search?: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { coopId } = await params;
+  const coopName = await getPublicCoopDisplayName(coopId);
+
   return {
-    title: `Stores | ${coopId} Coop`,
-    description: `Browse all stores in the ${coopId} cooperative network`,
+    title: `Stores | ${coopName}`,
+    description: `Browse stores in the ${coopName} cooperative network`,
   };
 }
 
@@ -73,6 +76,7 @@ export default async function StoresPage({ params, searchParams }: PageProps) {
   const { coopId } = await params;
   const { category, search } = await searchParams;
 
+  const coopName = await getPublicCoopDisplayName(coopId);
   const stores = await getStores(coopId, category, search);
 
   return (
@@ -91,7 +95,7 @@ export default async function StoresPage({ params, searchParams }: PageProps) {
                 Community Stores
               </h1>
               <p className="text-muted-foreground">
-                {stores.length} stores in the network
+                {stores.length} stores in {coopName}
               </p>
             </div>
           </div>

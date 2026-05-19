@@ -5,23 +5,30 @@ import { Suspense, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Store } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
+import { api } from "@/lib/trpc/client";
+
 interface CoopOption {
   coopId: string;
   name: string;
   tagline: string | null;
   description: string | null;
   isLive: boolean;
+  hasPublishedPublicPage: boolean;
 }
 
 interface BusinessSignupFormProps {
   coops?: CoopOption[];
 }
 
-function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
+function BusinessSignupFormContent({ coops: initialCoops = [] }: BusinessSignupFormProps) {
   const searchParams = useSearchParams();
+  const { data: coops = initialCoops } =
+    api.coopConfig.listActiveCoops.useQuery(undefined, {
+      initialData: initialCoops,
+    });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coopInterest, setCoopInterest] = useState("");
-  const [coopId, setCoopId] = useState("soulaan");
+  const [coopId, setCoopId] = useState("");
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
@@ -37,6 +44,25 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
       setCoopId(coopIdFromQuery);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (coopId || !coops.length) {
+      return;
+    }
+
+    const matchingCoop = coops.find((coop) => coop.name === coopInterest);
+    if (matchingCoop) {
+      setCoopId(matchingCoop.coopId);
+    }
+  }, [coopId, coopInterest, coops]);
+
+  const handleCoopInterestChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextCoopInterest = event.target.value;
+    const matchingCoop = coops.find((coop) => coop.name === nextCoopInterest);
+
+    setCoopInterest(nextCoopInterest);
+    setCoopId(matchingCoop?.coopId ?? "");
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,7 +80,7 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
       businessType: formData.get("businessType") as string,
       coopInterest: formData.get("coopInterest") as string,
       description: formData.get("description") as string,
-      coopId: coopId,
+      coopId: coopId || undefined,
     };
 
     try {
@@ -89,6 +115,7 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
         // Reset form on success
         formElement.reset();
         setCoopInterest(searchParams.get("coop") ?? "");
+        setCoopId(searchParams.get("coopId") ?? "");
       }
     } catch (error) {
       console.error("Business form submission error:", error);
@@ -126,9 +153,9 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
               name="coopInterest"
               type="text"
               list="business-coop-options"
-              placeholder="Soulaan Black Wealth Coop, The SF Nightlife Coop, or your own idea"
+              placeholder="Choose a co-op from the list, or describe your own idea"
               value={coopInterest}
-              onChange={(event) => setCoopInterest(event.target.value)}
+              onChange={handleCoopInterestChange}
               disabled={isSubmitting}
               className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-300/50"
               data-ph-capture-attribute-coopinterest="true"
@@ -137,8 +164,6 @@ function BusinessSignupFormContent({ coops = [] }: BusinessSignupFormProps) {
               {coops.map((coop) => (
                 <option key={coop.coopId} value={coop.name} />
               ))}
-              <option value="I don't know yet" />
-              <option value="New coop idea" />
             </datalist>
           </div>
 
