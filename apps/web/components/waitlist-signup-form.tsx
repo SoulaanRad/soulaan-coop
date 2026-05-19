@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { api } from "@/lib/trpc/client";
 
 interface CoopOption {
   coopId: string;
@@ -11,13 +12,18 @@ interface CoopOption {
   tagline: string | null;
   description: string | null;
   isLive: boolean;
+  hasPublishedPublicPage: boolean;
 }
 
 interface WaitlistSignupFormProps {
   coops?: CoopOption[];
 }
 
-export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
+export function WaitlistSignupForm({ coops: initialCoops = [] }: WaitlistSignupFormProps) {
+  const { data: coops = initialCoops } =
+    api.coopConfig.listActiveCoops.useQuery(undefined, {
+      initialData: initialCoops,
+    });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
@@ -116,15 +122,13 @@ export function WaitlistSignupForm({ coops = [] }: WaitlistSignupFormProps) {
           list="member-waitlist-coop-options"
           value={suggestedCoop}
           onChange={(event) => setSuggestedCoop(event.target.value)}
-          placeholder="A live co-op, a neighborhood group, or a new idea"
+          placeholder="Choose a co-op from the list, or describe your own idea"
           className="bg-white border-white/30 text-[#1a1a1a] placeholder:text-slate-400"
         />
         <datalist id="member-waitlist-coop-options">
           {coops.map((coop) => (
             <option key={coop.coopId} value={coop.name} />
           ))}
-          <option value="I want to create a new co-op" />
-          <option value="I am not sure yet" />
         </datalist>
       </div>
 

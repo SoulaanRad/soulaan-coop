@@ -29,6 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CartButton } from "../components/cart-button";
+import { getPublicCoopDisplayName } from "../public-coop-data";
 import { env } from "@/env";
 
 const categories = [
@@ -104,9 +105,11 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { coopId } = await params;
+  const coopName = await getPublicCoopDisplayName(coopId);
+
   return {
-    title: `Products | ${coopId} Coop`,
-    description: `Browse all products from ${coopId} cooperative stores`,
+    title: `Products | ${coopName}`,
+    description: `Browse products from ${coopName} stores`,
   };
 }
 
@@ -114,6 +117,7 @@ export default async function ProductsPage({ params, searchParams }: PageProps) 
   const { coopId } = await params;
   const { category, type, search, sort } = await searchParams;
 
+  const coopName = await getPublicCoopDisplayName(coopId);
   let products = await getProducts(coopId, category, type, search);
 
   // Sort products
@@ -140,7 +144,7 @@ export default async function ProductsPage({ params, searchParams }: PageProps) 
                   All Products
                 </h1>
                 <p className="text-muted-foreground">
-                  {products.length} products available
+                  {products.length} products from {coopName}
                 </p>
               </div>
             </div>

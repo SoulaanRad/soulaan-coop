@@ -12,27 +12,24 @@ import { Web3Provider } from "@/lib/web3-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title:
-    "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+  metadataBase: new URL("https://cahootz.coop"),
+  title: "Cahootz | The App for Community-Owned Economies",
   description:
-    "Join the Soulaan Co-op and transform everyday spending into community wealth. Use Unity Coin (UC) and SoulaaniCoin (SC) to keep money circulating in Black communities while earning rewards and voting power.",
+    "Join a co-op, support local businesses, earn participation rewards, vote on proposals, and fund the tools your community needs.",
   keywords: [
-    "Black economic empowerment",
+    "cooperative economy",
     "community wealth building",
     "cooperative economics",
-    "Unity Coin",
-    "SoulaaniCoin",
-    "DAO",
-    "cryptocurrency",
-    "Black-owned businesses",
-    "economic justice",
-    "generational wealth",
+    "member-owned marketplace",
+    "local businesses",
+    "co-op membership",
+    "community governance",
     "community investment",
-    "financial inclusion",
+    "shared ownership",
   ],
-  authors: [{ name: "Soulaan Co-op" }],
-  creator: "Soulaan Co-op",
-  publisher: "Soulaan Co-op",
+  authors: [{ name: "Cahootz" }],
+  creator: "Cahootz",
+  publisher: "Cahootz",
   robots: {
     index: true,
     follow: true,
@@ -47,33 +44,20 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://soulaan.coop",
-    siteName: "Soulaan Co-op",
-    title:
-      "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+    url: "https://cahootz.coop",
+    siteName: "Cahootz",
+    title: "Cahootz | The App for Community-Owned Economies",
     description:
-      "Transform everyday spending into community wealth. Join the economic revolution that keeps money circulating in Black communities.",
-    images: [
-      {
-        url: "/images/soulaan-og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Soulaan Co-op - Building Generational Wealth",
-      },
-    ],
+      "Join a co-op, support local businesses, earn participation rewards, vote on proposals, and fund the tools your community needs.",
   },
   twitter: {
     card: "summary_large_image",
-    title:
-      "Soulaan Co-op | Building Generational Wealth Through Economic Cooperation",
+    title: "Cahootz | The App for Community-Owned Economies",
     description:
-      "Transform everyday spending into community wealth. Join the economic revolution that keeps money circulating in Black communities.",
-    images: ["/images/soulaan-og-image.png"],
-    creator: "@SoulaanCoop",
-    site: "@SoulaanCoop",
+      "Join a co-op, support local businesses, earn participation rewards, vote on proposals, and fund the tools your community needs.",
   },
   alternates: {
-    canonical: "https://soulaan.coop",
+    canonical: "https://cahootz.coop",
   },
   category: "finance",
   classification: "Business",
@@ -110,28 +94,25 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              name: "Soulaan Co-op",
+              name: "Cahootz",
               description:
-                "A community-driven economic initiative designed to empower Black Americans by transforming everyday financial activities into avenues for wealth-building and governance.",
-              url: "https://soulaan.coop",
-              logo: "https://soulaan.coop/images/soulaan-flag.jpg",
+                "A platform for member-owned co-ops that connects applications, local marketplaces, governance, rewards, and shared community investment.",
+              url: "https://cahootz.coop",
+              logo: "https://cahootz.coop/placeholder-logo.png",
               foundingDate: "2024",
-              sameAs: [
-                "https://github.com/soulaan-coop",
-                "https://twitter.com/SoulaanCoop",
-              ],
+              sameAs: [],
               contactPoint: {
                 "@type": "ContactPoint",
                 contactType: "customer service",
-                email: "hello@soulaan.coop",
+                email: "hello@cahootz.coop",
               },
               areaServed: "United States",
               knowsAbout: [
-                "Economic Empowerment",
-                "Community Wealth Building",
                 "Cooperative Economics",
-                "Cryptocurrency",
-                "DAO Governance",
+                "Community Wealth Building",
+                "Member-Owned Marketplaces",
+                "Community Governance",
+                "Local Business Networks",
               ],
             }),
           }}
