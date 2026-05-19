@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { getCoopId } from '@/lib/config';
 
@@ -17,6 +17,10 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
   const [uploadProgress, setUploadProgress] = useState(0);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
 
+  const player = useVideoPlayer(videoUri, (p) => {
+    p.loop = true;
+  });
+
   const pickVideo = async () => {
     try {
       // Request permission
@@ -28,7 +32,7 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: ImagePicker.MediaType.videos,
         allowsEditing: true,
         quality: 0.8, // Compress to reduce file size
         videoMaxDuration: 10, // 10 seconds max
@@ -70,7 +74,7 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
 
       // Launch camera
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: ImagePicker.MediaType.videos,
         allowsEditing: true,
         quality: 0.8,
         videoMaxDuration: 10,
@@ -196,12 +200,11 @@ export default function VideoUpload({ onUploadComplete, apiUrl, resourceId = "te
       {videoUri ? (
         <View className="space-y-3">
           <View className="rounded-xl overflow-hidden bg-gray-100">
-            <Video
-              source={{ uri: videoUri }}
+            <VideoView
+              player={player}
               style={{ width: '100%', height: 200 }}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping
+              nativeControls
+              contentFit="contain"
             />
           </View>
           <View className="flex-row items-center justify-between">

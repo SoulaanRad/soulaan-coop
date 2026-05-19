@@ -25,9 +25,9 @@ catalog:
   "viem": "^2.43.5"
 catalogs:
   react19:
-    react: 19.2.4
-    react-dom: 19.2.4
-    "@types/react": ^19.2.4
-    "@types/react-dom": ^19.2.3
+    react: 19.1.0
+    react-dom: 19.1.0
+    "@types/react": ~19.1.10
+    "@types/react-dom": ~19.1.7
 onlyBuiltDependencies:
   - esbuild
