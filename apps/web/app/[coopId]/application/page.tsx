@@ -85,10 +85,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { coopId } = await params;
   const { publicInfo, coopConfig } = await getApplicationPageData(coopId);
   const name = publicInfo?.name || coopConfig?.name || coopId;
+  const title = `Apply to ${name}`;
+  const description = `Membership application for ${name}.`;
 
   return {
-    title: `Apply to ${name}`,
-    description: `Membership application for ${name}.`,
+    title,
+    description,
+    alternates: {
+      canonical: `/${coopId}/application`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `/${coopId}/application`,
+      siteName: "Cahootz",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
     robots: {
       index: false,
       follow: false,

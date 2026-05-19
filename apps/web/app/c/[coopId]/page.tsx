@@ -174,10 +174,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${name} | ${title}`,
     description,
+    alternates: {
+      canonical: `/c/${coopId}`,
+    },
     openGraph: {
       title: `${name} | ${title}`,
       description,
+      url: `/c/${coopId}`,
+      siteName: name,
       type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | ${title}`,
+      description,
     },
   };
 }

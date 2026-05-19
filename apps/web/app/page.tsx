@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   description:
     "Join a co-op, support local businesses, earn participation rewards, vote on proposals, and fund the tools your community needs.",
   alternates: {
-    canonical: "https://soulaan.coop",
+    canonical: "https://cahootz.coop",
   },
 };
 
