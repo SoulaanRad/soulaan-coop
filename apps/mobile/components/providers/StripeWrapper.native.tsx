@@ -1,10 +1,10 @@
-import { ReactNode } from 'react';
+import { ReactElement } from 'react';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
 
 interface StripeWrapperProps {
-  children: ReactNode;
+  children: ReactElement | ReactElement[];
 }
 
 // Native version - wraps with StripeProvider
