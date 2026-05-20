@@ -8,6 +8,7 @@ import {
   Globe,
   Landmark,
   MessageSquare,
+  Newspaper,
   ShieldCheck,
   Smartphone,
   Store,
@@ -21,9 +22,11 @@ import Script from "next/script";
 import { Suspense } from "react";
 
 import { BusinessSignupForm } from "@/components/business-signup-form";
+import { BlogCard } from "@/components/blog/blog-card";
 import { MemberApplicationFlow } from "@/components/member-application-flow";
 import { WaitlistSignupForm } from "@/components/waitlist-signup-form";
 import { env } from "@/env";
+import { getFeaturedBlogPosts } from "@/lib/blog";
 
 interface CoopOption {
   coopId: string;
@@ -193,6 +196,7 @@ const faqs = [
 
 export default async function HomePage() {
   const coops = await getActiveCoops();
+  const featuredPosts = await getFeaturedBlogPosts(3);
 
   return (
     <div className="min-h-screen bg-[#111111] text-white">
@@ -221,6 +225,9 @@ export default async function HomePage() {
             </Link>
             <Link href="#features" className="text-slate-400 transition hover:text-white">
               Features
+            </Link>
+            <Link href="/blog" className="text-slate-400 transition hover:text-white">
+              Blog
             </Link>
             <Link href="#join" className="text-slate-400 transition hover:text-white">
               Join
@@ -567,6 +574,42 @@ export default async function HomePage() {
                       </div>
                     </div>
                   </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {featuredPosts.length > 0 && (
+          <section id="blog" className="border-b border-white/10 bg-[#161616] px-5 py-20 sm:px-6 md:py-24">
+            <div className="mx-auto max-w-7xl">
+              <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+                <div className="max-w-3xl">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
+                    <Newspaper className="h-4 w-4" />
+                    Latest from the blog
+                  </div>
+                  <h2 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">
+                    Notes from the work of building Cahootz.
+                  </h2>
+                  <p className="mt-4 text-lg leading-8 text-slate-400">
+                    Product updates, co-op playbooks, and practical thinking about
+                    community-owned economies. Draft in Notion, publish on the site.
+                  </p>
+                </div>
+
+                <Link
+                  href="/blog"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-3 font-semibold transition hover:border-[#f59e0b]/60 hover:bg-white/10"
+                >
+                  View all posts
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+              </div>
+
+              <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {featuredPosts.map((post, index) => (
+                  <BlogCard key={post.slug} post={post} priority={index === 0} />
                 ))}
               </div>
             </div>
