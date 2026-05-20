@@ -17,6 +17,8 @@ export const env = createEnv({
 
     SLACK_WEBHOOK_URL: z.string().url().optional(),
     SESSION_SECRET: z.string().min(32).optional(),
+    NOTION_TOKEN: z.string().optional(),
+    NOTION_BLOG_DATABASE_ID: z.string().optional(),
   },
 
   /**
@@ -39,6 +41,8 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
     SESSION_SECRET: process.env.SESSION_SECRET,
+    NOTION_TOKEN: process.env.NOTION_TOKEN,
+    NOTION_BLOG_DATABASE_ID: process.env.NOTION_BLOG_DATABASE_ID,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID,
