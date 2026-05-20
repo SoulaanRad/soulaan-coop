@@ -1,3 +1,5 @@
+import { blogPosts } from "./blog.generated";
+
 export type BlogPostBlock =
   | {
       type: "paragraph";
@@ -92,10 +94,6 @@ export function blocksFromNotionPaste(markdown: string): BlogPostBlock[] {
 
   return blocks;
 }
-
-export const blogPosts: BlogPost[] = [
-  
-];
 
 export function getPublishedBlogPosts() {
   return [...blogPosts].sort(

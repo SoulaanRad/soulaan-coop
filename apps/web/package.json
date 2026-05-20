@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "blog:sync": "tsx ./scripts/sync-notion-blog.ts",
     "validate-env": "tsx ./scripts/validate-env.ts",
     "build": "pnpm run validate-env && next build",
     "dev": "next dev",

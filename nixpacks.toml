@@ -1,0 +1,23 @@
+providers = ["node"]
+buildImage = "ghcr.io/railwayapp/nixpacks:latest"
+
+[variables]
+NODE_ENV = "production"
+NIXPACKS_NODE_VERSION = "22"
+NPM_CONFIG_PRODUCTION = "false"
+
+[phases.install]
+cmds = [
+  "corepack enable",
+  "corepack prepare pnpm@10.11.1 --activate",
+  "pnpm install --frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "pnpm blog:sync",
+  "pnpm -F @soulaan-coop/web build"
+]
+
+[start]
+cmd = "pnpm -F @soulaan-coop/web start"
