@@ -12,6 +12,7 @@ coverage
 .next/
 out/
 next-env.d.ts
+apps/web/lib/blog.generated.ts
 
 # nitro
 .nitro/
