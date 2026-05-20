@@ -26,13 +26,16 @@
     }
   },
   "include": [
-    "src",
-    "./src/**/*.ts",
-    "./src/**/*.tsx",
+    "app",
+    "components",
+    "contexts",
+    "hooks",
+    "lib",
+    "scripts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
-, "app"  ],
+  ],
   "exclude": [
     "node_modules"
   ]

@@ -8,6 +8,9 @@
       "node": "22.21.1",
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "resourceClass": "medium"
       }
     },
     "development": {
