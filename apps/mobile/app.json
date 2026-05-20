@@ -50,7 +50,27 @@
     },
     "plugins": [
       "expo-router",
-      "./expo-plugins/with-excluded-archs.js"
+      "./expo-plugins/with-excluded-archs.js",
+      "./expo-plugins/with-modify-gradle.js",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Cahootz Coop to access your camera for QR code scanning."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Cahootz Coop to use Face ID for authentication."
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.cahootzcoop.mobile",
+          "enableGooglePay": true
+        }
+      ]
     ],
     "owner": "cahootz-coop"
   }
