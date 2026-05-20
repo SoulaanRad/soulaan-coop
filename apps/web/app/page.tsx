@@ -196,7 +196,7 @@ const faqs = [
 
 export default async function HomePage() {
   const coops = await getActiveCoops();
-  const featuredPosts = await getFeaturedBlogPosts(3);
+  const featuredPosts = getFeaturedBlogPosts(3);
 
   return (
     <div className="min-h-screen bg-[#111111] text-white">
