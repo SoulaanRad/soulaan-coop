@@ -82,5 +82,8 @@
 
   - [ ] Create documentation for merchants detailing the integration process and usage of tools.
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Create documentation for developers on how to integrate the merchant tools with their systems. � �
+
 ---
-*🤖 Roadmap updated 2026-04-27 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-05-22 - AI-generated sub-items added based on completed work analysis*
