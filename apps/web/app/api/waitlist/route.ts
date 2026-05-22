@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { sendWaitlistWelcomeEmail } from "@repo/trpc/services/email-service";
 import { env } from "@/env";
 import PostHogClient from "@/lib/posthog";
 import z from "zod/v4";
@@ -106,7 +105,12 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await sendWaitlistWelcomeEmail(waitlistData.email, waitlistData.suggestedCoop);
+      const apiUrl = (env.NEXT_PUBLIC_API_URL || "http://localhost:3001/trpc").replace(/\/trpc$/, "").replace(/\/$/, "");
+      await fetch(`${apiUrl}/trpc/waitlist.sendWelcomeEmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: waitlistData.email, coopId: waitlistData.suggestedCoop }),
+      });
     } catch (error) {
       console.error("Waitlist welcome email error:", error);
     }
