@@ -30,6 +30,7 @@ import { scVerificationRouter } from "./sc-verification.js";
 import { platformConfigRouter } from "./platform-config.js";
 import { publicCoopInfoRouter } from "./public-coop-info.js";
 import { walletAuthRouter } from "./wallet-auth.js";
+import { waitlistRouter } from "./waitlist.js";
 
 export const appRouter = router({
   user: userRouter,
@@ -62,6 +63,7 @@ export const appRouter = router({
   platformConfig: platformConfigRouter,
   publicCoopInfo: publicCoopInfoRouter,
   walletAuth: walletAuthRouter,
+  waitlist: waitlistRouter,
 });
 
 export type AppRouter = typeof appRouter;
