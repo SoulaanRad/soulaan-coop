@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { sendWaitlistWelcomeEmail } from "@repo/trpc/services/email-service";
 import { env } from "@/env";
 import PostHogClient from "@/lib/posthog";
 import z from "zod/v4";
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
       update: {
         name: waitlistData.name,
         source: waitlistData.source,
+        coopId: waitlistData.suggestedCoop || undefined,
         notes: waitlistData.suggestedCoop
           ? `Interested coop: ${waitlistData.suggestedCoop}`
           : undefined,
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
         name: waitlistData.name,
         type: "user",
         source: waitlistData.source,
+        coopId: waitlistData.suggestedCoop || undefined,
         notes: waitlistData.suggestedCoop
           ? `Interested coop: ${waitlistData.suggestedCoop}`
           : undefined,
@@ -100,6 +103,12 @@ export async function POST(request: NextRequest) {
       await sendWaitlistToSlack(waitlistData, origin);
     } catch (error) {
       console.error("Slack waitlist notification error:", error);
+    }
+
+    try {
+      await sendWaitlistWelcomeEmail(waitlistData.email, waitlistData.suggestedCoop);
+    } catch (error) {
+      console.error("Waitlist welcome email error:", error);
     }
 
     // Identify user in PostHog

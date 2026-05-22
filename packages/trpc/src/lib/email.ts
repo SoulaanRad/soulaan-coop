@@ -558,6 +558,40 @@ export async function sendOrderEmails({
   await Promise.all(sends);
 }
 
+function WaitlistWelcomeEmail({ coopId }: { coopId?: string | null }) {
+  const applicationUrl = coopId
+    ? `https://cahootzcoops.com/${coopId}/application`
+    : "https://cahootzcoops.com/application";
+
+  return h(
+    EmailShell,
+    { preview: "Thanks for signing up for the wait list." },
+    h(Heading, { style: styles.heading }, "Hey,"),
+    h(
+      Text,
+      { style: styles.text },
+      "Thanks for signing up for the wait list. I was wondering if you wanted to fill out an application.",
+    ),
+    h(Button, { href: applicationUrl, style: styles.button }, applicationUrl),
+    h(
+      Text,
+      { style: styles.text },
+      "Also if you're open to it I wanted to interview a few people to get an idea of what they are looking for from their co-op.",
+    ),
+  );
+}
+
+export async function sendWaitlistWelcomeEmail(
+  email: string,
+  coopId?: string | null,
+): Promise<void> {
+  await sendEmail({
+    to: email,
+    subject: "Thanks for signing up for the wait list",
+    react: h(WaitlistWelcomeEmail, { coopId }),
+  });
+}
+
 export function generateLoginCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
