@@ -22,6 +22,8 @@ export default defineConfig({
     "@repo/db",
     "@prisma/client",
     ".prisma/client",
+    "react",
+    "react-dom",
   ],
   // Ensure proper ESM output
   platform: "node",
