@@ -558,9 +558,14 @@ export async function sendOrderEmails({
   await Promise.all(sends);
 }
 
+function slugify(str: string): string {
+  return str.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
 function WaitlistWelcomeEmail({ coopId }: { coopId?: string | null }) {
-  const applicationUrl = coopId
-    ? `https://cahootzcoops.com/${coopId}/application`
+  const slug = coopId ? slugify(coopId) : null;
+  const applicationUrl = slug
+    ? `https://cahootzcoops.com/${slug}/application`
     : "https://cahootzcoops.com/application";
 
   return h(

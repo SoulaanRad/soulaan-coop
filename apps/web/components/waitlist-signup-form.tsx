@@ -127,7 +127,7 @@ export function WaitlistSignupForm({ coops: initialCoops = [] }: WaitlistSignupF
         />
         <datalist id="member-waitlist-coop-options">
           {coops.map((coop) => (
-            <option key={coop.coopId} value={coop.name} />
+            <option key={coop.coopId} value={coop.coopId} label={coop.name} />
           ))}
         </datalist>
       </div>
