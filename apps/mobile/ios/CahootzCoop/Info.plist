@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>coop</string>
-          <string>com.cahootzcoops.app</string>
+          <string>com.cahootzcoops.mobile</string>
         </array>
       </dict>
     </array>

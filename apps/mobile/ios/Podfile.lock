@@ -1,7 +1,4 @@
 PODS:
-  - EXAV (16.0.8):
-    - ExpoModulesCore
-    - ReactCommon/turbomodule/core
   - EXConstants (18.0.10):
     - ExpoModulesCore
   - EXImageLoader (6.0.0):
@@ -96,6 +93,8 @@ PODS:
   - ExpoSymbols (1.0.8):
     - ExpoModulesCore
   - ExpoSystemUI (6.0.9):
+    - ExpoModulesCore
+  - ExpoVideo (55.0.17):
     - ExpoModulesCore
   - ExpoWebBrowser (15.0.11):
     - ExpoModulesCore
@@ -2220,7 +2219,6 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
-  - EXAV (from `../../../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - Expo (from `../../../node_modules/expo`)
@@ -2242,6 +2240,7 @@ DEPENDENCIES:
   - ExpoSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - ExpoSymbols (from `../../../node_modules/expo-symbols/ios`)
   - ExpoSystemUI (from `../../../node_modules/expo-system-ui/ios`)
+  - ExpoVideo (from `../../../node_modules/expo-video/ios`)
   - ExpoWebBrowser (from `../../../node_modules/expo-web-browser/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
@@ -2340,8 +2339,6 @@ SPEC REPOS:
     - ZXingObjC
 
 EXTERNAL SOURCES:
-  EXAV:
-    :path: "../../../node_modules/expo-av/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   EXImageLoader:
@@ -2384,6 +2381,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-symbols/ios"
   ExpoSystemUI:
     :path: "../../../node_modules/expo-system-ui/ios"
+  ExpoVideo:
+    :path: "../../../node_modules/expo-video/ios"
   ExpoWebBrowser:
     :path: "../../../node_modules/expo-web-browser/ios"
   FBLazyVector:
@@ -2539,7 +2538,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  EXAV: b60fcf142fae6684d295bc28cd7cfcb3335570ea
   EXConstants: fd688cef4e401dcf798a021cfb5d87c890c30ba3
   EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
   Expo: 514ae3ec54a086aab509f255abfbf37be0fcc0e2
@@ -2561,6 +2559,7 @@ SPEC CHECKSUMS:
   ExpoSplashScreen: bc3cffefca2716e5f22350ca109badd7e50ec14d
   ExpoSymbols: 349ee2b4d7d5ff3ea8436467914f8a67635aa354
   ExpoSystemUI: 2ad325f361a2fcd96a464e8574e19935c461c9cc
+  ExpoVideo: 5e7aee124df2f7d9ffe1bd4dbf63119417b340a3
   ExpoWebBrowser: 970dd4c64c29c955c3af664c8058ba768a4c9187
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
   hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
