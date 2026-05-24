@@ -21,13 +21,13 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cahootzcoop.mobile",
+      "bundleIdentifier": "com.cahootzcoops.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.cahootzcoop.mobile",
+      "package": "com.cahootzcoops.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#052C2B"
