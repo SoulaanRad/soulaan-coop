@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="720" viewBox="0 0 900 720" role="img" aria-labelledby="title desc">
+  <title id="title">Cahootz Coops carton mark</title>
+  <desc id="desc">An open orange egg carton tray with three white eggs.</desc>
+  <rect width="900" height="720" fill="none"/>
+  <g fill="#f0975b">
+    <path d="M88 430h724c13 0 24 11 24 24v62c0 13-11 24-24 24H88c-13 0-24-11-24-24v-62c0-13 11-24 24-24Z"/>
+    <path d="M96 568h228l-42 128c-5 15-19 24-35 24H142c-24 0-38-13-46-152Z"/>
+    <path d="M336 568h228l-42 128c-5 15-19 24-35 24H382c-24 0-38-13-46-152Z"/>
+    <path d="M576 568h228l-42 128c-5 15-19 24-35 24H622c-24 0-38-13-46-152Z"/>
+    <path d="M118 402c0-13 11-24 24-24h616c13 0 24 11 24 24v30H118Z"/>
+  </g>
+  <g fill="#fff" stroke="#f0975b" stroke-width="5" stroke-linejoin="round">
+    <path d="M94 430c8-116 72-205 156-205s148 89 156 205Z"/>
+    <path d="M294 430c8-116 72-205 156-205s148 89 156 205Z"/>
+    <path d="M494 430c8-116 72-205 156-205s148 89 156 205Z"/>
+  </g>
+  <rect x="96" y="540" width="708" height="26" fill="#fff"/>
+</svg>

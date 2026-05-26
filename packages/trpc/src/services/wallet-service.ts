@@ -202,6 +202,12 @@ export async function linkExternalWalletToUser({
         coopId,
       },
     },
+    select: {
+      roles: true,
+      approvedBy: true,
+      approvedAt: true,
+      joinedAt: true,
+    },
   });
 
   await client.userCoopMembership.upsert({

@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#052C2B"
+      "backgroundColor": "#FBF7E7"
     },
     "updates": {
       "fallbackToCacheTimeout": 0
@@ -30,7 +30,7 @@
       "package": "com.cahootzcoops.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#052C2B"
+        "backgroundColor": "#FBF7E7"
       }
     },
     "web": {

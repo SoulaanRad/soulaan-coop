@@ -17,6 +17,7 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { Suspense } from "react";
@@ -54,11 +55,11 @@ async function getActiveCoops(): Promise<CoopOption[]> {
 }
 
 const CARD_GRADIENTS = [
-  "from-[#f59e0b]/25 to-[#0f766e]/20",
+  "from-[#f0975b]/25 to-[#0f766e]/20",
   "from-[#22c55e]/20 to-[#0ea5e9]/15",
-  "from-[#ef4444]/20 to-[#f59e0b]/20",
+  "from-[#ef4444]/20 to-[#f0975b]/20",
   "from-[#14b8a6]/20 to-[#64748b]/20",
-  "from-[#facc15]/20 to-[#dc2626]/20",
+  "from-[#ffb36f]/20 to-[#dc2626]/20",
 ];
 
 export const metadata: Metadata = {
@@ -210,12 +211,17 @@ export default async function HomePage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#111111]/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-lg font-black text-[#111111]">
-              C
-            </div>
+            <Image
+              src="/cahootz-coops-eggs.svg"
+              alt=""
+              width={48}
+              height={40}
+              className="h-10 w-12 object-contain"
+              priority
+            />
             <div className="flex flex-col">
               <span className="text-xl font-bold leading-tight tracking-tight">Cahootz</span>
-              <span className="text-xs leading-tight text-slate-400">Community-owned economy</span>
+              <span className="text-xs leading-tight text-slate-400">Cooperative network</span>
             </div>
           </Link>
 
@@ -236,7 +242,7 @@ export default async function HomePage() {
 
           <a
             href="#join"
-            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
+            className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[#111111] transition hover:bg-[#f0975b]"
           >
             Apply now
             <ArrowRight className="h-4 w-4" />
@@ -254,7 +260,7 @@ export default async function HomePage() {
         >
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f0975b]/30 bg-[#f0975b]/10 px-3 py-1.5 text-sm font-medium text-[#ffb36f]">
                 <Zap className="h-4 w-4" />
                 For groups that want to keep more of what they build
               </div>
@@ -267,7 +273,7 @@ export default async function HomePage() {
               <div className="mt-9 flex flex-wrap gap-3">
                 <Link
                   href="#join"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-5 py-3 text-base font-semibold text-[#111111] transition hover:bg-[#facc15]"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#f0975b] px-5 py-3 text-base font-semibold text-[#111111] transition hover:bg-[#ffb36f]"
                 >
                   Join the community
                   <ArrowRight className="h-5 w-5" />
@@ -283,13 +289,13 @@ export default async function HomePage() {
 
             <div className="mx-auto w-full max-w-md lg:ml-auto">
               <div className="rounded-lg border border-white/15 bg-[#181818]/95 p-4 shadow-2xl shadow-black/40">
-                <div className="rounded-lg border border-[#f59e0b]/25 bg-[#121212] p-4 text-white">
+                <div className="rounded-lg border border-[#f0975b]/25 bg-[#121212] p-4 text-white">
                   <div className="flex items-center justify-between border-b border-white/10 pb-4">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-[#facc15]">Today in your co-op</p>
+                      <p className="text-xs font-bold uppercase tracking-widest text-[#ffb36f]">Today in your co-op</p>
                       <h2 className="mt-1 text-xl font-black">Gen Z Co-op</h2>
                     </div>
-                    <div className="rounded-lg bg-[#f59e0b] px-3 py-1 text-xs font-bold text-[#111111]">LIVE</div>
+                    <div className="rounded-lg bg-[#f0975b] px-3 py-1 text-xs font-bold text-[#111111]">LIVE</div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-3 gap-2">
@@ -324,7 +330,7 @@ export default async function HomePage() {
                       },
                     ].map((item) => (
                       <div key={item.title} className="flex gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f59e0b]/15 text-[#facc15]">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f0975b]/15 text-[#ffb36f]">
                           {item.icon}
                         </div>
                         <div>
@@ -345,7 +351,7 @@ export default async function HomePage() {
             <div className="grid gap-4 md:grid-cols-3">
               {proofPoints.map((point) => (
                 <div key={point.value} className="rounded-lg border border-white/10 bg-[#111111] p-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f59e0b]/15 text-[#facc15]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f0975b]/15 text-[#ffb36f]">
                     {point.icon}
                   </div>
                   <h2 className="mt-5 text-2xl font-black">{point.value}</h2>
@@ -359,7 +365,7 @@ export default async function HomePage() {
         <section id="features" className="px-5 py-20 sm:px-6 md:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="max-w-3xl">
-              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">What people use it for</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#ffb36f]">What people use it for</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
                 One app for the work a co-op already has to do.
               </h2>
@@ -373,7 +379,7 @@ export default async function HomePage() {
               {features.map((feature) => (
                 <div key={feature.label} className="rounded-lg border border-white/10 bg-[#1b1b1b] p-6">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#f59e0b]/10 text-[#facc15]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#f0975b]/10 text-[#ffb36f]">
                       {feature.icon}
                     </div>
                     {feature.status === "coming-soon" ? (
@@ -400,7 +406,7 @@ export default async function HomePage() {
         <section className="border-y border-white/10 bg-[#1b1b1b] px-5 py-20 sm:px-6 md:py-24">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
             <div>
-              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Why it matters</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#ffb36f]">Why it matters</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">
                 The money loop is the message.
               </h2>
@@ -412,7 +418,7 @@ export default async function HomePage() {
               </p>
               <Link
                 href="#join"
-                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#f59e0b]"
+                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#f0975b]"
               >
                 Submit an application
                 <ArrowRight className="h-5 w-5" />
@@ -427,7 +433,7 @@ export default async function HomePage() {
                 ["4", "Build", "The treasury can pay vendors to ship features, services, and projects."],
               ].map(([step, title, body]) => (
                 <div key={step} className="rounded-lg border border-white/10 bg-[#111111] p-6">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f59e0b] text-sm font-black text-[#111111]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f0975b] text-sm font-black text-[#111111]">
                     {step}
                   </div>
                   <h3 className="mt-5 text-xl font-black">{title}</h3>
@@ -442,7 +448,7 @@ export default async function HomePage() {
           <div className="mx-auto max-w-7xl">
             <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-[#f0975b]/30 bg-[#f0975b]/10 px-3 py-1.5 text-sm font-medium text-[#ffb36f]">
                   <Vote className="h-4 w-4" />
                   Member-led governance
                 </div>
@@ -467,7 +473,7 @@ export default async function HomePage() {
                     "Review AI scoring, charter alignment, and decision history",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-3">
-                      <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                      <Check className="mt-1 h-5 w-5 shrink-0 text-[#ffb36f]" />
                       <span className="text-slate-300">{item}</span>
                     </li>
                   ))}
@@ -480,7 +486,7 @@ export default async function HomePage() {
         <section className="border-y border-white/10 bg-[#161616] px-5 py-20 text-white sm:px-6 md:py-24">
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
             <div className="rounded-lg border border-white/10 bg-[#111111] p-7">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-bold text-[#facc15]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f0975b]/20 bg-[#f0975b]/10 px-3 py-1.5 text-sm font-bold text-[#ffb36f]">
                 <Users className="h-4 w-4" />
                 For Members
               </div>
@@ -488,14 +494,14 @@ export default async function HomePage() {
               <ul className="mt-8 space-y-4">
                 {memberBenefits.map((benefit) => (
                   <li key={benefit} className="flex items-start gap-3">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#ffb36f]" />
                     <span className="text-slate-300">{benefit}</span>
                   </li>
                 ))}
               </ul>
               <a
                 href="#join"
-                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#f59e0b] px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#facc15]"
+                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#f0975b] px-5 py-3 font-semibold text-[#111111] transition hover:bg-[#ffb36f]"
               >
                 Submit an application
                 <ArrowRight className="h-5 w-5" />
@@ -503,7 +509,7 @@ export default async function HomePage() {
             </div>
 
             <div className="rounded-lg border border-white/10 bg-[#111111] p-7">
-              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-bold text-[#facc15]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-[#f0975b]/20 bg-[#f0975b]/10 px-3 py-1.5 text-sm font-bold text-[#ffb36f]">
                 <Store className="h-4 w-4" />
                 For Businesses
               </div>
@@ -511,7 +517,7 @@ export default async function HomePage() {
               <ul className="mt-8 space-y-4">
                 {businessBenefits.map((benefit) => (
                   <li key={benefit} className="flex items-start gap-3">
-                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#facc15]" />
+                    <Check className="mt-1 h-5 w-5 shrink-0 text-[#ffb36f]" />
                     <span className="text-slate-300">{benefit}</span>
                   </li>
                 ))}
@@ -532,7 +538,7 @@ export default async function HomePage() {
             <div className="mx-auto max-w-7xl">
               <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
                 <div>
-                  <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Active networks</p>
+                  <p className="text-sm font-bold uppercase tracking-widest text-[#ffb36f]">Active networks</p>
                   <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Visit a live co-op.</h2>
                 </div>
                 <p className="max-w-xl text-slate-400">
@@ -545,11 +551,11 @@ export default async function HomePage() {
                 {coops.map((coop, i) => (
                   <article
                     key={coop.coopId}
-                    className="group overflow-hidden rounded-lg border border-white/10 bg-[#111111] transition hover:-translate-y-0.5 hover:border-[#f59e0b]/50"
+                    className="group overflow-hidden rounded-lg border border-white/10 bg-[#111111] transition hover:-translate-y-0.5 hover:border-[#f0975b]/50"
                   >
                     <div className={`h-36 bg-gradient-to-br ${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`} />
                     <div className="p-5">
-                      <h3 className="text-lg font-bold group-hover:text-[#facc15]">{coop.name}</h3>
+                      <h3 className="text-lg font-bold group-hover:text-[#ffb36f]">{coop.name}</h3>
                       {coop.tagline && <p className="mt-1 text-sm text-slate-400">{coop.tagline}</p>}
                       {coop.description && (
                         <p className="mt-3 line-clamp-4 text-xs leading-6 text-slate-500">{coop.description}</p>
@@ -557,7 +563,7 @@ export default async function HomePage() {
                       <div className="mt-5 flex flex-col gap-2 sm:flex-row md:flex-col xl:flex-row">
                         <Link
                           href={`/${coop.coopId}/application`}
-                          className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#f59e0b] px-4 py-2 text-sm font-bold text-[#111111] transition hover:bg-[#facc15]"
+                          className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md bg-[#f0975b] px-4 py-2 text-sm font-bold text-[#111111] transition hover:bg-[#ffb36f]"
                         >
                           Apply
                           <ArrowRight className="h-4 w-4" />
@@ -565,7 +571,7 @@ export default async function HomePage() {
                         {coop.hasPublishedPublicPage && (
                           <Link
                             href={`/c/${coop.coopId}`}
-                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white transition hover:border-[#f59e0b]/60 hover:bg-white/10"
+                            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-bold text-white transition hover:border-[#f0975b]/60 hover:bg-white/10"
                           >
                             Marketplace
                             <Store className="h-4 w-4" />
@@ -585,7 +591,7 @@ export default async function HomePage() {
             <div className="mx-auto max-w-7xl">
               <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
                 <div className="max-w-3xl">
-                  <div className="inline-flex items-center gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-3 py-1.5 text-sm font-medium text-[#facc15]">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-[#f0975b]/30 bg-[#f0975b]/10 px-3 py-1.5 text-sm font-medium text-[#ffb36f]">
                     <Newspaper className="h-4 w-4" />
                     Latest from the blog
                   </div>
@@ -600,7 +606,7 @@ export default async function HomePage() {
 
                 <Link
                   href="/blog"
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-3 font-semibold transition hover:border-[#f59e0b]/60 hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-3 font-semibold transition hover:border-[#f0975b]/60 hover:bg-white/10"
                 >
                   View all posts
                   <ArrowRight className="h-5 w-5" />
@@ -619,7 +625,7 @@ export default async function HomePage() {
         <section className="px-5 py-20 sm:px-6 md:py-24">
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.7fr_1fr]">
             <div>
-              <p className="text-sm font-bold uppercase tracking-widest text-[#facc15]">Real talk</p>
+              <p className="text-sm font-bold uppercase tracking-widest text-[#ffb36f]">Real talk</p>
               <h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Questions people ask before they join.</h2>
             </div>
 
@@ -634,7 +640,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section id="join" className="border-t border-white/10 bg-[#f59e0b] px-5 py-20 text-[#111111] sm:px-6 md:py-24">
+        <section id="join" className="border-t border-white/10 bg-[#f0975b] px-5 py-20 text-[#111111] sm:px-6 md:py-24">
           <div className="mx-auto grid max-w-7xl gap-10 xl:grid-cols-[0.7fr_1.3fr]">
             <div>
               <p className="text-sm font-black uppercase tracking-widest text-[#111111]/70">Join Cahootz</p>
@@ -693,9 +699,13 @@ export default async function HomePage() {
       <footer className="border-t border-white/10 bg-[#111111] px-5 py-10 sm:px-6">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 md:flex-row">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f59e0b] font-black text-[#111111]">
-              C
-            </div>
+            <Image
+              src="/cahootz-coops-mark.svg"
+              alt=""
+              width={44}
+              height={36}
+              className="h-9 w-11 object-contain"
+            />
             <span className="font-bold">Cahootz</span>
           </div>
           <p className="text-center text-sm text-slate-400 md:text-right">

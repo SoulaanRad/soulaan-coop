@@ -66,8 +66,19 @@ async function findUserByWalletAddress(address: string, coopId?: string) {
         ? {
             where: { coopId },
             take: 1,
+            select: {
+              coopId: true,
+              status: true,
+              roles: true,
+            },
           }
-        : true,
+        : {
+            select: {
+              coopId: true,
+              status: true,
+              roles: true,
+            },
+          },
     },
   });
 }
@@ -373,6 +384,11 @@ export async function createUserSession(userId: string, coopId: string): Promise
       memberships: {
         where: { coopId },
         take: 1,
+        select: {
+          coopId: true,
+          status: true,
+          roles: true,
+        },
       },
     },
   });
