@@ -20,7 +20,7 @@ export function SiteShell({ children }: SiteShellProps) {
                 Cahootz
               </span>
               <span className="text-xs leading-tight text-slate-400">
-                Community-owned economy
+                Cooperative network
               </span>
             </div>
           </Link>

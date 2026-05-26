@@ -260,7 +260,8 @@ export const p2pRouter = router({
               username: input.query,
               coopId,
             },
-            include: {
+            select: {
+              userId: true,
               user: {
                 select: { id: true, walletAddress: true },
               },

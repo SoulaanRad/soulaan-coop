@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
         memberships: {
           where: { coopId },
           take: 1,
+          select: {
+            coopId: true,
+            status: true,
+            roles: true,
+          },
         },
       },
     });

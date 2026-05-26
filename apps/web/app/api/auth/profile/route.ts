@@ -175,6 +175,12 @@ export async function GET(_request: NextRequest) {
       include: {
         memberships: {
           where: { coopId: session.activeCoopId },
+          select: {
+            coopId: true,
+            status: true,
+            roles: true,
+            permissions: true,
+          },
         },
       },
     });

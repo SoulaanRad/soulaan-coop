@@ -98,7 +98,7 @@ export default function RootLayout({
               description:
                 "A platform for member-owned co-ops that connects applications, local marketplaces, governance, rewards, and shared community investment.",
               url: "https://cahootz.coop",
-              logo: "https://cahootz.coop/placeholder-logo.png",
+              logo: "https://cahootz.coop/cahootz-coops-mark.svg",
               foundingDate: "2024",
               sameAs: [],
               contactPoint: {

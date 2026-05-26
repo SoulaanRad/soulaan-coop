@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="320" viewBox="0 0 420 320" role="img" aria-labelledby="title desc">
+  <title id="title">Cahootz Coops three eggs mark</title>
+  <desc id="desc">Three white eggs outlined in Cahootz orange.</desc>
+  <rect width="420" height="320" fill="none"/>
+  <g fill="#fff" stroke="#f0975b" stroke-width="10" stroke-linejoin="round">
+    <path d="M112 286c-42 0-76-35-76-83 0-96 34-169 76-169s76 73 76 169c0 48-34 83-76 83Z"/>
+    <path d="M210 286c-42 0-76-35-76-83 0-96 34-169 76-169s76 73 76 169c0 48-34 83-76 83Z"/>
+    <path d="M308 286c-42 0-76-35-76-83 0-96 34-169 76-169s76 73 76 169c0 48-34 83-76 83Z"/>
+  </g>
+</svg>

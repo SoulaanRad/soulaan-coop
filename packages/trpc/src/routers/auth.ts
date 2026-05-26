@@ -362,7 +362,7 @@ export const authRouter = router({
           data: { used: true },
         });
 
-        // Get user with memberships
+        // Get user with memberships (select only needed fields to avoid column-not-found errors)
         const user = await context.db.user.findUnique({
           where: { email: input.email },
           include: {
@@ -374,6 +374,9 @@ export const authRouter = router({
                 joinedAt: 'desc',
               },
               take: 1,
+              select: {
+                coopId: true,
+              },
             },
           },
         });

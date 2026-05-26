@@ -133,7 +133,7 @@ export const ucTransferRouter = router({
             username: input.username,
             coopId: input.coopId,
           },
-          include: {
+          select: {
             user: {
               select: {
                 walletAddress: true,
