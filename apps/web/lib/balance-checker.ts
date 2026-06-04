@@ -73,7 +73,7 @@ const accessControlAbi = [
 // Create a public client for reading from the blockchain
 function createClient() {
   return createPublicClient({
-    chain: chainConfig as Chain,
+    chain: chainConfig,
     transport: http(config.chain.rpcUrl),
   });
 }

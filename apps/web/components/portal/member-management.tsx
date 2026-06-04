@@ -178,7 +178,7 @@ export default function MemberManagement() {
       coopId,
       status: newStatus,
       reviewNotes: reviewNotes || undefined,
-    } as any);
+    });
   };
 
   const handleViewApplication = (user: any) => {
@@ -222,7 +222,7 @@ export default function MemberManagement() {
       message: `Syncing membership for ${userName} to the blockchain...`,
     });
     setSyncModalOpen(true);
-    syncMembership.mutate({ userId, coopId } as any);
+    syncMembership.mutate({ userId, coopId });
   };
 
   const closeSyncModal = () => {

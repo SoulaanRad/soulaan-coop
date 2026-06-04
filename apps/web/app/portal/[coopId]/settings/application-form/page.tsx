@@ -56,7 +56,7 @@ export default function ApplicationFormEditor() {
 
   useEffect(() => {
     if (questionsData?.questions) {
-      setQuestions(questionsData.questions as Question[]);
+      setQuestions(questionsData.questions);
     }
   }, [questionsData]);
 

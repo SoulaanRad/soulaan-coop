@@ -178,7 +178,7 @@ export function MemberApplicationFlow({
 
   const coops = useMemo(() => {
     if (lockedCoopId) return lockedCoopOption ? [lockedCoopOption] : [];
-    return (coopsQuery.data ?? []) as CoopOption[];
+    return (coopsQuery.data ?? []);
   }, [coopsQuery.data, lockedCoopId, lockedCoopOption]);
   const questions = useMemo(
     () => (questionsQuery.data?.questions ?? []) as ApplicationQuestion[],

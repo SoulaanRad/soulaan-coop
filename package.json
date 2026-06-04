@@ -22,6 +22,7 @@
     "db:deploy-setup": "pnpm db:migrate-prod && pnpm db:seed-coops",
     "update-env": "bash scripts/update-all-env-files.sh",
     "update-contract-artifacts": "bash scripts/update-contract-artifacts.sh",
+    "check:versions": "node scripts/check-package-versions.mjs",
     "dev": "turbo watch dev --continue",
     "dev:api": "pnpm -F @soulaan-coop/api dev",
     "dev:api:full": "pnpm -F @soulaan-coop/api dev:full",
@@ -65,6 +66,7 @@
     },
     "overrides": {
       "effect": ">=3.20.0",
+      "react": "19.1.0",
       "react-dom": "19.1.0"
     }
   }

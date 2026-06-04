@@ -73,7 +73,7 @@ export function EditStoreDialog({ coopId, store, onSuccess }: EditStoreDialogPro
       storeId: store.id,
       name,
       description: description || undefined,
-      category: category as any,
+      category: category,
       imageUrl: imageUrl || undefined,
       bannerUrl: bannerUrl || undefined,
     });

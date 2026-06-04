@@ -1543,7 +1543,7 @@ function StripeConnectStatusPanel({ store }: { store: any }) {
     syncStatus.mutate({
       userId: store.ownerId,
       businessId: store.stripeAccount.businessId,
-    } as any);
+    });
   };
 
   const handleInitiate = () => {

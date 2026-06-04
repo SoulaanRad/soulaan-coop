@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image, { type ImageProps } from "next/image";
+import Image from "next/image";
+import type {ImageProps} from "next/image";
 
 /**
  * Wraps next/image and hides itself on load error so any placeholder
