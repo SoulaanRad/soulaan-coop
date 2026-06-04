@@ -17,7 +17,7 @@ export class StripePaymentService implements PaymentServiceInterface {
   constructor() {
     if (STRIPE_SECRET_KEY) {
       this.stripe = new Stripe(STRIPE_SECRET_KEY, {
-        apiVersion: '2026-01-28.clover',
+        apiVersion: '2026-02-25.clover',
       });
     }
   }

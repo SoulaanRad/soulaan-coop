@@ -1310,7 +1310,7 @@ export class ProposalEngine {
       rewritten_text: z.string().describe("The revised proposal text incorporating the alternative's changes"),
     });
 
-    const safeStr = (v: unknown): string => (v == null ? "current value" : typeof v === "object" ? JSON.stringify(v) : String(v as string | number | boolean));
+    const safeStr = (v: unknown): string => (v == null ? "current value" : typeof v === "object" ? JSON.stringify(v) : String(v));
     const changesDescription = alternative.changes
       .map(c => `  • ${c.field}: change from "${safeStr(c.from)}" to "${safeStr(c.to)}"`)
       .join("\n");

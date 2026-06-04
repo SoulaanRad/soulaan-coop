@@ -57,7 +57,7 @@ export async function createConnectAccount(params: {
   // Create Stripe Connect account
   const Stripe = (await import('stripe')).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-02-25.clover',
   });
 
   const account = await stripe.accounts.create({
@@ -142,7 +142,7 @@ export async function generateOnboardingLink(params: {
 
   const Stripe = (await import('stripe')).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-02-25.clover',
   });
 
   const accountLink = await stripe.accountLinks.create({
@@ -176,7 +176,7 @@ export async function syncAccountStatus(accountId: string): Promise<{
   // Fetch account from Stripe
   const Stripe = (await import('stripe')).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-02-25.clover',
   });
 
   const account = await stripe.accounts.retrieve(accountId);
@@ -400,7 +400,7 @@ export async function deleteConnectAccount(businessId: string): Promise<void> {
   // Delete account from Stripe
   const Stripe = (await import('stripe')).default;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-02-25.clover',
   });
 
   await stripe.accounts.del(stripeAccount.stripeAccountId);
