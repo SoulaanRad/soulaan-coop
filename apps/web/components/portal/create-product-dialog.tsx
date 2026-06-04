@@ -70,7 +70,7 @@ export function CreateProductDialog({ storeId, storeName, onSuccess }: CreatePro
       storeId,
       name,
       description: description || undefined,
-      category: category as any,
+      category: category,
       imageUrl: imageUrl || undefined,
       images: additionalImages.length > 0 ? additionalImages : undefined,
       priceUSD: parseFloat(priceUSD),

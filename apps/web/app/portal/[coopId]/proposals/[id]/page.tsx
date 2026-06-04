@@ -720,7 +720,7 @@ export default function ProposalDetailPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader><CardTitle className="text-white text-lg">Scores</CardTitle></CardHeader>
             <CardContent>
-              <ProposalScores evaluation={proposal.evaluation} goalScores={goalScores as any} />
+              <ProposalScores evaluation={proposal.evaluation} goalScores={goalScores} />
             </CardContent>
           </Card>
 

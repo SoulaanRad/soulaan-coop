@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { WagmiProvider, createConfig, http, type Config } from 'wagmi';
+import { WagmiProvider, createConfig, http  } from 'wagmi';
+import type {Config} from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createWeb3Modal } from '@web3modal/wagmi/react';
 import { injected, walletConnect } from 'wagmi/connectors';

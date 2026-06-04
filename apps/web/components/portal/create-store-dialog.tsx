@@ -81,7 +81,7 @@ export function CreateStoreDialog({ coopId, onSuccess }: CreateStoreDialogProps)
       ownerId,
       name,
       description: description || undefined,
-      category: category as any,
+      category: category,
       imageUrl: imageUrl || undefined,
       bannerUrl: bannerUrl || undefined,
       isScVerified,
