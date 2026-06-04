@@ -75,6 +75,9 @@
   - [ ] Implement error handling for payment processing failures and provide user feedback. � �
   - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
 
+  <!-- 🤖 AI-generated sub-items based on completed work -->
+  - [ ] Create a monitoring dashboard for real-time insights into voting patterns and outcomes. � �
+
 ---
 
 ## Create merchant tools. 🟡
@@ -83,4 +86,4 @@
   - [ ] Create documentation for merchants detailing the integration process and usage of tools.
 
 ---
-*🤖 Roadmap updated 2026-04-27 - AI-generated sub-items added based on completed work analysis*
+*🤖 Roadmap updated 2026-06-04 - AI-generated sub-items added based on completed work analysis*
