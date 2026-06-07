@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BlogCard } from "@/components/blog/blog-card";
+import { BlogComments } from "@/components/blog/comments";
 import { SiteShell } from "@/components/blog/site-shell";
 import {
   formatPostDate,
@@ -67,19 +68,20 @@ export async function generateMetadata({
 function BlogBlock({ block }: { block: BlogPostBlock }) {
   if (block.type === "heading") {
     return (
-      <h2 className="mt-10 text-2xl font-black tracking-tight text-white md:text-3xl">
-        {block.text}
-      </h2>
+      <h2 
+        className="mt-10 text-2xl font-black tracking-tight text-white md:text-3xl"
+        dangerouslySetInnerHTML={{ __html: block.text }}
+      />
     );
   }
 
   if (block.type === "list") {
     return (
       <ul className="mt-5 space-y-3">
-        {block.items.map((item) => (
-          <li key={item} className="flex gap-3 text-slate-300">
+        {block.items.map((item, idx) => (
+          <li key={idx} className="flex gap-3 text-slate-300">
             <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-[#facc15]" />
-            <span className="leading-8">{item}</span>
+            <span className="leading-8" dangerouslySetInnerHTML={{ __html: item }} />
           </li>
         ))}
       </ul>
@@ -88,13 +90,41 @@ function BlogBlock({ block }: { block: BlogPostBlock }) {
 
   if (block.type === "quote") {
     return (
-      <blockquote className="mt-8 border-l-4 border-[#f59e0b] bg-white/[0.04] px-5 py-4 text-xl font-semibold leading-9 text-white">
-        {block.text}
-      </blockquote>
+      <blockquote 
+        className="mt-8 border-l-4 border-[#f59e0b] bg-white/[0.04] px-5 py-4 text-xl font-semibold leading-9 text-white"
+        dangerouslySetInnerHTML={{ __html: block.text }}
+      />
     );
   }
 
-  return <p className="mt-5 leading-8 text-slate-300">{block.text}</p>;
+  if (block.type === "image") {
+    return (
+      <figure className="mt-8">
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#1b1b1b]">
+          {/* Body images have unknown intrinsic dimensions, so render at natural aspect ratio. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={block.url}
+            alt={block.alt}
+            loading="lazy"
+            className="h-auto w-full"
+          />
+        </div>
+        {block.caption ? (
+          <figcaption className="mt-3 text-center text-sm text-slate-400">
+            {block.caption}
+          </figcaption>
+        ) : null}
+      </figure>
+    );
+  }
+
+  return (
+    <p 
+      className="mt-5 leading-8 text-slate-300" 
+      dangerouslySetInnerHTML={{ __html: block.text }} 
+    />
+  );
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
@@ -190,6 +220,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
           />
         </article>
+
+        <BlogComments
+          slug={post.slug}
+          url={`https://cahootz.coop/blog/${post.slug}`}
+          title={post.title}
+        />
 
         {relatedPosts.length > 0 && (
           <section className="border-t border-white/10 bg-[#161616] px-5 py-16 sm:px-6 md:py-20">
