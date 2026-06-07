@@ -92,3 +92,30 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Blog post rich text formatting */
+@layer components {
+  .notion-code {
+    @apply rounded bg-slate-800 px-1.5 py-0.5 text-sm font-mono text-[#facc15];
+  }
+  
+  article a {
+    @apply text-[#facc15] underline decoration-[#f59e0b]/50 underline-offset-2 transition hover:decoration-[#facc15];
+  }
+  
+  article strong {
+    @apply font-bold text-white;
+  }
+  
+  article em {
+    @apply italic;
+  }
+  
+  article u {
+    @apply underline decoration-slate-400;
+  }
+  
+  article s {
+    @apply line-through opacity-70;
+  }
+}

@@ -16,6 +16,12 @@ export type BlogPostBlock =
   | {
       type: "quote";
       text: string;
+    }
+  | {
+      type: "image";
+      url: string;
+      alt: string;
+      caption?: string;
     };
 
 export interface BlogPost {

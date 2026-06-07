@@ -1,6 +1,7 @@
 import { config as loadDotenv } from "dotenv";
-import { writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { BlogPost, BlogPostBlock } from "../lib/blog";
@@ -13,6 +14,20 @@ const DEFAULT_IMAGE_ALT = "Cahootz blog post image.";
 
 interface NotionRichText {
   plain_text?: string;
+  href?: string | null;
+  annotations?: {
+    bold?: boolean;
+    italic?: boolean;
+    strikethrough?: boolean;
+    underline?: boolean;
+    code?: boolean;
+    color?: string;
+  };
+  type?: string;
+  text?: {
+    content?: string;
+    link?: { url?: string } | null;
+  };
 }
 interface NotionOption {
   name?: string;
@@ -57,11 +72,66 @@ interface NotionBlock {
   quote?: { rich_text?: NotionRichText[] };
   bulleted_list_item?: { rich_text?: NotionRichText[] };
   numbered_list_item?: { rich_text?: NotionRichText[] };
+  image?: {
+    type?: string;
+    file?: { url?: string };
+    external?: { url?: string };
+    caption?: NotionRichText[];
+  };
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const webDir = resolve(scriptDir, "..");
 const repoDir = resolve(webDir, "../..");
+const imagesDir = resolve(webDir, "public/blog");
+
+const EXT_BY_MIME: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "image/avif": "avif",
+};
+
+// Notion-uploaded images are served via short-lived signed AWS URLs that expire
+// (~1 hour). To keep them working we download them once into public/blog and
+// reference the stable local path instead. External URLs are already permanent,
+// so we leave those untouched.
+const mirrorCache = new Map<string, string>();
+
+async function mirrorImage(url: string): Promise<string> {
+  if (!url) return url;
+  const cached = mirrorCache.get(url);
+  if (cached) return cached;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const hash = createHash("sha1").update(buffer).digest("hex").slice(0, 16);
+    const mime = response.headers.get("content-type")?.split(";")[0]?.trim();
+    const ext =
+      (mime && EXT_BY_MIME[mime]) ||
+      extname(new URL(url).pathname).replace(".", "").toLowerCase() ||
+      "jpg";
+
+    await mkdir(imagesDir, { recursive: true });
+    const fileName = `${hash}.${ext}`;
+    await writeFile(resolve(imagesDir, fileName), buffer);
+
+    const publicPath = `/blog/${fileName}`;
+    mirrorCache.set(url, publicPath);
+    return publicPath;
+  } catch (error) {
+    console.warn(`Failed to mirror image ${url}:`, error);
+    return url;
+  }
+}
 
 loadDotenv({ path: resolve(repoDir, ".env") });
 loadDotenv({ path: resolve(webDir, ".env"), override: true });
@@ -98,6 +168,48 @@ async function notionFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 function plainText(richText?: NotionRichText[]): string {
   return richText?.map((text) => text.plain_text ?? "").join("").trim() ?? "";
+}
+
+function richTextToHtml(richText?: NotionRichText[]): string {
+  if (!richText || richText.length === 0) return "";
+  
+  return richText.map((segment) => {
+    let content = segment.plain_text ?? "";
+    const annotations = segment.annotations;
+    
+    // Escape HTML to prevent XSS
+    content = content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+    
+    // Apply formatting
+    if (annotations?.code) {
+      content = `<code class="notion-code">${content}</code>`;
+    }
+    if (annotations?.bold) {
+      content = `<strong>${content}</strong>`;
+    }
+    if (annotations?.italic) {
+      content = `<em>${content}</em>`;
+    }
+    if (annotations?.strikethrough) {
+      content = `<s>${content}</s>`;
+    }
+    if (annotations?.underline) {
+      content = `<u>${content}</u>`;
+    }
+    
+    // Handle links
+    const link = segment.text?.link?.url || segment.href;
+    if (link) {
+      content = `<a href="${link}" target="_blank" rel="noopener noreferrer">${content}</a>`;
+    }
+    
+    return content;
+  }).join("");
 }
 
 function property(
@@ -157,17 +269,28 @@ function tagsProperty(properties: Record<string, NotionProperty>): string[] {
     .filter(Boolean);
 }
 
-function imageProperty(page: NotionPage): string {
+interface ResolvedImage {
+  url: string;
+  /** Notion-hosted files use expiring URLs and must be mirrored locally. */
+  hosted: boolean;
+}
+
+function imageProperty(page: NotionPage): ResolvedImage {
   const prop = property(page.properties, ["Image", "Cover", "Hero Image", "Image URL"]);
-  if (prop?.type === "url" && prop.url) return prop.url;
+  if (prop?.type === "url" && prop.url) return { url: prop.url, hosted: false };
   if (prop?.type === "files") {
     const file = prop.files?.[0];
-    if (file?.external?.url) return file.external.url;
-    if (file?.file?.url) return file.file.url;
+    if (file?.external?.url) return { url: file.external.url, hosted: false };
+    if (file?.file?.url) return { url: file.file.url, hosted: true };
   }
-  if (page.cover?.external?.url) return page.cover.external.url;
-  if (page.cover?.file?.url) return page.cover.file.url;
-  return DEFAULT_IMAGE;
+  if (page.cover?.external?.url) return { url: page.cover.external.url, hosted: false };
+  if (page.cover?.file?.url) return { url: page.cover.file.url, hosted: true };
+  return { url: DEFAULT_IMAGE, hosted: false };
+}
+
+/** Resolve an image, downloading Notion-hosted files so their links don't expire. */
+async function resolveImage(image: ResolvedImage): Promise<string> {
+  return image.hosted ? mirrorImage(image.url) : image.url;
 }
 
 function isPublished(properties: Record<string, NotionProperty>): boolean {
@@ -209,6 +332,7 @@ function estimateReadingTime(blocks: BlogPostBlock[]): string {
   const words = blocks
     .flatMap((block) => {
       if (block.type === "list") return block.items;
+      if (block.type === "image") return [block.caption ?? ""];
       return [block.text];
     })
     .join(" ")
@@ -273,7 +397,7 @@ async function listBlocks(pageId: string): Promise<NotionBlock[]> {
   return blocks;
 }
 
-function blocksFromNotion(blocks: NotionBlock[]): BlogPostBlock[] {
+async function blocksFromNotion(blocks: NotionBlock[]): Promise<BlogPostBlock[]> {
   const output: BlogPostBlock[] = [];
   let listItems: string[] = [];
 
@@ -290,28 +414,43 @@ function blocksFromNotion(blocks: NotionBlock[]): BlogPostBlock[] {
     }
 
     switch (block.type) {
+      case "image": {
+        const source = block.image;
+        const rawUrl = source?.external?.url ?? source?.file?.url ?? "";
+        if (!rawUrl) break;
+        const hosted = source?.type !== "external" && Boolean(source?.file?.url);
+        const url = await resolveImage({ url: rawUrl, hosted });
+        const caption = plainText(source?.caption);
+        output.push({
+          type: "image",
+          url,
+          alt: caption || "Blog post image.",
+          ...(caption ? { caption } : {}),
+        });
+        break;
+      }
       case "paragraph":
-        pushParagraph(output, plainText(block.paragraph?.rich_text));
+        pushParagraph(output, richTextToHtml(block.paragraph?.rich_text));
         break;
       case "heading_1":
-        output.push({ type: "heading", text: plainText(block.heading_1?.rich_text) });
+        output.push({ type: "heading", text: richTextToHtml(block.heading_1?.rich_text) });
         break;
       case "heading_2":
-        output.push({ type: "heading", text: plainText(block.heading_2?.rich_text) });
+        output.push({ type: "heading", text: richTextToHtml(block.heading_2?.rich_text) });
         break;
       case "heading_3":
-        output.push({ type: "heading", text: plainText(block.heading_3?.rich_text) });
+        output.push({ type: "heading", text: richTextToHtml(block.heading_3?.rich_text) });
         break;
       case "quote": {
-        const text = plainText(block.quote?.rich_text);
+        const text = richTextToHtml(block.quote?.rich_text);
         if (text) output.push({ type: "quote", text });
         break;
       }
       case "bulleted_list_item":
-        listItems.push(plainText(block.bulleted_list_item?.rich_text));
+        listItems.push(richTextToHtml(block.bulleted_list_item?.rich_text));
         break;
       case "numbered_list_item":
-        listItems.push(plainText(block.numbered_list_item?.rich_text));
+        listItems.push(richTextToHtml(block.numbered_list_item?.rich_text));
         break;
       default:
         break;
@@ -325,7 +464,7 @@ function blocksFromNotion(blocks: NotionBlock[]): BlogPostBlock[] {
 async function pageToPost(page: NotionPage): Promise<BlogPost> {
   const properties = page.properties;
   const contentBrief = textProperty(properties, ["Content Brief", "Content", "Body"]);
-  const childBlocks = blocksFromNotion(await listBlocks(page.id));
+  const childBlocks = await blocksFromNotion(await listBlocks(page.id));
   const blocks = childBlocks.length > 0 ? childBlocks : blocksFromPlainText(contentBrief);
   const title = textProperty(properties, ["Title", "Name"]);
   const description =
@@ -346,7 +485,7 @@ async function pageToPost(page: NotionPage): Promise<BlogPost> {
     author: textProperty(properties, ["Author"]) || DEFAULT_AUTHOR,
     category: textProperty(properties, ["Category"]) || DEFAULT_CATEGORY,
     readingTime: textProperty(properties, ["Reading Time"]) || estimateReadingTime(blocks),
-    image: imageProperty(page),
+    image: await resolveImage(imageProperty(page)),
     imageAlt: textProperty(properties, ["Image Alt", "ImageAlt", "Alt"]) || DEFAULT_IMAGE_ALT,
     featured: checkboxProperty(properties, ["Featured"]) ?? false,
     tags: tagsProperty(properties),
