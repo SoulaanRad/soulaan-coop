@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Inter } from "next/font/google";
 
 import "./globals.css";
+import { PostHogIdentity } from "@/components/posthog-identity";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { PostHogPageView } from "@/components/posthog-pageview";
 import { TRPCProvider } from "@/lib/trpc/provider";
@@ -152,6 +153,7 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <PostHogPageView />
           </Suspense>
+          <PostHogIdentity />
           <Web3Provider>
             <TRPCProvider>
               {children}

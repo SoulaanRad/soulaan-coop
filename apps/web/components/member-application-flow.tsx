@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -149,6 +150,7 @@ export function MemberApplicationFlow({
   successRedirectDelayMs = 12000,
 }: MemberApplicationFlowProps = {}) {
   const router = useRouter();
+  const posthog = usePostHog();
   const stepKeys = lockedCoopId ? lockedStepKeys : allStepKeys;
   const [step, setStep] = useState(0);
   const [selectedCoopId, setSelectedCoopId] = useState(lockedCoopId ?? "");
@@ -335,6 +337,27 @@ export function MemberApplicationFlow({
         agreeToTerms: formData.agreeToTerms,
         agreeToPrivacy: formData.agreeToPrivacy,
       });
+
+      try {
+        const applicantEmail = formData.email.trim().toLowerCase();
+        const applicantName = `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
+        const properties = {
+          user_id: result.userId,
+          email: applicantEmail,
+          name: applicantName,
+          coop_id: selectedCoopId,
+          coop_name: selectedCoop?.name,
+          application_id: result.applicationId,
+          application_status: "SUBMITTED",
+          user_type: "applicant",
+          signup_type: "application",
+        };
+
+        posthog.identify(result.userId, properties);
+        posthog.capture("application_submitted", properties);
+      } catch (posthogError) {
+        console.error("PostHog applicant identification error:", posthogError);
+      }
 
       setApplicationReference(result.applicationId);
       setErrorMessage("");

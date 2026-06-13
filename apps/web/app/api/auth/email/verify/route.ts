@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      userId: session.userId || null,
+      email: session.email || email,
       hasProfile: session.hasProfile,
       activeCoopId: session.activeCoopId,
       isAdmin: session.isAdmin || false,

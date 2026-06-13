@@ -56,7 +56,7 @@ const safeAbi = [
 // AccessControl role hashes
 const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-// ABI for contracts with AccessControl (Unity/Soulaani Coin)
+// ABI for contracts with AccessControl (Unity/coop coin)
 const accessControlAbi = [
   {
     inputs: [
@@ -128,9 +128,9 @@ export async function checkAdminStatus(address: string): Promise<{ isAdmin: bool
       console.log('⚠️  NEXT_PUBLIC_TREASURY_SAFE_ADDRESS not set - skipping check');
     }
 
-    // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on Soulaani Coin
-    console.log('\n📋 PRIORITY 2: Soulaani Coin Admin Check');
-    console.log(`   Soulaani Coin Address: ${config.contracts.soulaaniCoin || 'NOT SET'}`);
+    // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on the coop coin
+    console.log('\n📋 PRIORITY 2: Coop Coin Admin Check');
+    console.log(`   Coop coin address: ${config.contracts.soulaaniCoin || 'NOT SET'}`);
 
     if (config.contracts.soulaaniCoin) {
       try {
@@ -145,18 +145,18 @@ export async function checkAdminStatus(address: string): Promise<{ isAdmin: bool
         console.log(`   Result: ${isDefaultAdmin}`);
 
         if (isDefaultAdmin) {
-          console.log(`✅ ${address} has DEFAULT_ADMIN_ROLE on Soulaani Coin`);
+          console.log(`✅ ${address} has DEFAULT_ADMIN_ROLE on the coop coin`);
           console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
-          return { isAdmin: true, role: 'Soulaani Coin Admin' };
+          return { isAdmin: true, role: 'Co-op Admin' };
         } else {
-          console.log(`❌ ${address} does NOT have DEFAULT_ADMIN_ROLE on Soulaani Coin`);
+          console.log(`❌ ${address} does NOT have DEFAULT_ADMIN_ROLE on the coop coin`);
         }
       } catch (error) {
-        console.error('❌ Error checking Soulaani Coin admin role:', error);
+        console.error('❌ Error checking coop coin admin role:', error);
         console.error('   Error details:', error instanceof Error ? error.message : String(error));
       }
     } else {
-      console.log('⚠️  Soulaani Coin address not set - skipping check');
+      console.log('⚠️  Coop coin address not set - skipping check');
     }
 
     console.log('\n❌ No admin roles found for this address');
