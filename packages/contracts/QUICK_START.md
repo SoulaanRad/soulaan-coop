@@ -1,4 +1,4 @@
-# 🚀 Quick Start: Deploy Soulaan Co-op Contracts
+# 🚀 Quick Start: Deploy Cahootz Contracts
 
 > **📍 Network:** This guide deploys to **Base Sepolia testnet** - a free test network where you can experiment without spending real money. When you're ready for production, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for mainnet deployment.
 

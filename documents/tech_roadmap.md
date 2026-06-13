@@ -1,86 +1,43 @@
-# 📱 Soulaan Co-op App Roadmap
+# Cahootz Technical Roadmap
 
----
+## Phase 1: Foundation
 
-## Step 1 — Foundation
-- Define the Co-op’s mission, membership rules, and governance basics (from the charter).  
-- Choose the chain + wallet system (smart wallet or custodial) for SC and UC.  
-- Set up authentication (Privy) and database structure.  
+- Keep the web, API, mobile, database, and contract workspaces running from the monorepo.
+- Standardize environment setup and local development docs.
+- Replace legacy product language in public documentation.
+- Keep the Cahootz charter as an empty placeholder until governance language is ready.
 
----
+## Phase 2: Member and Co-op Basics
 
-## Step 2 — Core Transactions
-- Build UC stablecoin wallet integration.  
-- Enable peer-to-peer transfers between members.  
-- Implement transaction fee capture (5–10%) for the Co-op treasury.  
-  - [ ] Add logic to calculate and deduct transaction fees during transfers. � �
-  - [ ] Document the fee structure and its implications for users. � �
+- Support co-op discovery, application, approval, and member profiles.
+- Improve authentication and session flows across web and mobile.
+- Keep co-op-specific settings configurable from admin screens.
+- Expand public co-op pages with accurate business and product data.
 
----
+## Phase 3: Commerce
 
-## Step 3 — Membership & Identity
-- Add member profiles (basic info, business affiliation, region).  
-- Issue membership badges/tokens tied to wallets.  
-- Build onboarding flow for individuals and businesses.  
-  - [ ] Develop the logic for issuing and managing badges/tokens. � �
-  - [ ] Implement security measures to prevent unauthorized badge/token issuance. � �
+- Stabilize storefront, product, cart, checkout, and order flows.
+- Improve merchant onboarding and payout setup.
+- Add better payment status visibility and failure recovery.
+- Strengthen transaction reconciliation and audit trails.
 
----
+## Phase 4: Governance
 
-## Step 4 — Business Integration
-- Create merchant tools:  
-  - Accept UC for payments.  
-  - Simple UC → SC conversion payouts.  
-- Add an in-app directory of Soulaan businesses.  
-  - [ ] Implement API endpoints for creating and updating member profiles. � �
-  - [ ] Add logging for proposal submissions and their outcomes to monitor usage and detect issues. � �
-  - [ ] Document the proposal submission process and the criteria for approval. � �
+- Keep proposal submission, comments, review, and voting usable without the disabled charter compliance gate.
+- Make proposal scoring configurable by co-op.
+- Add clearer admin controls for proposal categories, thresholds, and review windows.
+- Track proposal decisions and funded milestones.
 
-  - [ ] Create performance benchmarks for profile retrieval and updates to ensure scalability. � �
+## Phase 5: Operations
 
-  - [ ] Create integration tests to validate the interaction between member profiles and the proposal engine. � �
+- Improve treasury, rewards, member management, and store admin workflows.
+- Add operational dashboards for health, payments, applications, proposals, and reconciliation.
+- Document production deployment and incident response.
+- Expand tests around high-risk financial and governance flows.
 
----
+## Phase 6: Scale
 
-## Step 5 — Governance & Proposals
-- Launch proposal engine:  
-  - Members suggest projects and business funding.  
-  - [x] AI-assisted review ensures alignment with Co-op rules.  
-- Implement simple voting for treasury allocation.  
-
-  - [ ] Add monitoring alerts for unusual patterns in proposal submissions (e.g., spikes in submissions). � �
-
----
-
-## Step 6 — Rewards & Incentives
-- Members earn SC equity shares:  
-  - For every transaction.  
-  - For governance participation.  
-- AI safeguards prevent “whale capture” (equity concentration caps).  
-
----
-
-## Step 7 — Expansion & Network Effects
-- Add community features:  
-  - In-app discussions (structured, not noisy).  
-  - Business reviews and trust signals.  
-- Build APIs for anchor institutions (schools, hospitals, suppliers) to source from Co-op businesses.  
-
----
-
-## Implement simple voting for treasury allocation. 🟡
-  - [ ] Develop logic for tallying votes and determining outcomes.
-  - [ ] Implement monitoring for voting activity and anomalies.
-  - [ ] Conduct user acceptance testing (UAT) for the onboarding flow to gather feedback and identify issues. � �
-  - [ ] Implement error handling for payment processing failures and provide user feedback. � �
-  - [ ] Implement error handling for invalid vote submissions (e.g., duplicate votes, unauthorized users). � �
-
----
-
-## Create merchant tools. 🟡
-*AI-suggested based on recent work: With the upcoming merchant tools, it is vital to ensure that they are secure, well-documented, and thoroughly tested to facilitate smooth adoption by businesses.*
-
-  - [ ] Create documentation for merchants detailing the integration process and usage of tools.
-
----
-*🤖 Roadmap updated 2026-04-27 - AI-generated sub-items added based on completed work analysis*
+- Prepare multi-co-op configuration, theming, and operational isolation.
+- Harden event indexing and background jobs.
+- Improve analytics, reporting, and export tools.
+- Continue reducing legacy names in code after documentation migration is complete.

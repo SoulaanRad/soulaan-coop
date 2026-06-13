@@ -1,39 +1,36 @@
-# 🏛️ Soulaan Co-op Organizational Roadmap
+# Cahootz Organizational Roadmap
 
-## Stage 1 — Foundation
-- Establish legal and governance structure (Co-op or DAO framework).  
-- Define membership rules, token peg, and business eligibility.  
-- Launch initial treasury and internal wallet system.  
-- Onboard first cohort of members and businesses.  
+## Stage 1: Reset
 
----
+- Align public documentation around Cahootz.
+- Leave the Cahootz charter empty until the team is ready to define it.
+- Disable automated charter compliance checks during the reset.
+- Keep operating decisions explicit, documented, and reversible.
 
-## Stage 2 — Pilot
-- Build neighborhood-scale networks of members and small businesses.  
-- Enable transactions in the co-op coin (UC/SC).  
-- Test governance through first proposals and community votes.  
-- Fund initial micro-projects (small grants, business support).  
+## Stage 2: Pilot Operations
 
----
+- Onboard a small set of co-ops, members, and businesses.
+- Validate application, storefront, checkout, payment, and admin workflows.
+- Use proposal tools for lightweight coordination before formal governance rules are finalized.
+- Collect feedback from operators and members.
 
-## Stage 3 — Growth
-- Expand to multiple districts or cities with local chapters.  
-- Provide financing to co-op businesses (loans or equity stakes).  
-- Integrate training and apprenticeship pipelines into the co-op economy.  
-- Launch AI-assisted proposal engine to evaluate community projects.  
+## Stage 3: Operating Model
 
----
+- Define the minimum roles needed to run a co-op in Cahootz.
+- Document review, approval, treasury, support, and escalation responsibilities.
+- Create repeatable onboarding material for co-op admins and merchants.
+- Establish reporting cadence for activity, payments, proposals, and member growth.
 
-## Stage 4 — Institutionalization
-- Partner with anchor institutions (schools, hospitals, HBCUs, unions).  
-- Scale smart wallet adoption so members transact widely within the network.  
-- Develop inter-city co-op trading loops to retain value across regions.  
-- Establish a national brand identity for the co-op economy.  
+## Stage 4: Governance Definition
 
----
+- Draft the Cahootz charter when the product and operating model are clearer.
+- Define proposal thresholds, voting rules, amendment paths, and appeal processes.
+- Decide what should be automated and what should remain human-reviewed.
+- Re-enable compliance checks only after the new charter language is approved.
 
-## Stage 5 — Expansion
-- Create a national treasury fund pooling resources from all chapters.  
-- Invest in major infrastructure (housing, logistics, energy).  
-- Connect with other cooperative or diaspora-based networks globally.  
-- Grow exports from co-op businesses to wider markets.  
+## Stage 5: Expansion
+
+- Support more co-ops with clearer templates and operational playbooks.
+- Build shared support, training, and implementation practices.
+- Improve cross-co-op reporting without weakening each co-op's autonomy.
+- Continue evolving the platform from real usage rather than speculative rules.

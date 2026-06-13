@@ -1,11 +1,11 @@
-# 🏛️ Soulaan Co-op Smart Contracts
+# 🏛️ Cahootz Smart Contracts
 
-Smart contracts for the Soulaan Co-op economy on Base Sepolia testnet.
+Smart contracts for the Cahootz economy on Base Sepolia testnet.
 
 ## 📦 Contracts
 
 ### 1. **UnityCoin (UC)** - `UnityCoin.sol`
-Stable digital currency for economic transactions in the Soulaan Co-op.
+Stable digital currency for economic transactions in the Cahootz.
 
 **Features:**
 - ERC-20 standard token

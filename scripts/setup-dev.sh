@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# Soulaan Co-op Development Environment Setup
-# Ensures charter compliance while setting up dev environment
+# Cahootz Development Environment Setup
 
 set -e
 
-echo "🏛️  Soulaan Co-op Development Setup"
+echo "Cahootz Development Setup"
 echo "=================================="
 echo ""
 
@@ -33,12 +32,12 @@ print_info() {
 }
 
 # Check if we're in the right directory
-if [[ ! -f "documents/soulaan-coop-charter.md" ]]; then
-    print_error "This script must be run from the soulaan-coop project root"
+if [[ ! -f "documents/cahootz-charter.md" ]]; then
+    print_error "This script must be run from the Cahootz project root"
     exit 1
 fi
 
-print_info "Setting up Soulaan Co-op development environment..."
+print_info "Setting up Cahootz development environment..."
 echo ""
 
 # 1. Check Node.js version
@@ -178,15 +177,13 @@ else
     print_warning "Development servers may have issues. Check your configuration."
 fi
 
-# 10. Display charter reminders
+# 10. Display governance reset reminders
 echo ""
-echo "📜 Charter Compliance Reminders:"
+echo "Governance Reset Reminders:"
 echo "================================"
-echo "• All features must support Black economic sovereignty"
-echo "• UC tokens must implement stability/pegging mechanisms"
-echo "• SC tokens must be soulbound and non-transferable"
-echo "• Governance requires 15% quorum, 51% approval, 2% voting cap"
-echo "• Business features must validate sector eligibility"
+echo "• Cahootz charter compliance is disabled for now"
+echo "• Use documents/cahootz-charter.md as the current placeholder charter"
+echo "• Keep governance behavior driven by explicit configuration"
 echo "• Maintain transparency and security in all implementations"
 echo ""
 
@@ -197,12 +194,12 @@ echo ""
 echo "Next steps:"
 echo "1. Update packages/db/.env with your database credentials"
 echo "2. Run 'pnpm dev' to start development servers"
-echo "3. Run 'pnpm charter:validate' before committing changes"
-echo "4. Review the charter: documents/soulaan-coop-charter.md"
+echo "3. Run the checks relevant to your change"
+echo "4. Review the placeholder charter: documents/cahootz-charter.md"
 echo ""
 echo "Available commands:"
 echo "• pnpm dev              - Start all development servers"
-echo "• pnpm charter:validate - Check charter compliance"
+echo "• pnpm charter:validate - Disabled no-op charter check"
 echo "• pnpm db:studio        - Open database admin interface"
 echo "• pnpm lint             - Run code linting"
 echo "• pnpm typecheck        - Run TypeScript checking"
@@ -212,4 +209,4 @@ echo "• Frontend: http://localhost:3000"
 echo "• API: http://localhost:3001"
 echo ""
 
-print_success "Ready to build the future of Black economic sovereignty! 💪🏾"
+print_success "Ready to build Cahootz."

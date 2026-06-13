@@ -62,47 +62,32 @@ export interface CoopConfigData {
 // ── Default config values ──────────────────────────────────────────────────
 const DEFAULT_MISSION_GOALS: { key: string; label: string; priorityWeight: number; description?: string; domain?: string; scoringRubric?: string }[] = [
   {
-    key: "income_stability",
-    label: "Income Stability",
+    key: "member_benefit",
+    label: "Member Benefit",
     priorityWeight: 0.35,
     description:
-      "Does this proposal create reliable, living-wage income for Soulaan Co-op members? " +
-      "Score high if it funds productive employment, apprenticeships, or revenue-generating operations " +
-      "within SC-eligible sectors (manufacturing, logistics, trade training, exportable products, tech/IP). " +
-      "Score low if income generated is marginal, speculative, or flows primarily to a single individual rather than the broader membership. " +
-      "Per the charter, 85%+ of spending must be export-earning, import-reducing, or productive investment within 12–36 months.",
+      "Does this proposal create clear value for Cahootz members? Score high when the benefit is specific, measurable, and shared across more than one participant.",
   },
   {
-    key: "asset_creation",
-    label: "Asset Creation",
+    key: "operational_value",
+    label: "Operational Value",
     priorityWeight: 0.25,
     description:
-      "Does this proposal build long-term, collectively owned productive assets — real estate, equipment, IP platforms, trade infrastructure, or equity stakes? " +
-      "Score high if it transforms rent, consumption, or labor into durable equity and governance rights for the membership. " +
-      "Score low if it funds depreciating goods, one-time events, non-scalable side hustles, or assets that accrue to one person. " +
-      "Per the charter, the Soulaan Wealth Fund prioritises housing, trade schools, export businesses, and infrastructure above all else.",
+      "Does this proposal improve the co-op's ability to operate, serve members, support businesses, or deliver reliable workflows?",
   },
   {
-    key: "leakage_reduction",
-    label: "Leakage Reduction",
+    key: "financial_clarity",
+    label: "Financial Clarity",
     priorityWeight: 0.20,
     description:
-      "Does this proposal reduce the outflow of capital from the Black community economy by bringing more goods, services, or capacity in-house? " +
-      "Score high if it substitutes an import with a co-op-produced alternative, lowers collective costs through bulk procurement, " +
-      "or increases circulation of UC within the community rather than letting dollars exit to external vendors. " +
-      "Score low if it increases dependence on outside suppliers, creates no substitution effect, or primarily serves individual consumption with no multiplier. " +
-      "Per the charter surplus rule, proposals must demonstrably reduce the import side of the ledger.",
+      "Does this proposal include a realistic budget, funding request, revenue or cost impact, and enough detail to track outcomes?",
   },
   {
-    key: "export_expansion",
-    label: "Export Expansion",
+    key: "accountability",
+    label: "Accountability",
     priorityWeight: 0.20,
     description:
-      "Does this proposal bring new capital into the Soulaan economy by selling Black-created goods, services, or intellectual property to external markets? " +
-      "Score high if it generates verifiable outside revenue within 12–24 months — exportable products (skincare, shelf-stable foods, B2B tools, IP platforms), " +
-      "logistics serving outside clients, or manufacturing supply chains that sell beyond the co-op. " +
-      "Score low if the business model is entirely inward-facing, relies on member spending to survive, or cannot demonstrate a credible path to external revenue. " +
-      "Per the charter, expanding UC export inflow is one of the four core pillars of Black economic sovereignty.",
+      "Does this proposal identify owners, milestones, risks, and reporting expectations so members can understand whether it worked?",
   },
 ];
 
@@ -1267,8 +1252,8 @@ export class ProposalEngine {
 
   private async readCharter(): Promise<string> {
     const candidates = [
-      path.resolve(process.cwd(), "documents/soulaan-coop-charter.md"),
-      path.resolve(process.cwd(), "../../documents/soulaan-coop-charter.md"),
+      path.resolve(process.cwd(), "documents/cahootz-charter.md"),
+      path.resolve(process.cwd(), "../../documents/cahootz-charter.md"),
     ];
     for (const p of candidates) {
       try {

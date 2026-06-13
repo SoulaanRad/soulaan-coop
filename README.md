@@ -1,309 +1,107 @@
-# Soulaan Co-op Monorepo
+# Cahootz Monorepo
 
-**Building Generational Black Wealth Through Economic Cooperation**
+Cahootz is a platform for launching and operating community-owned economies. It brings together member onboarding, cooperative storefronts, payments, governance, proposal workflows, and treasury tooling in one monorepo.
 
-Welcome to the official Soulaan Co-op monorepo! This project is designed to transform everyday spending, rent, and business transactions into lasting community wealth and ownership using digital tools like Unity Coin (UC) and SoulaaniCoin (SC).
+The codebase currently includes web, mobile, API, database, smart contract, and shared service packages. Some internal package names and contract identifiers still use legacy names while the broader product documentation moves to Cahootz.
 
----
+## Documentation
 
-## 🚀 What is Soulaan Co-op?
+- [Getting Started](GETTING_STARTED.md) - Set up the project locally.
+- [Cahootz Charter](documents/cahootz-charter.md) - Placeholder charter for the Cahootz era.
+- [Proposal Engine](documents/cahootz-proposal-engine.md) - How proposal submission, review, scoring, and voting are intended to work.
+- [Technical Roadmap](documents/tech_roadmap.md) - Product and engineering milestones.
+- [Organizational Roadmap](documents/org_roadmap.md) - Operating model and rollout stages.
+- [Development Guide](DEV_GUIDE.md) - Local workflows, debugging, and troubleshooting.
+- [Environment Files Guide](ENV_FILES_GUIDE.md) - Environment variable layout.
+- [Testing Guide](TESTING.md) - Test commands and expectations.
 
-Soulaan Co-op is a community-owned economic platform and digital wallet system. Our goal is to keep dollars circulating within Black communities, reward participation, and give everyone a real say in how community money is invested.
+## What Cahootz Includes
 
-- **Unity Coin (UC):** Stable digital money for payments, rent, and business.
-- **SoulaaniCoin (SC):** Soulbound token for voting, rewards, and governance.
-- **Merchant POS:** Accept UC and track sales at local businesses.
-- **Community Dashboard:** Transparency into how community money is spent.
+- Member onboarding and co-op selection
+- Public co-op pages and storefronts
+- Product, cart, checkout, and payment flows
+- Admin portals for members, stores, proposals, treasury, rewards, and settings
+- Proposal submission, review, discussion, and voting workflows
+- Smart contract deployment and configuration tools
+- Mobile app flows for wallets, payments, stores, and member activity
 
----
+## Project Structure
 
-## 📚 Documentation
-
-### 🏁 Starting Your Co-op Journey
-
-#### **New to the Project? Start Here:**
-1. **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - **Read this first!** Understand our mission, values, and how the co-op works
-2. **[Getting Started Guide](GETTING_STARTED.md)** - Set up your development environment and run the platform locally
-3. **[Tech Roadmap](documents/tech_roadmap.md)** - See where we are and where we're going
-
----
-
-### 🏗️ Setting Up Your Co-op
-
-#### **🎯 NEW: One-Click Co-op Initialization**
-Deploy contracts and configure your co-op in one seamless flow:
-
-- **[Initialize Your Co-op (Web UI)](apps/web/DEPLOY_YOUR_COOP.md)** - Deploy all contracts and configure your co-op via web interface
-  - No authentication required
-  - Visual step-by-step deployment
-  - Automatic configuration export
-  - Visit: `/initialize` on your web app
-
-#### **Phase 1: Deploy the Economic Infrastructure**
-The co-op runs on blockchain-based tokens that power the economy:
-
-- **[Understanding the Contracts](packages/contracts/README.md)** - Learn how UC (payments) and SC (governance) work together
-
-**What you're deploying:**
-- **Unity Coin (UC)** - The stable currency members use for rent, business purchases, and transactions
-- **SoulaaniCoin (SC)** - Governance tokens that give members voting power and rewards
-- **Redemption Vault** - How members convert UC back to cash when needed
-
-#### **Phase 2: Set Up Treasury & Governance**
-Protect community funds and establish decision-making:
-
-- **[Set Up Multi-Sig Wallet](packages/contracts/docs/SETUP_MULTISIG.md)** - Create a secure multi-signature wallet for the treasury (requires 3-of-5 signatures)
-- **[Add Governors & Admins](packages/contracts/SCRIPTS.md#setup-adminsts)** - Give team members the ability to manage the co-op
-- **[Security Best Practices](packages/contracts/SECURITY.md)** - Keep the co-op's funds and systems secure
-
-#### **Phase 3: Launch the Member Portal**
-Give members access to the platform:
-
-- **[Portal Setup Guide](apps/web/PORTAL_AUTH_README.md)** - Set up Web3 wallet authentication so members can log in
-- **[Understanding Security](DEPLOYMENT_SECURITY_GUIDE.md)** - Learn how blockchain roles and app permissions work together
-- **[Quick Deployment Summary](DEPLOYMENT_SUMMARY.md)** - Fast reference for getting the portal live
-
----
-
-### 🔧 Managing Your Co-op
-
-#### **Day-to-Day Operations**
-- **[Contract Management Scripts](packages/contracts/SCRIPTS.md)** - Award SC to active members, check balances, manage roles
-- **[Monitor Member Activity](packages/contracts/SCRIPTS.md#monitor-sc-awardssts)** - Track SC awards and member participation
-- **[Handle Redemptions](packages/contracts/README.md#redemptionvault)** - Process member requests to convert UC to cash
-
-#### **Governance & Decision Making**
-- **[How Proposals Work](documents/soulaan_proposal_engine.md)** - Create and vote on community proposals
-- **[Organizational Roadmap](documents/org_roadmap.md)** - Grow from pilot to full community institution
-
----
-
-### 🧪 For Developers
-
-#### **Development Workflow**
-- **[Start Development Servers](START_DEV.md)** - Quick guide to run API and Web in dev mode
-- **[Complete Development Guide](DEV_GUIDE.md)** - Full development workflow, debugging, and troubleshooting
-- **[Environment Setup](ENV_SETUP_GUIDE.md)** - Configure all environment variables
-
-#### **Testing & Quality**
-- **[Testing Guide](TESTING.md)** - Run tests for the web app and API
-- **[Contract Testing](packages/contracts/TESTING_GUIDE.md)** - Test smart contracts before deployment
-- **[CI/CD Setup](packages/contracts/CI_CD_SETUP.md)** - Automate testing and deployment
-
----
-
-### 📖 Quick Reference: "How Do I...?"
-
-| **How do I...** | **Read this** |
-|------------------|---------------|
-| **Understand the co-op's mission?** | [Soulaan Co-op Charter](documents/soulaan-coop-charter.md) |
-| **Set up my development environment?** | [Getting Started Guide](GETTING_STARTED.md) |
-| **Run the API and Web in dev mode?** | [Start Development Servers](START_DEV.md) |
-| **Configure environment variables?** | [Environment Setup Guide](ENV_SETUP_GUIDE.md) |
-| **Deploy the co-op's economic system?** | [Quick Start: Deploy Contracts](packages/contracts/QUICK_START.md) |
-| **Understand how UC and SC work?** | [Understanding the Contracts](packages/contracts/README.md) |
-| **Set up the treasury multi-sig?** | [Set Up Multi-Sig Wallet](packages/contracts/docs/SETUP_MULTISIG.md) |
-| **Add governors and admins?** | [Contract Management Scripts](packages/contracts/SCRIPTS.md) |
-| **Launch the member portal?** | [Portal Setup Guide](apps/web/PORTAL_AUTH_README.md) |
-| **Award SC to active members?** | [Contract Management Scripts](packages/contracts/SCRIPTS.md) |
-| **Process member redemptions?** | [Understanding the Contracts](packages/contracts/README.md#redemptionvault) |
-| **Create community proposals?** | [How Proposals Work](documents/soulaan_proposal_engine.md) |
-| **See what's coming next?** | [Tech Roadmap](documents/tech_roadmap.md) |
-
----
-
-## 🏗️ Project Structure
-
-This is a monorepo built with [Turborepo](https://turbo.build/repo) and [T3 Stack](https://create.t3.gg/) for type safety and developer experience.
-
-```
-soulaancoop/
+```text
+cahootz/
 ├── apps/
-│   ├── web/                 # Next.js frontend application
-│   └── api/                 # Express.js backend API
+│   ├── api/        # Express API service
+│   ├── mobile/     # Expo mobile application
+│   └── web/        # Next.js web application
+├── documents/      # Product and operating documentation
 ├── packages/
-│   ├── auth/                # Authentication utilities
-│   ├── db/                  # Database schema and Prisma client
-│   ├── trpc/                # tRPC router and procedures
-│   ├── ui/                  # Shared UI components
-│   └── validators/          # Zod validation schemas
-├── tooling/                 # Development tools and configs
-└── turbo/                   # Turborepo configuration
+│   ├── contracts/  # Smart contracts and deployment scripts
+│   ├── db/         # Prisma schema, migrations, and seed scripts
+│   ├── trpc/       # tRPC routers and backend services
+│   ├── ui/         # Shared UI primitives
+│   └── validators/ # Proposal and validation logic
+├── scripts/        # Repo-level utilities
+├── tooling/        # Shared lint, TypeScript, Tailwind, and Prettier config
+└── turbo/          # Turborepo generators/configuration
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-### Frontend
-- **Next.js 15** - React framework with App Router
-- **React 19** - Latest React with concurrent features
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first CSS framework
-- **Radix UI** - Accessible component primitives
-- **shadcn/ui** - High-quality component library
+- Next.js 15, React 19, TypeScript, Tailwind CSS
+- Expo and React Native
+- Express, tRPC, Prisma, PostgreSQL, Zod
+- Solidity, Hardhat, Base-compatible deployment scripts
+- Turborepo and pnpm workspaces
 
-### Backend
-- **Express.js** - Node.js web framework
-- **tRPC** - End-to-end typesafe APIs
-- **Prisma** - Database ORM and migrations
-- **PostgreSQL** - Primary database
-- **Zod** - Schema validation
+## Prerequisites
 
-### Infrastructure
-- **Turborepo** - Monorepo build system
-- **pnpm** - Fast, disk space efficient package manager
-- **T3 Environment** - Type-safe environment variables
+- Node.js >= 22.14.0
+- pnpm >= 10.11.1
+- PostgreSQL
+- Git
 
-## 📋 Prerequisites
-
-- **Node.js** >= 22.14.0 (see `.nvmrc`)
-- **pnpm** >= 10.11.1
-- **PostgreSQL** database
-- **Git**
-
-## 🚀 Getting Started
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/SoulaanRad/soulaan-coop.git
-cd soulaancoop
-```
-
-### 2. Install Dependencies
+## Quick Start
 
 ```bash
 pnpm install
-```
-
-### 3. Environment Setup
-
-Create a `.env` file in the `packages/db/` directory:
-
-```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/soulaancoop"
-```
-
-### 4. Database Setup
-
-```bash
-# Generate Prisma client
 pnpm db:generate
-
-# Push schema to database
 pnpm db:push
-
-# (Optional) Run migrations
-pnpm db:migrate
-```
-
-### 5. Start Development Servers
-
-```bash
-# Start all applications in development mode
 pnpm dev
-
-# Or start specific applications
-pnpm dev:next    # Frontend only
 ```
 
-The applications will be available at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
+The default local services are:
 
-## 📝 Available Scripts
+- Web: http://localhost:3000
+- API: http://localhost:3001
 
-### Root Level Commands
+See [Getting Started](GETTING_STARTED.md) for the fuller setup path.
+
+## Common Commands
+
 ```bash
-pnpm dev              # Start all applications in development
-pnpm build            # Build all applications
-pnpm lint             # Lint all packages
-pnpm lint:fix         # Fix linting issues
-pnpm format:fix       # Format code with Prettier
-pnpm typecheck        # Run TypeScript type checking
-```
-
-### Database Commands
-```bash
+pnpm dev              # Start development services
+pnpm build            # Build packages and apps
+pnpm lint             # Run linting
+pnpm typecheck        # Run TypeScript checks
+pnpm test             # Run tests
 pnpm db:generate      # Generate Prisma client
-pnpm db:push          # Push schema changes to database
+pnpm db:push          # Push schema to the local database
 pnpm db:migrate       # Run database migrations
 pnpm db:studio        # Open Prisma Studio
 ```
 
-### Authentication
-```bash
-pnpm auth:generate    # Generate auth utilities
-```
+## Charter Compliance Check
 
-## 🗄️ Database Schema
+The automated Charter Compliance Check is disabled for now while Cahootz documentation and governance language are being reset. The placeholder Cahootz charter lives at [documents/cahootz-charter.md](documents/cahootz-charter.md).
 
-The application uses PostgreSQL with the following main models:
+## Contributing
 
-- **User** - Platform users with roles (user, business, admin)
-- **Business** - Registered businesses with approval status
-- **Transaction** - UC transactions between users and businesses
-- **WaitlistEntry** - User and business waitlist entries
-- **BusinessWaitlist** - Detailed business waitlist information
+1. Create a feature branch.
+2. Make scoped changes in the relevant app or package.
+3. Run the checks that match the risk of the change.
+4. Update docs when behavior, setup, or operations change.
+5. Open a pull request with clear testing notes.
 
-## 🔧 Development Workflow
+## License
 
-### Adding New Features
-
-1. **Create feature branch**: `git checkout -b feature/your-feature`
-2. **Make changes** in the appropriate packages/apps
-3. **Update database schema** if needed in `packages/db/prisma/schema.prisma`
-4. **Run database commands** if schema changed:
-   ```bash
-   pnpm db:push
-   pnpm db:generate
-   ```
-5. **Test your changes**: `pnpm dev`
-6. **Lint and format**: `pnpm lint:fix && pnpm format`
-7. **Commit and push**: Follow conventional commits
-
-### Code Quality
-
-- **ESLint** - Code linting with strict rules
-- **Prettier** - Code formatting
-- **TypeScript** - Static type checking
-- **Husky** - Git hooks for pre-commit checks
-
-## 🚀 Deployment
-
-### Frontend (Next.js)
-- Deploy to Vercel, Netlify, or any Next.js-compatible platform
-- Set environment variables in your deployment platform
-
-### Backend (Express.js)
-- Deploy to Railway, Render, or any Node.js platform
-- Ensure PostgreSQL database is accessible
-- Set all required environment variables
-
-### Database
-- Use managed PostgreSQL services (Supabase, Railway, etc.)
-- Run migrations: `pnpm db:migrate-prod`
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Ensure all checks pass: `pnpm lint && pnpm typecheck`
-6. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in this repository
-- Join our community discussions
-- Contact the development team
-
----
-
-**Building the future of community economics, one transaction at a time.** 💪🏾
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
