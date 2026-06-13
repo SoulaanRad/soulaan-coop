@@ -78,6 +78,11 @@ const defaultPublicClient = createPublicClient({
   transport: http(RPC_URL),
 });
 
+function formatCoopAdminRole(coopConfig: { name?: string | null } | null | undefined, coopId: string): string {
+  const coopName = coopConfig?.name?.trim() || coopId.trim() || 'Co-op';
+  return `${coopName} Admin`;
+}
+
 /**
  * Check if an address is an owner of the Treasury Safe multisig
  */
@@ -121,6 +126,7 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
       where: { coopId, isActive: true },
       orderBy: { version: 'desc' },
       select: { 
+        name: true,
         scTokenAddress: true, 
         treasurySafeAddress: true,
         chainId: true,
@@ -140,6 +146,7 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
     console.log(`   SC Token Address: ${scTokenAddress}`);
     console.log(`   Treasury Safe Address: ${treasurySafeAddress || 'not configured'}`);
     console.log(`   Chain ID: ${coopConfig.chainId}`);
+    const coopAdminRole = formatCoopAdminRole(coopConfig, coopId);
 
     // Create appropriate client based on chain
     const client = coopConfig.chainId === 8453
@@ -170,8 +177,8 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
       }
     }
 
-    // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on Soulaani Coin
-    console.log('\n📋 PRIORITY 2: Soulaani Coin Admin Check');
+    // PRIORITY 2: Check if address has DEFAULT_ADMIN_ROLE on the coop coin
+    console.log(`\n📋 PRIORITY 2: ${coopAdminRole} Check`);
 
     const isDefaultAdminSoulaani = await client.readContract({
       address: scTokenAddress,
@@ -190,9 +197,9 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
       });
 
       if (balance > 0n) {
-        console.log(`✅ ${address} is DEFAULT_ADMIN on Soulaani Coin AND has coin balance: ${balance.toString()}`);
+        console.log(`✅ ${address} is DEFAULT_ADMIN on the coop coin AND has coin balance: ${balance.toString()}`);
         console.log('🔍 ========== ADMIN CHECK END (ADMIN FOUND) ==========\n');
-        return { isAdmin: true, role: 'Soulaani Coin Admin' };
+        return { isAdmin: true, role: coopAdminRole };
       } else {
         console.log(`⚠️ ${address} has DEFAULT_ADMIN_ROLE but NO coin balance`);
       }
@@ -209,7 +216,7 @@ export async function checkAdminStatusWithRole(address: Address, coopId: string)
 }
 
 /**
- * Check if an address has any admin role on the UnityCoin/Soulaani contract or is a Treasury Safe owner
+ * Check if an address has any admin role on the coop coin or is a Treasury Safe owner
  * @deprecated Use checkAdminStatusWithRole instead for coop-specific checks
  */
 export async function isContractAdmin(address: Address, coopId: string = '???'): Promise<boolean> {
@@ -251,7 +258,7 @@ export async function isContractAdmin(address: Address, coopId: string = '???'):
       }
     }
 
-    // PRIORITY 2: Check DEFAULT_ADMIN_ROLE on Soulaani Coin contract
+    // PRIORITY 2: Check DEFAULT_ADMIN_ROLE on the coop coin contract
     const isDefaultAdminSoulaani = await client.readContract({
       address: scTokenAddress,
       abi: unityCoinABI,
@@ -260,7 +267,7 @@ export async function isContractAdmin(address: Address, coopId: string = '???'):
     });
 
     if (isDefaultAdminSoulaani) {
-      console.log(`✅ ${address} is DEFAULT_ADMIN on Soulaani Coin`);
+      console.log(`✅ ${address} is DEFAULT_ADMIN on the coop coin`);
       return true;
     }
 
@@ -339,7 +346,7 @@ export async function getAllAdmins(coopId: string = '???'): Promise<Address[]> {
       }
     }
 
-    // PRIORITY 2: Get DEFAULT_ADMIN members from Soulaani Coin
+    // PRIORITY 2: Get DEFAULT_ADMIN members from the coop coin
     try {
       const defaultAdminCountSoulaani = await client.readContract({
         address: scTokenAddress,
@@ -357,9 +364,9 @@ export async function getAllAdmins(coopId: string = '???'): Promise<Address[]> {
         });
         admins.add(member as Address);
       }
-      console.log(`✅ Found ${defaultAdminCountSoulaani} Soulaani Coin admins`);
+      console.log(`✅ Found ${defaultAdminCountSoulaani} coop coin admins`);
     } catch (error) {
-      console.error('Error fetching Soulaani Coin admins:', error);
+      console.error('Error fetching coop coin admins:', error);
     }
 
     // PRIORITY 3: Get DEFAULT_ADMIN members from Unity Coin (if configured)
@@ -446,7 +453,7 @@ export function generateAuthChallenge(nonce: string): string {
 }
 
 /**
- * Check if a wallet has portal access (admin OR has Soulaani Coin)
+ * Check if a wallet has portal access (admin OR has the coop coin)
  * This is the main function used by the web app for authentication
  */
 export async function checkPortalAccess(address: Address, coopId: string = '???'): Promise<{ hasAccess: boolean; isAdmin: boolean; role?: string }> {
@@ -463,8 +470,8 @@ export async function checkPortalAccess(address: Address, coopId: string = '???'
       return { hasAccess: true, isAdmin: true, role: adminStatus.role };
     }
 
-    // SECOND: Check SoulaaniCoin balance for regular members
-    console.log('\n📋 Checking Soulaani Coin balance for regular member access...');
+    // SECOND: Check coop coin balance for regular members
+    console.log('\n📋 Checking coop coin balance for regular member access...');
     
     // Get coop-specific contract address from database
     const { db } = await import('@repo/db');
@@ -481,7 +488,7 @@ export async function checkPortalAccess(address: Address, coopId: string = '???'
     }
 
     const scTokenAddress = coopConfig.scTokenAddress as Address;
-    console.log(`   Soulaani Coin Address (from CoopConfig): ${scTokenAddress}`);
+    console.log(`   Coop coin address (from CoopConfig): ${scTokenAddress}`);
     console.log(`   Chain ID: ${coopConfig.chainId}`);
     console.log(`   RPC URL: ${coopConfig.rpcUrl || 'default'}`);
 
@@ -532,17 +539,17 @@ export async function checkPortalAccess(address: Address, coopId: string = '???'
       const hasCoinAccess = balance > 0n && isActive;
 
       if (hasCoinAccess) {
-        console.log(`✅ Portal access granted via Soulaani Coin balance: ${balance.toString()}`);
+        console.log(`✅ Portal access granted via coop coin balance: ${balance.toString()}`);
         console.log('🔍 ========== PORTAL ACCESS CHECK END ==========\n');
         return { hasAccess: true, isAdmin: false };
       } else {
-        console.log(`❌ No Soulaani Coin access: balance=${balance.toString()}, isActive=${isActive}`);
+        console.log(`❌ No coop coin access: balance=${balance.toString()}, isActive=${isActive}`);
       }
     } catch (error) {
-      console.error('❌ Error checking Soulaani Coin balance:', error);
+      console.error('❌ Error checking coop coin balance:', error);
     }
 
-    console.log('\n❌ Portal access DENIED - No admin role and no Soulaani Coin');
+    console.log('\n❌ Portal access DENIED - No admin role and no coop coin');
     console.log('🔍 ========== PORTAL ACCESS CHECK END ==========\n');
     return { hasAccess: false, isAdmin: false };
   } catch (error) {

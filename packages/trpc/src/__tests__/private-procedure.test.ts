@@ -153,7 +153,7 @@ describe('privateProcedure Middleware', () => {
   });
 
   it('should pass admin role to context when verification succeeds', async () => {
-    const mockRole = 'Soulaani Coin Admin';
+    const mockRole = 'Soulaan Admin';
     
     vi.mocked(checkAdminStatusWithRole).mockResolvedValue({
       isAdmin: true,

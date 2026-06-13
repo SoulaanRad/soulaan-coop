@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useSignMessage, useDisconnect } from 'wagmi';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 
 interface AuthState {
   isLoading: boolean;
@@ -13,6 +14,9 @@ interface AuthState {
   adminRole: string | null;
   error: string | null;
   address: string | null;
+  userId: string | null;
+  email: string | null;
+  loginMethod: string | null;
 }
 
 export function useWeb3Auth() {
@@ -30,6 +34,9 @@ export function useWeb3Auth() {
     adminRole: null,
     error: null,
     address: null,
+    userId: null,
+    email: null,
+    loginMethod: null,
   });
   
   // Check if the user is already authenticated
@@ -50,6 +57,9 @@ export function useWeb3Auth() {
           adminRole: data.adminRole || null,
           error: null,
           address: data.address,
+          userId: data.userId || null,
+          email: data.email || null,
+          loginMethod: data.loginMethod || null,
         });
       } else {
         setAuthState({
@@ -61,9 +71,12 @@ export function useWeb3Auth() {
           adminRole: null,
           error: null,
           address: null,
+          userId: null,
+          email: null,
+          loginMethod: null,
         });
       }
-    } catch (_error) {
+    } catch {
       setAuthState({
         isLoading: false,
         isAuthenticated: false,
@@ -73,6 +86,9 @@ export function useWeb3Auth() {
         adminRole: null,
         error: 'Failed to check authentication status',
         address: null,
+        userId: null,
+        email: null,
+        loginMethod: null,
       });
     }
   }, []);
@@ -128,7 +144,7 @@ export function useWeb3Auth() {
         throw new Error(errorData.error || 'Failed to verify signature');
       }
       
-      const { hasProfile, activeCoopId, isAdmin, adminRole } = await verifyResponse.json();
+      const { hasProfile, activeCoopId, isAdmin, adminRole, userId, email, loginMethod } = await verifyResponse.json();
 
       setAuthState({
         isLoading: false,
@@ -139,6 +155,9 @@ export function useWeb3Auth() {
         adminRole: adminRole || null,
         error: null,
         address,
+        userId: userId || null,
+        email: email || null,
+        loginMethod: loginMethod || 'wallet',
       });
       
       // Redirect based on profile status
@@ -160,6 +179,9 @@ export function useWeb3Auth() {
         isAdmin: false,
         adminRole: null,
         error: error.message || 'Authentication failed',
+        userId: null,
+        email: null,
+        loginMethod: null,
       }));
       return false;
     }
@@ -176,6 +198,7 @@ export function useWeb3Auth() {
 
       // Disconnect wallet
       disconnect();
+      posthog.reset();
 
       setAuthState({
         isLoading: false,
@@ -186,17 +209,23 @@ export function useWeb3Auth() {
         adminRole: null,
         error: null,
         address: null,
+        userId: null,
+        email: null,
+        loginMethod: null,
       });
 
       router.push(loginCoopId ? `/login?coopId=${loginCoopId}` : '/login');
 
       return true;
-    } catch (_error) {
+    } catch {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
         activeCoopId: null,
         error: 'Failed to logout',
+        userId: null,
+        email: null,
+        loginMethod: null,
       }));
       return false;
     }
