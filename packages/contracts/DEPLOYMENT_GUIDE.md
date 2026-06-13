@@ -1,8 +1,8 @@
-# 🚀 Soulaan Co-op Deployment Guide
+# 🚀 Cahootz Deployment Guide
 
 **A Complete Step-by-Step Guide for Beginners**
 
-This guide will walk you through deploying the Soulaan Co-op smart contracts to Base Sepolia testnet, even if you've never deployed a smart contract before.
+This guide will walk you through deploying the Cahootz smart contracts to Base Sepolia testnet, even if you've never deployed a smart contract before.
 
 ---
 
@@ -228,7 +228,7 @@ The script will:
 ### Expected Output:
 
 ```
-🚀 Starting Soulaan Co-op Contract Deployment...
+🚀 Starting Cahootz Contract Deployment...
 
 📝 Deploying contracts with account: 0x1234...5678
 💰 Account balance: 0.5 ETH

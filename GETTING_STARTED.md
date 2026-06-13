@@ -1,263 +1,133 @@
-# 🚀 Getting Started with Soulaan Co-op
+# Getting Started with Cahootz
 
-**A simple guide to get the Soulaan Co-op platform up and running**
+This guide gets the Cahootz monorepo running locally for product, web, API, mobile, and backend development.
 
-This guide will help you set up the development environment and understand the basic structure of the project.
+## Prerequisites
 
----
+- Node.js 22 or newer
+- pnpm 10.11.1 or newer
+- PostgreSQL
+- Git
 
-## 📋 Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Quick Setup](#quick-setup)
-3. [Environment Configuration](#environment-configuration)
-4. [Running the Application](#running-the-application)
-5. [Development Workflow](#development-workflow)
-6. [Troubleshooting](#troubleshooting)
-
----
-
-## 🎯 Prerequisites
-
-Before you begin, make sure you have:
-
-- **Node.js** v22+ - [Install with nvm](https://github.com/nvm-sh/nvm): `nvm install 22 && nvm use 22`
-- **pnpm** - Install globally: `npm install -g pnpm`
-- **PostgreSQL** - [Download here](https://www.postgresql.org/download/) or use Docker
-- **Git** - For version control
-- Basic command line knowledge
-
----
-
-## ⚡ Quick Setup
-
-### Step 1: Clone and Install
+With `nvm`:
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/SoulaanRad/soulaan-coop.git
-cd soulaancoop
+nvm install 22
+nvm use 22
+corepack enable
+```
 
-# 2. Install dependencies
+## Install Dependencies
+
+```bash
 pnpm install
 ```
 
-### Step 2: Setup Database
+## Configure Environment
+
+Create a root `.env` file and package-specific `.env` files as needed. The shortest local path is usually:
 
 ```bash
-# Generate Prisma client and push schema
+cp .env.example .env
+cp packages/db/.env.example packages/db/.env
+```
+
+Set the database connection in `packages/db/.env`:
+
+```bash
+DATABASE_URL="postgresql://username:password@localhost:5432/cahootz"
+```
+
+Replace `username` and `password` with your local PostgreSQL credentials.
+
+## Set Up the Database
+
+```bash
 pnpm db:generate
 pnpm db:push
 ```
 
-### Step 3: Start Development Server
+Optional:
 
 ```bash
-# Start all applications
-pnpm dev
-
-# Or start only the web app
-pnpm dev --filter @soulaan-coop/web
-```
-
-The application will be available at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-
----
-
-## 🔧 Environment Configuration
-
-### Database Configuration
-
-Create `packages/db/.env`:
-
-```bash
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/soulaancoop"
-```
-
-**Replace:**
-- `username` and `password` with your PostgreSQL credentials
-
----
-
-## 🚀 Running the Application
-
-### Development Mode
-
-```bash
-# Start all services
-pnpm dev
-
-# Or start specific apps
-pnpm dev --filter @soulaan-coop/web   # Web app only
-```
-
-### Useful Commands
-
-```bash
-# View database in GUI
 pnpm db:studio
+```
 
-# Run linting
+## Run the App
+
+```bash
+pnpm dev
+```
+
+Default local services:
+
+- Web: http://localhost:3000
+- API: http://localhost:3001
+
+Useful focused commands:
+
+```bash
+pnpm dev:web
+pnpm dev:api
+pnpm dev:api:full
+```
+
+## Development Workflow
+
+1. Create a branch for your change.
+2. Make scoped edits in the relevant app or package.
+3. Update Prisma schema and run `pnpm db:push` plus `pnpm db:generate` if the data model changed.
+4. Run the checks that match the change:
+
+```bash
 pnpm lint
-
-# Fix linting issues
-pnpm lint:fix
-
-# Format code
-pnpm format
-
-# Type checking
 pnpm typecheck
+pnpm test
 ```
 
----
+5. Update docs when setup, behavior, or operational steps change.
 
-## 💻 Development Workflow
+## Project Map
 
-### Making Changes
-
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make your changes** in the appropriate directory:
-   - `apps/web/` - Frontend (Next.js)
-   - `apps/api/` - Backend API
-   - `packages/db/` - Database schema
-   - `packages/trpc/` - API routes
-
-3. **Update database schema** (if needed):
-   ```bash
-   # Edit packages/db/prisma/schema.prisma
-   pnpm db:push
-   pnpm db:generate
-   ```
-
-4. **Test your changes**:
-   ```bash
-   pnpm dev
-   # Visit http://localhost:3000
-   ```
-
-5. **Lint and format**:
-   ```bash
-   pnpm lint:fix
-   pnpm format
-   ```
-
-6. **Commit and push**:
-   ```bash
-   git add .
-   git commit -m "feat: your feature description"
-   git push origin feature/your-feature-name
-   ```
-
-### Project Structure
-
-```
-apps/
-├── web/          # Next.js frontend
-│   ├── app/      # App router pages
-│   ├── components/ # React components
-│   └── lib/      # Utilities
-└── api/          # Express backend
-
-packages/
-├── db/           # Prisma schema & migrations
-├── trpc/         # API routes
-├── ui/           # Shared components
-└── validators/   # Zod schemas
+```text
+apps/web        Next.js web app
+apps/api        Express API service
+apps/mobile     Expo mobile app
+packages/db     Prisma schema, migrations, and seeds
+packages/trpc   API routers and services
+packages/contracts Smart contracts and deployment scripts
+packages/ui     Shared UI primitives
+documents       Cahootz product and operating docs
 ```
 
----
+## Troubleshooting
 
-## 🐛 Troubleshooting
+### Prisma client is missing
 
-### "Cannot find module '@prisma/client'"
-
-**Solution:**
 ```bash
 pnpm db:generate
 ```
 
-### "ECONNREFUSED" - Database connection failed
+### Database connection fails
 
-**Solution:**
-```bash
-# Make sure PostgreSQL is running
+Make sure PostgreSQL is running and the `DATABASE_URL` in `packages/db/.env` points to an existing database.
 
-# macOS (with Homebrew)
-brew services start postgresql
+### Node version is wrong
 
-# Linux
-sudo systemctl start postgresql
-
-# Check if it's running
-psql --version
-```
-
-### "Node.js version ... is required"
-
-**Solution:**
 ```bash
 nvm install 22
 nvm use 22
-node --version  # Should show v22.x.x
+node --version
 ```
 
-### "pnpm: command not found"
+### Port 3000 is already in use
 
-**Solution:**
-```bash
-npm install -g pnpm
-pnpm --version
-```
+Stop the process using the port or start the web app on another port.
 
-### Port 3000 already in use
+## More Docs
 
-**Solution:**
-```bash
-# Kill the process using port 3000
-lsof -ti:3000 | xargs kill -9
-
-# Or use a different port
-PORT=3001 pnpm dev
-```
-
-### Database migration errors
-
-**Solution:**
-```bash
-# Reset database (⚠️ deletes all data)
-pnpm db:push --force-reset
-pnpm db:generate
-```
-
----
-
-## 📚 Additional Resources
-
-- **[Main README](README.md)** - Project overview and tech stack
-- **[Tech Roadmap](documents/tech_roadmap.md)** - Development phases
-- **[Soulaan Co-op Charter](documents/soulaan-coop-charter.md)** - Founding principles
-
----
-
-## 🆘 Getting Help
-
-**Still stuck?**
-
-1. Check the terminal logs where you ran `pnpm dev`
-2. [Create an issue](https://github.com/SoulaanRad/soulaan-coop/issues) with:
-   - Error message
-   - Steps to reproduce
-   - Your OS and Node version
-
----
-
-**Happy coding! 🎉**
-
+- [Main README](README.md)
+- [Cahootz Charter](documents/cahootz-charter.md)
+- [Proposal Engine](documents/cahootz-proposal-engine.md)
+- [Technical Roadmap](documents/tech_roadmap.md)
+- [Organizational Roadmap](documents/org_roadmap.md)

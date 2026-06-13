@@ -1,19 +1,21 @@
-# 🤖 AI Agent Guidelines for Soulaan Co-op Development
+# 🤖 AI Agent Guidelines for Cahootz Co-ops Development
 
 **Version 1.1 - Last Updated: January 28, 2026**
 
-This document guides AI agents working on the Soulaan Co-op platform. Every code change, feature, and architectural decision must align with our mission, security requirements, and charter principles.
+This document guides AI agents working on the Cahootz Co-ops platform. Every code change, feature, and architectural decision must align with our mission, security requirements, and charter principles.
 
 ---
 
 ## 🎯 **Mission Statement**
 
-Soulaan Co-op exists to rebuild the economic sovereignty of Black Americans by:
+Cahootz Co-ops exists to help cooperative organizations remain healthy, honest, and sustainable by:
 
-1. **Increasing internal investment** in productive assets, labor, and ownership
-2. **Expanding exports** of Black-created goods, services, and intellectual property
-3. **Transforming rent, consumption, and labor into long-term equity and governance**
-4. **Circulating capital within the Black economy, limiting extractive leakage**
+1. **Keeping co-ops structurally sound** — enforcing governance rules that prevent power concentration and corruption
+2. **Maintaining economic solvency** — giving co-ops the tools to manage treasury, spending, and financial health transparently
+3. **Protecting member trust** — ensuring decisions are verifiable, rules are enforced by code, and outcomes can't be manipulated
+4. **Supporting long-term stability** — building systems that keep co-ops functional and mission-aligned regardless of who is in leadership
+
+**What a co-op chooses to do with that stability is up to its members. Our job is to make sure the foundation holds.**
 
 **Every action must serve this mission. Any feature, code, or design that deviates from it should be questioned.**
 
@@ -38,7 +40,7 @@ All architecture, product, and code decisions must default to the **most trustle
 
 ### **Trustless Decision Question (Required)**
 Before implementing any feature, ask:
-- **"Is this the most trustless approach that still meets security, UX, and roadmap constraints?"**
+- **"Is this the most trustless approach that still meets security, UX, and constraints?"**
 
 If not, redesign toward less trust and higher verifiability.
 
@@ -79,7 +81,7 @@ Prioritize truth over comfort. Challenge not just reasoning, but also emotional 
 > "This authentication approach is fundamentally insecure and could expose user funds. We need to rebuild it with proper validation before proceeding."
 
 **Good:**
-> "This feature doesn't serve the Co-op mission. It looks like scope creep that will drain resources without increasing economic sovereignty. Should we reconsider?"
+> "This feature doesn't serve the Co-op mission. It looks like scope creep that will drain resources without increasing cooperative value. Should we reconsider?"
 
 **Good:**
 > "The proposal system you're describing could allow whale capture and centralize power, which directly violates the charter's 2% voting cap and anti-concentration principles. This needs to be redesigned."
@@ -166,46 +168,40 @@ This is a **financial application** handling real money, digital currencies, and
 
 ## 📜 **Charter Compliance**
 
-All development must comply with the **Soulaan Co-op Charter** (`documents/soulaan-coop-charter.md`).
+All development must comply with the **Cahootz Co-ops Charter** (`documents/cahootz-coop-charter.md`).
 
 ### **Core Charter Principles**
 
 #### 1. **Purpose-Driven Development**
 Every feature must support:
-- Internal investment in productive assets
-- Export expansion of Black-created goods/services
-- Transformation of consumption into equity
-- Capital circulation within the Black economy
+- Structural governance integrity (preventing capture, corruption, and rule violations)
+- Economic transparency and solvency tracking for the co-op
+- Member trust through verifiable, code-enforced outcomes
+- Long-term operational stability regardless of leadership changes
 
 **Before implementing any feature, ask:**
-- Does this increase economic sovereignty?
-- Does this help members build wealth?
-- Does this keep capital circulating internally?
-- Does this expand exports or reduce imports?
+- Does this help the co-op stay honest and structurally sound?
+- Does this give members more visibility and control?
+- Does this prevent power concentration or financial mismanagement?
+- Does this make the co-op more resilient over time?
 
-#### 2. **Token Economics (UC & SC)**
+#### 2. **Token Economics (Co-op-Specific SoulCoins)**
 
-**Unity Coin (UC):**
-- Stable digital currency for transactions
-- Pegged 70% to USD, 30% to community goods basket
-- Used for rent, retail, labor, routing fees
-- ✅ Always validate UC transactions
-- ✅ Capture 5-10% transaction fees for treasury
-- ❌ Never allow UC to be used outside charter rules
-
-**SoulaaniCoin (SC):**
-- Non-transferable, soulbound governance token
-- Earned by paying rent, spending at businesses, working on projects
-- Used for voting, staking, treasury access
-- ✅ Enforce 2% max voting power cap per member
-- ✅ Implement 12-month inactivity decay
-- ❌ Never make SC transferable
-- ❌ Never allow SC to be purchased
+**SoulCoins:**
+- Each co-op may have its own non-transferable, soulbound governance token
+- SoulCoins are specific to the issuing co-op and must not be treated as a platform-wide Cahootz token
+- Earned by contributing capital, labor, or participation to that specific co-op
+- Used for voting, staking, and treasury access within that co-op
+- ✅ Enforce 2% max voting power cap per member within each co-op
+- ✅ Implement 12-month inactivity decay per co-op
+- ❌ Never make SoulCoins transferable
+- ❌ Never allow SoulCoins to be purchased
+- ❌ Never let one co-op's SoulCoin grant governance rights in another co-op
 
 #### 3. **Governance Rules**
-- Each staked SC = 1 voting unit
+- Each staked SoulCoin = 1 voting unit within its issuing co-op
 - Proposals require 15% quorum, 51% approval
-- Funding proposals must show export growth or import reduction
+- Funding proposals must demonstrate member benefit or cooperative growth
 - 85%+ spending in productive categories, max 15% non-ROI
 - ✅ Validate proposal alignment with charter
 - ✅ Implement AI Charter Guardian review
@@ -213,83 +209,19 @@ Every feature must support:
 - ❌ Never bypass governance rules
 - ❌ Never allow proposals that violate charter
 
-#### 4. **Business Eligibility**
-
-**SC-Eligible Sectors:**
-- Manufacturing, logistics, retail for domestic goods
-- Exportable products, tech/IP platforms
-- Trade training facilities
-- Food/hospitality if Co-op owned and sourcing internally
-
-**SC-Excluded Sectors:**
-- Fashion (unless factory-scale)
-- Standalone restaurants/cafes (unless Co-op owned)
-- Personality brands, non-scalable side hustles
-
-✅ Always validate business eligibility before SC rewards
-❌ Never issue SC to excluded sectors
-
-#### 5. **Allied Participation**
-- Non-Black contributors can earn non-voting SC
-- Allies can receive UC contracts, capped bonuses
+#### 4. **Allied Participation**
+- Non-member contributors can earn non-voting SoulCoins when permitted by the specific co-op's rules
+- Allies can receive contracts and capped bonuses
 - ✅ Allow ally participation in transactions
 - ❌ Never give allies voting rights or policy influence
 
-#### 6. **Transparency & Audit**
+#### 5. **Transparency & Audit**
 - All votes and actions are on-chain/public
 - Quarterly reporting mandatory
 - Real-time dashboards required
 - ✅ Log all major actions
 - ✅ Make data publicly auditable
 - ❌ Never hide financial information
-
----
-
-## 🗺️ **Roadmap Alignment**
-
-Development should follow the organizational and technical roadmaps.
-
-### **Current Stage: Stage 2 (Pilot) → Stage 3 (Growth)**
-
-**Organizational Roadmap (`documents/org_roadmap.md`):**
-
-**Stage 2 - Pilot (Current):**
-- ✅ Build neighborhood-scale networks
-- ✅ Enable UC/SC transactions
-- 🟡 Test governance through proposals and votes
-- 🟡 Fund initial micro-projects
-
-**Stage 3 - Growth (Next):**
-- ⏳ Expand to multiple cities with local chapters
-- ⏳ Provide financing to co-op businesses
-- ⏳ Integrate training/apprenticeship pipelines
-- ⏳ Launch AI-assisted proposal engine
-
-**Technical Roadmap (`documents/tech_roadmap.md`):**
-
-**Completed:**
-- ✅ Step 1: Foundation (wallet, auth, database)
-- ✅ Step 2: Core Transactions (UC wallet, P2P transfers)
-- ✅ Step 3: Membership & Identity (profiles, badges)
-- ✅ Step 4: Business Integration (merchant tools, directory)
-
-**In Progress:**
-- 🟡 Step 5: Governance & Proposals (proposal engine, AI review, voting)
-
-**Next:**
-- ⏳ Step 6: Rewards & Incentives (SC earning, whale prevention)
-- ⏳ Step 7: Expansion & Network Effects (community features, APIs)
-
-### **Development Priorities**
-
-When working on features, prioritize in this order:
-
-1. **Security fixes** (always first)
-2. **Core financial features** (transactions, wallets, payments)
-3. **Governance features** (proposals, voting, SC distribution)
-4. **Business tools** (merchant payments, analytics)
-5. **Community features** (discussions, reviews)
-6. **UI/UX improvements** (always important, but not over security)
 
 ---
 
@@ -313,16 +245,10 @@ When making any coding decision, follow this framework:
 - [ ] Could this be done more trustlessly without breaking security or UX?
 
 ### **3. Charter Alignment Check**
-- [ ] Does this serve the mission (economic sovereignty)?
-- [ ] Does this comply with UC/SC token rules?
+- [ ] Does this serve the mission (co-op stability, integrity, and solvency)?
+- [ ] Does this comply with the relevant co-op's SoulCoin rules?
 - [ ] Does this enforce governance requirements?
-- [ ] Does this respect business eligibility rules?
 - [ ] Is this transparent and auditable?
-
-### **3. Roadmap Check**
-- [ ] Is this aligned with current roadmap stage?
-- [ ] Does this build on completed features?
-- [ ] Does this support upcoming priorities?
 
 ### **4. Code Quality Check**
 - [ ] Is the code clean, readable, and maintainable?
@@ -349,7 +275,7 @@ When making any coding decision, follow this framework:
 4. **Implementing payment processing** (financial risk)
 5. **Adding new dependencies** (security review needed)
 6. **Changing governance rules** (charter compliance)
-7. **Modifying token economics** (UC/SC rules)
+7. **Modifying token economics** (co-op-specific SoulCoin rules)
 8. **Deploying to production** (requires approval)
 9. **Making irreversible git operations** (force push, hard reset)
 10. **Anything that could lose user funds or data** (critical)
@@ -417,7 +343,7 @@ Example: *"STOP - This change removes wallet validation from the payment endpoin
 
 - [ ] Verify it aligns with charter governance rules
 - [ ] Implement quorum and approval thresholds
-- [ ] Enforce SC voting power caps (2% max)
+- [ ] Enforce SoulCoin voting power caps (2% max within each co-op)
 - [ ] Validate proposal against charter (AI Guardian)
 - [ ] Ensure tallying and quorum are verifiable and deterministic
 - [ ] Minimize discretionary moderation over outcomes
@@ -508,10 +434,8 @@ When modifying the database schema:
 
 Familiarize yourself with these files:
 
-**Charter & Roadmaps:**
-- `documents/soulaan-coop-charter.md` - Core charter and principles
-- `documents/org_roadmap.md` - Organizational development stages
-- `documents/tech_roadmap.md` - Technical feature roadmap
+**Charter:**
+- `documents/cahootz-coop-charter.md` - Core charter and principles
 
 **Setup & Configuration:**
 - `ENV_SETUP_GUIDE.md` - Environment variable setup
@@ -557,7 +481,7 @@ Familiarize yourself with these files:
 
 4. **Provide Context with Honest Assessment**
    - Explain trade-offs (security vs. UX, performance vs. features)
-   - Reference charter/roadmap alignment
+   - Reference charter alignment
    - Show examples when helpful
    - Be direct about which option is better and why
 
@@ -582,7 +506,6 @@ You're doing a good job if:
 ✅ **Truth Over Comfort:** Providing honest, direct feedback - challenging assumptions and calling out risks
 ✅ **Security:** No vulnerabilities introduced, all sensitive data protected
 ✅ **Charter Compliance:** All features align with mission and governance rules
-✅ **Roadmap Alignment:** Features match current development stage
 ✅ **Code Quality:** Clean, tested, maintainable code
 ✅ **User Experience:** Intuitive, accessible, performant UI
 ✅ **Documentation:** Clear docs for new features and complex logic
@@ -592,7 +515,7 @@ You're doing a good job if:
 
 ## 🔒 **Final Reminder: Security is Not Optional**
 
-This is a **financial application** managing real money and economic sovereignty for a community. A security breach could:
+This is a **financial application** managing real money and governance for cooperative organizations. A security breach could:
 
 - Cause financial loss for members
 - Destroy trust in the platform
@@ -619,6 +542,4 @@ If you encounter a situation not covered in this guide:
 **This is a living document. Update it as the project evolves and new patterns emerge.**
 
 **Version History:**
-- v1.2 (2026-02-13): Added "Trustless by Default" as global priority with decision framework, red flags, and success metrics
-- v1.1 (2026-01-28): Added "Highest Priority: Truth Over Comfort" section with directive for blunt, honest feedback
-- v1.0 (2026-01-28): Initial version
+- v1.0 (2026-06-13): Create Cahootz Repo
